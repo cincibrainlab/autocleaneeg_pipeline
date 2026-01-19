@@ -1,0 +1,189 @@
+---
+title: "RFC 019: Serve Multi-route Response"
+subtitle: "Discussion and Sprint Plan for Route-based Automation"
+date: 2026-01-19
+---
+
+## Executive Summary
+
+The concern is valid and aligns with the intended direction for scalable automation. The serve YAML should support multiple routes, each defined by a taskfile and montage pair with an optional version, and each route should map to a deterministic output workspace such as `BiotrialResting1020-standard_1020` or `BiotrialResting1020-standard_1020-v1`. This response clarifies the routing model, codifies the output naming rules, and provides an exhaustive sprint plan with atomic, testable tasks that build incrementally toward a multi-route serve system.
+
+## Background and Concern
+
+The current expectation is that a single serve configuration can coordinate multiple, distinct automation workflows, each with its own ingestion sources and output workspace. The system must prevent collisions across routes while remaining transparent for operators and scalable for new taskfile and montage combinations. A multi-route YAML model is therefore the correct foundation, and the sprints below assume that the existing single-route behavior is preserved through a migration layer.
+
+## Proposed Multi-route Model
+
+A multi-route serve configuration should declare a list of automation routes. Each route is a first-class definition keyed by taskfile, montage, and optional version, with its own ingestion inputs, file matching rules, and optional overrides. Output workspaces are deterministic and human-readable. The route identifier should be normalized for stability across minor YAML changes, and the routing engine should treat overlap as a validation error unless a priority rule is explicitly provided.
+
+### Configuration Fields and Validation
+
+| Field | Purpose | Validation |
+|---|---|---|
+| `defaults` | Shared defaults for routes | Keys limited to known route fields. |
+| `automations` | List of route definitions | Non-empty list with unique route IDs. |
+| `id` | Route identifier | Normalized and stable across runs. |
+| `enabled` | Route toggle | Default true; ignored when false. |
+| `priority` | Conflict resolution | Required when overlaps exist. |
+| `taskfile` | Pipeline entry point | Must resolve to a valid task. |
+| `montage` | Montage key | Must be a known montage key. |
+| `version` | Optional version suffix | Normalized string or null. |
+| `ingestion_folders` | Source roots | Paths must exist or be resolvable. |
+| `ingestion_excludes` | Exclusions | Must be within the ingestion roots. |
+| `file_globs` | File patterns | Non-empty list; validated syntax. |
+| `sentinel_ext` | Readiness marker | Valid suffix; required unless disabled. |
+| `automation_root` | Output base path | Must resolve to an existing root. |
+| `workspace_name` | Naming template | Must render with taskfile and montage. |
+
+: Table 1. Route configuration fields and validation checks.
+
+```yaml
+defaults:
+  automation_root: automations
+  file_globs: ["*.set"]
+  sentinel_ext: ".ready"
+  recursive: true
+
+automations:
+  - id: BiotrialResting1020-standard_1020-v1
+    enabled: true
+    priority: 10
+    taskfile: /path/to/BiotrialResting1020.py
+    montage: standard_1020
+    version: v1
+    ingestion_folders:
+      - /data/ingest/resting
+  - id: RestingEyesClosed-standard_1020
+    enabled: true
+    priority: 20
+    taskfile: RestingEyesClosed
+    montage: standard_1020
+    ingestion_folders:
+      - /data/ingest/resting-ec
+    ingestion_excludes:
+      - /data/ingest/resting-ec/tmp
+```
+
+The YAML example above illustrates a minimal, self-contained multi-route configuration. Defaults apply across routes, while each route keeps a dedicated ingestion scope and a deterministic workspace name derived from taskfile, montage, and version. This structure aligns with the requirement for unique output folders and clean scalability.
+
+## Routing and Output Rules
+
+1. Each route maps to one workspace, and each workspace maps to one route.
+2. Overlaps across ingestion roots or file patterns are rejected unless an explicit priority is defined.
+3. Priority ties are treated as errors to avoid non-deterministic dispatch.
+4. Versions are optional; when omitted, the workspace name drops the version segment.
+5. Routing matches are evaluated in a stable order: priority, then glob specificity, then deterministic ID.
+
+::: callout-note
+## Guardrail
+The system must fail validation when two enabled routes overlap without a clear priority and specificity tie-breaker.
+:::
+
+```{mermaid}
+%%| label: fig-route-selection
+%%| fig-cap: "Figure 1. Route selection flow for multi-route serve."
+flowchart TD
+    A[Load serve YAML] --> B[Validate schema and defaults]
+    B --> C[Build route index]
+    C --> D[Scan ingestion roots]
+    D --> E{Match file to route}
+    E -->|No| F[Hold pending and report]
+    E -->|Yes| G[Queue file with route metadata]
+    G --> H[Build route-specific dispatch plan]
+    H --> I[Run dispatch and update receipt]
+    I --> J[Report per-route metrics]
+```
+
+## Sprint Plan
+
+Each sprint produces a demoable increment that builds on the previous sprint. Tasks are atomic and each includes a validation step.
+
+### Sprint 1: Schema, Defaults, and Migration
+
+| Task | Output | Validation |
+|---|---|---|
+| Define route schema with defaults | Parsed config model | Unit tests for required fields. |
+| Normalize route IDs | Stable ID builder | Unit tests for normalization rules. |
+| Migrate legacy single-route configs | Migration helper | Unit tests for mapping and warnings. |
+| Validate unknown keys and types | Config lint utility | Unit tests for invalid keys. |
+| Normalize file_globs list | Input normalization | Unit tests for string vs list inputs. |
+| Validate ingestion path resolution | Path resolver | Unit tests for relative paths. |
+| Document schema in plans | RFC update | Quarto render success. |
+
+: Table 2. Sprint 1 tasks and validation.
+
+Sprint 1 demo: Run `serve validate` against a multi-route YAML and show a deterministic list of parsed routes and warnings.
+
+### Sprint 2: Routing Selection and Workspace Resolution
+
+| Task | Output | Validation |
+|---|---|---|
+| Resolve workspace names per route | Name resolver | Unit tests for version handling. |
+| Resolve route ingestion roots | Path map | Unit tests for absolute and relative paths. |
+| Implement glob matching and recursion | Matcher utility | Unit tests for match and miss. |
+| Apply ingestion excludes | Exclusion filter | Unit tests for exclusion behavior. |
+| Implement priority ordering | Tie-breaker logic | Unit tests for overlaps. |
+| Add specificity scoring | Glob specificity | Unit tests for specificity ranking. |
+| Error on unresolved ties | Validation rule | Unit tests for tie errors. |
+
+: Table 3. Sprint 2 tasks and validation.
+
+Sprint 2 demo: Run a dry routing evaluation over sample files and produce a deterministic route assignment report.
+
+### Sprint 3: Queue and Dispatch by Route
+
+| Task | Output | Validation |
+|---|---|---|
+| Extend queue entries with route_id | Queue schema update | Unit tests for queue persistence. |
+| Record ingestion root per entry | Queue metadata | Unit tests for stored metadata. |
+| Build route-specific dispatch plans | Plan builder | Unit tests for plan inputs. |
+| Add route to receipts | Receipt metadata | Unit tests for receipt fields. |
+| Scope dedup ledger by route | Ledger key update | Unit tests for route isolation. |
+| Add dry-run dispatch log | Observable output | Unit test for log content. |
+
+: Table 4. Sprint 3 tasks and validation.
+
+Sprint 3 demo: Run a dry dispatch cycle that shows queued files grouped by route and the commands that would execute.
+
+### Sprint 4: Service Loop and CLI Harness
+
+| Task | Output | Validation |
+|---|---|---|
+| Update ingestion loop for multi-route | Loop changes | Unit tests for per-route scan. |
+| Add per-route idle metrics | Service metrics | Unit tests for idle reporting. |
+| Handle runtime config errors | Error strategy | Unit tests for fail-fast vs skip. |
+| Update CLI serve run options | CLI plumbing | Integration test with dry-run. |
+| Add route summary output | Operator log | Snapshot test for run output. |
+
+: Table 5. Sprint 4 tasks and validation.
+
+Sprint 4 demo: Execute `serve run --dry-run` on a multi-route config and confirm per-route summaries and idle behavior.
+
+### Sprint 5: End-to-End and Operational Readiness
+
+| Task | Output | Validation |
+|---|---|---|
+| Build test workspace with two routes | Demo data | Integration test for workspace setup. |
+| Validate overlap and priority behavior | Conflict demo | Integration test for overlap resolution. |
+| Run full pipeline with sentinels | Output folders | Manual validation with logs. |
+| Add performance baseline | Benchmark script | Benchmark results recorded. |
+| Update operator documentation | Usage guide | Quarto render success. |
+
+: Table 6. Sprint 5 tasks and validation.
+
+Sprint 5 demo: Run a full multi-route ingestion and confirm outputs appear in two distinct workspaces with receipts that include route IDs.
+
+## Risks and Mitigations
+
+Route overlap and ambiguity are the highest operational risks. The mitigations are strict validation rules, deterministic tie-breaking, and route-scoped receipts that make dispatch decisions traceable. Additional risk stems from migration of legacy configs, which should be addressed through a migration layer with warnings and unit tests. Finally, operator clarity is maintained through explicit per-route reporting and dry-run visibility.
+
+## Open Questions
+
+1. Should priority ties fall back to specificity or hard error only?
+2. Should version tags be mandatory for production routes?
+3. Should defaults override or merge per-route list fields?
+4. Should route IDs be required or fully derived?
+
+## Appendix A: Subagent Review Prompt
+
+Please review RFC 019 for clarity, completeness, and any missing technical details. Identify gaps in validation coverage, propose improvements to the routing rules, and suggest additional sprint tasks that improve traceability or operational safety.

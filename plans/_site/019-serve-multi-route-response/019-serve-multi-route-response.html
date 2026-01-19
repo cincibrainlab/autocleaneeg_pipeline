@@ -8,7 +8,7 @@
 
 <meta name="dcterms.date" content="2026-01-19">
 
-<title>RFC 012: Ingestion Dispatch Phase – AutoCleanEEG Pipeline Plans</title>
+<title>RFC 019: Serve Multi-route Response – AutoCleanEEG Pipeline Plans</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -104,6 +104,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     "search-label": "Search"
   }
 }</script>
+<script src="../site_libs/quarto-diagram/mermaid.min.js"></script>
+<script src="../site_libs/quarto-diagram/mermaid-init.js"></script>
+<link href="../site_libs/quarto-diagram/mermaid.css" rel="stylesheet">
 
 
 </head>
@@ -176,7 +179,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span class="menu-text">Ingestion Watcher</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link active" href="../012-ingestion-dispatch/012-ingestion-dispatch.html" aria-current="page"> 
+    <a class="nav-link" href="../012-ingestion-dispatch/012-ingestion-dispatch.html"> 
 <span class="menu-text">Ingestion Dispatch</span></a>
   </li>  
   <li class="nav-item">
@@ -204,7 +207,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span class="menu-text">Serve Routing</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../019-serve-multi-route-response/019-serve-multi-route-response.html"> 
+    <a class="nav-link active" href="../019-serve-multi-route-response/019-serve-multi-route-response.html" aria-current="page"> 
 <span class="menu-text">Serve Multi-route Response</span></a>
   </li>  
 </ul>
@@ -224,8 +227,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">RFC 012: Ingestion Dispatch Phase</h1>
-<p class="subtitle lead">Serve Config Parsing and Dispatch Planning</p>
+<h1 class="title">RFC 019: Serve Multi-route Response</h1>
+<p class="subtitle lead">Discussion and Sprint Plan for Route-based Automation</p>
 </div>
 
 
@@ -250,12 +253,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="executive-summary" class="level2">
 <h2 class="anchored" data-anchor-id="executive-summary">Executive Summary</h2>
-<p>This phase implements the dispatch planning layer for RFC 008. It adds serve config loading, workspace name rendering, and dispatch plan construction so ingestion can deterministically prepare run metadata without executing the pipeline. Unit tests validate template behavior and path resolution.</p>
+<p>The concern is valid and aligns with the intended direction for scalable automation. The serve YAML should support multiple routes, each defined by a taskfile and montage pair with an optional version, and each route should map to a deterministic output workspace such as <code>BiotrialResting1020-standard_1020</code> or <code>BiotrialResting1020-standard_1020-v1</code>. This response clarifies the routing model, codifies the output naming rules, and provides an exhaustive sprint plan with atomic, testable tasks that build incrementally toward a multi-route serve system.</p>
 </section>
-<section id="implementation-scope" class="level2">
-<h2 class="anchored" data-anchor-id="implementation-scope">Implementation Scope</h2>
+<section id="background-and-concern" class="level2">
+<h2 class="anchored" data-anchor-id="background-and-concern">Background and Concern</h2>
+<p>The current expectation is that a single serve configuration can coordinate multiple, distinct automation workflows, each with its own ingestion sources and output workspace. The system must prevent collisions across routes while remaining transparent for operators and scalable for new taskfile and montage combinations. A multi-route YAML model is therefore the correct foundation, and the sprints below assume that the existing single-route behavior is preserved through a migration layer.</p>
+</section>
+<section id="proposed-multi-route-model" class="level2">
+<h2 class="anchored" data-anchor-id="proposed-multi-route-model">Proposed Multi-route Model</h2>
+<p>A multi-route serve configuration should declare a list of automation routes. Each route is a first-class definition keyed by taskfile, montage, and optional version, with its own ingestion inputs, file matching rules, and optional overrides. Output workspaces are deterministic and human-readable. The route identifier should be normalized for stability across minor YAML changes, and the routing engine should treat overlap as a validation error unless a priority rule is explicitly provided.</p>
+<section id="configuration-fields-and-validation" class="level3">
+<h3 class="anchored" data-anchor-id="configuration-fields-and-validation">Configuration Fields and Validation</h3>
 <table class="caption-top table">
-<caption>Table 1. Dispatch phase deliverables.</caption>
+<caption>Table 1. Route configuration fields and validation checks.</caption>
 <colgroup>
 <col style="width: 33%">
 <col style="width: 33%">
@@ -263,75 +273,435 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </colgroup>
 <thead>
 <tr class="header">
-<th>Area</th>
-<th>Deliverable</th>
-<th>Notes</th>
+<th>Field</th>
+<th>Purpose</th>
+<th>Validation</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>Config loader</td>
-<td><code>load_serve_config</code></td>
-<td>Validates YAML mapping structure.</td>
+<td><code>defaults</code></td>
+<td>Shared defaults for routes</td>
+<td>Keys limited to known route fields.</td>
 </tr>
 <tr class="even">
-<td>Workspace naming</td>
-<td><code>build_workspace_name</code></td>
-<td>Supports template tokens and version omission.</td>
+<td><code>automations</code></td>
+<td>List of route definitions</td>
+<td>Non-empty list with unique route IDs.</td>
 </tr>
 <tr class="odd">
-<td>Dispatch plan</td>
-<td><code>build_dispatch_plan</code></td>
-<td>Resolves runtime + automation roots with file list.</td>
+<td><code>id</code></td>
+<td>Route identifier</td>
+<td>Normalized and stable across runs.</td>
+</tr>
+<tr class="even">
+<td><code>enabled</code></td>
+<td>Route toggle</td>
+<td>Default true; ignored when false.</td>
+</tr>
+<tr class="odd">
+<td><code>priority</code></td>
+<td>Conflict resolution</td>
+<td>Required when overlaps exist.</td>
+</tr>
+<tr class="even">
+<td><code>taskfile</code></td>
+<td>Pipeline entry point</td>
+<td>Must resolve to a valid task.</td>
+</tr>
+<tr class="odd">
+<td><code>montage</code></td>
+<td>Montage key</td>
+<td>Must be a known montage key.</td>
+</tr>
+<tr class="even">
+<td><code>version</code></td>
+<td>Optional version suffix</td>
+<td>Normalized string or null.</td>
+</tr>
+<tr class="odd">
+<td><code>ingestion_folders</code></td>
+<td>Source roots</td>
+<td>Paths must exist or be resolvable.</td>
+</tr>
+<tr class="even">
+<td><code>ingestion_excludes</code></td>
+<td>Exclusions</td>
+<td>Must be within the ingestion roots.</td>
+</tr>
+<tr class="odd">
+<td><code>file_globs</code></td>
+<td>File patterns</td>
+<td>Non-empty list; validated syntax.</td>
+</tr>
+<tr class="even">
+<td><code>sentinel_ext</code></td>
+<td>Readiness marker</td>
+<td>Valid suffix; required unless disabled.</td>
+</tr>
+<tr class="odd">
+<td><code>automation_root</code></td>
+<td>Output base path</td>
+<td>Must resolve to an existing root.</td>
+</tr>
+<tr class="even">
+<td><code>workspace_name</code></td>
+<td>Naming template</td>
+<td>Must render with taskfile and montage.</td>
 </tr>
 </tbody>
 </table>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">defaults</span><span class="kw">:</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">automation_root</span><span class="kw">:</span><span class="at"> automations</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">file_globs</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">"*.set"</span><span class="kw">]</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">sentinel_ext</span><span class="kw">:</span><span class="at"> </span><span class="st">".ready"</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">recursive</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">automations</span><span class="kw">:</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">id</span><span class="kw">:</span><span class="at"> BiotrialResting1020-standard_1020-v1</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">priority</span><span class="kw">:</span><span class="at"> </span><span class="dv">10</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">taskfile</span><span class="kw">:</span><span class="at"> /path/to/BiotrialResting1020.py</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">montage</span><span class="kw">:</span><span class="at"> standard_1020</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">version</span><span class="kw">:</span><span class="at"> v1</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">ingestion_folders</span><span class="kw">:</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> /data/ingest/resting</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">id</span><span class="kw">:</span><span class="at"> RestingEyesClosed-standard_1020</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">priority</span><span class="kw">:</span><span class="at"> </span><span class="dv">20</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">taskfile</span><span class="kw">:</span><span class="at"> RestingEyesClosed</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">montage</span><span class="kw">:</span><span class="at"> standard_1020</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">ingestion_folders</span><span class="kw">:</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> /data/ingest/resting-ec</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">ingestion_excludes</span><span class="kw">:</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> /data/ingest/resting-ec/tmp</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The YAML example above illustrates a minimal, self-contained multi-route configuration. Defaults apply across routes, while each route keeps a dedicated ingestion scope and a deterministic workspace name derived from taskfile, montage, and version. This structure aligns with the requirement for unique output folders and clean scalability.</p>
 </section>
-<section id="code-changes" class="level2">
-<h2 class="anchored" data-anchor-id="code-changes">Code Changes</h2>
-<table class="caption-top table">
-<caption>Table 2. Code updates delivered.</caption>
-<colgroup>
-<col style="width: 50%">
-<col style="width: 50%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>File</th>
-<th>Change</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>src/autoclean/utils/ingestion.py</code></td>
-<td>Added config loader, workspace naming, dispatch plan utilities.</td>
-</tr>
-<tr class="even">
-<td><code>tests/unit/utils/test_ingestion.py</code></td>
-<td>Added tests for naming and dispatch planning.</td>
-</tr>
-</tbody>
-</table>
 </section>
-<section id="test-results" class="level2">
-<h2 class="anchored" data-anchor-id="test-results">Test Results</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run <span class="at">--with</span> pytest <span class="at">--with</span> pytest-cov python <span class="at">-m</span> pytest <span class="dt">\</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  tests/unit/utils/test_ingestion.py <span class="at">--cov-fail-under</span><span class="op">=</span>0</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Result: 10 tests passed. Coverage threshold was overridden (<code>--cov-fail-under=0</code>) due to repository defaults. Pytest emitted an unknown <code>timeout</code> config warning; uv warned about link‑mode fallback while installing updated dependencies.</p>
-</section>
-<section id="followup-work" class="level2">
-<h2 class="anchored" data-anchor-id="followup-work">Follow‑Up Work</h2>
+<section id="routing-and-output-rules" class="level2">
+<h2 class="anchored" data-anchor-id="routing-and-output-rules">Routing and Output Rules</h2>
 <ol type="1">
-<li>Wire dispatch plans into serve runtime invocation.</li>
-<li>Add integration tests covering serve YAML changes and dispatch outcomes.</li>
+<li>Each route maps to one workspace, and each workspace maps to one route.</li>
+<li>Overlaps across ingestion roots or file patterns are rejected unless an explicit priority is defined.</li>
+<li>Priority ties are treated as errors to avoid non-deterministic dispatch.</li>
+<li>Versions are optional; when omitted, the workspace name drops the version segment.</li>
+<li>Routing matches are evaluated in a stable order: priority, then glob specificity, then deterministic ID.</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Guardrail
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The system must fail validation when two enabled routes overlap without a clear priority and specificity tie-breaker.</p>
+</div>
+</div>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div id="fig-route-selection" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-route-selection-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div>
+<pre class="mermaid mermaid-js" data-label="fig-route-selection">flowchart TD
+    A[Load serve YAML] --&gt; B[Validate schema and defaults]
+    B --&gt; C[Build route index]
+    C --&gt; D[Scan ingestion roots]
+    D --&gt; E{Match file to route}
+    E --&gt;|No| F[Hold pending and report]
+    E --&gt;|Yes| G[Queue file with route metadata]
+    G --&gt; H[Build route-specific dispatch plan]
+    H --&gt; I[Run dispatch and update receipt]
+    I --&gt; J[Report per-route metrics]
+</pre>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-route-selection-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Figure 1. Route selection flow for multi-route serve.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="sprint-plan" class="level2">
+<h2 class="anchored" data-anchor-id="sprint-plan">Sprint Plan</h2>
+<p>Each sprint produces a demoable increment that builds on the previous sprint. Tasks are atomic and each includes a validation step.</p>
+<section id="sprint-1-schema-defaults-and-migration" class="level3">
+<h3 class="anchored" data-anchor-id="sprint-1-schema-defaults-and-migration">Sprint 1: Schema, Defaults, and Migration</h3>
+<table class="caption-top table">
+<caption>Table 2. Sprint 1 tasks and validation.</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Task</th>
+<th>Output</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Define route schema with defaults</td>
+<td>Parsed config model</td>
+<td>Unit tests for required fields.</td>
+</tr>
+<tr class="even">
+<td>Normalize route IDs</td>
+<td>Stable ID builder</td>
+<td>Unit tests for normalization rules.</td>
+</tr>
+<tr class="odd">
+<td>Migrate legacy single-route configs</td>
+<td>Migration helper</td>
+<td>Unit tests for mapping and warnings.</td>
+</tr>
+<tr class="even">
+<td>Validate unknown keys and types</td>
+<td>Config lint utility</td>
+<td>Unit tests for invalid keys.</td>
+</tr>
+<tr class="odd">
+<td>Normalize file_globs list</td>
+<td>Input normalization</td>
+<td>Unit tests for string vs list inputs.</td>
+</tr>
+<tr class="even">
+<td>Validate ingestion path resolution</td>
+<td>Path resolver</td>
+<td>Unit tests for relative paths.</td>
+</tr>
+<tr class="odd">
+<td>Document schema in plans</td>
+<td>RFC update</td>
+<td>Quarto render success.</td>
+</tr>
+</tbody>
+</table>
+<p>Sprint 1 demo: Run <code>serve validate</code> against a multi-route YAML and show a deterministic list of parsed routes and warnings.</p>
+</section>
+<section id="sprint-2-routing-selection-and-workspace-resolution" class="level3">
+<h3 class="anchored" data-anchor-id="sprint-2-routing-selection-and-workspace-resolution">Sprint 2: Routing Selection and Workspace Resolution</h3>
+<table class="caption-top table">
+<caption>Table 3. Sprint 2 tasks and validation.</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Task</th>
+<th>Output</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Resolve workspace names per route</td>
+<td>Name resolver</td>
+<td>Unit tests for version handling.</td>
+</tr>
+<tr class="even">
+<td>Resolve route ingestion roots</td>
+<td>Path map</td>
+<td>Unit tests for absolute and relative paths.</td>
+</tr>
+<tr class="odd">
+<td>Implement glob matching and recursion</td>
+<td>Matcher utility</td>
+<td>Unit tests for match and miss.</td>
+</tr>
+<tr class="even">
+<td>Apply ingestion excludes</td>
+<td>Exclusion filter</td>
+<td>Unit tests for exclusion behavior.</td>
+</tr>
+<tr class="odd">
+<td>Implement priority ordering</td>
+<td>Tie-breaker logic</td>
+<td>Unit tests for overlaps.</td>
+</tr>
+<tr class="even">
+<td>Add specificity scoring</td>
+<td>Glob specificity</td>
+<td>Unit tests for specificity ranking.</td>
+</tr>
+<tr class="odd">
+<td>Error on unresolved ties</td>
+<td>Validation rule</td>
+<td>Unit tests for tie errors.</td>
+</tr>
+</tbody>
+</table>
+<p>Sprint 2 demo: Run a dry routing evaluation over sample files and produce a deterministic route assignment report.</p>
+</section>
+<section id="sprint-3-queue-and-dispatch-by-route" class="level3">
+<h3 class="anchored" data-anchor-id="sprint-3-queue-and-dispatch-by-route">Sprint 3: Queue and Dispatch by Route</h3>
+<table class="caption-top table">
+<caption>Table 4. Sprint 3 tasks and validation.</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Task</th>
+<th>Output</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Extend queue entries with route_id</td>
+<td>Queue schema update</td>
+<td>Unit tests for queue persistence.</td>
+</tr>
+<tr class="even">
+<td>Record ingestion root per entry</td>
+<td>Queue metadata</td>
+<td>Unit tests for stored metadata.</td>
+</tr>
+<tr class="odd">
+<td>Build route-specific dispatch plans</td>
+<td>Plan builder</td>
+<td>Unit tests for plan inputs.</td>
+</tr>
+<tr class="even">
+<td>Add route to receipts</td>
+<td>Receipt metadata</td>
+<td>Unit tests for receipt fields.</td>
+</tr>
+<tr class="odd">
+<td>Scope dedup ledger by route</td>
+<td>Ledger key update</td>
+<td>Unit tests for route isolation.</td>
+</tr>
+<tr class="even">
+<td>Add dry-run dispatch log</td>
+<td>Observable output</td>
+<td>Unit test for log content.</td>
+</tr>
+</tbody>
+</table>
+<p>Sprint 3 demo: Run a dry dispatch cycle that shows queued files grouped by route and the commands that would execute.</p>
+</section>
+<section id="sprint-4-service-loop-and-cli-harness" class="level3">
+<h3 class="anchored" data-anchor-id="sprint-4-service-loop-and-cli-harness">Sprint 4: Service Loop and CLI Harness</h3>
+<table class="caption-top table">
+<caption>Table 5. Sprint 4 tasks and validation.</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Task</th>
+<th>Output</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Update ingestion loop for multi-route</td>
+<td>Loop changes</td>
+<td>Unit tests for per-route scan.</td>
+</tr>
+<tr class="even">
+<td>Add per-route idle metrics</td>
+<td>Service metrics</td>
+<td>Unit tests for idle reporting.</td>
+</tr>
+<tr class="odd">
+<td>Handle runtime config errors</td>
+<td>Error strategy</td>
+<td>Unit tests for fail-fast vs skip.</td>
+</tr>
+<tr class="even">
+<td>Update CLI serve run options</td>
+<td>CLI plumbing</td>
+<td>Integration test with dry-run.</td>
+</tr>
+<tr class="odd">
+<td>Add route summary output</td>
+<td>Operator log</td>
+<td>Snapshot test for run output.</td>
+</tr>
+</tbody>
+</table>
+<p>Sprint 4 demo: Execute <code>serve run --dry-run</code> on a multi-route config and confirm per-route summaries and idle behavior.</p>
+</section>
+<section id="sprint-5-end-to-end-and-operational-readiness" class="level3">
+<h3 class="anchored" data-anchor-id="sprint-5-end-to-end-and-operational-readiness">Sprint 5: End-to-End and Operational Readiness</h3>
+<table class="caption-top table">
+<caption>Table 6. Sprint 5 tasks and validation.</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Task</th>
+<th>Output</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Build test workspace with two routes</td>
+<td>Demo data</td>
+<td>Integration test for workspace setup.</td>
+</tr>
+<tr class="even">
+<td>Validate overlap and priority behavior</td>
+<td>Conflict demo</td>
+<td>Integration test for overlap resolution.</td>
+</tr>
+<tr class="odd">
+<td>Run full pipeline with sentinels</td>
+<td>Output folders</td>
+<td>Manual validation with logs.</td>
+</tr>
+<tr class="even">
+<td>Add performance baseline</td>
+<td>Benchmark script</td>
+<td>Benchmark results recorded.</td>
+</tr>
+<tr class="odd">
+<td>Update operator documentation</td>
+<td>Usage guide</td>
+<td>Quarto render success.</td>
+</tr>
+</tbody>
+</table>
+<p>Sprint 5 demo: Run a full multi-route ingestion and confirm outputs appear in two distinct workspaces with receipts that include route IDs.</p>
+</section>
+</section>
+<section id="risks-and-mitigations" class="level2">
+<h2 class="anchored" data-anchor-id="risks-and-mitigations">Risks and Mitigations</h2>
+<p>Route overlap and ambiguity are the highest operational risks. The mitigations are strict validation rules, deterministic tie-breaking, and route-scoped receipts that make dispatch decisions traceable. Additional risk stems from migration of legacy configs, which should be addressed through a migration layer with warnings and unit tests. Finally, operator clarity is maintained through explicit per-route reporting and dry-run visibility.</p>
+</section>
+<section id="open-questions" class="level2">
+<h2 class="anchored" data-anchor-id="open-questions">Open Questions</h2>
+<ol type="1">
+<li>Should priority ties fall back to specificity or hard error only?</li>
+<li>Should version tags be mandatory for production routes?</li>
+<li>Should defaults override or merge per-route list fields?</li>
+<li>Should route IDs be required or fully derived?</li>
 </ol>
 </section>
-<section id="appendix-a-behaviors" class="level2">
-<h2 class="anchored" data-anchor-id="appendix-a-behaviors">Appendix A: Behaviors</h2>
-<ul>
-<li>Workspace names derive from <code>workspace_name</code> templates with optional version tokens.</li>
-<li>Dispatch plans resolve runtime and automation roots relative to the workspace.</li>
-</ul>
+<section id="appendix-a-subagent-review-prompt" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-a-subagent-review-prompt">Appendix A: Subagent Review Prompt</h2>
+<p>Please review RFC 019 for clarity, completeness, and any missing technical details. Identify gaps in validation coverage, propose improvements to the routing rules, and suggest additional sprint tasks that improve traceability or operational safety.</p>
 
 
 </section>
