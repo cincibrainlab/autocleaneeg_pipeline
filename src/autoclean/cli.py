@@ -2277,13 +2277,13 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
     serve_run.add_argument(
         "--file-glob",
-        default="*",
-        help="Glob pattern for ingestion files",
+        default=None,
+        help="Override glob pattern for ingestion files (legacy configs only)",
     )
     serve_run.add_argument(
         "--sentinel-ext",
-        default=".ready",
-        help="Sentinel extension for readiness",
+        default=None,
+        help="Override sentinel extension for readiness (legacy configs only)",
     )
     serve_run.add_argument(
         "--no-sentinel",
@@ -9126,61 +9126,23 @@ def _load_serve_yaml(config_path: Path) -> Optional[dict]:
 
 
 def _validate_serve_yaml(config: dict, mode: str, workspace_dir: Path) -> bool:
-    errors = []
-    warnings = []
-    required_keys = [
-        "mode",
-        "runtime",
-        "automation_root",
-        "workspace_name",
-        "ingestion_folders",
-    ]
-    for key in required_keys:
-        if key not in config:
-            errors.append(f"Missing required key: {key}")
-
-    if errors:
-        for err in errors:
-            message("error", err)
-        return False
-
     if str(config.get("mode")) != mode:
         message("error", f"Config mode '{config.get('mode')}' does not match '{mode}'")
         return False
 
-    runtime_value = config.get("runtime")
-    if not isinstance(runtime_value, str):
-        message("error", "runtime must be a string path")
-        return False
-    runtime_path = Path(runtime_value)
-    if not runtime_path.is_absolute():
-        runtime_path = (workspace_dir / runtime_path).resolve()
-    if not runtime_path.exists():
-        message("error", f"Runtime path not found: {runtime_path}")
-        return False
+    try:
+        from autoclean.utils.ingestion import ServeConfigError, parse_serve_config
 
-    automation_root = config.get("automation_root")
-    if not isinstance(automation_root, str):
-        message("error", "automation_root must be a string path")
+        _, warnings = parse_serve_config(config, workspace_dir, strict=False)
+    except ServeConfigError as exc:
+        for err in exc.errors:
+            message("error", err)
+        for warn in exc.warnings:
+            message("warning", warn)
         return False
-    automation_path = Path(automation_root)
-    if not automation_path.is_absolute():
-        automation_path = (workspace_dir / automation_path).resolve()
-    if not automation_path.exists():
-        message("error", f"Automation root not found: {automation_path}")
+    except Exception as exc:  # Guard against unexpected parser failures
+        message("error", f"Failed to validate config: {exc}")
         return False
-
-    ingestion_folders = config.get("ingestion_folders")
-    if not isinstance(ingestion_folders, list):
-        message("error", "ingestion_folders must be a list")
-        return False
-
-    if not config.get("taskfile"):
-        warnings.append("taskfile is empty")
-    if not config.get("montage"):
-        warnings.append("montage is empty")
-    if config.get("automation_mode") is not True:
-        warnings.append("automation_mode is not true")
 
     for warn in warnings:
         message("warning", warn)
@@ -9509,6 +9471,25 @@ def cmd_serve_run(args) -> int:
     except Exception as exc:
         message("error", f"Serve run failed: {exc}")
         return 1
+
+    route_stats: dict[str, dict[str, int]] = {}
+    for loop_result in result.loop_results:
+        for dispatch in loop_result.dispatch_results:
+            stats = route_stats.setdefault(
+                dispatch.route_id,
+                {"ready": 0, "processed": 0, "failed": 0},
+            )
+            stats["ready"] += len(dispatch.ready.ready_files)
+            if dispatch.result is not None:
+                stats["processed"] += len(dispatch.result.processed)
+                stats["failed"] += len(dispatch.result.failed)
+
+    for route_id, stats in sorted(route_stats.items()):
+        message(
+            "info",
+            f"Route {route_id}: ready={stats['ready']}, "
+            f"processed={stats['processed']}, failed={stats['failed']}",
+        )
 
     message(
         "success",

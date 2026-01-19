@@ -9,8 +9,8 @@ import sys
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Callable, Iterable, Optional
+from pathlib import Path, PurePosixPath
+from typing import Any, Callable, Iterable, Optional, Sequence
 
 import yaml
 
@@ -78,11 +78,12 @@ def build_receipt(
     files: Iterable[Path],
     status: str = DEFAULT_STATUS,
     receipt_version: str = DEFAULT_RECEIPT_VERSION,
+    route_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Create receipt payload without writing to disk."""
     file_entries = [_file_entry(path) for path in files]
     hash_value = compute_provenance_hash(relative_path, metadata)
-    return {
+    receipt = {
         "receipt_version": receipt_version,
         "hash_inputs": {
             "relative_path": relative_path.as_posix(),
@@ -104,6 +105,9 @@ def build_receipt(
             }
         ],
     }
+    if route_id:
+        receipt["route_id"] = route_id
+    return receipt
 
 
 def write_receipt(folder: Path, receipt: dict[str, Any]) -> Path:
@@ -156,6 +160,7 @@ def stage_provenance_receipt(
     files: Iterable[Path],
     status: str = DEFAULT_STATUS,
     ledger: Optional["IngestionLedger"] = None,
+    route_id: Optional[str] = None,
 ) -> dict[str, Any]:
     """Create provenance folder, write receipt, and optionally record ledger."""
     folder, hash_value = resolve_provenance_folder(root, relative_path, metadata)
@@ -165,12 +170,13 @@ def stage_provenance_receipt(
         metadata=metadata,
         files=files,
         status=status,
+        route_id=route_id,
     )
     write_receipt(folder, receipt)
 
     duplicate = False
     if ledger is not None:
-        duplicate = ledger.is_duplicate(hash_value)
+        duplicate = ledger.is_duplicate(hash_value, route_id=route_id)
         if not duplicate:
             ledger.record(
                 hash_value,
@@ -178,6 +184,7 @@ def stage_provenance_receipt(
                     "relative_path": relative_path.as_posix(),
                     "folder": str(folder),
                 },
+                route_id=route_id,
             )
 
     return {
@@ -198,8 +205,438 @@ def load_serve_config(config_path: Path) -> dict[str, Any]:
     return data
 
 
-def resolve_ingestion_roots(config: dict[str, Any], workspace_dir: Path) -> list[Path]:
+class ServeConfigError(ValueError):
+    """Collect validation errors for serve configuration."""
+
+    def __init__(self, errors: Sequence[str], warnings: Sequence[str]) -> None:
+        message = "\n".join(errors)
+        super().__init__(message)
+        self.errors = list(errors)
+        self.warnings = list(warnings)
+
+
+@dataclass
+class ServeRoute:
+    id: str
+    enabled: bool
+    priority: int
+    taskfile: str
+    montage: str
+    version: Optional[str]
+    ingestion_folders: list[Path]
+    ingestion_excludes: list[Path]
+    file_globs: list[str]
+    recursive: bool
+    sentinel_ext: str
+    automation_root: Path
+    workspace_name: str
+
+
+@dataclass
+class ServeConfig:
+    mode: str
+    runtime_path: Path
+    routes: list[ServeRoute]
+    legacy: bool = False
+
+
+_TOP_LEVEL_KEYS = {
+    "mode",
+    "runtime",
+    "runtime_package",
+    "automation_mode",
+    "defaults",
+    "automations",
+    "automation_root",
+    "workspace_name",
+    "taskfile",
+    "montage",
+    "version",
+    "ingestion_folders",
+    "ingestion_excludes",
+    "file_glob",
+    "file_globs",
+    "sentinel_ext",
+    "recursive",
+    "priority",
+    "enabled",
+}
+_DEFAULT_KEYS = {
+    "automation_root",
+    "workspace_name",
+    "file_glob",
+    "file_globs",
+    "sentinel_ext",
+    "recursive",
+    "ingestion_excludes",
+}
+_ROUTE_KEYS = {
+    "id",
+    "enabled",
+    "priority",
+    "taskfile",
+    "montage",
+    "version",
+    "ingestion_folders",
+    "ingestion_excludes",
+    "file_glob",
+    "file_globs",
+    "sentinel_ext",
+    "recursive",
+    "automation_root",
+    "workspace_name",
+}
+
+
+def _taskfile_label(taskfile: str) -> str:
+    path = Path(taskfile)
+    if path.suffix == ".py":
+        return path.stem
+    if path.name != taskfile:
+        return path.name
+    return taskfile
+
+
+def _normalize_route_id(taskfile: str, montage: str, version: Optional[str]) -> str:
+    return build_workspace_name(
+        "taskfile-montage-version",
+        taskfile=_taskfile_label(taskfile),
+        montage=montage,
+        version=version,
+    )
+
+
+def _normalize_file_globs(value: Any, errors: list[str], label: str) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list) and all(isinstance(item, str) for item in value):
+        return list(value)
+    errors.append(f"{label} must be a string or list of strings")
+    return []
+
+
+def _coerce_bool(value: Any, *, default: bool, errors: list[str], label: str) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    errors.append(f"{label} must be a boolean")
+    return default
+
+
+def _normalize_path_list(
+    value: Any,
+    workspace_dir: Path,
+    errors: list[str],
+    label: str,
+    *,
+    required: bool,
+) -> list[Path]:
+    if value is None:
+        if required:
+            errors.append(f"{label} must be a non-empty list of paths")
+        return []
+    if isinstance(value, str):
+        items = [value]
+    elif isinstance(value, list) and all(isinstance(item, str) for item in value):
+        items = list(value)
+    else:
+        errors.append(f"{label} must be a list of strings")
+        return []
+    if required and not items:
+        errors.append(f"{label} must be a non-empty list of paths")
+    paths: list[Path] = []
+    for entry in items:
+        path = Path(entry)
+        if not path.is_absolute():
+            path = (workspace_dir / path).resolve()
+        paths.append(path)
+    return paths
+
+
+def _is_relative_to(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def _validate_known_keys(
+    mapping: dict[str, Any], allowed: set[str], errors: list[str], label: str
+) -> None:
+    for key in mapping:
+        if key not in allowed:
+            errors.append(f"Unknown {label} key: {key}")
+
+
+def parse_serve_config(
+    config: dict[str, Any],
+    workspace_dir: Path,
+    *,
+    strict: bool = True,
+) -> tuple[ServeConfig, list[str]]:
+    """Normalize and validate serve configuration for multi-route ingestion."""
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    _validate_known_keys(config, _TOP_LEVEL_KEYS, errors, "config")
+
+    mode = config.get("mode")
+    if not mode:
+        errors.append("Missing required key: mode")
+    runtime_value = config.get("runtime")
+    if not runtime_value:
+        errors.append("Missing required key: runtime")
+
+    runtime_path = None
+    if runtime_value:
+        runtime_path = _resolve_relative_path(workspace_dir, str(runtime_value))
+        if not runtime_path.exists():
+            errors.append(f"Runtime path not found: {runtime_path}")
+
+    if config.get("automation_mode") is not True:
+        warnings.append("automation_mode is not true")
+
+    defaults_raw = config.get("defaults", {})
+    if defaults_raw is None:
+        defaults_raw = {}
+    if not isinstance(defaults_raw, dict):
+        errors.append("defaults must be a mapping")
+        defaults_raw = {}
+
+    if isinstance(defaults_raw, dict):
+        _validate_known_keys(defaults_raw, _DEFAULT_KEYS, errors, "defaults")
+
+    def _default_value(key: str) -> Any:
+        if key in defaults_raw:
+            return defaults_raw.get(key)
+        return config.get(key)
+
+    default_file_globs = _normalize_file_globs(
+        defaults_raw.get("file_globs")
+        if "file_globs" in defaults_raw
+        else defaults_raw.get("file_glob")
+        if "file_glob" in defaults_raw
+        else config.get("file_globs", config.get("file_glob")),
+        errors,
+        "file_globs",
+    )
+    default_sentinel_ext = _default_value("sentinel_ext") or ".ready"
+    if not isinstance(default_sentinel_ext, str):
+        errors.append("sentinel_ext must be a string")
+        default_sentinel_ext = ".ready"
+    default_recursive = _coerce_bool(
+        _default_value("recursive"), default=True, errors=errors, label="recursive"
+    )
+    default_automation_root = _default_value("automation_root")
+    default_workspace_name = _default_value("workspace_name")
+    default_excludes = _normalize_path_list(
+        _default_value("ingestion_excludes"),
+        workspace_dir,
+        errors,
+        "ingestion_excludes",
+        required=False,
+    )
+
+    automations = config.get("automations")
+    legacy = automations is None
+    if automations is None:
+        legacy_route = {key: config.get(key) for key in _ROUTE_KEYS if key in config}
+        automations = [legacy_route]
+    if legacy and not default_file_globs:
+        default_file_globs = ["*"]
+    if not isinstance(automations, list) or not automations:
+        errors.append("automations must be a non-empty list")
+        automations = []
+
+    routes: list[ServeRoute] = []
+    for idx, route_data in enumerate(automations):
+        if not isinstance(route_data, dict):
+            errors.append(f"automations[{idx}] must be a mapping")
+            continue
+        _validate_known_keys(route_data, _ROUTE_KEYS, errors, f"automations[{idx}]")
+
+        enabled_value = route_data.get("enabled", True)
+        if not isinstance(enabled_value, bool):
+            errors.append(f"automations[{idx}].enabled must be a boolean")
+            enabled_value = True
+        priority_value = route_data.get("priority", 0)
+        if isinstance(priority_value, bool) or not isinstance(priority_value, int):
+            errors.append(f"automations[{idx}].priority must be an integer")
+            priority_value = 0
+
+        taskfile_value = route_data.get("taskfile")
+        montage_value = route_data.get("montage")
+        if not taskfile_value:
+            if strict:
+                errors.append(f"automations[{idx}].taskfile is required")
+            else:
+                warnings.append(f"automations[{idx}].taskfile is empty")
+            taskfile_value = ""
+        if not montage_value:
+            if strict:
+                errors.append(f"automations[{idx}].montage is required")
+            else:
+                warnings.append(f"automations[{idx}].montage is empty")
+            montage_value = ""
+
+        version_value = route_data.get("version")
+        if version_value is not None:
+            version_value = str(version_value)
+
+        route_file_globs = _normalize_file_globs(
+            route_data.get("file_globs")
+            if "file_globs" in route_data
+            else route_data.get("file_glob")
+            if "file_glob" in route_data
+            else default_file_globs,
+            errors,
+            f"automations[{idx}].file_globs",
+        )
+        if not route_file_globs:
+            errors.append(f"automations[{idx}].file_globs must be set")
+
+        recursive_value = _coerce_bool(
+            route_data.get("recursive", default_recursive),
+            default=default_recursive,
+            errors=errors,
+            label=f"automations[{idx}].recursive",
+        )
+
+        sentinel_value = route_data.get("sentinel_ext", default_sentinel_ext)
+        if not isinstance(sentinel_value, str):
+            errors.append(f"automations[{idx}].sentinel_ext must be a string")
+            sentinel_value = default_sentinel_ext
+
+        ingestion_folders = _normalize_path_list(
+            route_data.get("ingestion_folders"),
+            workspace_dir,
+            errors,
+            f"automations[{idx}].ingestion_folders",
+            required=strict,
+        )
+        if not ingestion_folders and not strict:
+            warnings.append(f"automations[{idx}].ingestion_folders is empty")
+        ingestion_excludes = _normalize_path_list(
+            route_data.get("ingestion_excludes", default_excludes),
+            workspace_dir,
+            errors,
+            f"automations[{idx}].ingestion_excludes",
+            required=False,
+        )
+        if ingestion_excludes and ingestion_folders:
+            for exclude in ingestion_excludes:
+                if not any(_is_relative_to(exclude, root) for root in ingestion_folders):
+                    errors.append(
+                        f"{exclude} is not under any ingestion_folders for automations[{idx}]"
+                    )
+
+        automation_root_value = route_data.get("automation_root", default_automation_root)
+        if not automation_root_value:
+            errors.append(f"automations[{idx}].automation_root is required")
+            automation_root_value = ""
+        automation_root_path = (
+            _resolve_relative_path(workspace_dir, str(automation_root_value))
+            if automation_root_value
+            else workspace_dir
+        )
+        if automation_root_value and not automation_root_path.exists():
+            errors.append(f"Automation root not found: {automation_root_path}")
+
+        workspace_template = route_data.get("workspace_name", default_workspace_name)
+        if not workspace_template:
+            errors.append(f"automations[{idx}].workspace_name is required")
+            workspace_template = "taskfile-montage-version"
+        taskfile_label = _taskfile_label(str(taskfile_value))
+        workspace_name = build_workspace_name(
+            str(workspace_template),
+            taskfile=taskfile_label,
+            montage=str(montage_value),
+            version=version_value,
+        )
+
+        route_id = route_data.get("id")
+        if not route_id:
+            route_id = _normalize_route_id(str(taskfile_value), str(montage_value), version_value)
+        route_id = _normalize_workspace_name(str(route_id))
+
+        routes.append(
+            ServeRoute(
+                id=route_id,
+                enabled=enabled_value,
+                priority=priority_value,
+                taskfile=str(taskfile_value),
+                montage=str(montage_value),
+                version=version_value,
+                ingestion_folders=ingestion_folders,
+                ingestion_excludes=ingestion_excludes,
+                file_globs=route_file_globs,
+                recursive=recursive_value,
+                sentinel_ext=sentinel_value,
+                automation_root=automation_root_path,
+                workspace_name=workspace_name,
+            )
+        )
+
+    if routes:
+        seen_ids: set[str] = set()
+        for route in routes:
+            if route.id in seen_ids:
+                errors.append(f"Duplicate route id: {route.id}")
+            seen_ids.add(route.id)
+
+    for idx, route in enumerate(routes):
+        if not route.enabled:
+            continue
+        for other in routes[idx + 1 :]:
+            if not other.enabled:
+                continue
+            if route.priority != other.priority:
+                continue
+            overlap = False
+            for root in route.ingestion_folders:
+                for other_root in other.ingestion_folders:
+                    if _is_relative_to(root, other_root) or _is_relative_to(
+                        other_root, root
+                    ):
+                        overlap = True
+                        break
+                if overlap:
+                    break
+            if overlap:
+                errors.append(
+                    f"Routes '{route.id}' and '{other.id}' overlap ingestion roots "
+                    f"with the same priority ({route.priority})"
+                )
+
+    if errors:
+        raise ServeConfigError(errors, warnings)
+
+    if runtime_path is None:
+        runtime_path = workspace_dir
+
+    return ServeConfig(
+        mode=str(mode),
+        runtime_path=runtime_path,
+        routes=routes,
+        legacy=legacy,
+    ), warnings
+
+
+def resolve_ingestion_roots(
+    config: ServeConfig | dict[str, Any], workspace_dir: Optional[Path] = None
+) -> list[Path]:
     """Resolve ingestion roots from serve config."""
+    if isinstance(config, ServeConfig):
+        roots: list[Path] = []
+        for route in config.routes:
+            roots.extend(route.ingestion_folders)
+        return sorted({path.resolve() for path in roots})
+    if workspace_dir is None:
+        raise ValueError("workspace_dir is required for raw config")
     roots: list[Path] = []
     for entry in config.get("ingestion_folders", []):
         if not isinstance(entry, str):
@@ -308,6 +745,26 @@ def build_dispatch_plan(
         runtime_path=runtime_path,
         automation_root=automation_root,
         workspace_name=workspace_name,
+        workspace_dir=workspace_path,
+        files=list(files),
+    )
+
+
+def build_dispatch_plan_for_route(
+    *,
+    config: ServeConfig,
+    route: ServeRoute,
+    files: Iterable[Path],
+) -> DispatchPlan:
+    """Build a dispatch plan from a normalized route."""
+    workspace_path = route.automation_root / route.workspace_name
+    return DispatchPlan(
+        mode=config.mode,
+        taskfile=route.taskfile,
+        montage=route.montage,
+        runtime_path=config.runtime_path,
+        automation_root=route.automation_root,
+        workspace_name=route.workspace_name,
         workspace_dir=workspace_path,
         files=list(files),
     )
@@ -459,19 +916,101 @@ def run_dispatch_plan(
 
 @dataclass
 class IngestionDispatchResult:
-    ingestion_root: Path
+    route_id: str
+    ingestion_roots: list[Path]
     ready: "ReadyScanResult"
     plan: Optional[DispatchPlan]
     result: Optional[DispatchResult]
+
+
+@dataclass(frozen=True)
+class RouteMatch:
+    route: ServeRoute
+    ingestion_root: Path
+    specificity: tuple[int, int, int]
+
+
+def _glob_specificity(pattern: str) -> tuple[int, int, int]:
+    wildcard_count = sum(1 for char in pattern if char in "*?")
+    literal_count = sum(1 for char in pattern if char not in "*?")
+    double_star = pattern.count("**")
+    return (literal_count, -double_star, -wildcard_count)
+
+
+def _matches_route(route: ServeRoute, file_path: Path) -> Optional[RouteMatch]:
+    best: Optional[RouteMatch] = None
+    best_spec: Optional[tuple[int, int, int]] = None
+    best_depth = -1
+    for root in route.ingestion_folders:
+        if not _is_relative_to(file_path, root):
+            continue
+        if any(_is_relative_to(file_path, exclude) for exclude in route.ingestion_excludes):
+            continue
+        rel_path = file_path.relative_to(root)
+        if not route.recursive and len(rel_path.parts) > 1:
+            continue
+        rel_posix = PurePosixPath(rel_path.as_posix())
+        for pattern in route.file_globs:
+            patterns = [pattern]
+            if route.recursive and "/" not in pattern and "\\" not in pattern and "**" not in pattern:
+                patterns.append(f"**/{pattern}")
+            for match_pattern in patterns:
+                if rel_posix.match(match_pattern):
+                    spec = _glob_specificity(match_pattern)
+                    depth = len(root.parts)
+                    if best_spec is None or spec > best_spec or (
+                        spec == best_spec and depth > best_depth
+                    ):
+                        best_spec = spec
+                        best_depth = depth
+                        best = RouteMatch(
+                            route=route, ingestion_root=root, specificity=spec
+                        )
+    return best
+
+
+def _select_route_for_file(
+    file_path: Path, routes: Sequence[ServeRoute]
+) -> Optional[RouteMatch]:
+    matches: list[RouteMatch] = []
+    for route in routes:
+        match = _matches_route(route, file_path)
+        if match is not None:
+            matches.append(match)
+    if not matches:
+        return None
+    max_priority = max(match.route.priority for match in matches)
+    priority_matches = [match for match in matches if match.route.priority == max_priority]
+    priority_matches.sort(key=lambda match: match.specificity, reverse=True)
+    best = priority_matches[0]
+    tied = [
+        match
+        for match in priority_matches
+        if match.specificity == best.specificity
+    ]
+    if len(tied) > 1:
+        tied_ids = ", ".join(match.route.id for match in tied)
+        raise ValueError(
+            f"Routing tie for {file_path} between routes with priority "
+            f"{max_priority}: {tied_ids}"
+        )
+    return best
+
+
+def _strip_sentinel(path: Path, sentinel_ext: str) -> Path:
+    name = path.name
+    if name.endswith(sentinel_ext):
+        return path.with_name(name[: -len(sentinel_ext)])
+    return path
 
 
 def dispatch_ready_ingestion(
     *,
     config_path: Path,
     workspace_dir: Path,
-    ingestion_root: Path,
-    file_glob: str = "*",
-    sentinel_ext: str = ".ready",
+    ingestion_root: Optional[Path] = None,
+    file_glob: Optional[str] = None,
+    sentinel_ext: Optional[str] = None,
     require_sentinel: bool = True,
     stability_window_seconds: int = 0,
     use_watchfiles: bool = True,
@@ -480,57 +1019,161 @@ def dispatch_ready_ingestion(
     yes: bool = True,
     max_attempts: int = 1,
     runner: Optional[Callable[[list[str]], None]] = None,
-    config: Optional[dict[str, Any]] = None,
+    config: Optional[ServeConfig | dict[str, Any]] = None,
     queue: Optional["IngestionQueue"] = None,
-) -> IngestionDispatchResult:
+) -> list[IngestionDispatchResult]:
     """Dispatch ready ingestion files using serve configuration."""
-    config_data = config or load_serve_config(config_path)
-    ingestion_paths = resolve_ingestion_roots(config_data, workspace_dir)
+    serve_config: Optional[ServeConfig]
+    if config is None:
+        raw_config = load_serve_config(config_path)
+        serve_config, _ = parse_serve_config(raw_config, workspace_dir, strict=True)
+    elif isinstance(config, ServeConfig):
+        serve_config = config
+    else:
+        serve_config, _ = parse_serve_config(config, workspace_dir, strict=True)
 
-    if ingestion_paths and ingestion_root.resolve() not in ingestion_paths:
-        raise ValueError("ingestion_root is not listed in ingestion_folders")
+    routes = [route for route in serve_config.routes if route.enabled]
+    if not routes:
+        return []
 
-    ready = watch_ready_files(
-        ingestion_root,
-        file_glob=file_glob,
-        sentinel_ext=sentinel_ext,
-        require_sentinel=require_sentinel,
-        stability_window_seconds=stability_window_seconds,
-        max_events=max_events,
-        use_watchfiles=use_watchfiles,
-    )
+    if serve_config.legacy:
+        for route in routes:
+            if file_glob is not None:
+                route.file_globs = [file_glob]
+            if sentinel_ext is not None:
+                route.sentinel_ext = sentinel_ext
 
-    if ready.ready and queue is not None:
-        queue.enqueue(ready.ready_files)
+    roots_filter = None
+    if ingestion_root is not None:
+        roots_filter = {ingestion_root.resolve()}
+        known_roots = resolve_ingestion_roots(serve_config)
+        if ingestion_root.resolve() not in known_roots:
+            raise ValueError("ingestion_root is not listed in ingestion_folders")
 
-    pending_files = queue.pending() if queue is not None else ready.ready_files
-    if not pending_files:
-        return IngestionDispatchResult(
-            ingestion_root=ingestion_root, ready=ready, plan=None, result=None
+    ready_by_route: dict[str, ReadyScanResult] = {}
+    for route in routes:
+        ready_result = ReadyScanResult()
+        for root in route.ingestion_folders:
+            if roots_filter and root.resolve() not in roots_filter:
+                continue
+            ready = watch_ready_files(
+                root,
+                file_glob=route.file_globs,
+                sentinel_ext=route.sentinel_ext,
+                require_sentinel=require_sentinel,
+                stability_window_seconds=stability_window_seconds,
+                recursive=route.recursive,
+                max_events=max_events,
+                use_watchfiles=use_watchfiles,
+            )
+            ready_result.ready_files.extend(
+                [
+                    path
+                    for path in ready.ready_files
+                    if _matches_route(route, path) is not None
+                ]
+            )
+            ready_result.pending_files.extend(
+                [
+                    path
+                    for path in ready.pending_files
+                    if _matches_route(route, path) is not None
+                ]
+            )
+            ready_result.missing_sentinels.extend(
+                [
+                    path
+                    for path in ready.missing_sentinels
+                    if _matches_route(route, _strip_sentinel(path, route.sentinel_ext))
+                    is not None
+                ]
+            )
+            ready_result.unstable_files.extend(
+                [
+                    path
+                    for path in ready.unstable_files
+                    if _matches_route(route, path) is not None
+                ]
+            )
+        ready_by_route[route.id] = ready_result
+
+    file_ready_routes: dict[Path, list[ServeRoute]] = {}
+    for route in routes:
+        ready_files = ready_by_route.get(route.id, ReadyScanResult()).ready_files
+        for path in ready_files:
+            file_ready_routes.setdefault(path, []).append(route)
+
+    assigned_files: dict[str, list[Path]] = {route.id: [] for route in routes}
+    assigned_root: dict[Path, Path] = {}
+    for path, candidate_routes in file_ready_routes.items():
+        match = _select_route_for_file(path, candidate_routes)
+        if match is None:
+            continue
+        assigned_files[match.route.id].append(path)
+        assigned_root[path] = match.ingestion_root
+
+    dispatch_results: list[IngestionDispatchResult] = []
+    for route in routes:
+        ready_result = ready_by_route.get(route.id, ReadyScanResult())
+        ready_result.ready_files = assigned_files.get(route.id, [])
+
+        if queue is not None and ready_result.ready_files:
+            entries = [
+                QueueEntry(
+                    path=path,
+                    route_id=route.id,
+                    ingestion_root=assigned_root.get(path),
+                )
+                for path in ready_result.ready_files
+            ]
+            queue.enqueue_entries(entries)
+
+        pending_entries = (
+            queue.pending_entries(
+                route_id=route.id, include_unassigned=serve_config.legacy
+            )
+            if queue is not None
+            else [
+                QueueEntry(
+                    path=path,
+                    route_id=route.id,
+                    ingestion_root=assigned_root.get(path),
+                )
+                for path in ready_result.ready_files
+            ]
+        )
+        pending_files = [entry.path for entry in pending_entries]
+        plan = None
+        result = None
+        if pending_files:
+            plan = build_dispatch_plan_for_route(
+                config=serve_config, route=route, files=pending_files
+            )
+            result = run_dispatch_plan(
+                plan,
+                automation=automation,
+                yes=yes,
+                max_attempts=max_attempts,
+                runner=runner,
+            )
+
+        if queue is not None and result is not None:
+            for path in result.processed:
+                queue.mark_processed(path)
+            for path, error in result.failed.items():
+                queue.mark_failed(path, error)
+
+        dispatch_results.append(
+            IngestionDispatchResult(
+                route_id=route.id,
+                ingestion_roots=route.ingestion_folders,
+                ready=ready_result,
+                plan=plan,
+                result=result,
+            )
         )
 
-    plan = build_dispatch_plan(
-        config=config_data,
-        workspace_dir=workspace_dir,
-        files=pending_files,
-    )
-    result = run_dispatch_plan(
-        plan,
-        automation=automation,
-        yes=yes,
-        max_attempts=max_attempts,
-        runner=runner,
-    )
-
-    if queue is not None:
-        for path in result.processed:
-            queue.mark_processed(path)
-        for path, error in result.failed.items():
-            queue.mark_failed(path, error)
-
-    return IngestionDispatchResult(
-        ingestion_root=ingestion_root, ready=ready, plan=plan, result=result
-    )
+    return dispatch_results
 
 
 @dataclass
@@ -538,6 +1181,7 @@ class IngestionLoopResult:
     iterations: int
     dispatch_results: list[IngestionDispatchResult]
     pending_roots: list[Path]
+    pending_routes: list[str] = field(default_factory=list)
 
 
 def run_ingestion_loop(
@@ -545,8 +1189,8 @@ def run_ingestion_loop(
     config_path: Path,
     workspace_dir: Path,
     max_cycles: int = 1,
-    file_glob: str = "*",
-    sentinel_ext: str = ".ready",
+    file_glob: Optional[str] = None,
+    sentinel_ext: Optional[str] = None,
     require_sentinel: bool = True,
     stability_window_seconds: int = 0,
     use_watchfiles: bool = True,
@@ -562,8 +1206,9 @@ def run_ingestion_loop(
     """Run readiness/dispatch loop over all ingestion roots."""
     if max_cycles < 1:
         raise ValueError("max_cycles must be >= 1")
-    config = load_serve_config(config_path)
-    roots = resolve_ingestion_roots(config, workspace_dir)
+    raw_config = load_serve_config(config_path)
+    config, _ = parse_serve_config(raw_config, workspace_dir, strict=True)
+    roots = resolve_ingestion_roots(config)
     if not roots:
         raise ValueError("No ingestion_folders configured")
     dispatch_results: list[IngestionDispatchResult] = []
@@ -572,36 +1217,42 @@ def run_ingestion_loop(
 
     for cycle in range(max_cycles):
         ready_roots: list[Path] = []
-        for root in roots:
-            result = dispatch_ready_ingestion(
-                config_path=config_path,
-                workspace_dir=workspace_dir,
-                ingestion_root=root,
-                file_glob=file_glob,
-                sentinel_ext=sentinel_ext,
-                require_sentinel=require_sentinel,
-                stability_window_seconds=stability_window_seconds,
-                use_watchfiles=use_watchfiles,
-                max_events=max_events,
-                automation=automation,
-                yes=yes,
-                max_attempts=max_attempts,
-                runner=runner,
-                config=config,
-                queue=queue,
-            )
-            dispatch_results.append(result)
+        results = dispatch_ready_ingestion(
+            config_path=config_path,
+            workspace_dir=workspace_dir,
+            file_glob=file_glob,
+            sentinel_ext=sentinel_ext,
+            require_sentinel=require_sentinel,
+            stability_window_seconds=stability_window_seconds,
+            use_watchfiles=use_watchfiles,
+            max_events=max_events,
+            automation=automation,
+            yes=yes,
+            max_attempts=max_attempts,
+            runner=runner,
+            config=config,
+            queue=queue,
+        )
+        dispatch_results.extend(results)
+        ready_routes: list[str] = []
+        for result in results:
             processed = bool(
                 result.result and (result.result.processed or result.result.failed)
             )
             if result.ready.ready or processed:
-                ready_roots.append(root)
+                ready_routes.append(result.route_id)
+                ready_roots.extend(result.ingestion_roots)
         pending_roots = [root for root in roots if root not in ready_roots]
-        if not ready_roots:
+        if not ready_routes:
             return IngestionLoopResult(
                 iterations=cycle + 1,
                 dispatch_results=dispatch_results,
                 pending_roots=pending_roots,
+                pending_routes=[
+                    route.id
+                    for route in config.routes
+                    if route.enabled and route.id not in ready_routes
+                ],
             )
         if cycle < max_cycles - 1:
             sleep(sleep_seconds)
@@ -610,6 +1261,11 @@ def run_ingestion_loop(
         iterations=max_cycles,
         dispatch_results=dispatch_results,
         pending_roots=pending_roots,
+        pending_routes=[
+            route.id
+            for route in config.routes
+            if route.enabled and route.id not in ready_routes
+        ],
     )
 
 
@@ -626,8 +1282,8 @@ def run_ingestion_service(
     workspace_dir: Path,
     max_cycles: int = 1,
     idle_limit: int = 1,
-    file_glob: str = "*",
-    sentinel_ext: str = ".ready",
+    file_glob: Optional[str] = None,
+    sentinel_ext: Optional[str] = None,
     require_sentinel: bool = True,
     stability_window_seconds: int = 0,
     use_watchfiles: bool = True,
@@ -673,7 +1329,14 @@ def run_ingestion_service(
             sleep_fn=lambda _: None,
         )
         loop_results.append(loop_result)
-        any_ready = any(result.ready.ready for result in loop_result.dispatch_results)
+        any_ready = False
+        for result in loop_result.dispatch_results:
+            processed = bool(
+                result.result and (result.result.processed or result.result.failed)
+            )
+            if result.ready.ready or processed:
+                any_ready = True
+                break
         if any_ready:
             idle_cycles = 0
         else:
@@ -761,17 +1424,24 @@ def evaluate_readiness(
 
 
 def list_ingestion_files(
-    root: Path, *, file_glob: str, sentinel_ext: str
+    root: Path,
+    *,
+    file_glob: str | Sequence[str],
+    sentinel_ext: str,
+    recursive: bool = True,
 ) -> list[Path]:
     """Return candidate ingestion files under root."""
+    patterns = [file_glob] if isinstance(file_glob, str) else list(file_glob)
     files: list[Path] = []
-    for path in root.rglob(file_glob):
-        if not path.is_file():
-            continue
-        if path.name.endswith(sentinel_ext):
-            continue
-        files.append(path)
-    return sorted(files)
+    for pattern in patterns:
+        iterator = root.rglob(pattern) if recursive else root.glob(pattern)
+        for path in iterator:
+            if not path.is_file():
+                continue
+            if path.name.endswith(sentinel_ext):
+                continue
+            files.append(path)
+    return sorted(set(files))
 
 
 def scan_ready_files(
@@ -810,10 +1480,11 @@ def scan_ready_files(
 def poll_ready_files(
     root: Path,
     *,
-    file_glob: str = "*",
+    file_glob: str | Sequence[str] = "*",
     sentinel_ext: str = ".ready",
     require_sentinel: bool = True,
     stability_window_seconds: int = 0,
+    recursive: bool = True,
     poll_interval_seconds: float = 1.0,
     max_loops: int = 1,
     sleep_fn: Optional[Callable[[float], None]] = None,
@@ -824,7 +1495,10 @@ def poll_ready_files(
     loops = max(1, max_loops)
     for _ in range(loops):
         files = list_ingestion_files(
-            root, file_glob=file_glob, sentinel_ext=sentinel_ext
+            root,
+            file_glob=file_glob,
+            sentinel_ext=sentinel_ext,
+            recursive=recursive,
         )
         result = scan_ready_files(
             files,
@@ -841,11 +1515,12 @@ def poll_ready_files(
 def watch_ready_files(
     root: Path,
     *,
-    file_glob: str = "*",
+    file_glob: str | Sequence[str] = "*",
     sentinel_ext: str = ".ready",
     require_sentinel: bool = True,
     stability_window_seconds: int = 0,
     poll_interval_seconds: float = 1.0,
+    recursive: bool = True,
     max_events: int = 25,
     use_watchfiles: bool = True,
 ) -> ReadyScanResult:
@@ -857,6 +1532,7 @@ def watch_ready_files(
             sentinel_ext=sentinel_ext,
             require_sentinel=require_sentinel,
             stability_window_seconds=stability_window_seconds,
+            recursive=recursive,
             poll_interval_seconds=poll_interval_seconds,
             max_loops=max_events,
         )
@@ -870,6 +1546,7 @@ def watch_ready_files(
             sentinel_ext=sentinel_ext,
             require_sentinel=require_sentinel,
             stability_window_seconds=stability_window_seconds,
+            recursive=recursive,
             poll_interval_seconds=poll_interval_seconds,
             max_loops=max_events,
         )
@@ -877,7 +1554,10 @@ def watch_ready_files(
     result = ReadyScanResult()
     for idx, _ in enumerate(watch(root)):
         files = list_ingestion_files(
-            root, file_glob=file_glob, sentinel_ext=sentinel_ext
+            root,
+            file_glob=file_glob,
+            sentinel_ext=sentinel_ext,
+            recursive=recursive,
         )
         result = scan_ready_files(
             files,
@@ -914,14 +1594,30 @@ class IngestionLedger:
         tmp.write_text(json.dumps(self.data, indent=2) + "\n", encoding="utf-8")
         tmp.replace(self.path)
 
-    def is_duplicate(self, hash_value: str) -> bool:
-        entries = self.data.get("entries", {})
-        return hash_value in entries
+    def _key(self, hash_value: str, route_id: Optional[str]) -> str:
+        return f"{route_id}:{hash_value}" if route_id else hash_value
 
-    def record(self, hash_value: str, info: dict[str, Any]) -> None:
+    def is_duplicate(self, hash_value: str, *, route_id: Optional[str] = None) -> bool:
+        entries = self.data.get("entries", {})
+        return self._key(hash_value, route_id) in entries
+
+    def record(
+        self, hash_value: str, info: dict[str, Any], *, route_id: Optional[str] = None
+    ) -> None:
         entries = self.data.setdefault("entries", {})
-        entries[hash_value] = {"info": info, "recorded_at": _timestamp()}
+        entries[self._key(hash_value, route_id)] = {
+            "info": info,
+            "recorded_at": _timestamp(),
+            "route_id": route_id,
+        }
         self.save()
+
+
+@dataclass(frozen=True)
+class QueueEntry:
+    path: Path
+    route_id: Optional[str] = None
+    ingestion_root: Optional[Path] = None
 
 
 class IngestionQueue:
@@ -949,25 +1645,67 @@ class IngestionQueue:
     def entries(self) -> dict[str, Any]:
         return self.data.setdefault("entries", {})
 
-    def enqueue(self, paths: Iterable[Path]) -> None:
+    def enqueue(
+        self,
+        paths: Iterable[Path],
+        *,
+        route_id: Optional[str] = None,
+        ingestion_root: Optional[Path] = None,
+    ) -> None:
         entries = self.entries()
         for path in paths:
             key = str(path)
             if key in entries:
+                entry = entries[key]
+                if route_id and not entry.get("route_id"):
+                    entry["route_id"] = route_id
+                if ingestion_root and not entry.get("ingestion_root"):
+                    entry["ingestion_root"] = str(ingestion_root)
                 continue
             entries[key] = {
                 "status": "pending",
                 "added_at": _timestamp(),
                 "last_error": None,
+                "route_id": route_id,
+                "ingestion_root": str(ingestion_root) if ingestion_root else None,
             }
         self.save()
 
+    def enqueue_entries(self, entries: Iterable[QueueEntry]) -> None:
+        for entry in entries:
+            self.enqueue(
+                [entry.path],
+                route_id=entry.route_id,
+                ingestion_root=entry.ingestion_root,
+            )
+
+    def pending_entries(
+        self, *, route_id: Optional[str] = None, include_unassigned: bool = False
+    ) -> list[QueueEntry]:
+        pending: list[QueueEntry] = []
+        for path_str, data in self.entries().items():
+            if data.get("status") != "pending":
+                continue
+            entry_route = data.get("route_id")
+            if route_id is not None:
+                if entry_route is None and not include_unassigned:
+                    continue
+                if entry_route is not None and entry_route != route_id:
+                    continue
+            ingestion_root = data.get("ingestion_root")
+            pending.append(
+                QueueEntry(
+                    path=Path(path_str),
+                    route_id=entry_route,
+                    ingestion_root=Path(ingestion_root)
+                    if isinstance(ingestion_root, str)
+                    else None,
+                )
+            )
+        return pending
+
     def pending(self) -> list[Path]:
-        return [
-            Path(path)
-            for path, data in self.entries().items()
-            if data.get("status") == "pending"
-        ]
+        return [entry.path for entry in self.pending_entries()]
 
     def mark_processed(self, path: Path) -> None:
         key = str(path)

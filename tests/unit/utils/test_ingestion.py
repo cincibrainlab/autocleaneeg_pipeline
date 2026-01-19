@@ -24,6 +24,7 @@ from autoclean.utils.ingestion import (
     list_ingestion_files,
     load_receipt,
     load_serve_config,
+    parse_serve_config,
     poll_ready_files,
     receipt_path,
     resolve_provenance_folder,
@@ -93,6 +94,20 @@ def test_list_ingestion_files_filters_sentinels(tmp_path: Path) -> None:
     assert sentinel not in files
 
 
+def test_list_ingestion_files_non_recursive(tmp_path: Path) -> None:
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    root_file = tmp_path / "root.set"
+    nested_file = nested / "nested.set"
+    _write_file(root_file)
+    _write_file(nested_file)
+    files = list_ingestion_files(
+        tmp_path, file_glob="*.set", sentinel_ext=".ready", recursive=False
+    )
+    assert root_file in files
+    assert nested_file not in files
+
+
 def test_scan_ready_files_separates_pending(tmp_path: Path) -> None:
     ready_file = tmp_path / "ready.set"
     pending_file = tmp_path / "pending.set"
@@ -146,6 +161,17 @@ def test_ingestion_queue_persistence(tmp_path: Path) -> None:
     assert len(queue.pending()) == 2
     reloaded = IngestionQueue(queue_path)
     assert len(reloaded.pending()) == 2
+
+
+def test_ingestion_queue_route_metadata(tmp_path: Path) -> None:
+    queue_path = tmp_path / "queue.json"
+    queue = IngestionQueue(queue_path)
+    file_a = tmp_path / "a.set"
+    _write_file(file_a)
+    queue.enqueue([file_a], route_id="route-a", ingestion_root=tmp_path)
+    entry = queue.entries()[str(file_a)]
+    assert entry["route_id"] == "route-a"
+    assert entry["ingestion_root"] == str(tmp_path)
 
 
 def test_stage_provenance_receipt_records_ledger(tmp_path: Path) -> None:
@@ -206,6 +232,47 @@ def test_build_dispatch_plan(tmp_path: Path) -> None:
     assert plan.runtime_path == runtime_dir
     assert plan.automation_root == automation_root
     assert plan.workspace_name == "Resting-standard_1020-v1"
+
+
+def test_parse_serve_config_defaults(tmp_path: Path) -> None:
+    runtime_dir = tmp_path / "runtimes" / "test"
+    runtime_dir.mkdir(parents=True)
+    automation_root = tmp_path / "automations"
+    automation_root.mkdir()
+    ingestion_root = tmp_path / "ingest"
+    ingestion_root.mkdir()
+    config_path = tmp_path / "serve-test.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "mode: test",
+                "runtime: runtimes/test",
+                "automation_mode: true",
+                "defaults:",
+                "  automation_root: automations",
+                "  workspace_name: taskfile-montage-version",
+                "  file_globs: ['*.set']",
+                "  sentinel_ext: .ready",
+                "  recursive: true",
+                "automations:",
+                "  - taskfile: Resting",
+                "    montage: standard_1020",
+                "    version: v1",
+                "    ingestion_folders:",
+                "      - ingest",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config = load_serve_config(config_path)
+    serve_config, warnings = parse_serve_config(config, tmp_path, strict=False)
+    assert not warnings
+    assert serve_config.mode == "test"
+    route = serve_config.routes[0]
+    assert route.file_globs == ["*.set"]
+    assert route.recursive is True
+    assert route.automation_root == automation_root
+    assert route.id == "Resting-standard_1020-v1"
 
 
 def test_build_process_command_taskfile(tmp_path: Path) -> None:
@@ -312,10 +379,9 @@ def test_dispatch_ready_ingestion(tmp_path: Path) -> None:
     def runner(cmd: list[str]) -> None:
         calls.append(cmd)
 
-    result = dispatch_ready_ingestion(
+    results = dispatch_ready_ingestion(
         config_path=config_path,
         workspace_dir=tmp_path,
-        ingestion_root=ingestion_root,
         file_glob="*.set",
         sentinel_ext=".ready",
         use_watchfiles=False,
@@ -323,12 +389,71 @@ def test_dispatch_ready_ingestion(tmp_path: Path) -> None:
         runner=runner,
         queue=queue,
     )
+    assert len(results) == 1
+    result = results[0]
     assert isinstance(result, IngestionDispatchResult)
-    assert result.ingestion_root == ingestion_root
+    assert result.route_id
+    assert ingestion_root in result.ingestion_roots
     assert result.plan is not None
     assert result.result is not None
     assert len(calls) == 1
     assert queue.entries()[str(data_file)]["status"] == "processed"
+
+
+def test_dispatch_ready_ingestion_route_priority(tmp_path: Path) -> None:
+    runtime_dir = tmp_path / "runtimes" / "test"
+    _runtime_cli_path(runtime_dir)
+    ingestion_root = tmp_path / "ingest"
+    ingestion_root.mkdir()
+    data_file = ingestion_root / "sample.set"
+    _write_file(data_file)
+    _write_file(ingestion_root / "sample.set.ready")
+    (tmp_path / "automations").mkdir()
+    config_path = tmp_path / "serve-test.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "mode: test",
+                "runtime: runtimes/test",
+                "defaults:",
+                "  automation_root: automations",
+                "  workspace_name: taskfile-montage-version",
+                "  file_globs: ['*.set']",
+                "  sentinel_ext: .ready",
+                "  recursive: true",
+                "automations:",
+                "  - id: low",
+                "    priority: 1",
+                "    taskfile: RestingLow",
+                "    montage: standard_1020",
+                "    ingestion_folders:",
+                "      - ingest",
+                "  - id: high",
+                "    priority: 10",
+                "    taskfile: RestingHigh",
+                "    montage: standard_1020",
+                "    ingestion_folders:",
+                "      - ingest",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    calls: list[list[str]] = []
+
+    def runner(cmd: list[str]) -> None:
+        calls.append(cmd)
+
+    results = dispatch_ready_ingestion(
+        config_path=config_path,
+        workspace_dir=tmp_path,
+        use_watchfiles=False,
+        max_events=1,
+        runner=runner,
+    )
+    result_map = {result.route_id: result for result in results}
+    assert data_file in result_map["high"].ready.ready_files
+    assert not result_map["low"].ready.ready_files
+    assert len(calls) == 1
 
 
 def test_run_ingestion_loop(tmp_path: Path) -> None:
@@ -374,6 +499,7 @@ def test_run_ingestion_loop(tmp_path: Path) -> None:
     )
     assert loop_result.iterations == 1
     assert loop_result.dispatch_results
+    assert loop_result.dispatch_results[0].route_id
     assert len(calls) == 1
 
 
