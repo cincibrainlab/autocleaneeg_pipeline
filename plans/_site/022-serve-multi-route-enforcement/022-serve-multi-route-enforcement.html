@@ -6,8 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="dcterms.date" content="2026-01-19">
 
-<title>main-plan – AutoCleanEEG Pipeline Plans</title>
+<title>RFC 022: Serve Multi-route Enforcement – AutoCleanEEG Pipeline Plans</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -20,27 +21,62 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
-<script src="site_libs/quarto-nav/quarto-nav.js"></script>
-<script src="site_libs/quarto-nav/headroom.min.js"></script>
-<script src="site_libs/clipboard/clipboard.min.js"></script>
-<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
-<script src="site_libs/quarto-search/fuse.min.js"></script>
-<script src="site_libs/quarto-search/quarto-search.js"></script>
-<meta name="quarto:offset" content="./">
-<script src="site_libs/quarto-html/quarto.js" type="module"></script>
-<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
-<script src="site_libs/quarto-html/popper.min.js"></script>
-<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
-<script src="site_libs/quarto-html/anchor.min.js"></script>
-<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
-<script src="site_libs/bootstrap/bootstrap.min.js"></script>
-<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-5b4ad623e5705c0698d39aec6f10cf02.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-5b4ad623e5705c0698d39aec6f10cf02.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -79,9 +115,9 @@ ul.task-list li input[type="checkbox"] {
     <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
-    <a href="./index.html" class="navbar-brand navbar-brand-logo">
+    <a href="../index.html" class="navbar-brand navbar-brand-logo">
     </a>
-    <a class="navbar-brand" href="./index.html">
+    <a class="navbar-brand" href="../index.html">
     <span class="navbar-title">AutoCleanEEG Pipeline Plans</span>
     </a>
   </div>
@@ -92,91 +128,91 @@ ul.task-list li input[type="checkbox"] {
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll me-auto">
   <li class="nav-item">
-    <a class="nav-link" href="./index.html"> 
+    <a class="nav-link" href="../index.html"> 
 <span class="menu-text">Home</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./001-intro-big-picture/001-intro-big-picture.html"> 
+    <a class="nav-link" href="../001-intro-big-picture/001-intro-big-picture.html"> 
 <span class="menu-text">Introduction</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./002-automation-idempotency/002-automation-idempotency.html"> 
+    <a class="nav-link" href="../002-automation-idempotency/002-automation-idempotency.html"> 
 <span class="menu-text">Automation Idempotency</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./003-automation-mode/003-automation-mode.html"> 
+    <a class="nav-link" href="../003-automation-mode/003-automation-mode.html"> 
 <span class="menu-text">Automation Mode</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./004-automation-mode-validation/004-automation-mode-validation.html"> 
+    <a class="nav-link" href="../004-automation-mode-validation/004-automation-mode-validation.html"> 
 <span class="menu-text">Automation Validation</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./005-serve-workspace/005-serve-workspace.html"> 
+    <a class="nav-link" href="../005-serve-workspace/005-serve-workspace.html"> 
 <span class="menu-text">Serve Workspace</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./006-serve-command-family/006-serve-command-family.html"> 
+    <a class="nav-link" href="../006-serve-command-family/006-serve-command-family.html"> 
 <span class="menu-text">Serve Commands</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./007-ingestion-planning/007-ingestion-planning.html"> 
+    <a class="nav-link" href="../007-ingestion-planning/007-ingestion-planning.html"> 
 <span class="menu-text">Ingestion Planning</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./008-ingestion-prd/008-ingestion-prd.html"> 
+    <a class="nav-link" href="../008-ingestion-prd/008-ingestion-prd.html"> 
 <span class="menu-text">Ingestion PRD</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./009-ingestion-implementation/009-ingestion-implementation.html"> 
+    <a class="nav-link" href="../009-ingestion-implementation/009-ingestion-implementation.html"> 
 <span class="menu-text">Ingestion Implementation</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./010-ingestion-provenance/010-ingestion-provenance.html"> 
+    <a class="nav-link" href="../010-ingestion-provenance/010-ingestion-provenance.html"> 
 <span class="menu-text">Ingestion Provenance</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./011-ingestion-watcher/011-ingestion-watcher.html"> 
+    <a class="nav-link" href="../011-ingestion-watcher/011-ingestion-watcher.html"> 
 <span class="menu-text">Ingestion Watcher</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./012-ingestion-dispatch/012-ingestion-dispatch.html"> 
+    <a class="nav-link" href="../012-ingestion-dispatch/012-ingestion-dispatch.html"> 
 <span class="menu-text">Ingestion Dispatch</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html"> 
+    <a class="nav-link" href="../013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html"> 
 <span class="menu-text">Dispatch Execution</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./014-ingestion-runtime-dispatch/014-ingestion-runtime-dispatch.html"> 
+    <a class="nav-link" href="../014-ingestion-runtime-dispatch/014-ingestion-runtime-dispatch.html"> 
 <span class="menu-text">Runtime Dispatch</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./015-ingestion-integration/015-ingestion-integration.html"> 
+    <a class="nav-link" href="../015-ingestion-integration/015-ingestion-integration.html"> 
 <span class="menu-text">Ingestion Integration</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./016-ingestion-loop/016-ingestion-loop.html"> 
+    <a class="nav-link" href="../016-ingestion-loop/016-ingestion-loop.html"> 
 <span class="menu-text">Ingestion Loop</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./017-ingestion-service/017-ingestion-service.html"> 
+    <a class="nav-link" href="../017-ingestion-service/017-ingestion-service.html"> 
 <span class="menu-text">Ingestion Service</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./019-serve-multi-route-response/019-serve-multi-route-response.html"> 
+    <a class="nav-link" href="../019-serve-multi-route-response/019-serve-multi-route-response.html"> 
 <span class="menu-text">Serve Multi-route Response</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./020-rfc19-execution-review/020-rfc19-execution-review.html"> 
+    <a class="nav-link" href="../020-rfc19-execution-review/020-rfc19-execution-review.html"> 
 <span class="menu-text">RFC 019 Execution Review</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./021-serve-multi-route-implementation/021-serve-multi-route-implementation.html"> 
+    <a class="nav-link" href="../021-serve-multi-route-implementation/021-serve-multi-route-implementation.html"> 
 <span class="menu-text">Serve Multi-route Implementation</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./022-serve-multi-route-enforcement/022-serve-multi-route-enforcement.html"> 
+    <a class="nav-link active" href="../022-serve-multi-route-enforcement/022-serve-multi-route-enforcement.html" aria-current="page"> 
 <span class="menu-text">Serve Multi-route Enforcement</span></a>
   </li>  
 </ul>
@@ -192,25 +228,127 @@ ul.task-list li input[type="checkbox"] {
 <!-- margin-sidebar -->
     
 <!-- main -->
-<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"></header>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">RFC 022: Serve Multi-route Enforcement</h1>
+<p class="subtitle lead">Applying RFC 021 Decisions in Code</p>
+</div>
 
 
 
+<div class="quarto-title-meta">
 
-<p>pre-instruction hooks: - please make a surgical git commit before edits - do not edit this file under any circumstance overall strategy: - use quarto (qmd) website output - strategically implement all quarto elements including callouts - organization of pages: strategic, senior PM, scalable - should be unified quarto website in the plans folder. be familiar with the docs: https://quarto.org/docs/reference/projects/websites.html - formating: - APA 7 throughout (headings, citations if present, tables/figures, tone). - NIH-like formatting (whitespace/margins/typography) - use dense prose to explain reasoning and steps - use formal tables and figures with captions - strategically decide which belong in the main body vs.&nbsp;appendices - clear section headers and strict, consistent organization - coding: - explain each code listing clearly and concisely - prefer linear scripts over deeply nested functions - deliverable should be reproducible and self-contained - minimize and optimize file outputs to avoid directory clutter - group / consolidate code to avoid excessive code blocks. - Following instructions + filenaming strategy - RFC-style Design Docs (numbered, reviewed, archived) - For each set of instructions render a pair of files in a subfolder that share the same basename. - Reasoning Plan (.md): Record the intended instructions, their order, and the rationale at a high level, without results or execution details; keep it short and editable to steer or revise the downstream work. - Executed Document (.qmd): Implement and execute the full instruction set, including code, analysis, and outputs, producing the authoritative rendered result. This is organized and integrated into the larger quarto website. The .md file captures thinking and order, the .qmd file captures execution and results and they are always side by side in the same place. - Be mindful that this file will be run over and over again as ideopotent instructions - for each instruction set be an energetic assistant and deploy subagents as necessary - Available tools: - Autenticated Github CLI (version control, issues, etc.) - quarto CLI - prefer the use of trash (homebrew) rather than rm -rf</p>
-<p>Instruction sets:</p>
-<p>New Task:</p>
-<p>please add discussion on these topics at the end of rfc 21 in plain english Questions / Assumptions</p>
-<ul>
-<li>Should multi-route configs auto-assign legacy queue entries without route_id, or fail fast and require migration?</li>
-<li>Do you want overlap validation to consider file_globs intersections to allow disjoint globs at equal priority?</li>
-<li>Should ingestion root existence be enforced in strict mode?</li>
-</ul>
-<p>Response: we are still in dev so backwards compatativlitry should NOT be any consideration. stick with simple rule. ok about strict mode.</p>
-<p>Clean up rules: Will provide explit remove: and archive: and reactivate: blocks when needed - Archive: move instruction set and output to archive folder - Remove: delete instruction set and output - Reactivate: move instruction set and output to active folder</p>
-<p>Post Instruction hooks: - give direct, essential feedback to user for edits needed to align the current file based on your actions. - obsolute or outdated instructions - breaking ideopotency - critical thinking errors - output should be 1-2 lines, elegant and formatted - whats the next step if any? - render quarto after every change (no warnings/errors that affect output integrity). - make a surgical git commit of your edits - update plans/main-plan-log.csv Maintain a CSV-based decision log that records what was decided, why it was reasonable, what evidence supported it, and how it was validated, across both data science and general work; include timestamps only when sequencing or causality matters. - specific project instructions if needed:</p>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">January 19, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
 
 
+</header>
+
+
+<section id="executive-summary" class="level2">
+<h2 class="anchored" data-anchor-id="executive-summary">Executive Summary</h2>
+<p>The RFC 021 decisions are now enforced in the ingestion stack. Queue entries without <code>route_id</code> fail fast to avoid ambiguous routing, and strict-mode parsing rejects missing ingestion roots before runtime. New unit tests confirm these guardrails and keep the enforcement behavior deterministic during development.</p>
+</section>
+<section id="implementation-summary" class="level2">
+<h2 class="anchored" data-anchor-id="implementation-summary">Implementation Summary</h2>
+<table class="caption-top table">
+<caption>Table 1. Enforcement changes and evidence.</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Area</th>
+<th>Change</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Queue enforcement</td>
+<td>Reject pending entries missing <code>route_id</code></td>
+<td><code>src/autoclean/utils/ingestion.py</code></td>
+</tr>
+<tr class="even">
+<td>Strict parsing</td>
+<td>Require ingestion roots to exist in strict mode</td>
+<td><code>src/autoclean/utils/ingestion.py</code></td>
+</tr>
+<tr class="odd">
+<td>Unit tests</td>
+<td>Added strict parsing and queue enforcement tests</td>
+<td><code>tests/unit/utils/test_ingestion.py</code></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="queue-enforcement" class="level2">
+<h2 class="anchored" data-anchor-id="queue-enforcement">Queue Enforcement</h2>
+<p>Queue metadata is now treated as mandatory in development. When pending entries lack <code>route_id</code>, the dispatcher aborts immediately with a clear error so operators must migrate the queue rather than implicitly reassign work.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Guardrail
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Pending queue entries without <code>route_id</code> are rejected before dispatch to prevent accidental routing across pipelines.</p>
+</div>
+</div>
+</section>
+<section id="strict-root-validation" class="level2">
+<h2 class="anchored" data-anchor-id="strict-root-validation">Strict Root Validation</h2>
+<p>Serve configuration parsing in strict mode now verifies that each ingestion root exists on disk. This shifts root availability errors to validation time and avoids starting a run that will fail later or silently skip directories.</p>
+</section>
+<section id="validation-results" class="level2">
+<h2 class="anchored" data-anchor-id="validation-results">Validation Results</h2>
+<p>Targeted ingestion unit tests were executed to validate the new enforcement behavior.</p>
+<table class="caption-top table">
+<caption>Table 2. Validation results.</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Validation</th>
+<th>Command</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Unit tests (ingestion)</td>
+<td><code>uv run --with pytest --with pytest-cov python -m pytest tests/unit/utils/test_ingestion.py --cov-fail-under=0</code></td>
+<td>27 passed; 1 config warning</td>
+</tr>
+</tbody>
+</table>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run <span class="at">--with</span> pytest <span class="at">--with</span> pytest-cov python <span class="at">-m</span> pytest tests/unit/utils/test_ingestion.py <span class="at">--cov-fail-under</span><span class="op">=</span>0</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="appendix-a-test-output-notes" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-a-test-output-notes">Appendix A: Test Output Notes</h2>
+<p>The pytest run emitted a warning about an unknown <code>timeout</code> config option in <code>pytest.ini</code>. This warning is pre-existing and does not affect the enforcement tests executed here.</p>
+
+
+</section>
 
 </main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">

@@ -1,0 +1,50 @@
+---
+title: "RFC 022: Serve Multi-route Enforcement"
+subtitle: "Applying RFC 021 Decisions in Code"
+date: 2026-01-19
+---
+
+## Executive Summary
+
+The RFC 021 decisions are now enforced in the ingestion stack. Queue entries without `route_id` fail fast to avoid ambiguous routing, and strict-mode parsing rejects missing ingestion roots before runtime. New unit tests confirm these guardrails and keep the enforcement behavior deterministic during development.
+
+## Implementation Summary
+
+| Area | Change | Evidence |
+|---|---|---|
+| Queue enforcement | Reject pending entries missing `route_id` | `src/autoclean/utils/ingestion.py` |
+| Strict parsing | Require ingestion roots to exist in strict mode | `src/autoclean/utils/ingestion.py` |
+| Unit tests | Added strict parsing and queue enforcement tests | `tests/unit/utils/test_ingestion.py` |
+
+: Table 1. Enforcement changes and evidence.
+
+## Queue Enforcement
+
+Queue metadata is now treated as mandatory in development. When pending entries lack `route_id`, the dispatcher aborts immediately with a clear error so operators must migrate the queue rather than implicitly reassign work.
+
+::: callout-note
+## Guardrail
+Pending queue entries without `route_id` are rejected before dispatch to prevent accidental routing across pipelines.
+:::
+
+## Strict Root Validation
+
+Serve configuration parsing in strict mode now verifies that each ingestion root exists on disk. This shifts root availability errors to validation time and avoids starting a run that will fail later or silently skip directories.
+
+## Validation Results
+
+Targeted ingestion unit tests were executed to validate the new enforcement behavior.
+
+| Validation | Command | Result |
+|---|---|---|
+| Unit tests (ingestion) | `uv run --with pytest --with pytest-cov python -m pytest tests/unit/utils/test_ingestion.py --cov-fail-under=0` | 27 passed; 1 config warning |
+
+: Table 2. Validation results.
+
+```bash
+uv run --with pytest --with pytest-cov python -m pytest tests/unit/utils/test_ingestion.py --cov-fail-under=0
+```
+
+## Appendix A: Test Output Notes
+
+The pytest run emitted a warning about an unknown `timeout` config option in `pytest.ini`. This warning is pre-existing and does not affect the enforcement tests executed here.
