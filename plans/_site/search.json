@@ -550,14 +550,14 @@
     "href": "index.html",
     "title": "AutoCleanEEG Pipeline Plans",
     "section": "",
-    "text": "Welcome to the AutoCleanEEG Pipeline Plans website.\nThis site contains the planning documents and instruction sets for the pipeline development.\n\n\n\nMain Plan\nIntroduction\nAutomation Idempotency Preparation\nAutomation Mode Implementation\nAutomation Mode Validation\nServe Workspace Command\nServe Command Family\nIngestion Planning\nIngestion PRD\nIngestion Implementation\nIngestion Provenance\nIngestion Watcher\nIngestion Dispatch\nDispatch Execution\nRuntime Dispatch\nIngestion Integration\nIngestion Loop\nIngestion Service\nServe Routing & Sprints\n\n\n\n\nUse the navbar above to navigate the site."
+    "text": "Welcome to the AutoCleanEEG Pipeline Plans website.\nThis site contains the planning documents and instruction sets for the pipeline development.\n\n\n\nMain Plan\nIntroduction\nAutomation Idempotency Preparation\nAutomation Mode Implementation\nAutomation Mode Validation\nServe Workspace Command\nServe Command Family\nIngestion Planning\nIngestion PRD\nIngestion Implementation\nIngestion Provenance\nIngestion Watcher\nIngestion Dispatch\nDispatch Execution\nRuntime Dispatch\nIngestion Integration\nIngestion Loop\nIngestion Service\n\n\n\n\nUse the navbar above to navigate the site."
   },
   {
     "objectID": "index.html#documents",
     "href": "index.html#documents",
     "title": "AutoCleanEEG Pipeline Plans",
     "section": "",
-    "text": "Main Plan\nIntroduction\nAutomation Idempotency Preparation\nAutomation Mode Implementation\nAutomation Mode Validation\nServe Workspace Command\nServe Command Family\nIngestion Planning\nIngestion PRD\nIngestion Implementation\nIngestion Provenance\nIngestion Watcher\nIngestion Dispatch\nDispatch Execution\nRuntime Dispatch\nIngestion Integration\nIngestion Loop\nIngestion Service\nServe Routing & Sprints"
+    "text": "Main Plan\nIntroduction\nAutomation Idempotency Preparation\nAutomation Mode Implementation\nAutomation Mode Validation\nServe Workspace Command\nServe Command Family\nIngestion Planning\nIngestion PRD\nIngestion Implementation\nIngestion Provenance\nIngestion Watcher\nIngestion Dispatch\nDispatch Execution\nRuntime Dispatch\nIngestion Integration\nIngestion Loop\nIngestion Service"
   },
   {
     "objectID": "index.html#navigation",
