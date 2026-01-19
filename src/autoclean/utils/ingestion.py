@@ -299,6 +299,43 @@ def build_dispatch_plan(
 
 
 @dataclass
+class DispatchResult:
+    processed: list[Path]
+    failed: dict[Path, str]
+    attempts: int
+
+
+def execute_dispatch_plan(
+    plan: DispatchPlan,
+    *,
+    processor: Callable[[Path, DispatchPlan], None],
+    max_attempts: int = 1,
+) -> DispatchResult:
+    """Execute a dispatch plan using the provided processor."""
+    if max_attempts < 1:
+        raise ValueError("max_attempts must be >= 1")
+
+    pending = list(plan.files)
+    processed: list[Path] = []
+    failed: dict[Path, str] = {}
+    attempts = 0
+    while pending and attempts < max_attempts:
+        attempts += 1
+        next_pending = []
+        for path in pending:
+            try:
+                processor(path, plan)
+                processed.append(path)
+                failed.pop(path, None)
+            except Exception as exc:  # pragma: no cover - errors expected in tests
+                failed[path] = str(exc)
+                next_pending.append(path)
+        pending = next_pending
+
+    return DispatchResult(processed=processed, failed=failed, attempts=attempts)
+
+
+@dataclass
 class ReadinessResult:
     ready: bool
     reasons: list[str] = field(default_factory=list)

@@ -1,0 +1,47 @@
+---
+title: "RFC 013: Dispatch Execution Phase"
+subtitle: "Execution Loop with Retry Semantics"
+date: 2026-01-19
+---
+
+## Executive Summary
+
+This phase completes the dispatch execution loop from RFC 008 by adding a retry‑aware executor that processes files, records failures, and reports attempts. The loop uses a supplied processor callback so it remains testable without invoking the full pipeline.
+
+## Implementation Scope
+
+| Area | Deliverable | Notes |
+|---|---|---|
+| Execution loop | `execute_dispatch_plan` | Retries pending files up to a max attempt count. |
+| Result model | `DispatchResult` | Captures processed files, failures, and attempts. |
+| Tests | Retry and failure cases | Validates loop semantics without pipeline execution. |
+
+: Table 1. Dispatch execution deliverables.
+
+## Code Changes
+
+| File | Change |
+|---|---|
+| `src/autoclean/utils/ingestion.py` | Added dispatch execution loop and result model. |
+| `tests/unit/utils/test_ingestion.py` | Added retry and failure tests. |
+
+: Table 2. Code updates delivered.
+
+## Test Results
+
+```bash
+uv run --with pytest --with pytest-cov python -m pytest \
+  tests/unit/utils/test_ingestion.py --cov-fail-under=0
+```
+
+Result: 12 tests passed. Coverage threshold was overridden (`--cov-fail-under=0`) due to repository defaults. Pytest emitted an unknown `timeout` config warning.
+
+## Follow‑Up Work
+
+1. Connect dispatch execution to serve runtime invocation.
+2. Add integration tests for pipeline dispatch.
+
+## Appendix A: Behaviors
+
+- The execution loop retries failed files until `max_attempts` is reached.
+- Failures are returned for operator review without halting the loop.

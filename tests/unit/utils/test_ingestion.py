@@ -6,6 +6,7 @@ from pathlib import Path
 
 from autoclean.utils.ingestion import (
     DispatchPlan,
+    DispatchResult,
     IngestionLedger,
     append_receipt_revision,
     build_dispatch_plan,
@@ -13,6 +14,7 @@ from autoclean.utils.ingestion import (
     build_workspace_name,
     compute_provenance_hash,
     evaluate_readiness,
+    execute_dispatch_plan,
     list_ingestion_files,
     load_receipt,
     load_serve_config,
@@ -172,6 +174,57 @@ def test_build_dispatch_plan(tmp_path: Path) -> None:
     assert plan.runtime_path == runtime_dir
     assert plan.automation_root == automation_root
     assert plan.workspace_name == "Resting-standard_1020-v1"
+
+
+def test_execute_dispatch_plan_retries(tmp_path: Path) -> None:
+    file_ok = tmp_path / "ok.set"
+    file_fail = tmp_path / "fail.set"
+    _write_file(file_ok)
+    _write_file(file_fail)
+    plan = DispatchPlan(
+        mode="test",
+        taskfile="Task",
+        montage="Montage",
+        runtime_path=tmp_path,
+        automation_root=tmp_path,
+        workspace_name="Task-Montage",
+        workspace_dir=tmp_path / "Task-Montage",
+        files=[file_ok, file_fail],
+    )
+    attempts = {"fail": 0}
+
+    def processor(path: Path, _: DispatchPlan) -> None:
+        if path == file_fail and attempts["fail"] == 0:
+            attempts["fail"] += 1
+            raise RuntimeError("boom")
+
+    result = execute_dispatch_plan(plan, processor=processor, max_attempts=2)
+    assert isinstance(result, DispatchResult)
+    assert not result.failed
+    assert set(result.processed) == {file_ok, file_fail}
+    assert result.attempts == 2
+
+
+def test_execute_dispatch_plan_failure(tmp_path: Path) -> None:
+    file_fail = tmp_path / "fail.set"
+    _write_file(file_fail)
+    plan = DispatchPlan(
+        mode="test",
+        taskfile="Task",
+        montage="Montage",
+        runtime_path=tmp_path,
+        automation_root=tmp_path,
+        workspace_name="Task-Montage",
+        workspace_dir=tmp_path / "Task-Montage",
+        files=[file_fail],
+    )
+
+    def processor(_: Path, __: DispatchPlan) -> None:
+        raise RuntimeError("boom")
+
+    result = execute_dispatch_plan(plan, processor=processor, max_attempts=1)
+    assert file_fail in result.failed
+    assert result.attempts == 1
 
 
 def test_poll_ready_files(tmp_path: Path) -> None:

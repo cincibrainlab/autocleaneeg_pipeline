@@ -1,276 +1,402 @@
 [
   {
-    "objectID": "012-ingestion-dispatch/012-ingestion-dispatch.html",
-    "href": "012-ingestion-dispatch/012-ingestion-dispatch.html",
-    "title": "RFC 012: Ingestion Dispatch Phase",
+    "objectID": "013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html",
+    "href": "013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html",
+    "title": "RFC 013: Dispatch Execution Phase",
     "section": "",
-    "text": "This phase implements the dispatch planning layer for RFC 008. It adds serve config loading, workspace name rendering, and dispatch plan construction so ingestion can deterministically prepare run metadata without executing the pipeline. Unit tests validate template behavior and path resolution."
+    "text": "This phase completes the dispatch execution loop from RFC 008 by adding a retry‑aware executor that processes files, records failures, and reports attempts. The loop uses a supplied processor callback so it remains testable without invoking the full pipeline."
   },
   {
-    "objectID": "012-ingestion-dispatch/012-ingestion-dispatch.html#executive-summary",
-    "href": "012-ingestion-dispatch/012-ingestion-dispatch.html#executive-summary",
-    "title": "RFC 012: Ingestion Dispatch Phase",
+    "objectID": "013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html#executive-summary",
+    "href": "013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html#executive-summary",
+    "title": "RFC 013: Dispatch Execution Phase",
     "section": "",
-    "text": "This phase implements the dispatch planning layer for RFC 008. It adds serve config loading, workspace name rendering, and dispatch plan construction so ingestion can deterministically prepare run metadata without executing the pipeline. Unit tests validate template behavior and path resolution."
+    "text": "This phase completes the dispatch execution loop from RFC 008 by adding a retry‑aware executor that processes files, records failures, and reports attempts. The loop uses a supplied processor callback so it remains testable without invoking the full pipeline."
   },
   {
-    "objectID": "012-ingestion-dispatch/012-ingestion-dispatch.html#implementation-scope",
-    "href": "012-ingestion-dispatch/012-ingestion-dispatch.html#implementation-scope",
-    "title": "RFC 012: Ingestion Dispatch Phase",
+    "objectID": "013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html#implementation-scope",
+    "href": "013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html#implementation-scope",
+    "title": "RFC 013: Dispatch Execution Phase",
     "section": "Implementation Scope",
-    "text": "Implementation Scope\n\nTable 1. Dispatch phase deliverables.\n\n\n\n\n\n\n\nArea\nDeliverable\nNotes\n\n\n\n\nConfig loader\nload_serve_config\nValidates YAML mapping structure.\n\n\nWorkspace naming\nbuild_workspace_name\nSupports template tokens and version omission.\n\n\nDispatch plan\nbuild_dispatch_plan\nResolves runtime + automation roots with file list."
+    "text": "Implementation Scope\n\nTable 1. Dispatch execution deliverables.\n\n\n\n\n\n\n\nArea\nDeliverable\nNotes\n\n\n\n\nExecution loop\nexecute_dispatch_plan\nRetries pending files up to a max attempt count.\n\n\nResult model\nDispatchResult\nCaptures processed files, failures, and attempts.\n\n\nTests\nRetry and failure cases\nValidates loop semantics without pipeline execution."
   },
   {
-    "objectID": "012-ingestion-dispatch/012-ingestion-dispatch.html#code-changes",
-    "href": "012-ingestion-dispatch/012-ingestion-dispatch.html#code-changes",
-    "title": "RFC 012: Ingestion Dispatch Phase",
+    "objectID": "013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html#code-changes",
+    "href": "013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html#code-changes",
+    "title": "RFC 013: Dispatch Execution Phase",
     "section": "Code Changes",
-    "text": "Code Changes\n\nTable 2. Code updates delivered.\n\n\n\n\n\n\nFile\nChange\n\n\n\n\nsrc/autoclean/utils/ingestion.py\nAdded config loader, workspace naming, dispatch plan utilities.\n\n\ntests/unit/utils/test_ingestion.py\nAdded tests for naming and dispatch planning."
+    "text": "Code Changes\n\nTable 2. Code updates delivered.\n\n\n\n\n\n\nFile\nChange\n\n\n\n\nsrc/autoclean/utils/ingestion.py\nAdded dispatch execution loop and result model.\n\n\ntests/unit/utils/test_ingestion.py\nAdded retry and failure tests."
   },
   {
-    "objectID": "012-ingestion-dispatch/012-ingestion-dispatch.html#test-results",
-    "href": "012-ingestion-dispatch/012-ingestion-dispatch.html#test-results",
-    "title": "RFC 012: Ingestion Dispatch Phase",
+    "objectID": "013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html#test-results",
+    "href": "013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html#test-results",
+    "title": "RFC 013: Dispatch Execution Phase",
     "section": "Test Results",
-    "text": "Test Results\nuv run --with pytest --with pytest-cov python -m pytest \\\n  tests/unit/utils/test_ingestion.py --cov-fail-under=0\nResult: 10 tests passed. Coverage threshold was overridden (--cov-fail-under=0) due to repository defaults. Pytest emitted an unknown timeout config warning; uv warned about link‑mode fallback while installing updated dependencies."
+    "text": "Test Results\nuv run --with pytest --with pytest-cov python -m pytest \\\n  tests/unit/utils/test_ingestion.py --cov-fail-under=0\nResult: 12 tests passed. Coverage threshold was overridden (--cov-fail-under=0) due to repository defaults. Pytest emitted an unknown timeout config warning."
   },
   {
-    "objectID": "012-ingestion-dispatch/012-ingestion-dispatch.html#followup-work",
-    "href": "012-ingestion-dispatch/012-ingestion-dispatch.html#followup-work",
-    "title": "RFC 012: Ingestion Dispatch Phase",
+    "objectID": "013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html#followup-work",
+    "href": "013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html#followup-work",
+    "title": "RFC 013: Dispatch Execution Phase",
     "section": "Follow‑Up Work",
-    "text": "Follow‑Up Work\n\nWire dispatch plans into serve runtime invocation.\nAdd integration tests covering serve YAML changes and dispatch outcomes."
+    "text": "Follow‑Up Work\n\nConnect dispatch execution to serve runtime invocation.\nAdd integration tests for pipeline dispatch."
   },
   {
-    "objectID": "012-ingestion-dispatch/012-ingestion-dispatch.html#appendix-a-behaviors",
-    "href": "012-ingestion-dispatch/012-ingestion-dispatch.html#appendix-a-behaviors",
-    "title": "RFC 012: Ingestion Dispatch Phase",
+    "objectID": "013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html#appendix-a-behaviors",
+    "href": "013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html#appendix-a-behaviors",
+    "title": "RFC 013: Dispatch Execution Phase",
     "section": "Appendix A: Behaviors",
-    "text": "Appendix A: Behaviors\n\nWorkspace names derive from workspace_name templates with optional version tokens.\nDispatch plans resolve runtime and automation roots relative to the workspace."
+    "text": "Appendix A: Behaviors\n\nThe execution loop retries failed files until max_attempts is reached.\nFailures are returned for operator review without halting the loop."
   },
   {
-    "objectID": "010-ingestion-provenance/010-ingestion-provenance.html",
-    "href": "010-ingestion-provenance/010-ingestion-provenance.html",
-    "title": "RFC 010: Ingestion Provenance Phase",
+    "objectID": "011-ingestion-watcher/011-ingestion-watcher.html",
+    "href": "011-ingestion-watcher/011-ingestion-watcher.html",
+    "title": "RFC 011: Ingestion Watcher Phase",
     "section": "",
-    "text": "This phase completes the provenance layout step from RFC 008 by adding deterministic folder resolution and staged receipt writing with ledger integration. The new helpers resolve a provenance hash into a stable folder, write receipts atomically, and flag duplicate hashes via the ledger. Unit tests confirm determinism and duplicate handling."
+    "text": "This phase implements watcher integration from RFC 008 by adding scan and polling helpers plus a watchfiles-backed watcher with a polling fallback. The watcher utilities provide ready‑file detection without a full daemon, ensuring testability and deterministic behavior."
   },
   {
-    "objectID": "010-ingestion-provenance/010-ingestion-provenance.html#executive-summary",
-    "href": "010-ingestion-provenance/010-ingestion-provenance.html#executive-summary",
-    "title": "RFC 010: Ingestion Provenance Phase",
+    "objectID": "011-ingestion-watcher/011-ingestion-watcher.html#executive-summary",
+    "href": "011-ingestion-watcher/011-ingestion-watcher.html#executive-summary",
+    "title": "RFC 011: Ingestion Watcher Phase",
     "section": "",
-    "text": "This phase completes the provenance layout step from RFC 008 by adding deterministic folder resolution and staged receipt writing with ledger integration. The new helpers resolve a provenance hash into a stable folder, write receipts atomically, and flag duplicate hashes via the ledger. Unit tests confirm determinism and duplicate handling."
+    "text": "This phase implements watcher integration from RFC 008 by adding scan and polling helpers plus a watchfiles-backed watcher with a polling fallback. The watcher utilities provide ready‑file detection without a full daemon, ensuring testability and deterministic behavior."
   },
   {
-    "objectID": "010-ingestion-provenance/010-ingestion-provenance.html#implementation-scope",
-    "href": "010-ingestion-provenance/010-ingestion-provenance.html#implementation-scope",
-    "title": "RFC 010: Ingestion Provenance Phase",
+    "objectID": "011-ingestion-watcher/011-ingestion-watcher.html#implementation-scope",
+    "href": "011-ingestion-watcher/011-ingestion-watcher.html#implementation-scope",
+    "title": "RFC 011: Ingestion Watcher Phase",
     "section": "Implementation Scope",
-    "text": "Implementation Scope\n\nTable 1. Provenance phase deliverables.\n\n\n\n\n\n\n\nArea\nDeliverable\nNotes\n\n\n\n\nProvenance layout\nresolve_provenance_folder\nHashes relative path + metadata to a folder.\n\n\nReceipt staging\nstage_provenance_receipt\nWrites receipt and records ledger state.\n\n\nLedger support\nDuplicate flagging\nMarks duplicates without overwriting receipts."
+    "text": "Implementation Scope\n\nTable 1. Watcher phase deliverables.\n\n\n\n\n\n\n\nArea\nDeliverable\nNotes\n\n\n\n\nScan helpers\nlist_ingestion_files, scan_ready_files\nSeparate ready vs pending files.\n\n\nPolling\npoll_ready_files\nLoop with configurable max cycles.\n\n\nWatcher\nwatch_ready_files\nUses watchfiles when available, falls back to polling."
   },
   {
-    "objectID": "010-ingestion-provenance/010-ingestion-provenance.html#code-changes",
-    "href": "010-ingestion-provenance/010-ingestion-provenance.html#code-changes",
-    "title": "RFC 010: Ingestion Provenance Phase",
+    "objectID": "011-ingestion-watcher/011-ingestion-watcher.html#code-changes",
+    "href": "011-ingestion-watcher/011-ingestion-watcher.html#code-changes",
+    "title": "RFC 011: Ingestion Watcher Phase",
     "section": "Code Changes",
-    "text": "Code Changes\n\nTable 2. Code updates delivered.\n\n\n\n\n\n\nFile\nChange\n\n\n\n\nsrc/autoclean/utils/ingestion.py\nAdded provenance folder resolver and staged receipt helper.\n\n\ntests/unit/utils/test_ingestion.py\nAdded tests for folder determinism and ledger-backed staging."
+    "text": "Code Changes\n\nTable 2. Code updates delivered.\n\n\n\n\n\n\nFile\nChange\n\n\n\n\nsrc/autoclean/utils/ingestion.py\nAdded scan, poll, and watch utilities.\n\n\ntests/unit/utils/test_ingestion.py\nAdded scan/poll/watch fallback tests.\n\n\npyproject.toml\nAdded watchfiles dependency."
   },
   {
-    "objectID": "010-ingestion-provenance/010-ingestion-provenance.html#test-results",
-    "href": "010-ingestion-provenance/010-ingestion-provenance.html#test-results",
-    "title": "RFC 010: Ingestion Provenance Phase",
+    "objectID": "011-ingestion-watcher/011-ingestion-watcher.html#test-results",
+    "href": "011-ingestion-watcher/011-ingestion-watcher.html#test-results",
+    "title": "RFC 011: Ingestion Watcher Phase",
     "section": "Test Results",
-    "text": "Test Results\nuv run --with pytest --with pytest-cov python -m pytest \\\n  tests/unit/utils/test_ingestion.py --cov-fail-under=0\nResult: 6 tests passed. Coverage threshold was overridden (--cov-fail-under=0) due to repository defaults. Pytest emitted an unknown timeout config warning."
+    "text": "Test Results\nuv run --with pytest --with pytest-cov python -m pytest \\\n  tests/unit/utils/test_ingestion.py --cov-fail-under=0\nResult: 10 tests passed. Coverage threshold was overridden (--cov-fail-under=0) due to repository defaults. Pytest emitted an unknown timeout config warning; uv reported a link‑mode fallback warning when installing the updated dependency set."
   },
   {
-    "objectID": "010-ingestion-provenance/010-ingestion-provenance.html#followup-work",
-    "href": "010-ingestion-provenance/010-ingestion-provenance.html#followup-work",
-    "title": "RFC 010: Ingestion Provenance Phase",
+    "objectID": "011-ingestion-watcher/011-ingestion-watcher.html#followup-work",
+    "href": "011-ingestion-watcher/011-ingestion-watcher.html#followup-work",
+    "title": "RFC 011: Ingestion Watcher Phase",
     "section": "Follow‑Up Work",
-    "text": "Follow‑Up Work\n\nAdd watcher integration using watchfiles with notify backend.\nConnect provenance receipts to serve dispatch and database audit trail."
+    "text": "Follow‑Up Work\n\nExtend watcher to emit structured events into serve dispatch.\nAdd integration tests for watchfiles event handling."
   },
   {
-    "objectID": "010-ingestion-provenance/010-ingestion-provenance.html#appendix-a-behaviors",
-    "href": "010-ingestion-provenance/010-ingestion-provenance.html#appendix-a-behaviors",
-    "title": "RFC 010: Ingestion Provenance Phase",
+    "objectID": "011-ingestion-watcher/011-ingestion-watcher.html#appendix-a-behaviors",
+    "href": "011-ingestion-watcher/011-ingestion-watcher.html#appendix-a-behaviors",
+    "title": "RFC 011: Ingestion Watcher Phase",
     "section": "Appendix A: Behaviors",
-    "text": "Appendix A: Behaviors\n\nDeterministic folder names are derived from relative ingest path + metadata hash inputs.\nReceipt writes are atomic, and duplicate hashes are flagged in ledger metadata."
+    "text": "Appendix A: Behaviors\n\nReady files are detected per‑file using sentinels; pending items remain until signals are present.\nWatchfiles is optional; polling fallback preserves deterministic behavior in constrained environments."
   },
   {
-    "objectID": "008-ingestion-prd/008-ingestion-prd.html",
-    "href": "008-ingestion-prd/008-ingestion-prd.html",
-    "title": "RFC 008: Ingestion Product Requirements Document",
+    "objectID": "009-ingestion-implementation/009-ingestion-implementation.html",
+    "href": "009-ingestion-implementation/009-ingestion-implementation.html",
+    "title": "RFC 009: Ingestion Implementation",
     "section": "",
-    "text": "This PRD defines the next implementation stage for ingestion in AutoCleanEEG automation. Building on RFC 007, it specifies per‑file readiness, hash‑based deduplication, provenance subfolders, and JSON receipts, then maps these requirements to the existing codebase structure documented in docs/CODEBASE_MAP.md. The outcome is a detailed, test‑first execution plan that is sufficiently precise for end‑to‑end implementation while preserving auditability, uptime, and reproducibility."
+    "text": "This RFC implements the ingestion foundations defined in RFC 008. The scope focuses on deterministic hashing, receipt management, readiness evaluation, and a ledger for duplicate detection. These utilities provide the core building blocks for a future watcher and dispatch service without introducing runtime daemons in this phase."
   },
   {
-    "objectID": "008-ingestion-prd/008-ingestion-prd.html#executive-summary",
-    "href": "008-ingestion-prd/008-ingestion-prd.html#executive-summary",
-    "title": "RFC 008: Ingestion Product Requirements Document",
+    "objectID": "009-ingestion-implementation/009-ingestion-implementation.html#executive-summary",
+    "href": "009-ingestion-implementation/009-ingestion-implementation.html#executive-summary",
+    "title": "RFC 009: Ingestion Implementation",
     "section": "",
-    "text": "This PRD defines the next implementation stage for ingestion in AutoCleanEEG automation. Building on RFC 007, it specifies per‑file readiness, hash‑based deduplication, provenance subfolders, and JSON receipts, then maps these requirements to the existing codebase structure documented in docs/CODEBASE_MAP.md. The outcome is a detailed, test‑first execution plan that is sufficiently precise for end‑to‑end implementation while preserving auditability, uptime, and reproducibility."
+    "text": "This RFC implements the ingestion foundations defined in RFC 008. The scope focuses on deterministic hashing, receipt management, readiness evaluation, and a ledger for duplicate detection. These utilities provide the core building blocks for a future watcher and dispatch service without introducing runtime daemons in this phase."
   },
   {
-    "objectID": "008-ingestion-prd/008-ingestion-prd.html#background-and-context",
-    "href": "008-ingestion-prd/008-ingestion-prd.html#background-and-context",
-    "title": "RFC 008: Ingestion Product Requirements Document",
-    "section": "Background and Context",
-    "text": "Background and Context\nAutomation mode must safely ingest files without processing partial copies or duplicating runs. The pipeline already computes file hashes and maintains run metadata; the ingestion layer must formalize readiness gating, provenance receipts, and dispatch rules so automation can operate continuously without operator intervention. RFC 002 defines the serve workspace governance, and RFC 007 established per‑file readiness with hashing as the default. This PRD translates those decisions into implementable requirements and measurable outcomes."
+    "objectID": "009-ingestion-implementation/009-ingestion-implementation.html#implementation-scope",
+    "href": "009-ingestion-implementation/009-ingestion-implementation.html#implementation-scope",
+    "title": "RFC 009: Ingestion Implementation",
+    "section": "Implementation Scope",
+    "text": "Implementation Scope\n\nTable 1. Implemented ingestion components.\n\n\n\n\n\n\n\nArea\nDeliverable\nNotes\n\n\n\n\nHashing\nDeterministic file and provenance hashes\nUses SHA‑256 with stable metadata ordering.\n\n\nReceipts\nJSON sidecar with revisions\nImmutable receipt with append‑only revisions.\n\n\nReadiness\nSentinel + stability checks\nPer‑file sentinels plus optional size window.\n\n\nDedup\nLedger JSON\nTracks seen hashes to skip duplicates."
   },
   {
-    "objectID": "008-ingestion-prd/008-ingestion-prd.html#goals-and-nongoals",
-    "href": "008-ingestion-prd/008-ingestion-prd.html#goals-and-nongoals",
-    "title": "RFC 008: Ingestion Product Requirements Document",
-    "section": "Goals and Non‑Goals",
-    "text": "Goals and Non‑Goals\n\nTable 1. Product goals and non‑goals.\n\n\n\n\n\n\nGoals\nNon‑Goals\n\n\n\n\nDeterministic readiness gating for per‑file ingestion\nImplement the ingestion service in this phase\n\n\nHash‑based deduplication with audit‑ready receipts\nReplace existing pipeline hashing mechanisms\n\n\nClear mapping from ingestion to serve dispatch\nSupport non‑serve legacy workflows\n\n\nTest‑first delivery plan with staged rollout\nUI redesign for ingestion monitoring"
+    "objectID": "009-ingestion-implementation/009-ingestion-implementation.html#code-changes",
+    "href": "009-ingestion-implementation/009-ingestion-implementation.html#code-changes",
+    "title": "RFC 009: Ingestion Implementation",
+    "section": "Code Changes",
+    "text": "Code Changes\n\nTable 2. Code updates delivered.\n\n\n\n\n\n\nFile\nChange\n\n\n\n\nsrc/autoclean/utils/ingestion.py\nNew ingestion utilities for hashes, receipts, readiness, and ledger.\n\n\ntests/unit/utils/test_ingestion.py\nUnit tests covering determinism, receipts, ledger, and sentinel checks."
   },
   {
-    "objectID": "008-ingestion-prd/008-ingestion-prd.html#stakeholders-and-personas",
-    "href": "008-ingestion-prd/008-ingestion-prd.html#stakeholders-and-personas",
-    "title": "RFC 008: Ingestion Product Requirements Document",
-    "section": "Stakeholders and Personas",
-    "text": "Stakeholders and Personas\n\nTable 2. Key personas.\n\n\n\n\n\n\n\nPersona\nResponsibilities\nPain Points\n\n\n\n\nAutomation Operator\nConfigure ingestion and monitor runs\nAvoid partial ingestion and duplicates\n\n\nData Manager\nEnsure provenance and audit readiness\nTrack source files and receipt history\n\n\nEngineer\nImplement and test ingestion logic\nClear requirements and module mapping"
+    "objectID": "009-ingestion-implementation/009-ingestion-implementation.html#test-results",
+    "href": "009-ingestion-implementation/009-ingestion-implementation.html#test-results",
+    "title": "RFC 009: Ingestion Implementation",
+    "section": "Test Results",
+    "text": "Test Results\nuv run --with pytest --with pytest-cov python -m pytest \\\n  tests/unit/utils/test_ingestion.py --cov-fail-under=0\nResult: 4 tests passed. Coverage threshold was overridden (--cov-fail-under=0) because repository defaults expect broader coverage. A warning about an unknown timeout pytest config option was emitted by pytest."
   },
   {
-    "objectID": "008-ingestion-prd/008-ingestion-prd.html#requirements",
-    "href": "008-ingestion-prd/008-ingestion-prd.html#requirements",
-    "title": "RFC 008: Ingestion Product Requirements Document",
-    "section": "Requirements",
-    "text": "Requirements\n\nFunctional Requirements\n\nTable 3. Functional requirements.\n\n\n\n\n\n\n\nID\nRequirement\nPriority\n\n\n\n\nFR‑1\nAccept per‑file completion signals (.ready/.done) before dispatch\nHigh\n\n\nFR‑2\nCompute or reuse file hashes and skip duplicates by default\nHigh\n\n\nFR‑3\nCreate deterministic provenance subfolders based on relative path + metadata hash\nHigh\n\n\nFR‑4\nWrite immutable JSON receipts with revision history\nHigh\n\n\nFR‑5\nSupport optional batch manifest gate when available\nMedium\n\n\nFR‑6\nQuarantine files failing readiness validation\nMedium\n\n\nFR‑7\nRecord readiness decisions in run metadata\nHigh\n\n\n\n\n\nNon‑Functional Requirements\n\nTable 4. Non‑functional requirements.\n\n\nID\nRequirement\nTarget\n\n\n\n\nNFR‑1\nReadiness decision latency\n&lt; 60 seconds after sentinel\n\n\nNFR‑2\nHash determinism\nStable across machines\n\n\nNFR‑3\nAuditability\nAppend‑only receipts and logs\n\n\nNFR‑4\nOperational simplicity\nMinimal manual steps\n\n\n\n\n\n\n\n\n\nTipDefault Strategy\n\n\n\nPer‑file completion + hash‑based deduplication is the default readiness strategy. Batch manifests remain optional and can be treated as a higher‑level gate when upstream systems support them."
+    "objectID": "009-ingestion-implementation/009-ingestion-implementation.html#followup-work",
+    "href": "009-ingestion-implementation/009-ingestion-implementation.html#followup-work",
+    "title": "RFC 009: Ingestion Implementation",
+    "section": "Follow‑Up Work",
+    "text": "Follow‑Up Work\n\nIntegrate watcher loop with watchfiles in a dedicated ingestion service.\nPersist ledger state in database for compliance mode.\nWire readiness decisions into serve dispatch."
   },
   {
-    "objectID": "008-ingestion-prd/008-ingestion-prd.html#provenance-model-and-receipts",
-    "href": "008-ingestion-prd/008-ingestion-prd.html#provenance-model-and-receipts",
-    "title": "RFC 008: Ingestion Product Requirements Document",
-    "section": "Provenance Model and Receipts",
-    "text": "Provenance Model and Receipts\nA deterministic ingestion layout requires stable subfolders. The recommended approach hashes the relative ingest path + minimal metadata (site, subject, session, acquisition date, batch ID) so the same dataset maps to the same folder across machines. Each folder contains a JSON receipt (same basename as the folder) capturing hash inputs, file list, file hashes, timestamps, and validation status, with revisions appended on updates rather than overwriting prior entries.\n\nTable 5. JSON receipt schema (high‑level).\n\n\nReceipt Field\nDescription\n\n\n\n\nreceipt_version\nSchema version for backward compatibility\n\n\nhash_inputs\nRelative path + metadata used in hash\n\n\nhash_value\nDeterministic folder hash\n\n\nfiles\nFile list with per‑file hashes and sizes\n\n\ntimestamps\nCopy, validation, and update times\n\n\nstatus\nReady, pending, quarantined, or deployed\n\n\nrevisions\nAppend‑only history of changes"
+    "objectID": "009-ingestion-implementation/009-ingestion-implementation.html#appendix-a-key-behaviors",
+    "href": "009-ingestion-implementation/009-ingestion-implementation.html#appendix-a-key-behaviors",
+    "title": "RFC 009: Ingestion Implementation",
+    "section": "Appendix A: Key Behaviors",
+    "text": "Appendix A: Key Behaviors\n\nReceipts are written atomically and revisions append without overwriting prior entries.\nDuplicate hashes are detected via the ledger and can be skipped by default.\nReadiness requires per‑file sentinels unless overridden by configuration."
   },
   {
-    "objectID": "008-ingestion-prd/008-ingestion-prd.html#automation-chain-and-state-flow",
-    "href": "008-ingestion-prd/008-ingestion-prd.html#automation-chain-and-state-flow",
-    "title": "RFC 008: Ingestion Product Requirements Document",
-    "section": "Automation Chain and State Flow",
-    "text": "Automation Chain and State Flow\n\n\n\n\n\nflowchart TD\n  A[File arrives + sentinel] --&gt; B[Hash + receipt update]\n  B --&gt; C[Readiness validation]\n  C --&gt;|Ready| D[Queue run]\n  C --&gt;|Not ready| E[Pending or quarantine]\n  D --&gt; F[Serve runtime dispatch]\n  F --&gt; G[Run metadata + receipt revision]\n\n\n Figure 1. Ingestion readiness to automation dispatch flow."
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html",
+    "href": "007-ingestion-planning/007-ingestion-planning.html",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "",
+    "text": "Automation must never process partially copied data. This RFC, aligned to RFC 002, defines ingestion readiness criteria, compares file-level and batch-level completion signals, and describes the watch-based chain from ingestion detection to automation execution. The focus is on deterministic gating, auditability, and minimal operational burden, with no implementation changes in this phase."
   },
   {
-    "objectID": "008-ingestion-prd/008-ingestion-prd.html#codebase-alignment-from-codebase_map",
-    "href": "008-ingestion-prd/008-ingestion-prd.html#codebase-alignment-from-codebase_map",
-    "title": "RFC 008: Ingestion Product Requirements Document",
-    "section": "Codebase Alignment (from CODEBASE_MAP)",
-    "text": "Codebase Alignment (from CODEBASE_MAP)\nThe ingestion system should integrate with existing modules rather than creating a parallel stack. The table below maps requirements to current code areas identified in docs/CODEBASE_MAP.md.\n\nTable 6. Module mapping for ingestion implementation.\n\n\n\n\n\n\n\nRequirement\nPrimary Module\nSupporting Modules\n\n\n\n\nReadiness gating\nsrc/autoclean/utils/ (new ingestion util)\nutils/logging.py, utils/audit.py\n\n\nHash + receipts\nutils/database.py (ledger) + new receipt helper\nutils/config.py, utils/task_discovery.py\n\n\nServe dispatch\ncore/pipeline.py\ncli.py, utils/user_config.py\n\n\nCLI surface\ncli.py serve commands\nconfigkit/schema.py"
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#executive-summary",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#executive-summary",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "",
+    "text": "Automation must never process partially copied data. This RFC, aligned to RFC 002, defines ingestion readiness criteria, compares file-level and batch-level completion signals, and describes the watch-based chain from ingestion detection to automation execution. The focus is on deterministic gating, auditability, and minimal operational burden, with no implementation changes in this phase."
   },
   {
-    "objectID": "008-ingestion-prd/008-ingestion-prd.html#execution-plan-tdd",
-    "href": "008-ingestion-prd/008-ingestion-prd.html#execution-plan-tdd",
-    "title": "RFC 008: Ingestion Product Requirements Document",
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#ingestion-requirements",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#ingestion-requirements",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "Ingestion Requirements",
+    "text": "Ingestion Requirements\n\nTable 1. Core ingestion requirements for automation mode.\n\n\n\n\n\n\n\nRequirement\nRationale\nImplication\n\n\n\n\nDeterministic readiness\nAvoid partial copies\nRequire explicit signals before dispatch.\n\n\nUpdate tolerance\nSupport late-arriving files\nAllow incremental batch updates under controlled rules.\n\n\nAudit trail\nTrace ingestion and run decisions\nRecord readiness checks and validation outcomes.\n\n\nLow operational friction\nMinimize manual steps\nFavor simple, repeatable triggers.\n\n\nRFC 002 alignment\nPreserve serve governance\nEnsure ingestion integrates with serve runtime controls."
+  },
+  {
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#completion-signals-file-vs-batch",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#completion-signals-file-vs-batch",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "Completion Signals: File vs Batch",
+    "text": "Completion Signals: File vs Batch\nTwo patterns dominate ingestion completion: per-file sentinels and batch-level manifests. Both can work, but they impose different operational controls. The table below contrasts the approaches and frames a recommended default.\n\nTable 2. Completion signal trade-offs.\n\n\n\n\n\n\n\n\nSignal Type\nMechanism\nStrengths\nRisks\n\n\n\n\nFile-level sentinel\n.done or .ready per file\nFine-grained control; works for rolling arrivals\nMore files to manage; risk of partial batch processing.\n\n\nBatch-level manifest\nSingle manifest for entire batch\nClear batch boundary; simpler audit trail\nDelays partial processing; requires manifest generator.\n\n\nStability window\nTime-based idle check\nNo additional files required\nSensitive to large file transfers or slow networks.\n\n\n\n\n\n\n\n\n\nNoteRecommendation\n\n\n\nAdopt per-file completion signals as the default, backed by hash-based deduplication, and allow batch manifests as an optional higher-level gate when upstream systems can provide them. This aligns with rolling ingestion while preventing duplicate processing and preserving deterministic readiness."
+  },
+  {
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#discussion-per-file-readiness-and-hashing",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#discussion-per-file-readiness-and-hashing",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "Discussion: Per-File Readiness and Hashing",
+    "text": "Discussion: Per-File Readiness and Hashing\nA per-file readiness marker (e.g., .done or .ready) matches the expected operational flow for rolling ingestion and keeps the automation responsive. To prevent duplicates, the pipeline should compute or reuse existing file hashes and store them in an ingestion ledger keyed by source path, hash, and timestamp. When a file arrives with a previously seen hash, the system can skip processing or route it to a review queue, preserving idempotency without blocking new data. Hashing also enables integrity verification after transfers and provides an audit-ready fingerprint for compliance reporting.\nBatch-level manifests still have value for sites that can generate them reliably, but they should be treated as an optional super-signal rather than the sole gating mechanism. In practice, the watcher can require both a per-file sentinel and hash match, while treating a manifest as a shortcut to mark a group as ready when all entries are present."
+  },
+  {
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#discussion-provenance-subfolders-and-receipts",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#discussion-provenance-subfolders-and-receipts",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "Discussion: Provenance Subfolders and Receipts",
+    "text": "Discussion: Provenance Subfolders and Receipts\nA provenance-first layout benefits from deterministic subfolders that allow manual review and reproducible ingestion. A practical pattern is to compute a stable hash from the ingest path relative to the workspace plus a minimal metadata payload (e.g., site ID, modality, acquisition date). This avoids reliance on absolute paths while keeping folder names deterministic across replays. The hashed folder becomes the canonical landing zone for copied data, ensuring repeat runs resolve to the same location.\nAdd a JSON sidecar receipt in each ingestion subfolder (same basename as the folder) containing the source path, hash inputs, hash output, file list, file hashes, timestamps, and validation status. This receipt enables deduplication, supports audit trails, and simplifies manual review without opening large data files. When updates arrive, the receipt should record a new revision entry rather than overwrite prior metadata.\nBest-practice patterns observed in similar pipelines include:\n\nStable hash inputs that ignore absolute machine paths.\nHuman-readable aliases stored alongside the hash for review.\nImmutable receipts with revision history and operator notes."
+  },
+  {
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#watcher-strategy-watchfiles-notify",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#watcher-strategy-watchfiles-notify",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "Watcher Strategy (watchfiles + notify)",
+    "text": "Watcher Strategy (watchfiles + notify)\nThe ingestion watcher should use watchfiles with the Rust notify backend to minimize latency while preserving readiness gating. Events feed a debounce window, then a readiness validator that checks manifest completeness, sentinel presence, and size stability before enqueueing a run. When readiness fails, the dataset moves to quarantine or remains pending.\n\n\n\n\n\nflowchart TD\n  A[File event] --&gt; B[Debounce window]\n  B --&gt; C[Readiness validator]\n  C --&gt;|Ready| D[Queue automation run]\n  C --&gt;|Not ready| E[Pending or quarantine]\n  D --&gt; F[Dispatch serve runtime]\n\n\n Figure 1. Ingestion readiness flow with watch-based gating."
+  },
+  {
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#end-to-end-automation-chain",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#end-to-end-automation-chain",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "End-to-End Automation Chain",
+    "text": "End-to-End Automation Chain\nThe ingestion plan must describe how readiness transitions into automation execution. The chain below captures the expected order without implementation detail.\n\nFile events trigger watch-based detection and debounce.\nReadiness validation confirms manifest/sentinel completeness and stability.\nA run is queued with taskfile/montage mapping and serve runtime selection.\nAutomation executes via the serve runtime, writing outputs and logs to the workspace.\nRun metadata captures readiness checks, config hashes, and any warnings."
+  },
+  {
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#best-practice-checklist",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#best-practice-checklist",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "Best-Practice Checklist",
+    "text": "Best-Practice Checklist\n\nTable 3. Operational best practices for ingestion.\n\n\n\n\n\n\n\nArea\nBest Practice\nReason\n\n\n\n\nIngestion folder\nSeparate staging from ingestion root\nPrevent partial processing.\n\n\nCompletion signal\nPrefer per-file sentinel + hash\nKeeps rolling ingestion responsive.\n\n\nUpdate handling\nRequire new manifest or receipt revision\nAvoid silent partial updates.\n\n\nDeduplication\nHash files before dispatch\nPrevent duplicate processing.\n\n\nQuarantine\nMove failed readiness to quarantine\nKeeps operators informed and pipeline clean.\n\n\nAudit logs\nPersist readiness decisions\nSupports compliance and debugging."
+  },
+  {
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#appendix-a-consultant-qa",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#appendix-a-consultant-qa",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "Appendix A: Consultant Q&A",
+    "text": "Appendix A: Consultant Q&A\n\nTable 4. Consultant responses to ingestion planning questions.\n\n\n\n\n\n\nQuestion\nConsultant Answer\n\n\n\n\nWhat tool generates the batch manifest in upstream systems?\nPrefer manifests emitted by the acquisition or export system (CSV/JSON with checksums) so ingestion is deterministic and audit‑ready.\n\n\nShould incremental updates create a new run or amend the original run?\nDefault to a new run using a stable batch_id; allow amendments only within a short correction window with a full audit trail.\n\n\nHow long should pending items remain before quarantine?\nKeep pending for 24–72 hours; quarantine after 7–14 days without resolution (configurable by site).\n\n\nShould duplicate hashes be skipped automatically or routed for review?\nTreat duplicates as idempotent, skip re‑ingest, and log a duplicate event; optionally route for review in compliance modes.\n\n\nWhich metadata fields should be included in the directory hash input?\nbatch_id, subject_id, session_id, recording_id, site_id, device_id, export_time, timezone, file_count, total_bytes, manifest_checksum, operator.\n\n\nHow long should receipts be retained before archiving?\nRetain 2–7 years depending on IRB/clinical policy; keep receipts immutable and archive rather than delete."
+  },
+  {
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#execution-plan-tdd",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#execution-plan-tdd",
+    "title": "RFC 007: Ingestion Planning for Automation",
     "section": "Execution Plan (TDD)",
-    "text": "Execution Plan (TDD)\n\nTable 7. TDD phases for ingestion delivery.\n\n\n\n\n\n\n\nPhase\nScope\nExample Tests\n\n\n\n\nPhase 1\nReadiness validators\nMissing sentinels, file count mismatch, size stability windows\n\n\nPhase 2\nHash + dedup\nDeterministic hash, duplicate skip, receipt append‑only\n\n\nPhase 3\nProvenance layout\nStable folder naming across hosts, metadata‑driven hash\n\n\nPhase 4\nWatcher integration\nDebounce timing, quarantine rules, manifest overrides\n\n\nPhase 5\nDispatch integration\nReady → queue → run metadata capture"
+    "text": "Execution Plan (TDD)\nThe execution plan below follows a test‑first sequence so ingestion logic is validated before operational rollout. Each phase assumes use of the existing test data and workspace to validate behavior in a controlled setting.\n\nTable 5. TDD execution phases for ingestion work.\n\n\n\n\n\n\n\nPhase\nTDD Focus\nExample Tests\n\n\n\n\nPhase 1: Readiness gates\nManifest/sentinel validation\nMissing fields, file count mismatch, size stability enforcement.\n\n\nPhase 2: Hashing + dedup\nDeterministic hashes\nStable hash output, duplicate detection, checksum mismatch detection.\n\n\nPhase 3: Receipts\nImmutable audit trail\nReceipt creation, append‑only revisions, retention policy checks.\n\n\nPhase 4: Watcher chain\nEvent handling\nDebounce windows, quarantine triggers, alert emission.\n\n\nPhase 5: Automation dispatch\nEnd‑to‑end flow\nReadiness → queue → run metadata capture.\n\n\n\nTDD sequencing keeps ingestion behavior predictable: write tests for readiness and hashing first, implement minimal logic to satisfy them, then expand into watcher and dispatch integration while preserving audit logs and receipt integrity."
   },
   {
-    "objectID": "008-ingestion-prd/008-ingestion-prd.html#success-metrics",
-    "href": "008-ingestion-prd/008-ingestion-prd.html#success-metrics",
-    "title": "RFC 008: Ingestion Product Requirements Document",
-    "section": "Success Metrics",
-    "text": "Success Metrics\n\n&lt;5% manual interventions per 100 ingested batches\n0 duplicate runs for identical hashes\n100% receipt coverage for ingested files"
-  },
-  {
-    "objectID": "008-ingestion-prd/008-ingestion-prd.html#appendix-a-consultant-qa-summary",
-    "href": "008-ingestion-prd/008-ingestion-prd.html#appendix-a-consultant-qa-summary",
-    "title": "RFC 008: Ingestion Product Requirements Document",
-    "section": "Appendix A: Consultant Q&A Summary",
-    "text": "Appendix A: Consultant Q&A Summary\n\nTable 8. Consultant responses retained for implementation.\n\n\n\n\n\n\nQuestion\nAnswer\n\n\n\n\nBatch manifest tooling\nUse upstream export/acquisition manifests with checksums.\n\n\nIncremental updates\nNew run by default; allow short amendment window.\n\n\nPending → quarantine\n24–72 hours pending; quarantine after 7–14 days.\n\n\nDuplicate hashes\nSkip by default; review only when compliance requires it.\n\n\nHash inputs\nbatch_id, subject_id, session_id, recording_id, site_id, device_id, export_time, timezone, file_count, total_bytes, manifest_checksum, operator.\n\n\nReceipt retention\n2–7 years per IRB/clinical policy."
-  },
-  {
-    "objectID": "006-serve-command-family/006-serve-command-family.html",
-    "href": "006-serve-command-family/006-serve-command-family.html",
-    "title": "RFC 006: Serve Command Family",
+    "objectID": "005-serve-workspace/005-serve-workspace.html",
+    "href": "005-serve-workspace/005-serve-workspace.html",
+    "title": "RFC 005: Serve Workspace Command",
     "section": "",
-    "text": "This RFC implements the additional autocleaneeg-pipeline serve commands required by RFC 002: list, validate, and deploy. The commands surface workspace status, validate operator-edited YAMLs, and promote configurations into a read-only deployed set under deploy/ after successful validation."
+    "text": "This RFC implements the first autocleaneeg-pipeline serve workspace command as scoped in RFC 002. The command creates or links a serve workspace, writes serve-test.yaml and serve-live.yaml, provisions test/live runtime folders, and persists the workspace path in the existing setup JSON. Runtime setup uses uv with an explicit package spec to keep the command reproducible."
   },
   {
-    "objectID": "006-serve-command-family/006-serve-command-family.html#executive-summary",
-    "href": "006-serve-command-family/006-serve-command-family.html#executive-summary",
-    "title": "RFC 006: Serve Command Family",
+    "objectID": "005-serve-workspace/005-serve-workspace.html#executive-summary",
+    "href": "005-serve-workspace/005-serve-workspace.html#executive-summary",
+    "title": "RFC 005: Serve Workspace Command",
     "section": "",
-    "text": "This RFC implements the additional autocleaneeg-pipeline serve commands required by RFC 002: list, validate, and deploy. The commands surface workspace status, validate operator-edited YAMLs, and promote configurations into a read-only deployed set under deploy/ after successful validation."
+    "text": "This RFC implements the first autocleaneeg-pipeline serve workspace command as scoped in RFC 002. The command creates or links a serve workspace, writes serve-test.yaml and serve-live.yaml, provisions test/live runtime folders, and persists the workspace path in the existing setup JSON. Runtime setup uses uv with an explicit package spec to keep the command reproducible."
   },
   {
-    "objectID": "006-serve-command-family/006-serve-command-family.html#command-overview",
-    "href": "006-serve-command-family/006-serve-command-family.html#command-overview",
-    "title": "RFC 006: Serve Command Family",
-    "section": "Command Overview",
-    "text": "Command Overview\n\nTable 1. Serve command family additions.\n\n\n\n\n\n\nCommand\nDescription\n\n\n\n\nserve list\nReport workspace path, YAML status, runtime folders, and automation directories.\n\n\nserve validate --mode &lt;test|live&gt;\nValidate the operator YAML for structure, paths, and mode alignment.\n\n\nserve deploy --mode &lt;test|live&gt;\nCopy validated YAML into deploy/ and mark it read-only."
+    "objectID": "005-serve-workspace/005-serve-workspace.html#workspace-layout",
+    "href": "005-serve-workspace/005-serve-workspace.html#workspace-layout",
+    "title": "RFC 005: Serve Workspace Command",
+    "section": "Workspace Layout",
+    "text": "Workspace Layout\n\nTable 1. Serve workspace structure (RFC 002 aligned).\n\n\n\n\n\n\n\nComponent\nPurpose\nNotes\n\n\n\n\nserve-test.yaml\nOperator-editable test config\nWritten once at workspace creation.\n\n\nserve-live.yaml\nOperator-editable live config\nWritten once at workspace creation.\n\n\nruntimes/test\nTest runtime root\nuv venv + install package spec.\n\n\nruntimes/live\nLive runtime root\nuv venv + install package spec.\n\n\nautomations/\nTaskfile-montage workspaces\nOutput root for automation jobs."
   },
   {
-    "objectID": "006-serve-command-family/006-serve-command-family.html#deployment-guardrails",
-    "href": "006-serve-command-family/006-serve-command-family.html#deployment-guardrails",
-    "title": "RFC 006: Serve Command Family",
-    "section": "Deployment Guardrails",
-    "text": "Deployment Guardrails\n\nOperator YAMLs (serve-test.yaml, serve-live.yaml) remain editable.\nDeployed YAMLs live in deploy/ and are marked read-only after deployment.\nValidation checks required keys, runtime paths, automation root paths, and mode alignment."
+    "objectID": "005-serve-workspace/005-serve-workspace.html#cli-interface",
+    "href": "005-serve-workspace/005-serve-workspace.html#cli-interface",
+    "title": "RFC 005: Serve Workspace Command",
+    "section": "CLI Interface",
+    "text": "CLI Interface\n\nTable 2. Serve workspace command surface.\n\n\n\n\n\n\nCommand\nDescription\n\n\n\n\nserve workspace --mode new --path &lt;dir&gt;\nCreate a new workspace and install runtimes.\n\n\nserve workspace --mode existing --path &lt;dir&gt;\nValidate and link an existing workspace.\n\n\nserve workspace --package &lt;spec&gt;\nPin runtime package version or local path.\n\n\nserve workspace --skip-uv\nSkip runtime install (for pre-provisioned runtimes).\n\n\n\n\n\n\n\n\n\nNoteReproducibility\n\n\n\nUse a pinned package spec (e.g., autocleaneeg-pipeline==&lt;version&gt;) or a local path to make runtime provisioning deterministic."
   },
   {
-    "objectID": "006-serve-command-family/006-serve-command-family.html#validation-steps",
-    "href": "006-serve-command-family/006-serve-command-family.html#validation-steps",
-    "title": "RFC 006: Serve Command Family",
-    "section": "Validation Steps",
-    "text": "Validation Steps\nuv run python -m autoclean.cli serve list --path \"/Volumes/owcssd/test-workspace/serve-workspace\"\nuv run python -m autoclean.cli serve validate --mode test --path \"/Volumes/owcssd/test-workspace/serve-workspace\"\nuv run python -m autoclean.cli serve deploy --mode test --path \"/Volumes/owcssd/test-workspace/serve-workspace\"\nResult: serve list reported expected workspace components and missing deployed YAMLs. serve validate --mode test succeeded with warnings for empty taskfile/montage. serve deploy --mode test created deploy/serve-test.yaml, marked it read-only, and preserved the warnings for incomplete operator fields."
+    "objectID": "005-serve-workspace/005-serve-workspace.html#implementation-summary",
+    "href": "005-serve-workspace/005-serve-workspace.html#implementation-summary",
+    "title": "RFC 005: Serve Workspace Command",
+    "section": "Implementation Summary",
+    "text": "Implementation Summary\n\nAdded serve workspace subcommand to create or link a workspace, with --mode, --path, and --package flags.\nPersisted the workspace path under serve_workspace in the existing setup JSON (no new config file).\nCreated runtime environments using uv venv + uv pip install --python &lt;venv&gt; &lt;package_spec&gt;."
   },
   {
-    "objectID": "006-serve-command-family/006-serve-command-family.html#appendix-a-files-reviewed",
-    "href": "006-serve-command-family/006-serve-command-family.html#appendix-a-files-reviewed",
-    "title": "RFC 006: Serve Command Family",
+    "objectID": "005-serve-workspace/005-serve-workspace.html#validation",
+    "href": "005-serve-workspace/005-serve-workspace.html#validation",
+    "title": "RFC 005: Serve Workspace Command",
+    "section": "Validation",
+    "text": "Validation\nCommand executed:\nuv run python -m autoclean.cli serve workspace \\\n  --mode new \\\n  --path \"/Volumes/owcssd/test-workspace/serve-workspace\" \\\n  --package \"/Volumes/owcssd/github/autocleaneeg_pipeline\"\nResult: Workspace created at /Volumes/owcssd/test-workspace/serve-workspace using a local package spec (/Volumes/owcssd/github/autocleaneeg_pipeline) with uv venv and uv pip install for both runtimes. A follow-up validation run (--mode existing --skip-uv --no-test) confirmed the workspace layout and persisted serve_workspace in setup.json. uv emitted a link-mode warning about reflink support when copying cached files; installation completed successfully."
+  },
+  {
+    "objectID": "005-serve-workspace/005-serve-workspace.html#appendix-a-files-reviewed",
+    "href": "005-serve-workspace/005-serve-workspace.html#appendix-a-files-reviewed",
+    "title": "RFC 005: Serve Workspace Command",
     "section": "Appendix A: Files Reviewed",
-    "text": "Appendix A: Files Reviewed\n\nsrc/autoclean/cli.py\nsrc/autoclean/utils/user_config.py\nplans/006-serve-command-family/006-serve-command-family.md"
+    "text": "Appendix A: Files Reviewed\n\nsrc/autoclean/cli.py\nsrc/autoclean/utils/user_config.py\nplans/005-serve-workspace/005-serve-workspace.md"
   },
   {
-    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html",
-    "href": "004-automation-mode-validation/004-automation-mode-validation.html",
-    "title": "RFC 004: Automation Mode Validation",
+    "objectID": "003-automation-mode/003-automation-mode.html",
+    "href": "003-automation-mode/003-automation-mode.html",
+    "title": "RFC 003: Automation Mode Implementation",
     "section": "",
-    "text": "This RFC validates that automation mode produces equivalent outputs when processing multiple files via batch mode versus individual runs with the --automation flag. The validation uses the provided test workspace, resting EEG sample data, and task file, and compares exports and logs for parity."
+    "text": "Automation mode is now designed to be activated by either a CLI flag (--automation) or a task-config key (automation_mode) embedded in Python task modules. The implementation disables task-root backups for automation runs while preserving auditability and the existing safety defaults. This RFC documents the precedence rules, code changes, and baseline validation steps required to support repeatable automation without breaking legacy workflows."
   },
   {
-    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#executive-summary",
-    "href": "004-automation-mode-validation/004-automation-mode-validation.html#executive-summary",
-    "title": "RFC 004: Automation Mode Validation",
+    "objectID": "003-automation-mode/003-automation-mode.html#executive-summary",
+    "href": "003-automation-mode/003-automation-mode.html#executive-summary",
+    "title": "RFC 003: Automation Mode Implementation",
     "section": "",
-    "text": "This RFC validates that automation mode produces equivalent outputs when processing multiple files via batch mode versus individual runs with the --automation flag. The validation uses the provided test workspace, resting EEG sample data, and task file, and compares exports and logs for parity."
+    "text": "Automation mode is now designed to be activated by either a CLI flag (--automation) or a task-config key (automation_mode) embedded in Python task modules. The implementation disables task-root backups for automation runs while preserving auditability and the existing safety defaults. This RFC documents the precedence rules, code changes, and baseline validation steps required to support repeatable automation without breaking legacy workflows."
   },
   {
-    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#test-plan",
-    "href": "004-automation-mode-validation/004-automation-mode-validation.html#test-plan",
-    "title": "RFC 004: Automation Mode Validation",
-    "section": "Test Plan",
-    "text": "Test Plan\n\nTable 1. Automation validation commands and output roots.\n\n\n\n\n\n\n\nStep\nCommand\nOutput Root\n\n\n\n\nBatch mode\nuv run python -m autoclean.cli process --task-file \"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\" --dir \"/Volumes/owcssd/test-data/resting-eeg-32ch\" --format \"*.set\" --output \"/Volumes/owcssd/test-workspace/automation-validation/batch\" --automation --yes\n.../automation-validation/batch\n\n\nSingle file 1\nuv run python -m autoclean.cli process --task-file \"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\" --file \"/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EO.set\" --output \"/Volumes/owcssd/test-workspace/automation-validation/individual\" --automation --yes\n.../automation-validation/individual\n\n\nSingle file 2\nuv run python -m autoclean.cli process --task-file \"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\" --file \"/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EC.set\" --output \"/Volumes/owcssd/test-workspace/automation-validation/individual\" --automation --yes\n.../automation-validation/individual"
+    "objectID": "003-automation-mode/003-automation-mode.html#requirements",
+    "href": "003-automation-mode/003-automation-mode.html#requirements",
+    "title": "RFC 003: Automation Mode Implementation",
+    "section": "Requirements",
+    "text": "Requirements\n\nTable 1. Automation mode requirements and implications.\n\n\n\n\n\n\n\nRequirement\nRationale\nImplementation Implication\n\n\n\n\nDual activation sources\nOperators want CLI overrides and config defaults\nCLI flag takes precedence over task config.\n\n\nBackup suppression\nAutomation needs idempotent output roots\nDisable backups when automation mode is resolved True.\n\n\nAudit traceability\nCompliance and debugging require evidence\nPersist automation mode and source in metadata.\n\n\nDefault safety\nManual workflows must remain unchanged\nMaintain auto-backup when automation is not enabled."
   },
   {
-    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#results",
-    "href": "004-automation-mode-validation/004-automation-mode-validation.html#results",
-    "title": "RFC 004: Automation Mode Validation",
-    "section": "Results",
-    "text": "Results\nBatch mode completed successfully for both .set files, producing exports under /Volumes/owcssd/test-workspace/automation-validation/batch/BiotrialResting1020. The two single-file runs also completed successfully, reusing /Volumes/owcssd/test-workspace/automation-validation/individual/BiotrialResting1020 on the second run with auto-backup disabled. Both modes generated identical export filenames and per-run report artifacts.\n\nBatch run IDs: 01KF9E7S7ZDMT3FGH10TV0HAHS (EO), 01KF9E88T8PS4WKGDBH691EZP1 (EC)\nIndividual run IDs: 01KF9E9WHKQ402RTSZDP6AFCMT (EO), 01KF9ET66JF0RNV9MD6RSGDZQ8 (EC)\nExports: 201001_D1BL_EO_comp_epo.set, 201001_D1BL_EC_comp_epo.set, plus per-file processing logs in exports/\nReports: per-file PDF, metadata JSON, flagged-channel TSV, and processing logs in reports/run_reports/"
+    "objectID": "003-automation-mode/003-automation-mode.html#automation-mode-precedence",
+    "href": "003-automation-mode/003-automation-mode.html#automation-mode-precedence",
+    "title": "RFC 003: Automation Mode Implementation",
+    "section": "Automation Mode Precedence",
+    "text": "Automation Mode Precedence\n\nTable 2. Automation mode precedence rules.\n\n\n\n\n\n\n\n\nInput\nScope\nPrecedence\nOutcome\n\n\n\n\nCLI --automation\nPer run\nHighest\nOverrides task config for that invocation.\n\n\nTask config automation_mode\nPer task\nDefault\nUsed when CLI flag is absent.\n\n\nDefault\nGlobal\nLowest\nFalls back to False.\n\n\n\n\n\n\n\n\n\nNotePrecedence Rule\n\n\n\nCLI activation is explicit and must override any task-level default. The resolved source is logged alongside the run metadata for auditability."
   },
   {
-    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#comparison-summary",
-    "href": "004-automation-mode-validation/004-automation-mode-validation.html#comparison-summary",
-    "title": "RFC 004: Automation Mode Validation",
-    "section": "Comparison Summary",
-    "text": "Comparison Summary\n\nTable 2. Batch vs single-file parity checkpoints.\n\n\n\n\n\n\n\n\nCheckpoint\nBatch Mode\nSingle-File Runs\nOutcome\n\n\n\n\nExported .set files\n2 files (EO, EC)\n2 files (EO, EC)\nMatch\n\n\nProcessing log entries\npreprocessing_log.csv has 2 rows\npreprocessing_log.csv has 2 rows\nMatch\n\n\nAutomation mode recorded\nCLI enabled; backups disabled\nCLI enabled; reuse existing task root\nMatch"
+    "objectID": "003-automation-mode/003-automation-mode.html#implementation-summary",
+    "href": "003-automation-mode/003-automation-mode.html#implementation-summary",
+    "title": "RFC 003: Automation Mode Implementation",
+    "section": "Implementation Summary",
+    "text": "Implementation Summary\n\nExtend step_prepare_directories to accept an auto_backup flag that controls whether existing task roots are backed up.\nAdd an automation_mode override to Pipeline, with resolution logic that prefers CLI over task config.\nPropagate automation metadata into run records (automation_mode, automation_source, auto_backup_enabled).\nAdd --automation to the process command and pass the override into the pipeline.\nAllow automation_mode in task module config via schema validation."
   },
   {
-    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#warnings-and-observations",
-    "href": "004-automation-mode-validation/004-automation-mode-validation.html#warnings-and-observations",
-    "title": "RFC 004: Automation Mode Validation",
-    "section": "Warnings and Observations",
-    "text": "Warnings and Observations\nRecurring warnings included EOG montage position defaults, initial empty participants.tsv, BrainVision conversion with float32 casting, ICLabel bandpass expectations, ICA report pre-computation fallback (mixing_ missing), and channel-count mismatches (actual 30 vs expected 27–28). None of these warnings prevented completion, and outputs remained consistent across batch and individual runs."
+    "objectID": "003-automation-mode/003-automation-mode.html#code-changes",
+    "href": "003-automation-mode/003-automation-mode.html#code-changes",
+    "title": "RFC 003: Automation Mode Implementation",
+    "section": "Code Changes",
+    "text": "Code Changes\n\nTable 3. Code updates for automation mode.\n\n\n\n\n\n\n\nArea\nChange\nRationale\n\n\n\n\nsrc/autoclean/utils/file_system.py\nauto_backup flag for directory prep\nAllows reuse of task roots under automation.\n\n\nsrc/autoclean/core/pipeline.py\nResolve automation mode + metadata logging\nCentralizes precedence and audit trail.\n\n\nsrc/autoclean/cli.py\n--automation process flag\nEnables explicit CLI activation.\n\n\nsrc/autoclean/configkit/schema.py\nAllow automation_mode key\nValidates task-level defaults."
   },
   {
-    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#appendix-a-files-reviewed",
-    "href": "004-automation-mode-validation/004-automation-mode-validation.html#appendix-a-files-reviewed",
-    "title": "RFC 004: Automation Mode Validation",
+    "objectID": "003-automation-mode/003-automation-mode.html#validation",
+    "href": "003-automation-mode/003-automation-mode.html#validation",
+    "title": "RFC 003: Automation Mode Implementation",
+    "section": "Validation",
+    "text": "Validation\nBaseline CLI test command (run from repo root using uv):\nuv run python -m autoclean.cli process \\\n  --task-file \"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\" \\\n  --file \"/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EO.set\" \\\n  --output \"/Volumes/owcssd/test-workspace\" \\\n  --automation --yes\nResult: The command completed successfully with automation mode enabled via CLI, creating outputs under /Volumes/owcssd/test-workspace/BiotrialResting1020 and logging automation_source=cli in run metadata. Warnings observed included montage EOG channel positions, empty participants.tsv on first creation, BrainVision conversion notices, an ICLabel bandpass warning, ICA report pre-compute fallback (mixing_ missing), and a channel-count mismatch (actual 30 vs expected 28)."
+  },
+  {
+    "objectID": "003-automation-mode/003-automation-mode.html#risks-and-follow-up",
+    "href": "003-automation-mode/003-automation-mode.html#risks-and-follow-up",
+    "title": "RFC 003: Automation Mode Implementation",
+    "section": "Risks and Follow-Up",
+    "text": "Risks and Follow-Up\n\nIf task configs omit automation_mode, CLI activation remains the only automation trigger.\nThe automation flag does not currently allow an explicit CLI override to disable a true task default; add --no-automation if operators need that control.\nRepeated automation runs rely on file-naming conventions to avoid overwrites; enforce policies from RFC 002 during implementation."
+  },
+  {
+    "objectID": "003-automation-mode/003-automation-mode.html#appendix-a-files-reviewed",
+    "href": "003-automation-mode/003-automation-mode.html#appendix-a-files-reviewed",
+    "title": "RFC 003: Automation Mode Implementation",
     "section": "Appendix A: Files Reviewed",
-    "text": "Appendix A: Files Reviewed\n\nplans/004-automation-mode-validation/004-automation-mode-validation.md"
+    "text": "Appendix A: Files Reviewed\n\nsrc/autoclean/utils/file_system.py\nsrc/autoclean/core/pipeline.py\nsrc/autoclean/cli.py\nsrc/autoclean/configkit/schema.py\nplans/003-automation-mode/003-automation-mode.md"
+  },
+  {
+    "objectID": "001-intro-big-picture/001-intro-big-picture.html",
+    "href": "001-intro-big-picture/001-intro-big-picture.html",
+    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "section": "",
+    "text": "This document executes the instruction to write an introduction to the big picture of what AutoCleanEEG Pipeline is.\n\n\n\nBased on the codebase exploration, AutoCleanEEG Pipeline is a modular framework for automated EEG data processing. Key components include:\n\nCore pipeline orchestration\nModular processing functions (preprocessing, ICA, epoching, artifacts)\nPlugin system for file formats\nCLI interface\nTask configuration system\nBIDS support\nBuilt-in tasks for various paradigms\n\n\n\n\nAutoCleanEEG Pipeline is a comprehensive, automated framework for EEG data preprocessing that streamlines the complex process of cleaning and preparing electroencephalography (EEG) data for analysis. Built on the robust MNE-Python library, it offers a modular “lego block” approach that allows users to construct customized preprocessing pipelines tailored to their specific experimental paradigms and data characteristics.\nThe pipeline supports a wide range of EEG paradigms including Auditory Steady-State Response (ASSR), Mismatch Negativity (MMN), resting state, and more, making it versatile for both research and clinical applications. Its design emphasizes research workflows, BIDS compatibility for standardized data organization, and detailed quality control outputs to ensure data integrity.\n\n\n\nModular Architecture: Processing steps are provided as interchangeable blocks, allowing flexible pipeline construction without coding.\nAutomated Quality Assurance: Built-in artifact detection, channel rejection, and epoch quality flagging with statistical methods.\nBIDS Compliance: Standard data organization and metadata handling for reproducible research.\nExtensible System: Plugin architecture for custom file formats and processing steps.\nBatch Processing: Efficient handling of multiple files with parallel execution and database logging.\nComprehensive Reporting: PDF reports, visualizations, and metadata summaries for transparency.\nTask System: Pre-configured tasks for common paradigms with customizable parameters.\n\n\n\n\nThe pipeline is designed for neuroscientists, clinicians, and data analysts who need reliable, reproducible EEG preprocessing. It serves:\n\nResearchers: Automate routine preprocessing to focus on scientific questions\nClinicians: Standardize processing for consistent clinical EEG analysis\n\nDevelopers: Extensible framework for custom EEG processing tools\n\n\n\n\nAutoCleanEEG fits into the EEG processing workflow as the preprocessing stage, taking raw EEG data and producing clean, analysis-ready datasets. It bridges the gap between data acquisition and statistical analysis, ensuring data quality while reducing manual processing time.\nBy automating routine cleaning tasks, it allows researchers to focus on their scientific questions while maintaining high standards of data quality and processing transparency.\n\n\n\n\nThis introduction is saved as a dedicated page in the plans website and linked in the navigation."
+  },
+  {
+    "objectID": "001-intro-big-picture/001-intro-big-picture.html#overview",
+    "href": "001-intro-big-picture/001-intro-big-picture.html#overview",
+    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "section": "",
+    "text": "This document executes the instruction to write an introduction to the big picture of what AutoCleanEEG Pipeline is."
+  },
+  {
+    "objectID": "001-intro-big-picture/001-intro-big-picture.html#analysis-of-codebase",
+    "href": "001-intro-big-picture/001-intro-big-picture.html#analysis-of-codebase",
+    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "section": "",
+    "text": "Based on the codebase exploration, AutoCleanEEG Pipeline is a modular framework for automated EEG data processing. Key components include:\n\nCore pipeline orchestration\nModular processing functions (preprocessing, ICA, epoching, artifacts)\nPlugin system for file formats\nCLI interface\nTask configuration system\nBIDS support\nBuilt-in tasks for various paradigms"
+  },
+  {
+    "objectID": "001-intro-big-picture/001-intro-big-picture.html#introduction",
+    "href": "001-intro-big-picture/001-intro-big-picture.html#introduction",
+    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "section": "",
+    "text": "AutoCleanEEG Pipeline is a comprehensive, automated framework for EEG data preprocessing that streamlines the complex process of cleaning and preparing electroencephalography (EEG) data for analysis. Built on the robust MNE-Python library, it offers a modular “lego block” approach that allows users to construct customized preprocessing pipelines tailored to their specific experimental paradigms and data characteristics.\nThe pipeline supports a wide range of EEG paradigms including Auditory Steady-State Response (ASSR), Mismatch Negativity (MMN), resting state, and more, making it versatile for both research and clinical applications. Its design emphasizes research workflows, BIDS compatibility for standardized data organization, and detailed quality control outputs to ensure data integrity.\n\n\n\nModular Architecture: Processing steps are provided as interchangeable blocks, allowing flexible pipeline construction without coding.\nAutomated Quality Assurance: Built-in artifact detection, channel rejection, and epoch quality flagging with statistical methods.\nBIDS Compliance: Standard data organization and metadata handling for reproducible research.\nExtensible System: Plugin architecture for custom file formats and processing steps.\nBatch Processing: Efficient handling of multiple files with parallel execution and database logging.\nComprehensive Reporting: PDF reports, visualizations, and metadata summaries for transparency.\nTask System: Pre-configured tasks for common paradigms with customizable parameters.\n\n\n\n\nThe pipeline is designed for neuroscientists, clinicians, and data analysts who need reliable, reproducible EEG preprocessing. It serves:\n\nResearchers: Automate routine preprocessing to focus on scientific questions\nClinicians: Standardize processing for consistent clinical EEG analysis\n\nDevelopers: Extensible framework for custom EEG processing tools\n\n\n\n\nAutoCleanEEG fits into the EEG processing workflow as the preprocessing stage, taking raw EEG data and producing clean, analysis-ready datasets. It bridges the gap between data acquisition and statistical analysis, ensuring data quality while reducing manual processing time.\nBy automating routine cleaning tasks, it allows researchers to focus on their scientific questions while maintaining high standards of data quality and processing transparency."
+  },
+  {
+    "objectID": "001-intro-big-picture/001-intro-big-picture.html#integration",
+    "href": "001-intro-big-picture/001-intro-big-picture.html#integration",
+    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "section": "",
+    "text": "This introduction is saved as a dedicated page in the plans website and linked in the navigation."
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "AutoCleanEEG Pipeline Plans",
+    "section": "",
+    "text": "Welcome to the AutoCleanEEG Pipeline Plans website.\nThis site contains the planning documents and instruction sets for the pipeline development.\n\n\n\nMain Plan\nIntroduction\nAutomation Idempotency Preparation\nAutomation Mode Implementation\nAutomation Mode Validation\nServe Workspace Command\nServe Command Family\nIngestion Planning\nIngestion PRD\nIngestion Implementation\nIngestion Provenance\nIngestion Watcher\nIngestion Dispatch\nDispatch Execution\n\n\n\n\nUse the navbar above to navigate the site."
+  },
+  {
+    "objectID": "index.html#documents",
+    "href": "index.html#documents",
+    "title": "AutoCleanEEG Pipeline Plans",
+    "section": "",
+    "text": "Main Plan\nIntroduction\nAutomation Idempotency Preparation\nAutomation Mode Implementation\nAutomation Mode Validation\nServe Workspace Command\nServe Command Family\nIngestion Planning\nIngestion PRD\nIngestion Implementation\nIngestion Provenance\nIngestion Watcher\nIngestion Dispatch\nDispatch Execution"
+  },
+  {
+    "objectID": "index.html#navigation",
+    "href": "index.html#navigation",
+    "title": "AutoCleanEEG Pipeline Plans",
+    "section": "",
+    "text": "Use the navbar above to navigate the site."
+  },
+  {
+    "objectID": "main-plan.html",
+    "href": "main-plan.html",
+    "title": "AutoCleanEEG Pipeline Plans",
+    "section": "",
+    "text": "pre-instruction hooks: - please make a surgical git commit before edits - do not edit this file under any circumstance overall strategy: - use quarto (qmd) website output - strategically implement all quarto elements including callouts - organization of pages: strategic, senior PM, scalable - should be unified quarto website in the plans folder. be familiar with the docs: https://quarto.org/docs/reference/projects/websites.html - formating: - APA 7 throughout (headings, citations if present, tables/figures, tone). - NIH-like formatting (whitespace/margins/typography) - use dense prose to explain reasoning and steps - use formal tables and figures with captions - strategically decide which belong in the main body vs. appendices - clear section headers and strict, consistent organization - coding: - explain each code listing clearly and concisely - prefer linear scripts over deeply nested functions - deliverable should be reproducible and self-contained - minimize and optimize file outputs to avoid directory clutter - group / consolidate code to avoid excessive code blocks. - Following instructions + filenaming strategy - RFC-style Design Docs (numbered, reviewed, archived) - For each set of instructions render a pair of files in a subfolder that share the same basename. - Reasoning Plan (.md): Record the intended instructions, their order, and the rationale at a high level, without results or execution details; keep it short and editable to steer or revise the downstream work. - Executed Document (.qmd): Implement and execute the full instruction set, including code, analysis, and outputs, producing the authoritative rendered result. This is organized and integrated into the larger quarto website. The .md file captures thinking and order, the .qmd file captures execution and results and they are always side by side in the same place. - Be mindful that this file will be run over and over again as ideopotent instructions - for each instruction set be an energetic assistant and deploy subagents as necessary - Available tools: - Autenticated Github CLI (version control, issues, etc.) - quarto CLI - prefer the use of trash (homebrew) rather than rm -rf\nInstruction sets:\nNew Task:\ncarefully and perfectly implement 008 next tdd phase\nuse loops until complete\nClean up rules: Will provide explit remove: and archive: and reactivate: blocks when needed - Archive: move instruction set and output to archive folder - Remove: delete instruction set and output - Reactivate: move instruction set and output to active folder\nPost Instruction hooks: - give direct, essential feedback to user for edits needed to align the current file based on your actions. - obsolute or outdated instructions - breaking ideopotency - critical thinking errors - output should be 1-2 lines, elegant and formatted - render quarto after every change (no warnings/errors that affect output integrity). - make a surgical git commit of your edits - update plans/main-plan-log.csv Maintain a CSV-based decision log that records what was decided, why it was reasonable, what evidence supported it, and how it was validated, across both data science and general work; include timestamps only when sequencing or causality matters. - specific project instructions if needed:"
   },
   {
     "objectID": "002-automation-idempotency/002-automation-idempotency.html",
@@ -392,353 +518,276 @@
     "text": "Appendix A: Files Reviewed\n\nsrc/autoclean/utils/file_system.py\nsrc/autoclean/core/pipeline.py\nsrc/autoclean/utils/path_resolution.py\nsrc/autoclean/utils/config.py\ndocs/CODEBASE_MAP.md"
   },
   {
-    "objectID": "main-plan.html",
-    "href": "main-plan.html",
-    "title": "AutoCleanEEG Pipeline Plans",
+    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html",
+    "href": "004-automation-mode-validation/004-automation-mode-validation.html",
+    "title": "RFC 004: Automation Mode Validation",
     "section": "",
-    "text": "pre-instruction hooks: - please make a surgical git commit before edits - do not edit this file under any circumstance overall strategy: - use quarto (qmd) website output - strategically implement all quarto elements including callouts - organization of pages: strategic, senior PM, scalable - should be unified quarto website in the plans folder. be familiar with the docs: https://quarto.org/docs/reference/projects/websites.html - formating: - APA 7 throughout (headings, citations if present, tables/figures, tone). - NIH-like formatting (whitespace/margins/typography) - use dense prose to explain reasoning and steps - use formal tables and figures with captions - strategically decide which belong in the main body vs. appendices - clear section headers and strict, consistent organization - coding: - explain each code listing clearly and concisely - prefer linear scripts over deeply nested functions - deliverable should be reproducible and self-contained - minimize and optimize file outputs to avoid directory clutter - group / consolidate code to avoid excessive code blocks. - Following instructions + filenaming strategy - RFC-style Design Docs (numbered, reviewed, archived) - For each set of instructions render a pair of files in a subfolder that share the same basename. - Reasoning Plan (.md): Record the intended instructions, their order, and the rationale at a high level, without results or execution details; keep it short and editable to steer or revise the downstream work. - Executed Document (.qmd): Implement and execute the full instruction set, including code, analysis, and outputs, producing the authoritative rendered result. This is organized and integrated into the larger quarto website. The .md file captures thinking and order, the .qmd file captures execution and results and they are always side by side in the same place. - Be mindful that this file will be run over and over again as ideopotent instructions - for each instruction set be an energetic assistant and deploy subagents as necessary - Available tools: - Autenticated Github CLI (version control, issues, etc.) - quarto CLI - prefer the use of trash (homebrew) rather than rm -rf\nInstruction sets:\nNew Task:\ncarefully and perfectly implement 008 next tdd phase\nuse loops until complete\nClean up rules: Will provide explit remove: and archive: and reactivate: blocks when needed - Archive: move instruction set and output to archive folder - Remove: delete instruction set and output - Reactivate: move instruction set and output to active folder\nPost Instruction hooks: - give direct, essential feedback to user for edits needed to align the current file based on your actions. - obsolute or outdated instructions - breaking ideopotency - critical thinking errors - output should be 1-2 lines, elegant and formatted - render quarto after every change (no warnings/errors that affect output integrity). - make a surgical git commit of your edits - update plans/main-plan-log.csv Maintain a CSV-based decision log that records what was decided, why it was reasonable, what evidence supported it, and how it was validated, across both data science and general work; include timestamps only when sequencing or causality matters. - specific project instructions if needed:"
+    "text": "This RFC validates that automation mode produces equivalent outputs when processing multiple files via batch mode versus individual runs with the --automation flag. The validation uses the provided test workspace, resting EEG sample data, and task file, and compares exports and logs for parity."
   },
   {
-    "objectID": "index.html",
-    "href": "index.html",
-    "title": "AutoCleanEEG Pipeline Plans",
+    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#executive-summary",
+    "href": "004-automation-mode-validation/004-automation-mode-validation.html#executive-summary",
+    "title": "RFC 004: Automation Mode Validation",
     "section": "",
-    "text": "Welcome to the AutoCleanEEG Pipeline Plans website.\nThis site contains the planning documents and instruction sets for the pipeline development.\n\n\n\nMain Plan\nIntroduction\nAutomation Idempotency Preparation\nAutomation Mode Implementation\nAutomation Mode Validation\nServe Workspace Command\nServe Command Family\nIngestion Planning\nIngestion PRD\nIngestion Implementation\nIngestion Provenance\nIngestion Watcher\nIngestion Dispatch\n\n\n\n\nUse the navbar above to navigate the site."
+    "text": "This RFC validates that automation mode produces equivalent outputs when processing multiple files via batch mode versus individual runs with the --automation flag. The validation uses the provided test workspace, resting EEG sample data, and task file, and compares exports and logs for parity."
   },
   {
-    "objectID": "index.html#documents",
-    "href": "index.html#documents",
-    "title": "AutoCleanEEG Pipeline Plans",
-    "section": "",
-    "text": "Main Plan\nIntroduction\nAutomation Idempotency Preparation\nAutomation Mode Implementation\nAutomation Mode Validation\nServe Workspace Command\nServe Command Family\nIngestion Planning\nIngestion PRD\nIngestion Implementation\nIngestion Provenance\nIngestion Watcher\nIngestion Dispatch"
+    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#test-plan",
+    "href": "004-automation-mode-validation/004-automation-mode-validation.html#test-plan",
+    "title": "RFC 004: Automation Mode Validation",
+    "section": "Test Plan",
+    "text": "Test Plan\n\nTable 1. Automation validation commands and output roots.\n\n\n\n\n\n\n\nStep\nCommand\nOutput Root\n\n\n\n\nBatch mode\nuv run python -m autoclean.cli process --task-file \"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\" --dir \"/Volumes/owcssd/test-data/resting-eeg-32ch\" --format \"*.set\" --output \"/Volumes/owcssd/test-workspace/automation-validation/batch\" --automation --yes\n.../automation-validation/batch\n\n\nSingle file 1\nuv run python -m autoclean.cli process --task-file \"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\" --file \"/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EO.set\" --output \"/Volumes/owcssd/test-workspace/automation-validation/individual\" --automation --yes\n.../automation-validation/individual\n\n\nSingle file 2\nuv run python -m autoclean.cli process --task-file \"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\" --file \"/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EC.set\" --output \"/Volumes/owcssd/test-workspace/automation-validation/individual\" --automation --yes\n.../automation-validation/individual"
   },
   {
-    "objectID": "index.html#navigation",
-    "href": "index.html#navigation",
-    "title": "AutoCleanEEG Pipeline Plans",
-    "section": "",
-    "text": "Use the navbar above to navigate the site."
+    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#results",
+    "href": "004-automation-mode-validation/004-automation-mode-validation.html#results",
+    "title": "RFC 004: Automation Mode Validation",
+    "section": "Results",
+    "text": "Results\nBatch mode completed successfully for both .set files, producing exports under /Volumes/owcssd/test-workspace/automation-validation/batch/BiotrialResting1020. The two single-file runs also completed successfully, reusing /Volumes/owcssd/test-workspace/automation-validation/individual/BiotrialResting1020 on the second run with auto-backup disabled. Both modes generated identical export filenames and per-run report artifacts.\n\nBatch run IDs: 01KF9E7S7ZDMT3FGH10TV0HAHS (EO), 01KF9E88T8PS4WKGDBH691EZP1 (EC)\nIndividual run IDs: 01KF9E9WHKQ402RTSZDP6AFCMT (EO), 01KF9ET66JF0RNV9MD6RSGDZQ8 (EC)\nExports: 201001_D1BL_EO_comp_epo.set, 201001_D1BL_EC_comp_epo.set, plus per-file processing logs in exports/\nReports: per-file PDF, metadata JSON, flagged-channel TSV, and processing logs in reports/run_reports/"
   },
   {
-    "objectID": "001-intro-big-picture/001-intro-big-picture.html",
-    "href": "001-intro-big-picture/001-intro-big-picture.html",
-    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
-    "section": "",
-    "text": "This document executes the instruction to write an introduction to the big picture of what AutoCleanEEG Pipeline is.\n\n\n\nBased on the codebase exploration, AutoCleanEEG Pipeline is a modular framework for automated EEG data processing. Key components include:\n\nCore pipeline orchestration\nModular processing functions (preprocessing, ICA, epoching, artifacts)\nPlugin system for file formats\nCLI interface\nTask configuration system\nBIDS support\nBuilt-in tasks for various paradigms\n\n\n\n\nAutoCleanEEG Pipeline is a comprehensive, automated framework for EEG data preprocessing that streamlines the complex process of cleaning and preparing electroencephalography (EEG) data for analysis. Built on the robust MNE-Python library, it offers a modular “lego block” approach that allows users to construct customized preprocessing pipelines tailored to their specific experimental paradigms and data characteristics.\nThe pipeline supports a wide range of EEG paradigms including Auditory Steady-State Response (ASSR), Mismatch Negativity (MMN), resting state, and more, making it versatile for both research and clinical applications. Its design emphasizes research workflows, BIDS compatibility for standardized data organization, and detailed quality control outputs to ensure data integrity.\n\n\n\nModular Architecture: Processing steps are provided as interchangeable blocks, allowing flexible pipeline construction without coding.\nAutomated Quality Assurance: Built-in artifact detection, channel rejection, and epoch quality flagging with statistical methods.\nBIDS Compliance: Standard data organization and metadata handling for reproducible research.\nExtensible System: Plugin architecture for custom file formats and processing steps.\nBatch Processing: Efficient handling of multiple files with parallel execution and database logging.\nComprehensive Reporting: PDF reports, visualizations, and metadata summaries for transparency.\nTask System: Pre-configured tasks for common paradigms with customizable parameters.\n\n\n\n\nThe pipeline is designed for neuroscientists, clinicians, and data analysts who need reliable, reproducible EEG preprocessing. It serves:\n\nResearchers: Automate routine preprocessing to focus on scientific questions\nClinicians: Standardize processing for consistent clinical EEG analysis\n\nDevelopers: Extensible framework for custom EEG processing tools\n\n\n\n\nAutoCleanEEG fits into the EEG processing workflow as the preprocessing stage, taking raw EEG data and producing clean, analysis-ready datasets. It bridges the gap between data acquisition and statistical analysis, ensuring data quality while reducing manual processing time.\nBy automating routine cleaning tasks, it allows researchers to focus on their scientific questions while maintaining high standards of data quality and processing transparency.\n\n\n\n\nThis introduction is saved as a dedicated page in the plans website and linked in the navigation."
+    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#comparison-summary",
+    "href": "004-automation-mode-validation/004-automation-mode-validation.html#comparison-summary",
+    "title": "RFC 004: Automation Mode Validation",
+    "section": "Comparison Summary",
+    "text": "Comparison Summary\n\nTable 2. Batch vs single-file parity checkpoints.\n\n\n\n\n\n\n\n\nCheckpoint\nBatch Mode\nSingle-File Runs\nOutcome\n\n\n\n\nExported .set files\n2 files (EO, EC)\n2 files (EO, EC)\nMatch\n\n\nProcessing log entries\npreprocessing_log.csv has 2 rows\npreprocessing_log.csv has 2 rows\nMatch\n\n\nAutomation mode recorded\nCLI enabled; backups disabled\nCLI enabled; reuse existing task root\nMatch"
   },
   {
-    "objectID": "001-intro-big-picture/001-intro-big-picture.html#overview",
-    "href": "001-intro-big-picture/001-intro-big-picture.html#overview",
-    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
-    "section": "",
-    "text": "This document executes the instruction to write an introduction to the big picture of what AutoCleanEEG Pipeline is."
+    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#warnings-and-observations",
+    "href": "004-automation-mode-validation/004-automation-mode-validation.html#warnings-and-observations",
+    "title": "RFC 004: Automation Mode Validation",
+    "section": "Warnings and Observations",
+    "text": "Warnings and Observations\nRecurring warnings included EOG montage position defaults, initial empty participants.tsv, BrainVision conversion with float32 casting, ICLabel bandpass expectations, ICA report pre-computation fallback (mixing_ missing), and channel-count mismatches (actual 30 vs expected 27–28). None of these warnings prevented completion, and outputs remained consistent across batch and individual runs."
   },
   {
-    "objectID": "001-intro-big-picture/001-intro-big-picture.html#analysis-of-codebase",
-    "href": "001-intro-big-picture/001-intro-big-picture.html#analysis-of-codebase",
-    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
-    "section": "",
-    "text": "Based on the codebase exploration, AutoCleanEEG Pipeline is a modular framework for automated EEG data processing. Key components include:\n\nCore pipeline orchestration\nModular processing functions (preprocessing, ICA, epoching, artifacts)\nPlugin system for file formats\nCLI interface\nTask configuration system\nBIDS support\nBuilt-in tasks for various paradigms"
+    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#appendix-a-files-reviewed",
+    "href": "004-automation-mode-validation/004-automation-mode-validation.html#appendix-a-files-reviewed",
+    "title": "RFC 004: Automation Mode Validation",
+    "section": "Appendix A: Files Reviewed",
+    "text": "Appendix A: Files Reviewed\n\nplans/004-automation-mode-validation/004-automation-mode-validation.md"
   },
   {
-    "objectID": "001-intro-big-picture/001-intro-big-picture.html#introduction",
-    "href": "001-intro-big-picture/001-intro-big-picture.html#introduction",
-    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "objectID": "006-serve-command-family/006-serve-command-family.html",
+    "href": "006-serve-command-family/006-serve-command-family.html",
+    "title": "RFC 006: Serve Command Family",
     "section": "",
-    "text": "AutoCleanEEG Pipeline is a comprehensive, automated framework for EEG data preprocessing that streamlines the complex process of cleaning and preparing electroencephalography (EEG) data for analysis. Built on the robust MNE-Python library, it offers a modular “lego block” approach that allows users to construct customized preprocessing pipelines tailored to their specific experimental paradigms and data characteristics.\nThe pipeline supports a wide range of EEG paradigms including Auditory Steady-State Response (ASSR), Mismatch Negativity (MMN), resting state, and more, making it versatile for both research and clinical applications. Its design emphasizes research workflows, BIDS compatibility for standardized data organization, and detailed quality control outputs to ensure data integrity.\n\n\n\nModular Architecture: Processing steps are provided as interchangeable blocks, allowing flexible pipeline construction without coding.\nAutomated Quality Assurance: Built-in artifact detection, channel rejection, and epoch quality flagging with statistical methods.\nBIDS Compliance: Standard data organization and metadata handling for reproducible research.\nExtensible System: Plugin architecture for custom file formats and processing steps.\nBatch Processing: Efficient handling of multiple files with parallel execution and database logging.\nComprehensive Reporting: PDF reports, visualizations, and metadata summaries for transparency.\nTask System: Pre-configured tasks for common paradigms with customizable parameters.\n\n\n\n\nThe pipeline is designed for neuroscientists, clinicians, and data analysts who need reliable, reproducible EEG preprocessing. It serves:\n\nResearchers: Automate routine preprocessing to focus on scientific questions\nClinicians: Standardize processing for consistent clinical EEG analysis\n\nDevelopers: Extensible framework for custom EEG processing tools\n\n\n\n\nAutoCleanEEG fits into the EEG processing workflow as the preprocessing stage, taking raw EEG data and producing clean, analysis-ready datasets. It bridges the gap between data acquisition and statistical analysis, ensuring data quality while reducing manual processing time.\nBy automating routine cleaning tasks, it allows researchers to focus on their scientific questions while maintaining high standards of data quality and processing transparency."
+    "text": "This RFC implements the additional autocleaneeg-pipeline serve commands required by RFC 002: list, validate, and deploy. The commands surface workspace status, validate operator-edited YAMLs, and promote configurations into a read-only deployed set under deploy/ after successful validation."
   },
   {
-    "objectID": "001-intro-big-picture/001-intro-big-picture.html#integration",
-    "href": "001-intro-big-picture/001-intro-big-picture.html#integration",
-    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "objectID": "006-serve-command-family/006-serve-command-family.html#executive-summary",
+    "href": "006-serve-command-family/006-serve-command-family.html#executive-summary",
+    "title": "RFC 006: Serve Command Family",
     "section": "",
-    "text": "This introduction is saved as a dedicated page in the plans website and linked in the navigation."
+    "text": "This RFC implements the additional autocleaneeg-pipeline serve commands required by RFC 002: list, validate, and deploy. The commands surface workspace status, validate operator-edited YAMLs, and promote configurations into a read-only deployed set under deploy/ after successful validation."
   },
   {
-    "objectID": "003-automation-mode/003-automation-mode.html",
-    "href": "003-automation-mode/003-automation-mode.html",
-    "title": "RFC 003: Automation Mode Implementation",
-    "section": "",
-    "text": "Automation mode is now designed to be activated by either a CLI flag (--automation) or a task-config key (automation_mode) embedded in Python task modules. The implementation disables task-root backups for automation runs while preserving auditability and the existing safety defaults. This RFC documents the precedence rules, code changes, and baseline validation steps required to support repeatable automation without breaking legacy workflows."
+    "objectID": "006-serve-command-family/006-serve-command-family.html#command-overview",
+    "href": "006-serve-command-family/006-serve-command-family.html#command-overview",
+    "title": "RFC 006: Serve Command Family",
+    "section": "Command Overview",
+    "text": "Command Overview\n\nTable 1. Serve command family additions.\n\n\n\n\n\n\nCommand\nDescription\n\n\n\n\nserve list\nReport workspace path, YAML status, runtime folders, and automation directories.\n\n\nserve validate --mode &lt;test|live&gt;\nValidate the operator YAML for structure, paths, and mode alignment.\n\n\nserve deploy --mode &lt;test|live&gt;\nCopy validated YAML into deploy/ and mark it read-only."
   },
   {
-    "objectID": "003-automation-mode/003-automation-mode.html#executive-summary",
-    "href": "003-automation-mode/003-automation-mode.html#executive-summary",
-    "title": "RFC 003: Automation Mode Implementation",
-    "section": "",
-    "text": "Automation mode is now designed to be activated by either a CLI flag (--automation) or a task-config key (automation_mode) embedded in Python task modules. The implementation disables task-root backups for automation runs while preserving auditability and the existing safety defaults. This RFC documents the precedence rules, code changes, and baseline validation steps required to support repeatable automation without breaking legacy workflows."
+    "objectID": "006-serve-command-family/006-serve-command-family.html#deployment-guardrails",
+    "href": "006-serve-command-family/006-serve-command-family.html#deployment-guardrails",
+    "title": "RFC 006: Serve Command Family",
+    "section": "Deployment Guardrails",
+    "text": "Deployment Guardrails\n\nOperator YAMLs (serve-test.yaml, serve-live.yaml) remain editable.\nDeployed YAMLs live in deploy/ and are marked read-only after deployment.\nValidation checks required keys, runtime paths, automation root paths, and mode alignment."
   },
   {
-    "objectID": "003-automation-mode/003-automation-mode.html#requirements",
-    "href": "003-automation-mode/003-automation-mode.html#requirements",
-    "title": "RFC 003: Automation Mode Implementation",
+    "objectID": "006-serve-command-family/006-serve-command-family.html#validation-steps",
+    "href": "006-serve-command-family/006-serve-command-family.html#validation-steps",
+    "title": "RFC 006: Serve Command Family",
+    "section": "Validation Steps",
+    "text": "Validation Steps\nuv run python -m autoclean.cli serve list --path \"/Volumes/owcssd/test-workspace/serve-workspace\"\nuv run python -m autoclean.cli serve validate --mode test --path \"/Volumes/owcssd/test-workspace/serve-workspace\"\nuv run python -m autoclean.cli serve deploy --mode test --path \"/Volumes/owcssd/test-workspace/serve-workspace\"\nResult: serve list reported expected workspace components and missing deployed YAMLs. serve validate --mode test succeeded with warnings for empty taskfile/montage. serve deploy --mode test created deploy/serve-test.yaml, marked it read-only, and preserved the warnings for incomplete operator fields."
+  },
+  {
+    "objectID": "006-serve-command-family/006-serve-command-family.html#appendix-a-files-reviewed",
+    "href": "006-serve-command-family/006-serve-command-family.html#appendix-a-files-reviewed",
+    "title": "RFC 006: Serve Command Family",
+    "section": "Appendix A: Files Reviewed",
+    "text": "Appendix A: Files Reviewed\n\nsrc/autoclean/cli.py\nsrc/autoclean/utils/user_config.py\nplans/006-serve-command-family/006-serve-command-family.md"
+  },
+  {
+    "objectID": "008-ingestion-prd/008-ingestion-prd.html",
+    "href": "008-ingestion-prd/008-ingestion-prd.html",
+    "title": "RFC 008: Ingestion Product Requirements Document",
+    "section": "",
+    "text": "This PRD defines the next implementation stage for ingestion in AutoCleanEEG automation. Building on RFC 007, it specifies per‑file readiness, hash‑based deduplication, provenance subfolders, and JSON receipts, then maps these requirements to the existing codebase structure documented in docs/CODEBASE_MAP.md. The outcome is a detailed, test‑first execution plan that is sufficiently precise for end‑to‑end implementation while preserving auditability, uptime, and reproducibility."
+  },
+  {
+    "objectID": "008-ingestion-prd/008-ingestion-prd.html#executive-summary",
+    "href": "008-ingestion-prd/008-ingestion-prd.html#executive-summary",
+    "title": "RFC 008: Ingestion Product Requirements Document",
+    "section": "",
+    "text": "This PRD defines the next implementation stage for ingestion in AutoCleanEEG automation. Building on RFC 007, it specifies per‑file readiness, hash‑based deduplication, provenance subfolders, and JSON receipts, then maps these requirements to the existing codebase structure documented in docs/CODEBASE_MAP.md. The outcome is a detailed, test‑first execution plan that is sufficiently precise for end‑to‑end implementation while preserving auditability, uptime, and reproducibility."
+  },
+  {
+    "objectID": "008-ingestion-prd/008-ingestion-prd.html#background-and-context",
+    "href": "008-ingestion-prd/008-ingestion-prd.html#background-and-context",
+    "title": "RFC 008: Ingestion Product Requirements Document",
+    "section": "Background and Context",
+    "text": "Background and Context\nAutomation mode must safely ingest files without processing partial copies or duplicating runs. The pipeline already computes file hashes and maintains run metadata; the ingestion layer must formalize readiness gating, provenance receipts, and dispatch rules so automation can operate continuously without operator intervention. RFC 002 defines the serve workspace governance, and RFC 007 established per‑file readiness with hashing as the default. This PRD translates those decisions into implementable requirements and measurable outcomes."
+  },
+  {
+    "objectID": "008-ingestion-prd/008-ingestion-prd.html#goals-and-nongoals",
+    "href": "008-ingestion-prd/008-ingestion-prd.html#goals-and-nongoals",
+    "title": "RFC 008: Ingestion Product Requirements Document",
+    "section": "Goals and Non‑Goals",
+    "text": "Goals and Non‑Goals\n\nTable 1. Product goals and non‑goals.\n\n\n\n\n\n\nGoals\nNon‑Goals\n\n\n\n\nDeterministic readiness gating for per‑file ingestion\nImplement the ingestion service in this phase\n\n\nHash‑based deduplication with audit‑ready receipts\nReplace existing pipeline hashing mechanisms\n\n\nClear mapping from ingestion to serve dispatch\nSupport non‑serve legacy workflows\n\n\nTest‑first delivery plan with staged rollout\nUI redesign for ingestion monitoring"
+  },
+  {
+    "objectID": "008-ingestion-prd/008-ingestion-prd.html#stakeholders-and-personas",
+    "href": "008-ingestion-prd/008-ingestion-prd.html#stakeholders-and-personas",
+    "title": "RFC 008: Ingestion Product Requirements Document",
+    "section": "Stakeholders and Personas",
+    "text": "Stakeholders and Personas\n\nTable 2. Key personas.\n\n\n\n\n\n\n\nPersona\nResponsibilities\nPain Points\n\n\n\n\nAutomation Operator\nConfigure ingestion and monitor runs\nAvoid partial ingestion and duplicates\n\n\nData Manager\nEnsure provenance and audit readiness\nTrack source files and receipt history\n\n\nEngineer\nImplement and test ingestion logic\nClear requirements and module mapping"
+  },
+  {
+    "objectID": "008-ingestion-prd/008-ingestion-prd.html#requirements",
+    "href": "008-ingestion-prd/008-ingestion-prd.html#requirements",
+    "title": "RFC 008: Ingestion Product Requirements Document",
     "section": "Requirements",
-    "text": "Requirements\n\nTable 1. Automation mode requirements and implications.\n\n\n\n\n\n\n\nRequirement\nRationale\nImplementation Implication\n\n\n\n\nDual activation sources\nOperators want CLI overrides and config defaults\nCLI flag takes precedence over task config.\n\n\nBackup suppression\nAutomation needs idempotent output roots\nDisable backups when automation mode is resolved True.\n\n\nAudit traceability\nCompliance and debugging require evidence\nPersist automation mode and source in metadata.\n\n\nDefault safety\nManual workflows must remain unchanged\nMaintain auto-backup when automation is not enabled."
+    "text": "Requirements\n\nFunctional Requirements\n\nTable 3. Functional requirements.\n\n\n\n\n\n\n\nID\nRequirement\nPriority\n\n\n\n\nFR‑1\nAccept per‑file completion signals (.ready/.done) before dispatch\nHigh\n\n\nFR‑2\nCompute or reuse file hashes and skip duplicates by default\nHigh\n\n\nFR‑3\nCreate deterministic provenance subfolders based on relative path + metadata hash\nHigh\n\n\nFR‑4\nWrite immutable JSON receipts with revision history\nHigh\n\n\nFR‑5\nSupport optional batch manifest gate when available\nMedium\n\n\nFR‑6\nQuarantine files failing readiness validation\nMedium\n\n\nFR‑7\nRecord readiness decisions in run metadata\nHigh\n\n\n\n\n\nNon‑Functional Requirements\n\nTable 4. Non‑functional requirements.\n\n\nID\nRequirement\nTarget\n\n\n\n\nNFR‑1\nReadiness decision latency\n&lt; 60 seconds after sentinel\n\n\nNFR‑2\nHash determinism\nStable across machines\n\n\nNFR‑3\nAuditability\nAppend‑only receipts and logs\n\n\nNFR‑4\nOperational simplicity\nMinimal manual steps\n\n\n\n\n\n\n\n\n\nTipDefault Strategy\n\n\n\nPer‑file completion + hash‑based deduplication is the default readiness strategy. Batch manifests remain optional and can be treated as a higher‑level gate when upstream systems support them."
   },
   {
-    "objectID": "003-automation-mode/003-automation-mode.html#automation-mode-precedence",
-    "href": "003-automation-mode/003-automation-mode.html#automation-mode-precedence",
-    "title": "RFC 003: Automation Mode Implementation",
-    "section": "Automation Mode Precedence",
-    "text": "Automation Mode Precedence\n\nTable 2. Automation mode precedence rules.\n\n\n\n\n\n\n\n\nInput\nScope\nPrecedence\nOutcome\n\n\n\n\nCLI --automation\nPer run\nHighest\nOverrides task config for that invocation.\n\n\nTask config automation_mode\nPer task\nDefault\nUsed when CLI flag is absent.\n\n\nDefault\nGlobal\nLowest\nFalls back to False.\n\n\n\n\n\n\n\n\n\nNotePrecedence Rule\n\n\n\nCLI activation is explicit and must override any task-level default. The resolved source is logged alongside the run metadata for auditability."
+    "objectID": "008-ingestion-prd/008-ingestion-prd.html#provenance-model-and-receipts",
+    "href": "008-ingestion-prd/008-ingestion-prd.html#provenance-model-and-receipts",
+    "title": "RFC 008: Ingestion Product Requirements Document",
+    "section": "Provenance Model and Receipts",
+    "text": "Provenance Model and Receipts\nA deterministic ingestion layout requires stable subfolders. The recommended approach hashes the relative ingest path + minimal metadata (site, subject, session, acquisition date, batch ID) so the same dataset maps to the same folder across machines. Each folder contains a JSON receipt (same basename as the folder) capturing hash inputs, file list, file hashes, timestamps, and validation status, with revisions appended on updates rather than overwriting prior entries.\n\nTable 5. JSON receipt schema (high‑level).\n\n\nReceipt Field\nDescription\n\n\n\n\nreceipt_version\nSchema version for backward compatibility\n\n\nhash_inputs\nRelative path + metadata used in hash\n\n\nhash_value\nDeterministic folder hash\n\n\nfiles\nFile list with per‑file hashes and sizes\n\n\ntimestamps\nCopy, validation, and update times\n\n\nstatus\nReady, pending, quarantined, or deployed\n\n\nrevisions\nAppend‑only history of changes"
   },
   {
-    "objectID": "003-automation-mode/003-automation-mode.html#implementation-summary",
-    "href": "003-automation-mode/003-automation-mode.html#implementation-summary",
-    "title": "RFC 003: Automation Mode Implementation",
-    "section": "Implementation Summary",
-    "text": "Implementation Summary\n\nExtend step_prepare_directories to accept an auto_backup flag that controls whether existing task roots are backed up.\nAdd an automation_mode override to Pipeline, with resolution logic that prefers CLI over task config.\nPropagate automation metadata into run records (automation_mode, automation_source, auto_backup_enabled).\nAdd --automation to the process command and pass the override into the pipeline.\nAllow automation_mode in task module config via schema validation."
+    "objectID": "008-ingestion-prd/008-ingestion-prd.html#automation-chain-and-state-flow",
+    "href": "008-ingestion-prd/008-ingestion-prd.html#automation-chain-and-state-flow",
+    "title": "RFC 008: Ingestion Product Requirements Document",
+    "section": "Automation Chain and State Flow",
+    "text": "Automation Chain and State Flow\n\n\n\n\n\nflowchart TD\n  A[File arrives + sentinel] --&gt; B[Hash + receipt update]\n  B --&gt; C[Readiness validation]\n  C --&gt;|Ready| D[Queue run]\n  C --&gt;|Not ready| E[Pending or quarantine]\n  D --&gt; F[Serve runtime dispatch]\n  F --&gt; G[Run metadata + receipt revision]\n\n\n Figure 1. Ingestion readiness to automation dispatch flow."
   },
   {
-    "objectID": "003-automation-mode/003-automation-mode.html#code-changes",
-    "href": "003-automation-mode/003-automation-mode.html#code-changes",
-    "title": "RFC 003: Automation Mode Implementation",
-    "section": "Code Changes",
-    "text": "Code Changes\n\nTable 3. Code updates for automation mode.\n\n\n\n\n\n\n\nArea\nChange\nRationale\n\n\n\n\nsrc/autoclean/utils/file_system.py\nauto_backup flag for directory prep\nAllows reuse of task roots under automation.\n\n\nsrc/autoclean/core/pipeline.py\nResolve automation mode + metadata logging\nCentralizes precedence and audit trail.\n\n\nsrc/autoclean/cli.py\n--automation process flag\nEnables explicit CLI activation.\n\n\nsrc/autoclean/configkit/schema.py\nAllow automation_mode key\nValidates task-level defaults."
+    "objectID": "008-ingestion-prd/008-ingestion-prd.html#codebase-alignment-from-codebase_map",
+    "href": "008-ingestion-prd/008-ingestion-prd.html#codebase-alignment-from-codebase_map",
+    "title": "RFC 008: Ingestion Product Requirements Document",
+    "section": "Codebase Alignment (from CODEBASE_MAP)",
+    "text": "Codebase Alignment (from CODEBASE_MAP)\nThe ingestion system should integrate with existing modules rather than creating a parallel stack. The table below maps requirements to current code areas identified in docs/CODEBASE_MAP.md.\n\nTable 6. Module mapping for ingestion implementation.\n\n\n\n\n\n\n\nRequirement\nPrimary Module\nSupporting Modules\n\n\n\n\nReadiness gating\nsrc/autoclean/utils/ (new ingestion util)\nutils/logging.py, utils/audit.py\n\n\nHash + receipts\nutils/database.py (ledger) + new receipt helper\nutils/config.py, utils/task_discovery.py\n\n\nServe dispatch\ncore/pipeline.py\ncli.py, utils/user_config.py\n\n\nCLI surface\ncli.py serve commands\nconfigkit/schema.py"
   },
   {
-    "objectID": "003-automation-mode/003-automation-mode.html#validation",
-    "href": "003-automation-mode/003-automation-mode.html#validation",
-    "title": "RFC 003: Automation Mode Implementation",
-    "section": "Validation",
-    "text": "Validation\nBaseline CLI test command (run from repo root using uv):\nuv run python -m autoclean.cli process \\\n  --task-file \"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\" \\\n  --file \"/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EO.set\" \\\n  --output \"/Volumes/owcssd/test-workspace\" \\\n  --automation --yes\nResult: The command completed successfully with automation mode enabled via CLI, creating outputs under /Volumes/owcssd/test-workspace/BiotrialResting1020 and logging automation_source=cli in run metadata. Warnings observed included montage EOG channel positions, empty participants.tsv on first creation, BrainVision conversion notices, an ICLabel bandpass warning, ICA report pre-compute fallback (mixing_ missing), and a channel-count mismatch (actual 30 vs expected 28)."
-  },
-  {
-    "objectID": "003-automation-mode/003-automation-mode.html#risks-and-follow-up",
-    "href": "003-automation-mode/003-automation-mode.html#risks-and-follow-up",
-    "title": "RFC 003: Automation Mode Implementation",
-    "section": "Risks and Follow-Up",
-    "text": "Risks and Follow-Up\n\nIf task configs omit automation_mode, CLI activation remains the only automation trigger.\nThe automation flag does not currently allow an explicit CLI override to disable a true task default; add --no-automation if operators need that control.\nRepeated automation runs rely on file-naming conventions to avoid overwrites; enforce policies from RFC 002 during implementation."
-  },
-  {
-    "objectID": "003-automation-mode/003-automation-mode.html#appendix-a-files-reviewed",
-    "href": "003-automation-mode/003-automation-mode.html#appendix-a-files-reviewed",
-    "title": "RFC 003: Automation Mode Implementation",
-    "section": "Appendix A: Files Reviewed",
-    "text": "Appendix A: Files Reviewed\n\nsrc/autoclean/utils/file_system.py\nsrc/autoclean/core/pipeline.py\nsrc/autoclean/cli.py\nsrc/autoclean/configkit/schema.py\nplans/003-automation-mode/003-automation-mode.md"
-  },
-  {
-    "objectID": "005-serve-workspace/005-serve-workspace.html",
-    "href": "005-serve-workspace/005-serve-workspace.html",
-    "title": "RFC 005: Serve Workspace Command",
-    "section": "",
-    "text": "This RFC implements the first autocleaneeg-pipeline serve workspace command as scoped in RFC 002. The command creates or links a serve workspace, writes serve-test.yaml and serve-live.yaml, provisions test/live runtime folders, and persists the workspace path in the existing setup JSON. Runtime setup uses uv with an explicit package spec to keep the command reproducible."
-  },
-  {
-    "objectID": "005-serve-workspace/005-serve-workspace.html#executive-summary",
-    "href": "005-serve-workspace/005-serve-workspace.html#executive-summary",
-    "title": "RFC 005: Serve Workspace Command",
-    "section": "",
-    "text": "This RFC implements the first autocleaneeg-pipeline serve workspace command as scoped in RFC 002. The command creates or links a serve workspace, writes serve-test.yaml and serve-live.yaml, provisions test/live runtime folders, and persists the workspace path in the existing setup JSON. Runtime setup uses uv with an explicit package spec to keep the command reproducible."
-  },
-  {
-    "objectID": "005-serve-workspace/005-serve-workspace.html#workspace-layout",
-    "href": "005-serve-workspace/005-serve-workspace.html#workspace-layout",
-    "title": "RFC 005: Serve Workspace Command",
-    "section": "Workspace Layout",
-    "text": "Workspace Layout\n\nTable 1. Serve workspace structure (RFC 002 aligned).\n\n\n\n\n\n\n\nComponent\nPurpose\nNotes\n\n\n\n\nserve-test.yaml\nOperator-editable test config\nWritten once at workspace creation.\n\n\nserve-live.yaml\nOperator-editable live config\nWritten once at workspace creation.\n\n\nruntimes/test\nTest runtime root\nuv venv + install package spec.\n\n\nruntimes/live\nLive runtime root\nuv venv + install package spec.\n\n\nautomations/\nTaskfile-montage workspaces\nOutput root for automation jobs."
-  },
-  {
-    "objectID": "005-serve-workspace/005-serve-workspace.html#cli-interface",
-    "href": "005-serve-workspace/005-serve-workspace.html#cli-interface",
-    "title": "RFC 005: Serve Workspace Command",
-    "section": "CLI Interface",
-    "text": "CLI Interface\n\nTable 2. Serve workspace command surface.\n\n\n\n\n\n\nCommand\nDescription\n\n\n\n\nserve workspace --mode new --path &lt;dir&gt;\nCreate a new workspace and install runtimes.\n\n\nserve workspace --mode existing --path &lt;dir&gt;\nValidate and link an existing workspace.\n\n\nserve workspace --package &lt;spec&gt;\nPin runtime package version or local path.\n\n\nserve workspace --skip-uv\nSkip runtime install (for pre-provisioned runtimes).\n\n\n\n\n\n\n\n\n\nNoteReproducibility\n\n\n\nUse a pinned package spec (e.g., autocleaneeg-pipeline==&lt;version&gt;) or a local path to make runtime provisioning deterministic."
-  },
-  {
-    "objectID": "005-serve-workspace/005-serve-workspace.html#implementation-summary",
-    "href": "005-serve-workspace/005-serve-workspace.html#implementation-summary",
-    "title": "RFC 005: Serve Workspace Command",
-    "section": "Implementation Summary",
-    "text": "Implementation Summary\n\nAdded serve workspace subcommand to create or link a workspace, with --mode, --path, and --package flags.\nPersisted the workspace path under serve_workspace in the existing setup JSON (no new config file).\nCreated runtime environments using uv venv + uv pip install --python &lt;venv&gt; &lt;package_spec&gt;."
-  },
-  {
-    "objectID": "005-serve-workspace/005-serve-workspace.html#validation",
-    "href": "005-serve-workspace/005-serve-workspace.html#validation",
-    "title": "RFC 005: Serve Workspace Command",
-    "section": "Validation",
-    "text": "Validation\nCommand executed:\nuv run python -m autoclean.cli serve workspace \\\n  --mode new \\\n  --path \"/Volumes/owcssd/test-workspace/serve-workspace\" \\\n  --package \"/Volumes/owcssd/github/autocleaneeg_pipeline\"\nResult: Workspace created at /Volumes/owcssd/test-workspace/serve-workspace using a local package spec (/Volumes/owcssd/github/autocleaneeg_pipeline) with uv venv and uv pip install for both runtimes. A follow-up validation run (--mode existing --skip-uv --no-test) confirmed the workspace layout and persisted serve_workspace in setup.json. uv emitted a link-mode warning about reflink support when copying cached files; installation completed successfully."
-  },
-  {
-    "objectID": "005-serve-workspace/005-serve-workspace.html#appendix-a-files-reviewed",
-    "href": "005-serve-workspace/005-serve-workspace.html#appendix-a-files-reviewed",
-    "title": "RFC 005: Serve Workspace Command",
-    "section": "Appendix A: Files Reviewed",
-    "text": "Appendix A: Files Reviewed\n\nsrc/autoclean/cli.py\nsrc/autoclean/utils/user_config.py\nplans/005-serve-workspace/005-serve-workspace.md"
-  },
-  {
-    "objectID": "007-ingestion-planning/007-ingestion-planning.html",
-    "href": "007-ingestion-planning/007-ingestion-planning.html",
-    "title": "RFC 007: Ingestion Planning for Automation",
-    "section": "",
-    "text": "Automation must never process partially copied data. This RFC, aligned to RFC 002, defines ingestion readiness criteria, compares file-level and batch-level completion signals, and describes the watch-based chain from ingestion detection to automation execution. The focus is on deterministic gating, auditability, and minimal operational burden, with no implementation changes in this phase."
-  },
-  {
-    "objectID": "007-ingestion-planning/007-ingestion-planning.html#executive-summary",
-    "href": "007-ingestion-planning/007-ingestion-planning.html#executive-summary",
-    "title": "RFC 007: Ingestion Planning for Automation",
-    "section": "",
-    "text": "Automation must never process partially copied data. This RFC, aligned to RFC 002, defines ingestion readiness criteria, compares file-level and batch-level completion signals, and describes the watch-based chain from ingestion detection to automation execution. The focus is on deterministic gating, auditability, and minimal operational burden, with no implementation changes in this phase."
-  },
-  {
-    "objectID": "007-ingestion-planning/007-ingestion-planning.html#ingestion-requirements",
-    "href": "007-ingestion-planning/007-ingestion-planning.html#ingestion-requirements",
-    "title": "RFC 007: Ingestion Planning for Automation",
-    "section": "Ingestion Requirements",
-    "text": "Ingestion Requirements\n\nTable 1. Core ingestion requirements for automation mode.\n\n\n\n\n\n\n\nRequirement\nRationale\nImplication\n\n\n\n\nDeterministic readiness\nAvoid partial copies\nRequire explicit signals before dispatch.\n\n\nUpdate tolerance\nSupport late-arriving files\nAllow incremental batch updates under controlled rules.\n\n\nAudit trail\nTrace ingestion and run decisions\nRecord readiness checks and validation outcomes.\n\n\nLow operational friction\nMinimize manual steps\nFavor simple, repeatable triggers.\n\n\nRFC 002 alignment\nPreserve serve governance\nEnsure ingestion integrates with serve runtime controls."
-  },
-  {
-    "objectID": "007-ingestion-planning/007-ingestion-planning.html#completion-signals-file-vs-batch",
-    "href": "007-ingestion-planning/007-ingestion-planning.html#completion-signals-file-vs-batch",
-    "title": "RFC 007: Ingestion Planning for Automation",
-    "section": "Completion Signals: File vs Batch",
-    "text": "Completion Signals: File vs Batch\nTwo patterns dominate ingestion completion: per-file sentinels and batch-level manifests. Both can work, but they impose different operational controls. The table below contrasts the approaches and frames a recommended default.\n\nTable 2. Completion signal trade-offs.\n\n\n\n\n\n\n\n\nSignal Type\nMechanism\nStrengths\nRisks\n\n\n\n\nFile-level sentinel\n.done or .ready per file\nFine-grained control; works for rolling arrivals\nMore files to manage; risk of partial batch processing.\n\n\nBatch-level manifest\nSingle manifest for entire batch\nClear batch boundary; simpler audit trail\nDelays partial processing; requires manifest generator.\n\n\nStability window\nTime-based idle check\nNo additional files required\nSensitive to large file transfers or slow networks.\n\n\n\n\n\n\n\n\n\nNoteRecommendation\n\n\n\nAdopt per-file completion signals as the default, backed by hash-based deduplication, and allow batch manifests as an optional higher-level gate when upstream systems can provide them. This aligns with rolling ingestion while preventing duplicate processing and preserving deterministic readiness."
-  },
-  {
-    "objectID": "007-ingestion-planning/007-ingestion-planning.html#discussion-per-file-readiness-and-hashing",
-    "href": "007-ingestion-planning/007-ingestion-planning.html#discussion-per-file-readiness-and-hashing",
-    "title": "RFC 007: Ingestion Planning for Automation",
-    "section": "Discussion: Per-File Readiness and Hashing",
-    "text": "Discussion: Per-File Readiness and Hashing\nA per-file readiness marker (e.g., .done or .ready) matches the expected operational flow for rolling ingestion and keeps the automation responsive. To prevent duplicates, the pipeline should compute or reuse existing file hashes and store them in an ingestion ledger keyed by source path, hash, and timestamp. When a file arrives with a previously seen hash, the system can skip processing or route it to a review queue, preserving idempotency without blocking new data. Hashing also enables integrity verification after transfers and provides an audit-ready fingerprint for compliance reporting.\nBatch-level manifests still have value for sites that can generate them reliably, but they should be treated as an optional super-signal rather than the sole gating mechanism. In practice, the watcher can require both a per-file sentinel and hash match, while treating a manifest as a shortcut to mark a group as ready when all entries are present."
-  },
-  {
-    "objectID": "007-ingestion-planning/007-ingestion-planning.html#discussion-provenance-subfolders-and-receipts",
-    "href": "007-ingestion-planning/007-ingestion-planning.html#discussion-provenance-subfolders-and-receipts",
-    "title": "RFC 007: Ingestion Planning for Automation",
-    "section": "Discussion: Provenance Subfolders and Receipts",
-    "text": "Discussion: Provenance Subfolders and Receipts\nA provenance-first layout benefits from deterministic subfolders that allow manual review and reproducible ingestion. A practical pattern is to compute a stable hash from the ingest path relative to the workspace plus a minimal metadata payload (e.g., site ID, modality, acquisition date). This avoids reliance on absolute paths while keeping folder names deterministic across replays. The hashed folder becomes the canonical landing zone for copied data, ensuring repeat runs resolve to the same location.\nAdd a JSON sidecar receipt in each ingestion subfolder (same basename as the folder) containing the source path, hash inputs, hash output, file list, file hashes, timestamps, and validation status. This receipt enables deduplication, supports audit trails, and simplifies manual review without opening large data files. When updates arrive, the receipt should record a new revision entry rather than overwrite prior metadata.\nBest-practice patterns observed in similar pipelines include:\n\nStable hash inputs that ignore absolute machine paths.\nHuman-readable aliases stored alongside the hash for review.\nImmutable receipts with revision history and operator notes."
-  },
-  {
-    "objectID": "007-ingestion-planning/007-ingestion-planning.html#watcher-strategy-watchfiles-notify",
-    "href": "007-ingestion-planning/007-ingestion-planning.html#watcher-strategy-watchfiles-notify",
-    "title": "RFC 007: Ingestion Planning for Automation",
-    "section": "Watcher Strategy (watchfiles + notify)",
-    "text": "Watcher Strategy (watchfiles + notify)\nThe ingestion watcher should use watchfiles with the Rust notify backend to minimize latency while preserving readiness gating. Events feed a debounce window, then a readiness validator that checks manifest completeness, sentinel presence, and size stability before enqueueing a run. When readiness fails, the dataset moves to quarantine or remains pending.\n\n\n\n\n\nflowchart TD\n  A[File event] --&gt; B[Debounce window]\n  B --&gt; C[Readiness validator]\n  C --&gt;|Ready| D[Queue automation run]\n  C --&gt;|Not ready| E[Pending or quarantine]\n  D --&gt; F[Dispatch serve runtime]\n\n\n Figure 1. Ingestion readiness flow with watch-based gating."
-  },
-  {
-    "objectID": "007-ingestion-planning/007-ingestion-planning.html#end-to-end-automation-chain",
-    "href": "007-ingestion-planning/007-ingestion-planning.html#end-to-end-automation-chain",
-    "title": "RFC 007: Ingestion Planning for Automation",
-    "section": "End-to-End Automation Chain",
-    "text": "End-to-End Automation Chain\nThe ingestion plan must describe how readiness transitions into automation execution. The chain below captures the expected order without implementation detail.\n\nFile events trigger watch-based detection and debounce.\nReadiness validation confirms manifest/sentinel completeness and stability.\nA run is queued with taskfile/montage mapping and serve runtime selection.\nAutomation executes via the serve runtime, writing outputs and logs to the workspace.\nRun metadata captures readiness checks, config hashes, and any warnings."
-  },
-  {
-    "objectID": "007-ingestion-planning/007-ingestion-planning.html#best-practice-checklist",
-    "href": "007-ingestion-planning/007-ingestion-planning.html#best-practice-checklist",
-    "title": "RFC 007: Ingestion Planning for Automation",
-    "section": "Best-Practice Checklist",
-    "text": "Best-Practice Checklist\n\nTable 3. Operational best practices for ingestion.\n\n\n\n\n\n\n\nArea\nBest Practice\nReason\n\n\n\n\nIngestion folder\nSeparate staging from ingestion root\nPrevent partial processing.\n\n\nCompletion signal\nPrefer per-file sentinel + hash\nKeeps rolling ingestion responsive.\n\n\nUpdate handling\nRequire new manifest or receipt revision\nAvoid silent partial updates.\n\n\nDeduplication\nHash files before dispatch\nPrevent duplicate processing.\n\n\nQuarantine\nMove failed readiness to quarantine\nKeeps operators informed and pipeline clean.\n\n\nAudit logs\nPersist readiness decisions\nSupports compliance and debugging."
-  },
-  {
-    "objectID": "007-ingestion-planning/007-ingestion-planning.html#appendix-a-consultant-qa",
-    "href": "007-ingestion-planning/007-ingestion-planning.html#appendix-a-consultant-qa",
-    "title": "RFC 007: Ingestion Planning for Automation",
-    "section": "Appendix A: Consultant Q&A",
-    "text": "Appendix A: Consultant Q&A\n\nTable 4. Consultant responses to ingestion planning questions.\n\n\n\n\n\n\nQuestion\nConsultant Answer\n\n\n\n\nWhat tool generates the batch manifest in upstream systems?\nPrefer manifests emitted by the acquisition or export system (CSV/JSON with checksums) so ingestion is deterministic and audit‑ready.\n\n\nShould incremental updates create a new run or amend the original run?\nDefault to a new run using a stable batch_id; allow amendments only within a short correction window with a full audit trail.\n\n\nHow long should pending items remain before quarantine?\nKeep pending for 24–72 hours; quarantine after 7–14 days without resolution (configurable by site).\n\n\nShould duplicate hashes be skipped automatically or routed for review?\nTreat duplicates as idempotent, skip re‑ingest, and log a duplicate event; optionally route for review in compliance modes.\n\n\nWhich metadata fields should be included in the directory hash input?\nbatch_id, subject_id, session_id, recording_id, site_id, device_id, export_time, timezone, file_count, total_bytes, manifest_checksum, operator.\n\n\nHow long should receipts be retained before archiving?\nRetain 2–7 years depending on IRB/clinical policy; keep receipts immutable and archive rather than delete."
-  },
-  {
-    "objectID": "007-ingestion-planning/007-ingestion-planning.html#execution-plan-tdd",
-    "href": "007-ingestion-planning/007-ingestion-planning.html#execution-plan-tdd",
-    "title": "RFC 007: Ingestion Planning for Automation",
+    "objectID": "008-ingestion-prd/008-ingestion-prd.html#execution-plan-tdd",
+    "href": "008-ingestion-prd/008-ingestion-prd.html#execution-plan-tdd",
+    "title": "RFC 008: Ingestion Product Requirements Document",
     "section": "Execution Plan (TDD)",
-    "text": "Execution Plan (TDD)\nThe execution plan below follows a test‑first sequence so ingestion logic is validated before operational rollout. Each phase assumes use of the existing test data and workspace to validate behavior in a controlled setting.\n\nTable 5. TDD execution phases for ingestion work.\n\n\n\n\n\n\n\nPhase\nTDD Focus\nExample Tests\n\n\n\n\nPhase 1: Readiness gates\nManifest/sentinel validation\nMissing fields, file count mismatch, size stability enforcement.\n\n\nPhase 2: Hashing + dedup\nDeterministic hashes\nStable hash output, duplicate detection, checksum mismatch detection.\n\n\nPhase 3: Receipts\nImmutable audit trail\nReceipt creation, append‑only revisions, retention policy checks.\n\n\nPhase 4: Watcher chain\nEvent handling\nDebounce windows, quarantine triggers, alert emission.\n\n\nPhase 5: Automation dispatch\nEnd‑to‑end flow\nReadiness → queue → run metadata capture.\n\n\n\nTDD sequencing keeps ingestion behavior predictable: write tests for readiness and hashing first, implement minimal logic to satisfy them, then expand into watcher and dispatch integration while preserving audit logs and receipt integrity."
+    "text": "Execution Plan (TDD)\n\nTable 7. TDD phases for ingestion delivery.\n\n\n\n\n\n\n\nPhase\nScope\nExample Tests\n\n\n\n\nPhase 1\nReadiness validators\nMissing sentinels, file count mismatch, size stability windows\n\n\nPhase 2\nHash + dedup\nDeterministic hash, duplicate skip, receipt append‑only\n\n\nPhase 3\nProvenance layout\nStable folder naming across hosts, metadata‑driven hash\n\n\nPhase 4\nWatcher integration\nDebounce timing, quarantine rules, manifest overrides\n\n\nPhase 5\nDispatch integration\nReady → queue → run metadata capture"
   },
   {
-    "objectID": "009-ingestion-implementation/009-ingestion-implementation.html",
-    "href": "009-ingestion-implementation/009-ingestion-implementation.html",
-    "title": "RFC 009: Ingestion Implementation",
+    "objectID": "008-ingestion-prd/008-ingestion-prd.html#success-metrics",
+    "href": "008-ingestion-prd/008-ingestion-prd.html#success-metrics",
+    "title": "RFC 008: Ingestion Product Requirements Document",
+    "section": "Success Metrics",
+    "text": "Success Metrics\n\n&lt;5% manual interventions per 100 ingested batches\n0 duplicate runs for identical hashes\n100% receipt coverage for ingested files"
+  },
+  {
+    "objectID": "008-ingestion-prd/008-ingestion-prd.html#appendix-a-consultant-qa-summary",
+    "href": "008-ingestion-prd/008-ingestion-prd.html#appendix-a-consultant-qa-summary",
+    "title": "RFC 008: Ingestion Product Requirements Document",
+    "section": "Appendix A: Consultant Q&A Summary",
+    "text": "Appendix A: Consultant Q&A Summary\n\nTable 8. Consultant responses retained for implementation.\n\n\n\n\n\n\nQuestion\nAnswer\n\n\n\n\nBatch manifest tooling\nUse upstream export/acquisition manifests with checksums.\n\n\nIncremental updates\nNew run by default; allow short amendment window.\n\n\nPending → quarantine\n24–72 hours pending; quarantine after 7–14 days.\n\n\nDuplicate hashes\nSkip by default; review only when compliance requires it.\n\n\nHash inputs\nbatch_id, subject_id, session_id, recording_id, site_id, device_id, export_time, timezone, file_count, total_bytes, manifest_checksum, operator.\n\n\nReceipt retention\n2–7 years per IRB/clinical policy."
+  },
+  {
+    "objectID": "010-ingestion-provenance/010-ingestion-provenance.html",
+    "href": "010-ingestion-provenance/010-ingestion-provenance.html",
+    "title": "RFC 010: Ingestion Provenance Phase",
     "section": "",
-    "text": "This RFC implements the ingestion foundations defined in RFC 008. The scope focuses on deterministic hashing, receipt management, readiness evaluation, and a ledger for duplicate detection. These utilities provide the core building blocks for a future watcher and dispatch service without introducing runtime daemons in this phase."
+    "text": "This phase completes the provenance layout step from RFC 008 by adding deterministic folder resolution and staged receipt writing with ledger integration. The new helpers resolve a provenance hash into a stable folder, write receipts atomically, and flag duplicate hashes via the ledger. Unit tests confirm determinism and duplicate handling."
   },
   {
-    "objectID": "009-ingestion-implementation/009-ingestion-implementation.html#executive-summary",
-    "href": "009-ingestion-implementation/009-ingestion-implementation.html#executive-summary",
-    "title": "RFC 009: Ingestion Implementation",
+    "objectID": "010-ingestion-provenance/010-ingestion-provenance.html#executive-summary",
+    "href": "010-ingestion-provenance/010-ingestion-provenance.html#executive-summary",
+    "title": "RFC 010: Ingestion Provenance Phase",
     "section": "",
-    "text": "This RFC implements the ingestion foundations defined in RFC 008. The scope focuses on deterministic hashing, receipt management, readiness evaluation, and a ledger for duplicate detection. These utilities provide the core building blocks for a future watcher and dispatch service without introducing runtime daemons in this phase."
+    "text": "This phase completes the provenance layout step from RFC 008 by adding deterministic folder resolution and staged receipt writing with ledger integration. The new helpers resolve a provenance hash into a stable folder, write receipts atomically, and flag duplicate hashes via the ledger. Unit tests confirm determinism and duplicate handling."
   },
   {
-    "objectID": "009-ingestion-implementation/009-ingestion-implementation.html#implementation-scope",
-    "href": "009-ingestion-implementation/009-ingestion-implementation.html#implementation-scope",
-    "title": "RFC 009: Ingestion Implementation",
+    "objectID": "010-ingestion-provenance/010-ingestion-provenance.html#implementation-scope",
+    "href": "010-ingestion-provenance/010-ingestion-provenance.html#implementation-scope",
+    "title": "RFC 010: Ingestion Provenance Phase",
     "section": "Implementation Scope",
-    "text": "Implementation Scope\n\nTable 1. Implemented ingestion components.\n\n\n\n\n\n\n\nArea\nDeliverable\nNotes\n\n\n\n\nHashing\nDeterministic file and provenance hashes\nUses SHA‑256 with stable metadata ordering.\n\n\nReceipts\nJSON sidecar with revisions\nImmutable receipt with append‑only revisions.\n\n\nReadiness\nSentinel + stability checks\nPer‑file sentinels plus optional size window.\n\n\nDedup\nLedger JSON\nTracks seen hashes to skip duplicates."
+    "text": "Implementation Scope\n\nTable 1. Provenance phase deliverables.\n\n\n\n\n\n\n\nArea\nDeliverable\nNotes\n\n\n\n\nProvenance layout\nresolve_provenance_folder\nHashes relative path + metadata to a folder.\n\n\nReceipt staging\nstage_provenance_receipt\nWrites receipt and records ledger state.\n\n\nLedger support\nDuplicate flagging\nMarks duplicates without overwriting receipts."
   },
   {
-    "objectID": "009-ingestion-implementation/009-ingestion-implementation.html#code-changes",
-    "href": "009-ingestion-implementation/009-ingestion-implementation.html#code-changes",
-    "title": "RFC 009: Ingestion Implementation",
+    "objectID": "010-ingestion-provenance/010-ingestion-provenance.html#code-changes",
+    "href": "010-ingestion-provenance/010-ingestion-provenance.html#code-changes",
+    "title": "RFC 010: Ingestion Provenance Phase",
     "section": "Code Changes",
-    "text": "Code Changes\n\nTable 2. Code updates delivered.\n\n\n\n\n\n\nFile\nChange\n\n\n\n\nsrc/autoclean/utils/ingestion.py\nNew ingestion utilities for hashes, receipts, readiness, and ledger.\n\n\ntests/unit/utils/test_ingestion.py\nUnit tests covering determinism, receipts, ledger, and sentinel checks."
+    "text": "Code Changes\n\nTable 2. Code updates delivered.\n\n\n\n\n\n\nFile\nChange\n\n\n\n\nsrc/autoclean/utils/ingestion.py\nAdded provenance folder resolver and staged receipt helper.\n\n\ntests/unit/utils/test_ingestion.py\nAdded tests for folder determinism and ledger-backed staging."
   },
   {
-    "objectID": "009-ingestion-implementation/009-ingestion-implementation.html#test-results",
-    "href": "009-ingestion-implementation/009-ingestion-implementation.html#test-results",
-    "title": "RFC 009: Ingestion Implementation",
+    "objectID": "010-ingestion-provenance/010-ingestion-provenance.html#test-results",
+    "href": "010-ingestion-provenance/010-ingestion-provenance.html#test-results",
+    "title": "RFC 010: Ingestion Provenance Phase",
     "section": "Test Results",
-    "text": "Test Results\nuv run --with pytest --with pytest-cov python -m pytest \\\n  tests/unit/utils/test_ingestion.py --cov-fail-under=0\nResult: 4 tests passed. Coverage threshold was overridden (--cov-fail-under=0) because repository defaults expect broader coverage. A warning about an unknown timeout pytest config option was emitted by pytest."
+    "text": "Test Results\nuv run --with pytest --with pytest-cov python -m pytest \\\n  tests/unit/utils/test_ingestion.py --cov-fail-under=0\nResult: 6 tests passed. Coverage threshold was overridden (--cov-fail-under=0) due to repository defaults. Pytest emitted an unknown timeout config warning."
   },
   {
-    "objectID": "009-ingestion-implementation/009-ingestion-implementation.html#followup-work",
-    "href": "009-ingestion-implementation/009-ingestion-implementation.html#followup-work",
-    "title": "RFC 009: Ingestion Implementation",
+    "objectID": "010-ingestion-provenance/010-ingestion-provenance.html#followup-work",
+    "href": "010-ingestion-provenance/010-ingestion-provenance.html#followup-work",
+    "title": "RFC 010: Ingestion Provenance Phase",
     "section": "Follow‑Up Work",
-    "text": "Follow‑Up Work\n\nIntegrate watcher loop with watchfiles in a dedicated ingestion service.\nPersist ledger state in database for compliance mode.\nWire readiness decisions into serve dispatch."
+    "text": "Follow‑Up Work\n\nAdd watcher integration using watchfiles with notify backend.\nConnect provenance receipts to serve dispatch and database audit trail."
   },
   {
-    "objectID": "009-ingestion-implementation/009-ingestion-implementation.html#appendix-a-key-behaviors",
-    "href": "009-ingestion-implementation/009-ingestion-implementation.html#appendix-a-key-behaviors",
-    "title": "RFC 009: Ingestion Implementation",
-    "section": "Appendix A: Key Behaviors",
-    "text": "Appendix A: Key Behaviors\n\nReceipts are written atomically and revisions append without overwriting prior entries.\nDuplicate hashes are detected via the ledger and can be skipped by default.\nReadiness requires per‑file sentinels unless overridden by configuration."
-  },
-  {
-    "objectID": "011-ingestion-watcher/011-ingestion-watcher.html",
-    "href": "011-ingestion-watcher/011-ingestion-watcher.html",
-    "title": "RFC 011: Ingestion Watcher Phase",
-    "section": "",
-    "text": "This phase implements watcher integration from RFC 008 by adding scan and polling helpers plus a watchfiles-backed watcher with a polling fallback. The watcher utilities provide ready‑file detection without a full daemon, ensuring testability and deterministic behavior."
-  },
-  {
-    "objectID": "011-ingestion-watcher/011-ingestion-watcher.html#executive-summary",
-    "href": "011-ingestion-watcher/011-ingestion-watcher.html#executive-summary",
-    "title": "RFC 011: Ingestion Watcher Phase",
-    "section": "",
-    "text": "This phase implements watcher integration from RFC 008 by adding scan and polling helpers plus a watchfiles-backed watcher with a polling fallback. The watcher utilities provide ready‑file detection without a full daemon, ensuring testability and deterministic behavior."
-  },
-  {
-    "objectID": "011-ingestion-watcher/011-ingestion-watcher.html#implementation-scope",
-    "href": "011-ingestion-watcher/011-ingestion-watcher.html#implementation-scope",
-    "title": "RFC 011: Ingestion Watcher Phase",
-    "section": "Implementation Scope",
-    "text": "Implementation Scope\n\nTable 1. Watcher phase deliverables.\n\n\n\n\n\n\n\nArea\nDeliverable\nNotes\n\n\n\n\nScan helpers\nlist_ingestion_files, scan_ready_files\nSeparate ready vs pending files.\n\n\nPolling\npoll_ready_files\nLoop with configurable max cycles.\n\n\nWatcher\nwatch_ready_files\nUses watchfiles when available, falls back to polling."
-  },
-  {
-    "objectID": "011-ingestion-watcher/011-ingestion-watcher.html#code-changes",
-    "href": "011-ingestion-watcher/011-ingestion-watcher.html#code-changes",
-    "title": "RFC 011: Ingestion Watcher Phase",
-    "section": "Code Changes",
-    "text": "Code Changes\n\nTable 2. Code updates delivered.\n\n\n\n\n\n\nFile\nChange\n\n\n\n\nsrc/autoclean/utils/ingestion.py\nAdded scan, poll, and watch utilities.\n\n\ntests/unit/utils/test_ingestion.py\nAdded scan/poll/watch fallback tests.\n\n\npyproject.toml\nAdded watchfiles dependency."
-  },
-  {
-    "objectID": "011-ingestion-watcher/011-ingestion-watcher.html#test-results",
-    "href": "011-ingestion-watcher/011-ingestion-watcher.html#test-results",
-    "title": "RFC 011: Ingestion Watcher Phase",
-    "section": "Test Results",
-    "text": "Test Results\nuv run --with pytest --with pytest-cov python -m pytest \\\n  tests/unit/utils/test_ingestion.py --cov-fail-under=0\nResult: 10 tests passed. Coverage threshold was overridden (--cov-fail-under=0) due to repository defaults. Pytest emitted an unknown timeout config warning; uv reported a link‑mode fallback warning when installing the updated dependency set."
-  },
-  {
-    "objectID": "011-ingestion-watcher/011-ingestion-watcher.html#followup-work",
-    "href": "011-ingestion-watcher/011-ingestion-watcher.html#followup-work",
-    "title": "RFC 011: Ingestion Watcher Phase",
-    "section": "Follow‑Up Work",
-    "text": "Follow‑Up Work\n\nExtend watcher to emit structured events into serve dispatch.\nAdd integration tests for watchfiles event handling."
-  },
-  {
-    "objectID": "011-ingestion-watcher/011-ingestion-watcher.html#appendix-a-behaviors",
-    "href": "011-ingestion-watcher/011-ingestion-watcher.html#appendix-a-behaviors",
-    "title": "RFC 011: Ingestion Watcher Phase",
+    "objectID": "010-ingestion-provenance/010-ingestion-provenance.html#appendix-a-behaviors",
+    "href": "010-ingestion-provenance/010-ingestion-provenance.html#appendix-a-behaviors",
+    "title": "RFC 010: Ingestion Provenance Phase",
     "section": "Appendix A: Behaviors",
-    "text": "Appendix A: Behaviors\n\nReady files are detected per‑file using sentinels; pending items remain until signals are present.\nWatchfiles is optional; polling fallback preserves deterministic behavior in constrained environments."
+    "text": "Appendix A: Behaviors\n\nDeterministic folder names are derived from relative ingest path + metadata hash inputs.\nReceipt writes are atomic, and duplicate hashes are flagged in ledger metadata."
+  },
+  {
+    "objectID": "012-ingestion-dispatch/012-ingestion-dispatch.html",
+    "href": "012-ingestion-dispatch/012-ingestion-dispatch.html",
+    "title": "RFC 012: Ingestion Dispatch Phase",
+    "section": "",
+    "text": "This phase implements the dispatch planning layer for RFC 008. It adds serve config loading, workspace name rendering, and dispatch plan construction so ingestion can deterministically prepare run metadata without executing the pipeline. Unit tests validate template behavior and path resolution."
+  },
+  {
+    "objectID": "012-ingestion-dispatch/012-ingestion-dispatch.html#executive-summary",
+    "href": "012-ingestion-dispatch/012-ingestion-dispatch.html#executive-summary",
+    "title": "RFC 012: Ingestion Dispatch Phase",
+    "section": "",
+    "text": "This phase implements the dispatch planning layer for RFC 008. It adds serve config loading, workspace name rendering, and dispatch plan construction so ingestion can deterministically prepare run metadata without executing the pipeline. Unit tests validate template behavior and path resolution."
+  },
+  {
+    "objectID": "012-ingestion-dispatch/012-ingestion-dispatch.html#implementation-scope",
+    "href": "012-ingestion-dispatch/012-ingestion-dispatch.html#implementation-scope",
+    "title": "RFC 012: Ingestion Dispatch Phase",
+    "section": "Implementation Scope",
+    "text": "Implementation Scope\n\nTable 1. Dispatch phase deliverables.\n\n\n\n\n\n\n\nArea\nDeliverable\nNotes\n\n\n\n\nConfig loader\nload_serve_config\nValidates YAML mapping structure.\n\n\nWorkspace naming\nbuild_workspace_name\nSupports template tokens and version omission.\n\n\nDispatch plan\nbuild_dispatch_plan\nResolves runtime + automation roots with file list."
+  },
+  {
+    "objectID": "012-ingestion-dispatch/012-ingestion-dispatch.html#code-changes",
+    "href": "012-ingestion-dispatch/012-ingestion-dispatch.html#code-changes",
+    "title": "RFC 012: Ingestion Dispatch Phase",
+    "section": "Code Changes",
+    "text": "Code Changes\n\nTable 2. Code updates delivered.\n\n\n\n\n\n\nFile\nChange\n\n\n\n\nsrc/autoclean/utils/ingestion.py\nAdded config loader, workspace naming, dispatch plan utilities.\n\n\ntests/unit/utils/test_ingestion.py\nAdded tests for naming and dispatch planning."
+  },
+  {
+    "objectID": "012-ingestion-dispatch/012-ingestion-dispatch.html#test-results",
+    "href": "012-ingestion-dispatch/012-ingestion-dispatch.html#test-results",
+    "title": "RFC 012: Ingestion Dispatch Phase",
+    "section": "Test Results",
+    "text": "Test Results\nuv run --with pytest --with pytest-cov python -m pytest \\\n  tests/unit/utils/test_ingestion.py --cov-fail-under=0\nResult: 10 tests passed. Coverage threshold was overridden (--cov-fail-under=0) due to repository defaults. Pytest emitted an unknown timeout config warning; uv warned about link‑mode fallback while installing updated dependencies."
+  },
+  {
+    "objectID": "012-ingestion-dispatch/012-ingestion-dispatch.html#followup-work",
+    "href": "012-ingestion-dispatch/012-ingestion-dispatch.html#followup-work",
+    "title": "RFC 012: Ingestion Dispatch Phase",
+    "section": "Follow‑Up Work",
+    "text": "Follow‑Up Work\n\nWire dispatch plans into serve runtime invocation.\nAdd integration tests covering serve YAML changes and dispatch outcomes."
+  },
+  {
+    "objectID": "012-ingestion-dispatch/012-ingestion-dispatch.html#appendix-a-behaviors",
+    "href": "012-ingestion-dispatch/012-ingestion-dispatch.html#appendix-a-behaviors",
+    "title": "RFC 012: Ingestion Dispatch Phase",
+    "section": "Appendix A: Behaviors",
+    "text": "Appendix A: Behaviors\n\nWorkspace names derive from workspace_name templates with optional version tokens.\nDispatch plans resolve runtime and automation roots relative to the workspace."
   }
 ]
