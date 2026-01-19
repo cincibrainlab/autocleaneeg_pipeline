@@ -1,0 +1,91 @@
+---
+title: "RFC 023: Resting State Automation Test"
+subtitle: "Serve Workspace Validation and Execution on Current Test Data"
+date: 2026-01-19
+---
+
+## Executive Summary
+
+A resting state automated analysis was configured and executed using the existing serve workspace and the current test dataset. The serve configuration was updated to a single-route automations model, validated, deployed, and run for one cycle with a fresh queue. Two `.set` files were processed successfully, producing exports, run reports, and updated automation workspace artifacts.
+
+## Workspace and Data Context
+
+| Item | Path |
+|---|---|
+| Serve workspace | `/Volumes/owcssd/test-workspace/serve-workspace` |
+| Ingestion root | `/Volumes/owcssd/test-data/resting-eeg-32ch` |
+| Task file | `/Volumes/owcssd/test-workspace/serve-workspace/BiotrialResting1020.py` |
+| Automation root | `/Volumes/owcssd/test-workspace/serve-workspace/automations` |
+| Queue file | `/Volumes/owcssd/test-workspace/serve-workspace/queue-resting.json` |
+
+: Table 1. Paths used for the resting state automation test.
+
+## Serve Configuration
+
+The serve test YAML was updated to a single-route `automations` configuration with explicit defaults and `.set` file globbing.
+
+```yaml
+mode: test
+automation_mode: true
+runtime: runtimes/test
+runtime_package: /Volumes/owcssd/github/autocleaneeg_pipeline
+defaults:
+  automation_root: automations
+  workspace_name: taskfile-montage-version
+  file_globs:
+    - "*.set"
+  sentinel_ext: ".ready"
+  recursive: true
+automations:
+  - taskfile: /Volumes/owcssd/test-workspace/serve-workspace/BiotrialResting1020.py
+    montage: standard_1020
+    ingestion_folders:
+      - /Volumes/owcssd/test-data/resting-eeg-32ch
+```
+
+## Execution Steps
+
+| Step | Command | Result |
+|---|---|---|
+| Validate config | `uv run python -m autoclean.cli serve validate --mode test --path /Volumes/owcssd/test-workspace/serve-workspace` | Success |
+| Deploy config | `uv run python -m autoclean.cli serve deploy --mode test --path /Volumes/owcssd/test-workspace/serve-workspace` | Success |
+| Run ingestion | `uv run python -m autoclean.cli serve run --mode test --path /Volumes/owcssd/test-workspace/serve-workspace --queue-path /Volumes/owcssd/test-workspace/serve-workspace/queue-resting.json --max-cycles 1 --idle-limit 1 --no-watch` | Success |
+
+: Table 2. Commands executed for the automation test.
+
+::: callout-note
+## Result Summary
+The ingestion run reported `ready=2, processed=2, failed=0` for the `BiotrialResting1020-standard_1020` route after one cycle.
+:::
+
+```{mermaid}
+%%| label: fig-resting-serve-flow
+%%| fig-cap: "Figure 1. Resting state serve workflow used for the test run."
+flowchart TD
+    A[Update serve-test.yaml] --> B[Validate config]
+    B --> C[Deploy config]
+    C --> D[Serve run]
+    D --> E[Route dispatch]
+    E --> F[Exports and reports]
+```
+
+## Output Artifacts
+
+| Artifact | Location |
+|---|---|
+| Cleaned exports | `/Volumes/owcssd/test-workspace/serve-workspace/automations/BiotrialResting1020-standard_1020/BiotrialResting1020/exports` |
+| Run reports | `/Volumes/owcssd/test-workspace/serve-workspace/automations/BiotrialResting1020-standard_1020/BiotrialResting1020/reports/run_reports` |
+| Automation database | `/Volumes/owcssd/test-workspace/serve-workspace/automations/BiotrialResting1020-standard_1020/pipeline.db` |
+
+: Table 3. Output locations created during the test run.
+
+Exports produced for both `.set` files include `201001_D1BL_EC_comp_epo.set` and `201001_D1BL_EO_comp_epo.set`, along with per-file processing logs in the exports directory. Run reports include per-file PDF summaries and JSON metadata files in the run reports directory.
+
+## Observations
+
+- The CLI emitted extra environment lines (Qt backend and unrelated workspace/task info) during validation and deployment; these appear to be ambient runtime output rather than serve-specific errors.
+- Expected warnings were observed for EOG channel positions, BrainVision conversion, empty participants TSV initialization, and head radius estimation; the run completed successfully despite these warnings.
+
+## Appendix A: Validation Notes
+
+The test used the existing `runtimes/test` environment under the serve workspace to avoid re-installing runtime dependencies during setup.

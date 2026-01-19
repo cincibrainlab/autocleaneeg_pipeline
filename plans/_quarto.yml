@@ -24,6 +24,7 @@ project:
     - 020-rfc19-execution-review/020-rfc19-execution-review.qmd
     - 021-serve-multi-route-implementation/021-serve-multi-route-implementation.qmd
     - 022-serve-multi-route-enforcement/022-serve-multi-route-enforcement.qmd
+    - 023-resting-state-automation-test/023-resting-state-automation-test.qmd
 
 website:
   title: "AutoCleanEEG Pipeline Plans"
@@ -73,6 +74,8 @@ website:
         text: Serve Multi-route Implementation
       - href: 022-serve-multi-route-enforcement/022-serve-multi-route-enforcement.html
         text: Serve Multi-route Enforcement
+      - href: 023-resting-state-automation-test/023-resting-state-automation-test.html
+        text: Resting State Automation Test
 
 format:
   html:

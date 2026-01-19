@@ -28,6 +28,7 @@ This site contains the planning documents and instruction sets for the pipeline 
 - [RFC 019 Execution Review](020-rfc19-execution-review/020-rfc19-execution-review.html)
 - [Serve Multi-route Implementation](021-serve-multi-route-implementation/021-serve-multi-route-implementation.html)
 - [Serve Multi-route Enforcement](022-serve-multi-route-enforcement/022-serve-multi-route-enforcement.html)
+- [Resting State Automation Test](023-resting-state-automation-test/023-resting-state-automation-test.html)
 
 ## Navigation
 
