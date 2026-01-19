@@ -37,8 +37,7 @@ Instruction sets:
 
 New Task:
 
-    carefully and perfectly implement 008 next tdd phase
-    use loops until complete
+ Next step: queue persistence + long‑running CLI harness for the ingestion service (e.g., autocleaneeg-pipeline serve run), then integration tests with the test workspace.    use loops until complete
 
 Clean up rules:
 Will provide explit remove: and archive: and reactivate: blocks when needed
