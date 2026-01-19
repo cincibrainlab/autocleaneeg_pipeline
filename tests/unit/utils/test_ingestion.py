@@ -26,6 +26,7 @@ from autoclean.utils.ingestion import (
     receipt_path,
     resolve_provenance_folder,
     run_dispatch_plan,
+    run_ingestion_loop,
     scan_ready_files,
     stage_provenance_receipt,
     watch_ready_files,
@@ -305,8 +306,55 @@ def test_dispatch_ready_ingestion(tmp_path: Path) -> None:
         runner=runner,
     )
     assert isinstance(result, IngestionDispatchResult)
+    assert result.ingestion_root == ingestion_root
     assert result.plan is not None
     assert result.result is not None
+    assert len(calls) == 1
+
+
+def test_run_ingestion_loop(tmp_path: Path) -> None:
+    runtime_dir = tmp_path / "runtimes" / "test"
+    _runtime_cli_path(runtime_dir)
+    ingestion_root = tmp_path / "ingest"
+    ingestion_root.mkdir()
+    data_file = ingestion_root / "sample.set"
+    _write_file(data_file)
+    _write_file(ingestion_root / "sample.set.ready")
+    config_path = tmp_path / "serve-test.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "mode: test",
+                "taskfile: Resting",
+                "montage: standard_1020",
+                "runtime: runtimes/test",
+                "automation_root: automations",
+                "workspace_name: taskfile-montage-version",
+                "ingestion_folders:",
+                "  - ingest",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "automations").mkdir()
+    calls: list[list[str]] = []
+
+    def runner(cmd: list[str]) -> None:
+        calls.append(cmd)
+
+    loop_result = run_ingestion_loop(
+        config_path=config_path,
+        workspace_dir=tmp_path,
+        max_cycles=1,
+        file_glob="*.set",
+        sentinel_ext=".ready",
+        use_watchfiles=False,
+        max_events=1,
+        runner=runner,
+        sleep_fn=lambda _: None,
+    )
+    assert loop_result.iterations == 1
+    assert loop_result.dispatch_results
     assert len(calls) == 1
 
 

@@ -198,6 +198,19 @@ def load_serve_config(config_path: Path) -> dict[str, Any]:
     return data
 
 
+def resolve_ingestion_roots(config: dict[str, Any], workspace_dir: Path) -> list[Path]:
+    """Resolve ingestion roots from serve config."""
+    roots: list[Path] = []
+    for entry in config.get("ingestion_folders", []):
+        if not isinstance(entry, str):
+            continue
+        path = Path(entry)
+        if not path.is_absolute():
+            path = (workspace_dir / path).resolve()
+        roots.append(path)
+    return roots
+
+
 def _resolve_relative_path(root: Path, value: str) -> Path:
     path = Path(value)
     if path.is_absolute():
@@ -446,6 +459,7 @@ def run_dispatch_plan(
 
 @dataclass
 class IngestionDispatchResult:
+    ingestion_root: Path
     ready: "ReadyScanResult"
     plan: Optional[DispatchPlan]
     result: Optional[DispatchResult]
@@ -466,17 +480,11 @@ def dispatch_ready_ingestion(
     yes: bool = True,
     max_attempts: int = 1,
     runner: Optional[Callable[[list[str]], None]] = None,
+    config: Optional[dict[str, Any]] = None,
 ) -> IngestionDispatchResult:
     """Dispatch ready ingestion files using serve configuration."""
-    config = load_serve_config(config_path)
-    ingestion_paths: list[Path] = []
-    for entry in config.get("ingestion_folders", []):
-        if not isinstance(entry, str):
-            continue
-        path = Path(entry)
-        if not path.is_absolute():
-            path = (workspace_dir / path).resolve()
-        ingestion_paths.append(path)
+    config_data = config or load_serve_config(config_path)
+    ingestion_paths = resolve_ingestion_roots(config_data, workspace_dir)
 
     if ingestion_paths and ingestion_root.resolve() not in ingestion_paths:
         raise ValueError("ingestion_root is not listed in ingestion_folders")
@@ -491,10 +499,12 @@ def dispatch_ready_ingestion(
         use_watchfiles=use_watchfiles,
     )
     if not ready.ready:
-        return IngestionDispatchResult(ready=ready, plan=None, result=None)
+        return IngestionDispatchResult(
+            ingestion_root=ingestion_root, ready=ready, plan=None, result=None
+        )
 
     plan = build_dispatch_plan(
-        config=config,
+        config=config_data,
         workspace_dir=workspace_dir,
         files=ready.ready_files,
     )
@@ -505,7 +515,84 @@ def dispatch_ready_ingestion(
         max_attempts=max_attempts,
         runner=runner,
     )
-    return IngestionDispatchResult(ready=ready, plan=plan, result=result)
+    return IngestionDispatchResult(
+        ingestion_root=ingestion_root, ready=ready, plan=plan, result=result
+    )
+
+
+@dataclass
+class IngestionLoopResult:
+    iterations: int
+    dispatch_results: list[IngestionDispatchResult]
+    pending_roots: list[Path]
+
+
+def run_ingestion_loop(
+    *,
+    config_path: Path,
+    workspace_dir: Path,
+    max_cycles: int = 1,
+    file_glob: str = "*",
+    sentinel_ext: str = ".ready",
+    require_sentinel: bool = True,
+    stability_window_seconds: int = 0,
+    use_watchfiles: bool = True,
+    max_events: int = 1,
+    automation: bool = True,
+    yes: bool = True,
+    max_attempts: int = 1,
+    runner: Optional[Callable[[list[str]], None]] = None,
+    sleep_fn: Optional[Callable[[float], None]] = None,
+    sleep_seconds: float = 1.0,
+) -> IngestionLoopResult:
+    """Run readiness/dispatch loop over all ingestion roots."""
+    if max_cycles < 1:
+        raise ValueError("max_cycles must be >= 1")
+    config = load_serve_config(config_path)
+    roots = resolve_ingestion_roots(config, workspace_dir)
+    if not roots:
+        raise ValueError("No ingestion_folders configured")
+    dispatch_results: list[IngestionDispatchResult] = []
+    sleep = sleep_fn or time.sleep
+    pending_roots = list(roots)
+
+    for cycle in range(max_cycles):
+        ready_roots: list[Path] = []
+        for root in roots:
+            result = dispatch_ready_ingestion(
+                config_path=config_path,
+                workspace_dir=workspace_dir,
+                ingestion_root=root,
+                file_glob=file_glob,
+                sentinel_ext=sentinel_ext,
+                require_sentinel=require_sentinel,
+                stability_window_seconds=stability_window_seconds,
+                use_watchfiles=use_watchfiles,
+                max_events=max_events,
+                automation=automation,
+                yes=yes,
+                max_attempts=max_attempts,
+                runner=runner,
+                config=config,
+            )
+            dispatch_results.append(result)
+            if result.ready.ready:
+                ready_roots.append(root)
+        pending_roots = [root for root in roots if root not in ready_roots]
+        if not ready_roots:
+            return IngestionLoopResult(
+                iterations=cycle + 1,
+                dispatch_results=dispatch_results,
+                pending_roots=pending_roots,
+            )
+        if cycle < max_cycles - 1:
+            sleep(sleep_seconds)
+
+    return IngestionLoopResult(
+        iterations=max_cycles,
+        dispatch_results=dispatch_results,
+        pending_roots=pending_roots,
+    )
 
 
 @dataclass

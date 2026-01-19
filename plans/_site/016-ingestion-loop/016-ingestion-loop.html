@@ -6,9 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-01-18">
+<meta name="dcterms.date" content="2026-01-19">
 
-<title>RFC 005: Serve Workspace Command – AutoCleanEEG Pipeline Plans</title>
+<title>RFC 016: Ingestion Loop Phase – AutoCleanEEG Pipeline Plans</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -148,7 +148,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span class="menu-text">Automation Validation</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link active" href="../005-serve-workspace/005-serve-workspace.html" aria-current="page"> 
+    <a class="nav-link" href="../005-serve-workspace/005-serve-workspace.html"> 
 <span class="menu-text">Serve Workspace</span></a>
   </li>  
   <li class="nav-item">
@@ -192,7 +192,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span class="menu-text">Ingestion Integration</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../016-ingestion-loop/016-ingestion-loop.html"> 
+    <a class="nav-link active" href="../016-ingestion-loop/016-ingestion-loop.html" aria-current="page"> 
 <span class="menu-text">Ingestion Loop</span></a>
   </li>  
 </ul>
@@ -212,8 +212,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">RFC 005: Serve Workspace Command</h1>
-<p class="subtitle lead">Initial Workspace Setup and Runtime Provisioning</p>
+<h1 class="title">RFC 016: Ingestion Loop Phase</h1>
+<p class="subtitle lead">Bounded Loop for Readiness and Dispatch</p>
 </div>
 
 
@@ -224,7 +224,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">January 18, 2026</p>
+      <p class="date">January 19, 2026</p>
     </div>
   </div>
   
@@ -238,12 +238,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="executive-summary" class="level2">
 <h2 class="anchored" data-anchor-id="executive-summary">Executive Summary</h2>
-<p>This RFC implements the first <code>autocleaneeg-pipeline serve workspace</code> command as scoped in RFC 002. The command creates or links a serve workspace, writes <code>serve-test.yaml</code> and <code>serve-live.yaml</code>, provisions test/live runtime folders, and persists the workspace path in the existing setup JSON. Runtime setup uses <code>uv</code> with an explicit package spec to keep the command reproducible.</p>
+<p>This phase introduces a bounded ingestion loop that cycles through configured ingestion roots, dispatching ready files and stopping when idle. The loop uses the existing readiness and dispatch helpers, providing a safe, testable scheduler without a long‑running daemon.</p>
 </section>
-<section id="workspace-layout" class="level2">
-<h2 class="anchored" data-anchor-id="workspace-layout">Workspace Layout</h2>
+<section id="implementation-scope" class="level2">
+<h2 class="anchored" data-anchor-id="implementation-scope">Implementation Scope</h2>
 <table class="caption-top table">
-<caption>Table 1. Serve workspace structure (RFC 002 aligned).</caption>
+<caption>Table 1. Loop phase deliverables.</caption>
 <colgroup>
 <col style="width: 33%">
 <col style="width: 33%">
@@ -251,110 +251,74 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </colgroup>
 <thead>
 <tr class="header">
-<th>Component</th>
-<th>Purpose</th>
+<th>Area</th>
+<th>Deliverable</th>
 <th>Notes</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><code>serve-test.yaml</code></td>
-<td>Operator-editable test config</td>
-<td>Written once at workspace creation.</td>
+<td>Loop result</td>
+<td><code>IngestionLoopResult</code></td>
+<td>Captures iterations, dispatch results, and pending roots.</td>
 </tr>
 <tr class="even">
-<td><code>serve-live.yaml</code></td>
-<td>Operator-editable live config</td>
-<td>Written once at workspace creation.</td>
+<td>Loop helper</td>
+<td><code>run_ingestion_loop</code></td>
+<td>Iterates roots with optional idle exit.</td>
 </tr>
 <tr class="odd">
-<td><code>runtimes/test</code></td>
-<td>Test runtime root</td>
-<td><code>uv venv</code> + install package spec.</td>
-</tr>
-<tr class="even">
-<td><code>runtimes/live</code></td>
-<td>Live runtime root</td>
-<td><code>uv venv</code> + install package spec.</td>
-</tr>
-<tr class="odd">
-<td><code>automations/</code></td>
-<td>Taskfile-montage workspaces</td>
-<td>Output root for automation jobs.</td>
+<td>Tests</td>
+<td>Loop behavior</td>
+<td>Validates iterations and dispatch calls.</td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="cli-interface" class="level2">
-<h2 class="anchored" data-anchor-id="cli-interface">CLI Interface</h2>
+<section id="code-changes" class="level2">
+<h2 class="anchored" data-anchor-id="code-changes">Code Changes</h2>
 <table class="caption-top table">
-<caption>Table 2. Serve workspace command surface.</caption>
+<caption>Table 2. Code updates delivered.</caption>
 <colgroup>
 <col style="width: 50%">
 <col style="width: 50%">
 </colgroup>
 <thead>
 <tr class="header">
-<th>Command</th>
-<th>Description</th>
+<th>File</th>
+<th>Change</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><code>serve workspace --mode new --path &lt;dir&gt;</code></td>
-<td>Create a new workspace and install runtimes.</td>
+<td><code>src/autoclean/utils/ingestion.py</code></td>
+<td>Added loop result model and ingestion loop helper.</td>
 </tr>
 <tr class="even">
-<td><code>serve workspace --mode existing --path &lt;dir&gt;</code></td>
-<td>Validate and link an existing workspace.</td>
-</tr>
-<tr class="odd">
-<td><code>serve workspace --package &lt;spec&gt;</code></td>
-<td>Pin runtime package version or local path.</td>
-</tr>
-<tr class="even">
-<td><code>serve workspace --skip-uv</code></td>
-<td>Skip runtime install (for pre-provisioned runtimes).</td>
+<td><code>tests/unit/utils/test_ingestion.py</code></td>
+<td>Added loop test using runner stub.</td>
 </tr>
 </tbody>
 </table>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Note</span>Reproducibility
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>Use a pinned package spec (e.g., <code>autocleaneeg-pipeline==&lt;version&gt;</code>) or a local path to make runtime provisioning deterministic.</p>
-</div>
-</div>
 </section>
-<section id="implementation-summary" class="level2">
-<h2 class="anchored" data-anchor-id="implementation-summary">Implementation Summary</h2>
+<section id="test-results" class="level2">
+<h2 class="anchored" data-anchor-id="test-results">Test Results</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run <span class="at">--with</span> pytest <span class="at">--with</span> pytest-cov python <span class="at">-m</span> pytest <span class="dt">\</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  tests/unit/utils/test_ingestion.py <span class="at">--cov-fail-under</span><span class="op">=</span>0</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Result: 19 tests passed. Coverage threshold was overridden (<code>--cov-fail-under=0</code>) due to repository defaults. Pytest emitted an unknown <code>timeout</code> config warning.</p>
+</section>
+<section id="followup-work" class="level2">
+<h2 class="anchored" data-anchor-id="followup-work">Follow‑Up Work</h2>
 <ol type="1">
-<li>Added <code>serve workspace</code> subcommand to create or link a workspace, with <code>--mode</code>, <code>--path</code>, and <code>--package</code> flags.</li>
-<li>Persisted the workspace path under <code>serve_workspace</code> in the existing setup JSON (no new config file).</li>
-<li>Created runtime environments using <code>uv venv</code> + <code>uv pip install --python &lt;venv&gt; &lt;package_spec&gt;</code>.</li>
+<li>Add queue persistence and long‑running service harness.</li>
+<li>Integrate scheduling metrics and backoff.</li>
 </ol>
 </section>
-<section id="validation" class="level2">
-<h2 class="anchored" data-anchor-id="validation">Validation</h2>
-<p>Command executed:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run python <span class="at">-m</span> autoclean.cli serve workspace <span class="dt">\</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--mode</span> new <span class="dt">\</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--path</span> <span class="st">"/Volumes/owcssd/test-workspace/serve-workspace"</span> <span class="dt">\</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--package</span> <span class="st">"/Volumes/owcssd/github/autocleaneeg_pipeline"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Result: Workspace created at <code>/Volumes/owcssd/test-workspace/serve-workspace</code> using a local package spec (<code>/Volumes/owcssd/github/autocleaneeg_pipeline</code>) with <code>uv venv</code> and <code>uv pip install</code> for both runtimes. A follow-up validation run (<code>--mode existing --skip-uv --no-test</code>) confirmed the workspace layout and persisted <code>serve_workspace</code> in setup.json. uv emitted a link-mode warning about reflink support when copying cached files; installation completed successfully.</p>
-</section>
-<section id="appendix-a-files-reviewed" class="level2">
-<h2 class="anchored" data-anchor-id="appendix-a-files-reviewed">Appendix A: Files Reviewed</h2>
+<section id="appendix-a-behaviors" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-a-behaviors">Appendix A: Behaviors</h2>
 <ul>
-<li><code>src/autoclean/cli.py</code></li>
-<li><code>src/autoclean/utils/user_config.py</code></li>
-<li><code>plans/005-serve-workspace/005-serve-workspace.md</code></li>
+<li>The loop stops early when no ready files are detected.</li>
+<li>Pending roots are reported for operator review.</li>
 </ul>
 
 

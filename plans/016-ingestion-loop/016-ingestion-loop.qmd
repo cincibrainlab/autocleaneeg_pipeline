@@ -1,0 +1,47 @@
+---
+title: "RFC 016: Ingestion Loop Phase"
+subtitle: "Bounded Loop for Readiness and Dispatch"
+date: 2026-01-19
+---
+
+## Executive Summary
+
+This phase introduces a bounded ingestion loop that cycles through configured ingestion roots, dispatching ready files and stopping when idle. The loop uses the existing readiness and dispatch helpers, providing a safe, testable scheduler without a long‑running daemon.
+
+## Implementation Scope
+
+| Area | Deliverable | Notes |
+|---|---|---|
+| Loop result | `IngestionLoopResult` | Captures iterations, dispatch results, and pending roots. |
+| Loop helper | `run_ingestion_loop` | Iterates roots with optional idle exit. |
+| Tests | Loop behavior | Validates iterations and dispatch calls. |
+
+: Table 1. Loop phase deliverables.
+
+## Code Changes
+
+| File | Change |
+|---|---|
+| `src/autoclean/utils/ingestion.py` | Added loop result model and ingestion loop helper. |
+| `tests/unit/utils/test_ingestion.py` | Added loop test using runner stub. |
+
+: Table 2. Code updates delivered.
+
+## Test Results
+
+```bash
+uv run --with pytest --with pytest-cov python -m pytest \
+  tests/unit/utils/test_ingestion.py --cov-fail-under=0
+```
+
+Result: 19 tests passed. Coverage threshold was overridden (`--cov-fail-under=0`) due to repository defaults. Pytest emitted an unknown `timeout` config warning.
+
+## Follow‑Up Work
+
+1. Add queue persistence and long‑running service harness.
+2. Integrate scheduling metrics and backoff.
+
+## Appendix A: Behaviors
+
+- The loop stops early when no ready files are detected.
+- Pending roots are reported for operator review.

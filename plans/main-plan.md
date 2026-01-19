@@ -52,6 +52,7 @@ Post Instruction hooks:
     - breaking ideopotency
     - critical thinking errors
     - output should be 1-2 lines, elegant and formatted
+    - whats the next step if any?
 - render quarto after every change (no warnings/errors that affect output integrity).
 - make a surgical git commit of your edits
 - update plans/main-plan-log.csv
