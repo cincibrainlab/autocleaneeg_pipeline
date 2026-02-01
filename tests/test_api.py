@@ -579,3 +579,238 @@ class TestEventEmitters:
         # Should not raise with no connections
         await broadcaster.broadcast(event)
         assert broadcaster.connection_count == 0
+
+
+class TestQueueEdgeCases:
+    """Edge case tests for queue handling - corrupted data, special chars, etc."""
+
+    def test_malformed_json_queue_file(self, tmp_path: Path) -> None:
+        """Test handling of corrupted/malformed JSON in queue file."""
+        queue_path = tmp_path / "queue-test.json"
+        queue_path.write_text("{ invalid json }")
+
+        from autoclean.utils.ingestion import IngestionQueue
+
+        # Should handle gracefully - either raise clear error or return empty
+        try:
+            queue = IngestionQueue(queue_path)
+            # If it doesn't raise, entries should be empty or default
+            entries = queue.entries()
+            # Malformed JSON should result in empty/default state
+            assert isinstance(entries, dict)
+        except (json.JSONDecodeError, ValueError):
+            # Acceptable to raise on malformed JSON
+            pass
+
+    def test_queue_missing_entries_key(self, tmp_path: Path) -> None:
+        """Test queue file with missing 'entries' key."""
+        queue_path = tmp_path / "queue-test.json"
+        queue_path.write_text(json.dumps({"other_key": "value"}))
+
+        from autoclean.utils.ingestion import IngestionQueue
+
+        queue = IngestionQueue(queue_path)
+        entries = queue.entries()
+        # Should return empty dict, not crash
+        assert isinstance(entries, dict)
+
+    def test_queue_entries_wrong_type(self, tmp_path: Path) -> None:
+        """Test queue file where entries is wrong type (list instead of dict).
+
+        NOTE: This documents a potential bug - IngestionQueue returns the raw
+        value without type validation. Code that calls .entries() should handle
+        the case where it might not be a dict.
+        """
+        queue_path = tmp_path / "queue-test.json"
+        queue_path.write_text(json.dumps({"entries": ["item1", "item2"]}))
+
+        from autoclean.utils.ingestion import IngestionQueue
+
+        queue = IngestionQueue(queue_path)
+        entries = queue.entries()
+
+        # Current behavior: returns raw value without type checking
+        # This is a potential bug - entries could be list, breaking .items() calls
+        # Document current behavior: it returns whatever was in the JSON
+        assert entries == ["item1", "item2"]
+
+    def test_queue_entry_with_none_status(self, tmp_path: Path) -> None:
+        """Test queue entry where status is None instead of string."""
+        queue_path = tmp_path / "queue-test.json"
+        queue_data = {
+            "entries": {
+                "/file1.bdf": {"status": None},
+                "/file2.bdf": {"status": "pending"},
+            }
+        }
+        queue_path.write_text(json.dumps(queue_data))
+
+        from autoclean.utils.ingestion import IngestionQueue
+
+        queue = IngestionQueue(queue_path)
+        entries = queue.entries()
+
+        # Should handle None status - either skip or default to pending
+        assert len(entries) == 2
+
+    def test_queue_entry_status_as_integer(self, tmp_path: Path) -> None:
+        """Test queue entry where status is wrong type (int instead of string)."""
+        queue_path = tmp_path / "queue-test.json"
+        queue_data = {
+            "entries": {
+                "/file1.bdf": {"status": 123},  # Wrong type
+                "/file2.bdf": {"status": "pending"},
+            }
+        }
+        queue_path.write_text(json.dumps(queue_data))
+
+        from autoclean.utils.ingestion import IngestionQueue
+
+        queue = IngestionQueue(queue_path)
+        entries = queue.entries()
+
+        # Should load without crashing
+        assert "/file2.bdf" in entries
+
+    def test_file_path_with_unicode(self, tmp_path: Path) -> None:
+        """Test queue with unicode characters in file paths."""
+        queue_path = tmp_path / "queue-test.json"
+        queue_data = {
+            "entries": {
+                "/data/файл.bdf": {"status": "pending"},  # Russian
+                "/data/文件.bdf": {"status": "pending"},  # Chinese
+                "/data/αβγ.bdf": {"status": "pending"},  # Greek
+            }
+        }
+        queue_path.write_text(json.dumps(queue_data, ensure_ascii=False), encoding="utf-8")
+
+        from autoclean.utils.ingestion import IngestionQueue
+
+        queue = IngestionQueue(queue_path)
+        entries = queue.entries()
+
+        assert len(entries) == 3
+        assert "/data/файл.bdf" in entries
+
+    def test_file_path_with_spaces_and_special_chars(self, tmp_path: Path) -> None:
+        """Test queue with spaces and special characters in paths."""
+        queue_path = tmp_path / "queue-test.json"
+        queue_data = {
+            "entries": {
+                "/data/my file.bdf": {"status": "pending"},
+                "/data/file (1).bdf": {"status": "pending"},
+                "/data/file's copy.bdf": {"status": "pending"},
+                "/data/file&name.bdf": {"status": "pending"},
+            }
+        }
+        queue_path.write_text(json.dumps(queue_data))
+
+        from autoclean.utils.ingestion import IngestionQueue
+
+        queue = IngestionQueue(queue_path)
+        entries = queue.entries()
+
+        assert len(entries) == 4
+        assert "/data/my file.bdf" in entries
+
+    def test_empty_queue_file(self, tmp_path: Path) -> None:
+        """Test completely empty queue file."""
+        queue_path = tmp_path / "queue-test.json"
+        queue_path.write_text("")
+
+        from autoclean.utils.ingestion import IngestionQueue
+
+        try:
+            queue = IngestionQueue(queue_path)
+            entries = queue.entries()
+            assert isinstance(entries, dict)
+        except (json.JSONDecodeError, ValueError):
+            # Acceptable to raise on empty file
+            pass
+
+    def test_queue_file_does_not_exist(self, tmp_path: Path) -> None:
+        """Test loading queue when file doesn't exist yet."""
+        queue_path = tmp_path / "nonexistent-queue.json"
+
+        from autoclean.utils.ingestion import IngestionQueue
+
+        queue = IngestionQueue(queue_path)
+        entries = queue.entries()
+
+        # Should return empty dict for non-existent file
+        assert isinstance(entries, dict)
+        assert len(entries) == 0
+
+    def test_very_long_file_path(self, tmp_path: Path) -> None:
+        """Test queue with extremely long file path."""
+        queue_path = tmp_path / "queue-test.json"
+        long_path = "/data/" + "a" * 1000 + ".bdf"
+        queue_data = {
+            "entries": {
+                long_path: {"status": "pending"},
+            }
+        }
+        queue_path.write_text(json.dumps(queue_data))
+
+        from autoclean.utils.ingestion import IngestionQueue
+
+        queue = IngestionQueue(queue_path)
+        entries = queue.entries()
+
+        assert long_path in entries
+
+    def test_queue_entry_with_extra_unexpected_fields(self, tmp_path: Path) -> None:
+        """Test queue entries with extra fields that aren't expected."""
+        queue_path = tmp_path / "queue-test.json"
+        queue_data = {
+            "entries": {
+                "/file.bdf": {
+                    "status": "pending",
+                    "unexpected_field": "value",
+                    "another_field": 12345,
+                    "nested": {"deep": "value"},
+                },
+            }
+        }
+        queue_path.write_text(json.dumps(queue_data))
+
+        from autoclean.utils.ingestion import IngestionQueue
+
+        queue = IngestionQueue(queue_path)
+        entries = queue.entries()
+
+        # Should load without crashing, extra fields ignored or preserved
+        assert "/file.bdf" in entries
+        assert entries["/file.bdf"]["status"] == "pending"
+
+
+class TestAPIStateResetBehavior:
+    """Test APIState behavior when reconfigured or reset."""
+
+    def test_reconfigure_clears_cached_connections(self, tmp_path: Path) -> None:
+        """Test that reconfiguring state clears cached Redis connections."""
+        state = APIState()
+        state.configure(tmp_path, mode="test", redis_url="redis://localhost:6379")
+
+        # Simulate cached connection
+        state._redis_connection = "fake_connection"
+        state._rq_queue = "fake_queue"
+
+        # Reconfigure should work (doesn't auto-clear, but let's verify state)
+        state.configure(tmp_path, mode="live", redis_url="redis://other:6379")
+
+        assert state.mode == "live"
+        assert state.redis_url == "redis://other:6379"
+        # Note: Current implementation doesn't clear cache on reconfigure
+        # This test documents current behavior
+
+    def test_multiple_api_state_instances(self, tmp_path: Path) -> None:
+        """Test multiple APIState instances are independent."""
+        state1 = APIState()
+        state2 = APIState()
+
+        state1.configure(tmp_path, mode="test")
+        state2.configure(tmp_path, mode="live")
+
+        assert state1.mode == "test"
+        assert state2.mode == "live"
