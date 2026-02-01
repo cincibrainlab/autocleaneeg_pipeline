@@ -64,6 +64,8 @@ async def get_queue_entries(
     entries = queue.entries()
 
     result = []
+    valid_statuses = {s.value for s in QueueStatus}
+
     for path_str, data in entries.items():
         entry_status = data.get("status", "pending")
         entry_route = data.get("route_id")
@@ -73,6 +75,10 @@ async def get_queue_entries(
             continue
         if route_id and entry_route != route_id:
             continue
+
+        # Handle invalid status values gracefully
+        if entry_status not in valid_statuses:
+            entry_status = "pending"
 
         result.append(
             QueueEntry(

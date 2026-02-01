@@ -7,9 +7,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from rq import get_current_job
-
-
 def _timestamp() -> str:
     """Get current ISO timestamp."""
     return datetime.now(timezone.utc).isoformat()
@@ -40,7 +37,6 @@ def process_file(
     Returns:
         Dict with processing result.
     """
-    job = get_current_job()
     workspace = Path(workspace_dir)
     file_path_obj = Path(file_path)
 
