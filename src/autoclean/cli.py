@@ -2341,6 +2341,64 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="Optional serve workspace path",
     )
 
+    serve_api = serve_subparsers.add_parser(
+        "api", help="Start the REST API server", add_help=False
+    )
+    attach_rich_help(serve_api)
+    serve_api.add_argument(
+        "--mode",
+        choices=["test", "live"],
+        default="test",
+        help="Config mode to use (default: test)",
+    )
+    serve_api.add_argument(
+        "--path",
+        type=Path,
+        default=None,
+        help="Optional serve workspace path",
+    )
+    serve_api.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host to bind to (default: 127.0.0.1)",
+    )
+    serve_api.add_argument(
+        "--api-port",
+        type=int,
+        default=8000,
+        help="Port to listen on (default: 8000)",
+    )
+    serve_api.add_argument(
+        "--redis-url",
+        default="redis://localhost:6379",
+        help="Redis connection URL",
+    )
+    serve_api.add_argument(
+        "--reload",
+        action="store_true",
+        help="Enable auto-reload for development",
+    )
+
+    serve_worker = serve_subparsers.add_parser(
+        "worker", help="Start RQ worker process", add_help=False
+    )
+    attach_rich_help(serve_worker)
+    serve_worker.add_argument(
+        "--queues",
+        default="default",
+        help="Comma-separated list of queues to process (default: default)",
+    )
+    serve_worker.add_argument(
+        "--redis-url",
+        default="redis://localhost:6379",
+        help="Redis connection URL",
+    )
+    serve_worker.add_argument(
+        "--burst",
+        action="store_true",
+        help="Run in burst mode (exit when queue is empty)",
+    )
+
     # Version command
 
     _version = subparsers.add_parser(
@@ -9086,6 +9144,10 @@ def cmd_serve(args) -> int:
         return cmd_serve_run(args)
     if action == "tui":
         return cmd_serve_tui(args)
+    if action == "api":
+        return cmd_serve_api(args)
+    if action == "worker":
+        return cmd_serve_worker(args)
     message("error", f"Unknown serve action: {action}")
     return 1
 
@@ -9542,6 +9604,86 @@ def cmd_serve_tui(args) -> int:
         return 1
     except Exception as exc:
         message("error", f"TUI error: {exc}")
+        return 1
+
+
+def cmd_serve_api(args) -> int:
+    """Start the REST API server."""
+    workspace_dir = _resolve_serve_workspace_dir(args.path)
+    if workspace_dir is None:
+        message("error", "No serve workspace configured")
+        message("info", "Use 'serve workspace --mode new --path <dir>' to create one")
+        return 1
+
+    paths = _serve_workspace_paths(workspace_dir)
+    if not _validate_serve_workspace(paths):
+        message("error", "Invalid serve workspace")
+        return 1
+
+    try:
+        from autoclean.api.server import run_server
+
+        message("info", f"Starting API server on {args.host}:{args.api_port}")
+        message("info", f"Workspace: {workspace_dir}")
+        message("info", f"Mode: {args.mode}")
+        message("info", f"Redis: {args.redis_url}")
+
+        run_server(
+            workspace_dir=workspace_dir,
+            mode=args.mode,
+            host=args.host,
+            port=args.api_port,
+            redis_url=args.redis_url,
+            reload=args.reload,
+        )
+        return 0
+    except ImportError as exc:
+        message("error", f"Failed to import API server: {exc}")
+        message("info", "Ensure fastapi and uvicorn are installed")
+        return 1
+    except Exception as exc:
+        message("error", f"API server error: {exc}")
+        return 1
+
+
+def cmd_serve_worker(args) -> int:
+    """Start RQ worker process."""
+    try:
+        from redis import Redis
+        from rq import Worker, Queue
+
+        message("info", f"Connecting to Redis: {args.redis_url}")
+
+        conn = Redis.from_url(args.redis_url)
+
+        # Test connection
+        try:
+            conn.ping()
+        except Exception as exc:
+            message("error", f"Failed to connect to Redis: {exc}")
+            message("info", "Ensure Redis is running and accessible")
+            return 1
+
+        queues_list = [q.strip() for q in args.queues.split(",") if q.strip()]
+        queues = [Queue(name, connection=conn) for name in queues_list]
+
+        message("info", f"Starting worker for queues: {', '.join(queues_list)}")
+        if args.burst:
+            message("info", "Running in burst mode (will exit when queue is empty)")
+
+        worker = Worker(queues, connection=conn)
+        worker.work(burst=args.burst)
+
+        return 0
+    except ImportError as exc:
+        message("error", f"Failed to import RQ: {exc}")
+        message("info", "Ensure redis and rq are installed")
+        return 1
+    except KeyboardInterrupt:
+        message("info", "Worker stopped by user")
+        return 0
+    except Exception as exc:
+        message("error", f"Worker error: {exc}")
         return 1
 
 
