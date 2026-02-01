@@ -409,3 +409,307 @@ class TestConfigLoadingEdgeCases:
 
         # Should parse without error, routes will be empty
         assert parsed.mode == "test"
+
+
+class TestTaskFileEdgeCases:
+    """Test edge cases with task files in serve config."""
+
+    def test_empty_taskfile_string(self, tmp_path: Path) -> None:
+        """Test config with empty taskfile string."""
+        workspace = create_minimal_serve_workspace(tmp_path)
+
+        import yaml
+        config = {
+            "mode": "test",
+            "runtime": "runtimes/test",
+            "automation_mode": True,
+            "automation_root": "automations",
+            "workspace_name": "test-workspace",
+            "taskfile": "",  # Empty
+            "montage": "biosemi64",
+            "ingestion_folders": [],
+        }
+        (workspace / "serve-test.yaml").write_text(yaml.dump(config))
+
+        from autoclean.utils.ingestion import load_serve_config, parse_serve_config
+
+        raw_config = load_serve_config(workspace / "serve-test.yaml")
+
+        # Non-strict should warn but not fail
+        parsed, warnings = parse_serve_config(raw_config, workspace, strict=False)
+        assert any("taskfile" in w.lower() for w in warnings)
+
+    def test_taskfile_with_path_traversal(self, tmp_path: Path) -> None:
+        """Test taskfile with path traversal attempt."""
+        workspace = create_minimal_serve_workspace(tmp_path)
+
+        import yaml
+        config = {
+            "mode": "test",
+            "runtime": "runtimes/test",
+            "automation_mode": True,
+            "automation_root": "automations",
+            "workspace_name": "test-workspace",
+            "taskfile": "../../../etc/passwd",  # Path traversal
+            "montage": "biosemi64",
+            "ingestion_folders": [],
+        }
+        (workspace / "serve-test.yaml").write_text(yaml.dump(config))
+
+        from autoclean.utils.ingestion import load_serve_config, parse_serve_config
+
+        raw_config = load_serve_config(workspace / "serve-test.yaml")
+        # Should parse (validation happens elsewhere)
+        parsed, warnings = parse_serve_config(raw_config, workspace, strict=False)
+        assert parsed is not None
+
+    def test_taskfile_nonexistent_python_file(self, tmp_path: Path) -> None:
+        """Test taskfile pointing to non-existent Python file."""
+        workspace = create_minimal_serve_workspace(tmp_path)
+
+        from autoclean.utils.ingestion import resolve_taskfile_path
+
+        # Non-existent .py file should raise FileNotFoundError
+        with pytest.raises(FileNotFoundError):
+            resolve_taskfile_path("nonexistent_task.py", workspace)
+
+    def test_taskfile_existing_python_file(self, tmp_path: Path) -> None:
+        """Test taskfile with existing Python file."""
+        workspace = create_minimal_serve_workspace(tmp_path)
+
+        # Create a task file
+        task_file = workspace / "my_task.py"
+        task_file.write_text("# Task file")
+
+        from autoclean.utils.ingestion import resolve_taskfile_path
+
+        result = resolve_taskfile_path("my_task.py", workspace)
+        # Should find the file
+        assert result is not None
+        assert result.name == "my_task.py"
+
+    def test_taskfile_with_special_characters(self, tmp_path: Path) -> None:
+        """Test taskfile with special characters in name."""
+        workspace = create_minimal_serve_workspace(tmp_path)
+
+        import yaml
+        config = {
+            "mode": "test",
+            "runtime": "runtimes/test",
+            "automation_mode": True,
+            "automation_root": "automations",
+            "workspace_name": "test-workspace",
+            "taskfile": "Task With Spaces & Symbols!",
+            "montage": "biosemi64",
+            "ingestion_folders": [],
+        }
+        (workspace / "serve-test.yaml").write_text(yaml.dump(config))
+
+        from autoclean.utils.ingestion import load_serve_config, parse_serve_config
+
+        raw_config = load_serve_config(workspace / "serve-test.yaml")
+        parsed, warnings = parse_serve_config(raw_config, workspace, strict=False)
+        # Should parse - special chars are allowed in task names
+        assert parsed is not None
+
+    def test_taskfile_very_long_name(self, tmp_path: Path) -> None:
+        """Test taskfile with very long name."""
+        workspace = create_minimal_serve_workspace(tmp_path)
+
+        import yaml
+        long_name = "A" * 500  # Very long task name
+        config = {
+            "mode": "test",
+            "runtime": "runtimes/test",
+            "automation_mode": True,
+            "automation_root": "automations",
+            "workspace_name": "test-workspace",
+            "taskfile": long_name,
+            "montage": "biosemi64",
+            "ingestion_folders": [],
+        }
+        (workspace / "serve-test.yaml").write_text(yaml.dump(config))
+
+        from autoclean.utils.ingestion import load_serve_config, parse_serve_config
+
+        raw_config = load_serve_config(workspace / "serve-test.yaml")
+        parsed, warnings = parse_serve_config(raw_config, workspace, strict=False)
+        assert parsed is not None
+
+    def test_taskfile_none_value(self, tmp_path: Path) -> None:
+        """Test config with taskfile set to None/null."""
+        workspace = create_minimal_serve_workspace(tmp_path)
+
+        import yaml
+        config = {
+            "mode": "test",
+            "runtime": "runtimes/test",
+            "automation_mode": True,
+            "automation_root": "automations",
+            "workspace_name": "test-workspace",
+            "taskfile": None,  # Explicit null
+            "montage": "biosemi64",
+            "ingestion_folders": [],
+        }
+        (workspace / "serve-test.yaml").write_text(yaml.dump(config))
+
+        from autoclean.utils.ingestion import load_serve_config, parse_serve_config
+
+        raw_config = load_serve_config(workspace / "serve-test.yaml")
+        # Non-strict should handle None gracefully
+        parsed, warnings = parse_serve_config(raw_config, workspace, strict=False)
+        assert parsed is not None
+
+    def test_taskfile_as_integer(self, tmp_path: Path) -> None:
+        """Test config with taskfile as integer (wrong type)."""
+        workspace = create_minimal_serve_workspace(tmp_path)
+
+        import yaml
+        config = {
+            "mode": "test",
+            "runtime": "runtimes/test",
+            "automation_mode": True,
+            "automation_root": "automations",
+            "workspace_name": "test-workspace",
+            "taskfile": 12345,  # Wrong type
+            "montage": "biosemi64",
+            "ingestion_folders": [],
+        }
+        (workspace / "serve-test.yaml").write_text(yaml.dump(config))
+
+        from autoclean.utils.ingestion import load_serve_config, parse_serve_config
+
+        raw_config = load_serve_config(workspace / "serve-test.yaml")
+        # Should convert to string or handle gracefully
+        parsed, warnings = parse_serve_config(raw_config, workspace, strict=False)
+        assert parsed is not None
+
+    def test_taskfile_label_extraction(self, tmp_path: Path) -> None:
+        """Test _taskfile_label extracts correct label."""
+        from autoclean.utils.ingestion import _taskfile_label
+
+        # Plain name
+        assert _taskfile_label("RestingState") == "RestingState"
+
+        # Python file
+        assert _taskfile_label("MyTask.py") == "MyTask"
+
+        # Path with directories
+        assert _taskfile_label("/path/to/CustomTask.py") == "CustomTask"
+
+        # Path without extension
+        assert _taskfile_label("/path/to/task") == "task"
+
+    def test_taskfile_in_automation_route(self, tmp_path: Path) -> None:
+        """Test taskfile handling in automation routes."""
+        workspace = create_minimal_serve_workspace(tmp_path)
+
+        # Create separate ingestion folders to avoid overlap
+        ingestion_dir1 = tmp_path / "incoming1"
+        ingestion_dir1.mkdir()
+        ingestion_dir2 = tmp_path / "incoming2"
+        ingestion_dir2.mkdir()
+
+        import yaml
+        config = {
+            "mode": "test",
+            "runtime": "runtimes/test",
+            "automation_mode": True,
+            "automation_root": "automations",
+            "workspace_name": "{taskfile}-{montage}",
+            "automations": [
+                {
+                    "taskfile": "CustomTask",
+                    "montage": "biosemi64",
+                    "priority": 10,
+                    "ingestion_folders": [str(ingestion_dir1)],
+                    "file_globs": ["*.bdf"],
+                },
+                {
+                    "taskfile": "",  # Empty taskfile in route
+                    "montage": "standard1020",
+                    "priority": 20,
+                    "ingestion_folders": [str(ingestion_dir2)],
+                    "file_globs": ["*.edf"],
+                },
+            ],
+        }
+        (workspace / "serve-test.yaml").write_text(yaml.dump(config))
+
+        from autoclean.utils.ingestion import load_serve_config, parse_serve_config
+
+        raw_config = load_serve_config(workspace / "serve-test.yaml")
+        parsed, warnings = parse_serve_config(raw_config, workspace, strict=False)
+
+        # First route should be valid
+        assert len(parsed.routes) >= 1
+        assert parsed.routes[0].taskfile == "CustomTask"
+
+        # Should have warning about empty taskfile
+        assert any("taskfile" in w.lower() for w in warnings)
+
+
+class TestProcessFileTaskfileEdgeCases:
+    """Test edge cases in process_file task with bad taskfiles."""
+
+    def test_process_file_empty_taskfile(self, tmp_path: Path) -> None:
+        """Test process_file with empty taskfile."""
+        from autoclean.api.tasks import process_file
+
+        runtime_dir = tmp_path / "runtimes" / "test"
+        runtime_dir.mkdir(parents=True)
+
+        result = process_file(
+            file_path="/data/test.bdf",
+            workspace_dir=str(tmp_path),
+            mode="test",
+            route_id="route-1",
+            taskfile="",  # Empty
+            montage="biosemi64",
+            dry_run=True,
+        )
+
+        # Should still generate command (validation happens in CLI)
+        assert result["status"] == "dry_run"
+        assert "command" in result
+
+    def test_process_file_taskfile_with_spaces(self, tmp_path: Path) -> None:
+        """Test process_file with taskfile containing spaces."""
+        from autoclean.api.tasks import process_file
+
+        runtime_dir = tmp_path / "runtimes" / "test"
+        runtime_dir.mkdir(parents=True)
+
+        result = process_file(
+            file_path="/data/test.bdf",
+            workspace_dir=str(tmp_path),
+            mode="test",
+            route_id="route-1",
+            taskfile="Task With Spaces",
+            montage="biosemi64",
+            dry_run=True,
+        )
+
+        assert result["status"] == "dry_run"
+        # Check taskfile is in command
+        assert "Task With Spaces" in result["command"]
+
+    def test_process_file_python_taskfile(self, tmp_path: Path) -> None:
+        """Test process_file with Python file as taskfile."""
+        from autoclean.api.tasks import process_file
+
+        runtime_dir = tmp_path / "runtimes" / "test"
+        runtime_dir.mkdir(parents=True)
+
+        result = process_file(
+            file_path="/data/test.bdf",
+            workspace_dir=str(tmp_path),
+            mode="test",
+            route_id="route-1",
+            taskfile="custom_task.py",
+            montage="biosemi64",
+            dry_run=True,
+        )
+
+        assert result["status"] == "dry_run"
+        assert "custom_task.py" in str(result["command"])
