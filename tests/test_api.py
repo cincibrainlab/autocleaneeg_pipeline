@@ -365,3 +365,217 @@ class TestAPIIntegration:
         # Parse (non-strict since ingestion_folders is empty)
         parsed, warnings = parse_serve_config(raw_config, tmp_path, strict=False)
         assert parsed.mode == "test"
+
+    def test_queue_with_invalid_status(self, tmp_path: Path) -> None:
+        """Test queue handles invalid status values gracefully."""
+        queue_path = tmp_path / "queue-test.json"
+        queue_data = {
+            "entries": {
+                "/file1.bdf": {"status": "pending"},
+                "/file2.bdf": {"status": "invalid_status"},  # Invalid
+                "/file3.bdf": {"status": "unknown"},  # Also invalid
+            }
+        }
+        queue_path.write_text(json.dumps(queue_data))
+
+        from autoclean.utils.ingestion import IngestionQueue
+
+        queue = IngestionQueue(queue_path)
+        entries = queue.entries()
+
+        # The entries should load without error
+        assert len(entries) == 3
+        assert entries["/file1.bdf"]["status"] == "pending"
+        assert entries["/file2.bdf"]["status"] == "invalid_status"
+
+
+class TestAPIStateEdgeCases:
+    """Edge case tests for APIState."""
+
+    def test_get_queue_path_unconfigured(self) -> None:
+        """Test get_queue_path raises when workspace not configured."""
+        from fastapi import HTTPException
+
+        state = APIState()
+        with pytest.raises(HTTPException) as exc_info:
+            state.get_queue_path()
+        assert exc_info.value.status_code == 500
+
+    def test_get_config_path_unconfigured(self) -> None:
+        """Test get_config_path raises when workspace not configured."""
+        from fastapi import HTTPException
+
+        state = APIState()
+        with pytest.raises(HTTPException) as exc_info:
+            state.get_config_path()
+        assert exc_info.value.status_code == 500
+
+    def test_check_redis_without_connection(self) -> None:
+        """Test check_redis returns False when no Redis."""
+        state = APIState()
+        state.redis_url = "redis://nonexistent:6379"
+        # Reset cached connection
+        state._redis_connection = None
+
+        # Should return False, not raise
+        result = state.check_redis()
+        assert result is False
+
+
+class TestAdditionalModels:
+    """Additional model tests."""
+
+    def test_queue_status_enum_values(self) -> None:
+        """Test QueueStatus enum has correct values."""
+        assert QueueStatus.PENDING.value == "pending"
+        assert QueueStatus.PROCESSING.value == "processing"
+        assert QueueStatus.PROCESSED.value == "processed"
+        assert QueueStatus.FAILED.value == "failed"
+
+    def test_worker_status_enum_values(self) -> None:
+        """Test WorkerStatus enum has correct values."""
+        assert WorkerStatus.IDLE.value == "idle"
+        assert WorkerStatus.BUSY.value == "busy"
+        assert WorkerStatus.STOPPED.value == "stopped"
+        assert WorkerStatus.STARTING.value == "starting"
+
+    def test_queue_entry_all_fields(self) -> None:
+        """Test QueueEntry with all optional fields."""
+        entry = QueueEntry(
+            path="/data/file.bdf",
+            status=QueueStatus.FAILED,
+            route_id="route-1",
+            ingestion_root="/data",
+            added_at="2024-01-01T00:00:00",
+            processed_at=None,
+            failed_at="2024-01-01T01:00:00",
+            last_error="Processing failed",
+        )
+        assert entry.last_error == "Processing failed"
+        assert entry.failed_at == "2024-01-01T01:00:00"
+
+    def test_deploy_response_model(self) -> None:
+        """Test DeployResponse model."""
+        from autoclean.api.models import DeployResponse
+
+        response = DeployResponse(
+            success=True,
+            source="/path/serve-test.yaml",
+            target="/path/deploy/serve-test.yaml",
+            message="Deployed successfully",
+        )
+        assert response.success is True
+        assert "serve-test.yaml" in response.source
+
+    def test_job_info_model(self) -> None:
+        """Test JobInfo model."""
+        from autoclean.api.models import JobInfo
+
+        job = JobInfo(
+            id="job-123",
+            status="queued",
+            func_name="process_file",
+            args=["/data/file.bdf"],
+            created_at="2024-01-01T00:00:00",
+        )
+        assert job.id == "job-123"
+        assert job.status == "queued"
+
+    def test_worker_info_model(self) -> None:
+        """Test WorkerInfo model."""
+        from autoclean.api.models import WorkerInfo
+
+        worker = WorkerInfo(
+            name="worker-1",
+            status=WorkerStatus.BUSY,
+            current_job="job-123",
+            queues=["default", "high"],
+            pid=12345,
+        )
+        assert worker.name == "worker-1"
+        assert worker.pid == 12345
+
+    def test_worker_start_request_defaults(self) -> None:
+        """Test WorkerStartRequest default values."""
+        from autoclean.api.models import WorkerStartRequest
+
+        request = WorkerStartRequest()
+        assert request.count == 1
+        assert request.queues == ["default"]
+
+    def test_worker_stop_request_defaults(self) -> None:
+        """Test WorkerStopRequest default values."""
+        from autoclean.api.models import WorkerStopRequest
+
+        request = WorkerStopRequest()
+        assert request.graceful is True
+
+
+class TestTaskFunctions:
+    """Tests for task function behavior."""
+
+    def test_timestamp_format(self) -> None:
+        """Test _timestamp returns ISO format."""
+        from autoclean.api.tasks import _timestamp
+
+        ts = _timestamp()
+        # Should be ISO format with timezone
+        assert "T" in ts
+        assert ts.endswith("+00:00") or ts.endswith("Z")
+
+    def test_process_file_dry_run(self, tmp_path: Path) -> None:
+        """Test process_file with dry_run."""
+        from autoclean.api.tasks import process_file
+
+        # Create minimal workspace structure
+        runtime_dir = tmp_path / "runtimes" / "test"
+        runtime_dir.mkdir(parents=True)
+
+        result = process_file(
+            file_path="/data/test.bdf",
+            workspace_dir=str(tmp_path),
+            mode="test",
+            route_id="route-1",
+            taskfile="TestTask",
+            montage="biosemi64",
+            dry_run=True,
+        )
+
+        assert result["status"] == "dry_run"
+        assert "command" in result
+        assert result["file_path"] == "/data/test.bdf"
+
+
+class TestEventEmitters:
+    """Tests for event emitter functions."""
+
+    @pytest.mark.asyncio
+    async def test_emit_queue_update(self) -> None:
+        """Test emit_queue_update function."""
+        from autoclean.api.events import broadcaster, emit_queue_update
+
+        # With no connections, should not raise
+        await emit_queue_update(
+            action="added",
+            path="/data/file.bdf",
+            status="pending",
+            route_id="route-1",
+        )
+        # No error means success
+
+    @pytest.mark.asyncio
+    async def test_broadcaster_broadcast_no_connections(self) -> None:
+        """Test broadcast with no connections."""
+        from autoclean.api.events import EventBroadcaster
+        from autoclean.api.models import Event, EventType
+
+        broadcaster = EventBroadcaster()
+        event = Event(
+            type=EventType.QUEUE_UPDATE,
+            timestamp="2024-01-01T00:00:00Z",
+            data={"test": True},
+        )
+
+        # Should not raise with no connections
+        await broadcaster.broadcast(event)
+        assert broadcaster.connection_count == 0
