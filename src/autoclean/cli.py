@@ -2324,6 +2324,23 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="Use operator YAML instead of deployed config",
     )
 
+    serve_tui = serve_subparsers.add_parser(
+        "tui", help="Launch interactive TUI for automation administration", add_help=False
+    )
+    attach_rich_help(serve_tui)
+    serve_tui.add_argument(
+        "--mode",
+        choices=["test", "live"],
+        default="test",
+        help="Config mode to use (default: test)",
+    )
+    serve_tui.add_argument(
+        "--path",
+        type=Path,
+        default=None,
+        help="Optional serve workspace path",
+    )
+
     # Version command
 
     _version = subparsers.add_parser(
@@ -9067,6 +9084,8 @@ def cmd_serve(args) -> int:
         return cmd_serve_deploy(args)
     if action == "run":
         return cmd_serve_run(args)
+    if action == "tui":
+        return cmd_serve_tui(args)
     message("error", f"Unknown serve action: {action}")
     return 1
 
@@ -9496,6 +9515,34 @@ def cmd_serve_run(args) -> int:
         f"✓ Serve run complete after {result.cycles} cycles (idle={result.idle_cycles})",
     )
     return 0
+
+
+def cmd_serve_tui(args) -> int:
+    """Launch interactive TUI for automation administration."""
+    workspace_dir = _resolve_serve_workspace_dir(args.path)
+    if workspace_dir is None:
+        message("error", "No serve workspace configured")
+        message("info", "Use 'serve workspace --mode new --path <dir>' to create one")
+        return 1
+
+    paths = _serve_workspace_paths(workspace_dir)
+    if not _validate_serve_workspace(paths):
+        message("error", "Invalid serve workspace")
+        return 1
+
+    try:
+        from autoclean.tui import AutoCleanTUI
+
+        app = AutoCleanTUI(workspace_path=workspace_dir, mode=args.mode)
+        app.run()
+        return 0
+    except ImportError as exc:
+        message("error", f"Failed to import TUI: {exc}")
+        message("info", "Ensure textual is installed: pip install textual")
+        return 1
+    except Exception as exc:
+        message("error", f"TUI error: {exc}")
+        return 1
 
 
 def cmd_serve_docs(args) -> int:

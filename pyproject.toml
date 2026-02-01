@@ -135,6 +135,7 @@ Issues = "https://github.com/cincibrainlab/autoclean_pipeline/issues"
 
 [project.scripts]
 autocleaneeg-pipeline = "autoclean.__main__:main"
+autocleaneeg-tui = "autoclean.tui.app:main"
 
 [tool.hatch.version]
 path = "src/autoclean/__init__.py"
