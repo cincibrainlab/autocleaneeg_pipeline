@@ -812,21 +812,41 @@ def resolve_runtime_cli(runtime_path: Path) -> Path:
     raise FileNotFoundError(f"Runtime CLI not found under {runtime_path}")
 
 
-def resolve_taskfile_path(taskfile: str, workspace_dir: Path) -> Optional[Path]:
-    """Resolve taskfile path if a Python file is specified."""
+def resolve_taskfile_path(
+    taskfile: str, workspace_dir: Path, *, strict: bool = False
+) -> Optional[Path]:
+    """Resolve taskfile path if a Python file is specified.
+
+    Args:
+        taskfile: Task name or path to Python file.
+        workspace_dir: Workspace directory for relative path resolution.
+        strict: If True, raise FileNotFoundError for missing .py files.
+                If False (default), return None and let CLI validate.
+
+    Returns:
+        Resolved Path if found, None if not a .py file or file not found.
+
+    Raises:
+        FileNotFoundError: Only if strict=True and .py file not found.
+    """
     candidate = Path(taskfile)
     if candidate.suffix != ".py":
         return None
     if candidate.is_absolute():
-        if not candidate.exists():
+        if candidate.exists():
+            return candidate
+        if strict:
             raise FileNotFoundError(f"Task file not found: {candidate}")
-        return candidate
+        return None
 
     for base in [workspace_dir, workspace_dir.parent]:
         resolved = (base / candidate).resolve()
         if resolved.exists():
             return resolved
-    raise FileNotFoundError(f"Task file not found: {candidate}")
+
+    if strict:
+        raise FileNotFoundError(f"Task file not found: {candidate}")
+    return None
 
 
 def build_process_command(

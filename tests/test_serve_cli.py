@@ -469,9 +469,13 @@ class TestTaskFileEdgeCases:
 
         from autoclean.utils.ingestion import resolve_taskfile_path
 
-        # Non-existent .py file should raise FileNotFoundError
+        # Non-strict mode (default): returns None for missing .py files
+        result = resolve_taskfile_path("nonexistent_task.py", workspace)
+        assert result is None
+
+        # Strict mode: raises FileNotFoundError
         with pytest.raises(FileNotFoundError):
-            resolve_taskfile_path("nonexistent_task.py", workspace)
+            resolve_taskfile_path("nonexistent_task.py", workspace, strict=True)
 
     def test_taskfile_existing_python_file(self, tmp_path: Path) -> None:
         """Test taskfile with existing Python file."""
