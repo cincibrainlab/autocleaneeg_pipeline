@@ -144,7 +144,7 @@ class DashboardScreen(Screen):
             child.remove()
 
         if not app.state.activity_log:
-            feed.mount(Static("No recent activity", classes="empty-state", id="empty-activity"))
+            feed.mount(Static("No recent activity", classes="empty-state"))
             return
 
         # Show last 10 events
