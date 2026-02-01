@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 def _timestamp() -> str:
     """Get current ISO timestamp."""
