@@ -1,0 +1,403 @@
+/* AutoClean Automation Console TUI Styles */
+
+/* Main layout */
+#main-container {
+    height: 100%;
+    width: 100%;
+}
+
+#sidebar {
+    width: 20;
+    background: $surface;
+    border-right: solid $primary;
+}
+
+#content-area {
+    width: 1fr;
+}
+
+#main-content {
+    width: 100%;
+    height: 100%;
+    padding: 1;
+}
+
+/* Navigation */
+NavSidebar {
+    height: 1fr;
+    padding: 1;
+}
+
+#nav-list {
+    height: auto;
+}
+
+#nav-list > ListItem {
+    padding: 0 1;
+}
+
+#nav-list > ListItem:hover {
+    background: $primary 20%;
+}
+
+#nav-list > ListItem.-selected {
+    background: $primary 40%;
+}
+
+#nav-list > ListItem > Label {
+    width: 100%;
+}
+
+/* Status bar */
+#status-bar {
+    height: 3;
+    padding: 1;
+    background: $surface-darken-1;
+    border-top: solid $primary;
+    text-align: center;
+}
+
+/* Dashboard screen */
+DashboardScreen {
+    height: 100%;
+}
+
+.stats-container {
+    height: auto;
+    layout: horizontal;
+    padding: 1;
+}
+
+.stat-box {
+    width: 1fr;
+    height: 5;
+    margin: 0 1;
+    padding: 1;
+    border: solid $primary;
+    text-align: center;
+}
+
+.stat-box.pending {
+    border: solid $warning;
+}
+
+.stat-box.ready {
+    border: solid $success;
+}
+
+.stat-box.running {
+    border: solid $primary;
+}
+
+.stat-box.failed {
+    border: solid $error;
+}
+
+.stat-value {
+    text-style: bold;
+    text-align: center;
+}
+
+.stat-label {
+    color: $text-muted;
+    text-align: center;
+}
+
+/* Activity feed */
+.activity-container {
+    height: 1fr;
+    padding: 1;
+}
+
+.activity-title {
+    text-style: bold;
+    padding-bottom: 1;
+}
+
+/* Routes screen */
+RoutesScreen {
+    height: 100%;
+}
+
+.routes-table {
+    height: 1fr;
+    padding: 1;
+}
+
+/* Queue screen */
+QueueScreen {
+    height: 100%;
+}
+
+.queue-container {
+    height: 1fr;
+    padding: 1;
+}
+
+.queue-actions {
+    height: auto;
+    padding: 1;
+    layout: horizontal;
+}
+
+.queue-actions Button {
+    margin-right: 1;
+}
+
+/* Activity screen */
+ActivityScreen {
+    height: 100%;
+}
+
+.log-container {
+    height: 1fr;
+    padding: 1;
+}
+
+/* Config screen */
+ConfigScreen {
+    height: 100%;
+}
+
+.config-container {
+    height: 1fr;
+    padding: 1;
+}
+
+.config-status {
+    height: auto;
+    padding: 1;
+    margin-bottom: 1;
+}
+
+.config-status.valid {
+    background: $success 20%;
+    border: solid $success;
+}
+
+.config-status.invalid {
+    background: $error 20%;
+    border: solid $error;
+}
+
+.config-yaml {
+    height: 1fr;
+    border: solid $primary;
+    padding: 1;
+    overflow-y: auto;
+}
+
+.config-actions {
+    height: auto;
+    padding: 1;
+    layout: horizontal;
+}
+
+.config-actions Button {
+    margin-right: 1;
+}
+
+/* Service screen */
+ServiceScreen {
+    height: 100%;
+}
+
+.service-container {
+    padding: 1;
+}
+
+.service-status {
+    height: auto;
+    padding: 1;
+    margin-bottom: 1;
+    border: solid $primary;
+}
+
+.service-status.running {
+    background: $success 20%;
+    border: solid $success;
+}
+
+.service-status.stopped {
+    background: $surface-darken-1;
+}
+
+.service-controls {
+    height: auto;
+    padding: 1;
+    layout: horizontal;
+}
+
+.service-controls Button {
+    margin-right: 1;
+}
+
+.service-params {
+    height: auto;
+    padding: 1;
+    border: solid $primary;
+    margin-top: 1;
+}
+
+.param-row {
+    height: auto;
+    layout: horizontal;
+    margin-bottom: 1;
+}
+
+.param-label {
+    width: 20;
+}
+
+.param-input {
+    width: 1fr;
+}
+
+/* StatsBar widget */
+StatsBar {
+    height: 7;
+    layout: horizontal;
+    padding: 1;
+}
+
+StatsBar .stat-item {
+    width: 1fr;
+    height: 100%;
+    margin: 0 1;
+    padding: 1;
+    border: solid $primary;
+    text-align: center;
+}
+
+/* LogView widget */
+LogView {
+    height: 1fr;
+    border: solid $primary;
+    padding: 1;
+    overflow-y: auto;
+}
+
+.log-entry {
+    height: auto;
+    padding: 0;
+}
+
+.log-entry.ready {
+    color: $success;
+}
+
+.log-entry.dispatch {
+    color: $primary;
+}
+
+.log-entry.complete {
+    color: $success-darken-2;
+}
+
+.log-entry.error {
+    color: $error;
+}
+
+.log-entry.info {
+    color: $text;
+}
+
+/* RouteTree widget */
+RouteTree {
+    height: 1fr;
+}
+
+/* DataTable styling */
+DataTable {
+    height: 1fr;
+}
+
+DataTable > .datatable--header {
+    text-style: bold;
+    background: $primary 20%;
+}
+
+DataTable > .datatable--cursor {
+    background: $primary 40%;
+}
+
+/* Button styling */
+Button {
+    margin: 0 1 0 0;
+}
+
+Button.primary {
+    background: $primary;
+}
+
+Button.success {
+    background: $success;
+}
+
+Button.warning {
+    background: $warning;
+}
+
+Button.error {
+    background: $error;
+}
+
+/* Input styling */
+Input {
+    margin: 0 1 0 0;
+}
+
+/* Checkbox/Switch styling */
+Switch {
+    margin: 0 1 0 0;
+}
+
+/* Help text */
+.help-text {
+    color: $text-muted;
+    text-style: italic;
+    padding: 1;
+}
+
+/* Error/Warning displays */
+.error-list {
+    color: $error;
+    padding: 1;
+}
+
+.warning-list {
+    color: $warning;
+    padding: 1;
+}
+
+/* Section headers */
+.section-header {
+    text-style: bold;
+    padding: 0 0 1 0;
+    border-bottom: solid $primary;
+    margin-bottom: 1;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    color: $text-muted;
+    padding: 2;
+}
+
+/* Filter row */
+.filter-row {
+    height: auto;
+    layout: horizontal;
+    padding: 0 1 1 1;
+}
+
+.filter-row Label {
+    margin-right: 1;
+    padding-top: 1;
+}
+
+.filter-row Select {
+    width: 20;
+    margin-right: 1;
+}
