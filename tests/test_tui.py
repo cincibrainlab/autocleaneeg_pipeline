@@ -1,0 +1,607 @@
+"""Tests for the AutoClean Automation Console TUI."""
+
+from __future__ import annotations
+
+import json
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from autoclean.tui.app import ActivityEvent, AppState, AutoCleanTUI
+
+
+class TestAppState:
+    """Tests for AppState dataclass."""
+
+    def test_default_state(self) -> None:
+        """Test default state values."""
+        state = AppState()
+        assert state.workspace_dir is None
+        assert state.mode == "test"
+        assert state.service_running is False
+        assert state.service_process is None
+        assert state.pending_count == 0
+        assert state.ready_count == 0
+        assert state.running_count == 0
+        assert state.failed_count == 0
+        assert state.activity_log == []
+        assert state.config_valid is False
+        assert state.config_errors == []
+        assert state.config_warnings == []
+
+    def test_state_with_workspace(self, tmp_path: Path) -> None:
+        """Test state with workspace directory."""
+        state = AppState(workspace_dir=tmp_path, mode="live")
+        assert state.workspace_dir == tmp_path
+        assert state.mode == "live"
+
+    def test_activity_log_mutable(self) -> None:
+        """Test that activity log is properly mutable."""
+        state = AppState()
+        event = ActivityEvent(
+            timestamp=datetime.now(),
+            event_type="test",
+            message="Test message",
+        )
+        state.activity_log.append(event)
+        assert len(state.activity_log) == 1
+
+
+class TestActivityEvent:
+    """Tests for ActivityEvent dataclass."""
+
+    def test_minimal_event(self) -> None:
+        """Test creating event with minimal fields."""
+        now = datetime.now()
+        event = ActivityEvent(
+            timestamp=now,
+            event_type="ready",
+            message="File ready",
+        )
+        assert event.timestamp == now
+        assert event.event_type == "ready"
+        assert event.message == "File ready"
+        assert event.file_path is None
+        assert event.route_id is None
+        assert event.details == {}
+
+    def test_full_event(self, tmp_path: Path) -> None:
+        """Test creating event with all fields."""
+        file_path = tmp_path / "test.bdf"
+        now = datetime.now()
+        event = ActivityEvent(
+            timestamp=now,
+            event_type="dispatch",
+            message="Dispatching file",
+            file_path=file_path,
+            route_id="route-1",
+            details={"attempt": 1},
+        )
+        assert event.file_path == file_path
+        assert event.route_id == "route-1"
+        assert event.details == {"attempt": 1}
+
+
+class TestAutoCleanTUIInit:
+    """Tests for AutoCleanTUI initialization."""
+
+    def test_init_no_workspace(self) -> None:
+        """Test initialization without workspace."""
+        app = AutoCleanTUI()
+        assert app.state.workspace_dir is None
+        assert app.state.mode == "test"
+
+    def test_init_with_workspace(self, tmp_path: Path) -> None:
+        """Test initialization with workspace path."""
+        app = AutoCleanTUI(workspace_path=tmp_path, mode="live")
+        assert app.state.workspace_dir == tmp_path
+        assert app.state.mode == "live"
+
+    def test_init_creates_state(self) -> None:
+        """Test that initialization creates proper state."""
+        app = AutoCleanTUI()
+        assert isinstance(app.state, AppState)
+
+
+class TestAutoCleanTUIHelpers:
+    """Tests for AutoCleanTUI helper methods."""
+
+    def test_add_activity_event(self) -> None:
+        """Test adding activity events."""
+        app = AutoCleanTUI()
+        app._add_activity_event("test", "Test message")
+
+        assert len(app.state.activity_log) == 1
+        event = app.state.activity_log[0]
+        assert event.event_type == "test"
+        assert event.message == "Test message"
+
+    def test_add_activity_event_with_details(self, tmp_path: Path) -> None:
+        """Test adding activity event with file and route."""
+        app = AutoCleanTUI()
+        file_path = tmp_path / "test.bdf"
+        app._add_activity_event(
+            "dispatch",
+            "Processing file",
+            file_path=file_path,
+            route_id="route-1",
+        )
+
+        event = app.state.activity_log[0]
+        assert event.file_path == file_path
+        assert event.route_id == "route-1"
+
+    def test_activity_log_limit(self) -> None:
+        """Test that activity log is limited to 100 events."""
+        app = AutoCleanTUI()
+
+        for i in range(150):
+            app._add_activity_event("test", f"Message {i}")
+
+        assert len(app.state.activity_log) == 100
+        # Most recent should be first
+        assert app.state.activity_log[0].message == "Message 149"
+
+    def test_get_config_yaml_no_workspace(self) -> None:
+        """Test getting config when no workspace is set."""
+        app = AutoCleanTUI()
+        result = app.get_config_yaml()
+        assert result == ""
+
+    def test_get_config_yaml_missing_file(self, tmp_path: Path) -> None:
+        """Test getting config when file doesn't exist."""
+        app = AutoCleanTUI(workspace_path=tmp_path)
+        result = app.get_config_yaml()
+        assert "Config file not found" in result
+
+    def test_get_config_yaml_exists(self, tmp_path: Path) -> None:
+        """Test getting config when file exists."""
+        config_file = tmp_path / "serve-test.yaml"
+        config_content = "mode: test\nruntime: runtimes/test"
+        config_file.write_text(config_content)
+
+        app = AutoCleanTUI(workspace_path=tmp_path)
+        result = app.get_config_yaml()
+        assert result == config_content
+
+    def test_get_routes_no_workspace(self) -> None:
+        """Test getting routes when no workspace is set."""
+        app = AutoCleanTUI()
+        result = app.get_routes()
+        assert result == []
+
+    def test_get_routes_missing_config(self, tmp_path: Path) -> None:
+        """Test getting routes when config file doesn't exist."""
+        app = AutoCleanTUI(workspace_path=tmp_path)
+        result = app.get_routes()
+        assert result == []
+
+    def test_get_queue_entries_no_workspace(self) -> None:
+        """Test getting queue entries when no workspace is set."""
+        app = AutoCleanTUI()
+        result = app.get_queue_entries()
+        assert result == {}
+
+    def test_get_queue_entries_no_file(self, tmp_path: Path) -> None:
+        """Test getting queue entries when queue file doesn't exist."""
+        app = AutoCleanTUI(workspace_path=tmp_path)
+        result = app.get_queue_entries()
+        assert result == {}
+
+    def test_get_queue_entries_with_data(self, tmp_path: Path) -> None:
+        """Test getting queue entries with existing queue file."""
+        queue_path = tmp_path / "queue.json"
+        queue_data = {
+            "entries": {
+                "/path/to/file1.bdf": {
+                    "status": "pending",
+                    "added_at": "2024-01-01T00:00:00",
+                },
+                "/path/to/file2.bdf": {
+                    "status": "processed",
+                    "added_at": "2024-01-01T00:00:00",
+                },
+            }
+        }
+        queue_path.write_text(json.dumps(queue_data))
+
+        app = AutoCleanTUI(workspace_path=tmp_path)
+        result = app.get_queue_entries()
+        assert len(result) == 2
+        assert "/path/to/file1.bdf" in result
+        assert result["/path/to/file1.bdf"]["status"] == "pending"
+
+
+class TestAutoCleanTUIStateLoading:
+    """Tests for TUI state loading methods."""
+
+    def test_load_queue_no_workspace(self) -> None:
+        """Test loading queue when no workspace is set."""
+        app = AutoCleanTUI()
+        app._load_queue()
+        # Should not raise, just return early
+        assert app.state.pending_count == 0
+
+    def test_load_queue_no_file(self, tmp_path: Path) -> None:
+        """Test loading queue when file doesn't exist."""
+        app = AutoCleanTUI(workspace_path=tmp_path)
+        app._load_queue()
+        assert app.state.pending_count == 0
+        assert app.state.failed_count == 0
+
+    def test_load_queue_with_data(self, tmp_path: Path) -> None:
+        """Test loading queue with entries."""
+        queue_path = tmp_path / "queue.json"
+        queue_data = {
+            "entries": {
+                "/file1.bdf": {"status": "pending"},
+                "/file2.bdf": {"status": "pending"},
+                "/file3.bdf": {"status": "failed", "last_error": "Error"},
+                "/file4.bdf": {"status": "processed"},
+            }
+        }
+        queue_path.write_text(json.dumps(queue_data))
+
+        app = AutoCleanTUI(workspace_path=tmp_path)
+        app._load_queue()
+
+        assert app.state.pending_count == 2
+        assert app.state.failed_count == 1
+
+    def test_load_config_no_workspace(self) -> None:
+        """Test loading config when no workspace is set."""
+        app = AutoCleanTUI()
+        app._load_config()
+        assert not app.state.config_valid
+
+    def test_load_config_missing_file(self, tmp_path: Path) -> None:
+        """Test loading config when file doesn't exist."""
+        app = AutoCleanTUI(workspace_path=tmp_path)
+        app._load_config()
+
+        assert not app.state.config_valid
+        assert len(app.state.config_errors) == 1
+        assert "not found" in app.state.config_errors[0]
+
+
+class TestAutoCleanTUIActions:
+    """Tests for TUI action methods."""
+
+    def test_toggle_mode(self) -> None:
+        """Test toggling between test and live mode."""
+        app = AutoCleanTUI()
+        assert app.state.mode == "test"
+
+        # Mock the methods that would normally require UI
+        app._update_status_bar = MagicMock()
+        app._load_workspace_data = MagicMock()
+        app._refresh_current_screen = MagicMock()
+        app.notify = MagicMock()
+
+        app.action_toggle_mode()
+        assert app.state.mode == "live"
+
+        app.action_toggle_mode()
+        assert app.state.mode == "test"
+
+    def test_stop_service_not_running(self) -> None:
+        """Test stopping service when not running."""
+        app = AutoCleanTUI()
+        app.notify = MagicMock()
+
+        app.action_stop_service()
+        app.notify.assert_called_once()
+        assert "not running" in str(app.notify.call_args)
+
+    def test_start_service_already_running(self) -> None:
+        """Test starting service when already running."""
+        app = AutoCleanTUI()
+        app.state.service_running = True
+        app.notify = MagicMock()
+
+        app.action_start_service()
+        app.notify.assert_called_once()
+        assert "already running" in str(app.notify.call_args)
+
+
+class TestMainEntry:
+    """Tests for the main entry point."""
+
+    def test_main_no_workspace(self) -> None:
+        """Test main with no workspace specified."""
+        from autoclean.tui.app import main
+
+        with patch("sys.argv", ["autocleaneeg-tui"]):
+            with patch("autoclean.utils.user_config.user_config") as mock_config:
+                mock_config.get_serve_workspace.return_value = None
+
+                result = main()
+                assert result == 1
+
+    def test_main_workspace_not_found(self, tmp_path: Path) -> None:
+        """Test main with non-existent workspace."""
+        from autoclean.tui.app import main
+
+        missing_path = tmp_path / "missing"
+
+        with patch("sys.argv", ["autocleaneeg-tui", "--path", str(missing_path)]):
+            result = main()
+            assert result == 1
+
+
+class TestWidgets:
+    """Tests for TUI widgets."""
+
+    def test_stats_bar_import(self) -> None:
+        """Test StatsBar can be imported."""
+        from autoclean.tui.widgets.stats_bar import StatsBar, StatItem
+        assert StatsBar is not None
+        assert StatItem is not None
+
+    def test_route_tree_import(self) -> None:
+        """Test RouteTree can be imported."""
+        from autoclean.tui.widgets.route_tree import RouteTree
+        assert RouteTree is not None
+
+    def test_log_view_import(self) -> None:
+        """Test LogView can be imported."""
+        from autoclean.tui.widgets.log_view import LogView, LogEntry
+        assert LogView is not None
+        assert LogEntry is not None
+
+
+class TestScreens:
+    """Tests for TUI screens."""
+
+    def test_dashboard_import(self) -> None:
+        """Test DashboardScreen can be imported."""
+        from autoclean.tui.screens.dashboard import DashboardScreen, StatBox
+        assert DashboardScreen is not None
+        assert StatBox is not None
+
+    def test_routes_import(self) -> None:
+        """Test RoutesScreen can be imported."""
+        from autoclean.tui.screens.routes import RoutesScreen
+        assert RoutesScreen is not None
+
+    def test_queue_import(self) -> None:
+        """Test QueueScreen can be imported."""
+        from autoclean.tui.screens.queue import QueueScreen
+        assert QueueScreen is not None
+
+    def test_activity_import(self) -> None:
+        """Test ActivityScreen can be imported."""
+        from autoclean.tui.screens.activity import ActivityScreen, LogEntry
+        assert ActivityScreen is not None
+        assert LogEntry is not None
+
+    def test_config_import(self) -> None:
+        """Test ConfigScreen can be imported."""
+        from autoclean.tui.screens.config import ConfigScreen
+        assert ConfigScreen is not None
+
+    def test_service_import(self) -> None:
+        """Test ServiceScreen can be imported."""
+        from autoclean.tui.screens.service import ServiceScreen
+        assert ServiceScreen is not None
+
+
+class TestLogEntry:
+    """Tests for LogEntry widget rendering."""
+
+    def test_log_entry_render_ready(self) -> None:
+        """Test LogEntry renders ready event correctly."""
+        from autoclean.tui.screens.activity import LogEntry
+
+        entry = LogEntry(
+            timestamp="12:34:56",
+            event_type="ready",
+            message="File ready",
+        )
+        rendered = entry.render()
+        assert "12:34:56" in rendered
+        assert "READY" in rendered
+        assert "File ready" in rendered
+
+    def test_log_entry_render_error(self) -> None:
+        """Test LogEntry renders error event correctly."""
+        from autoclean.tui.screens.activity import LogEntry
+
+        entry = LogEntry(
+            timestamp="12:34:56",
+            event_type="error",
+            message="Processing failed",
+        )
+        rendered = entry.render()
+        assert "ERROR" in rendered
+        assert "Processing failed" in rendered
+
+    def test_log_entry_with_route(self) -> None:
+        """Test LogEntry includes route ID when provided."""
+        from autoclean.tui.screens.activity import LogEntry
+
+        entry = LogEntry(
+            timestamp="12:34:56",
+            event_type="dispatch",
+            message="Dispatching",
+            route_id="route-1",
+        )
+        rendered = entry.render()
+        assert "route-1" in rendered
+
+
+class TestStatBox:
+    """Tests for StatBox widget."""
+
+    def test_stat_box_init(self) -> None:
+        """Test StatBox initialization."""
+        from autoclean.tui.screens.dashboard import StatBox
+
+        box = StatBox(value=42, label="Test", box_class="pending")
+        assert box.value == 42
+        assert box.label_text == "Test"
+        assert box.box_class == "pending"
+
+
+class TestStatusBar:
+    """Tests for StatusBar widget."""
+
+    def test_status_bar_render_stopped(self) -> None:
+        """Test StatusBar renders stopped state."""
+        from autoclean.tui.app import StatusBar
+
+        bar = StatusBar()
+        bar.mode = "test"
+        bar.service_running = False
+
+        rendered = bar.render()
+        assert "test" in rendered
+        assert "Stopped" in rendered
+
+    def test_status_bar_render_running(self) -> None:
+        """Test StatusBar renders running state."""
+        from autoclean.tui.app import StatusBar
+
+        bar = StatusBar()
+        bar.mode = "live"
+        bar.service_running = True
+
+        rendered = bar.render()
+        assert "live" in rendered
+        assert "Running" in rendered
+
+
+class TestConfigHighlighting:
+    """Tests for YAML syntax highlighting."""
+
+    def test_highlight_yaml_comment(self) -> None:
+        """Test YAML comment highlighting."""
+        from autoclean.tui.screens.config import ConfigScreen
+
+        screen = ConfigScreen()
+        result = screen._highlight_yaml("# This is a comment")
+        assert "dim" in result or "italic" in result
+
+    def test_highlight_yaml_key_value(self) -> None:
+        """Test YAML key-value highlighting."""
+        from autoclean.tui.screens.config import ConfigScreen
+
+        screen = ConfigScreen()
+        result = screen._highlight_yaml("mode: test")
+        assert "cyan" in result  # Key color
+
+    def test_highlight_yaml_boolean(self) -> None:
+        """Test YAML boolean highlighting."""
+        from autoclean.tui.screens.config import ConfigScreen
+
+        screen = ConfigScreen()
+        result = screen._highlight_yaml("enabled: true")
+        assert "magenta" in result  # Boolean color
+
+    def test_highlight_yaml_number(self) -> None:
+        """Test YAML number highlighting."""
+        from autoclean.tui.screens.config import ConfigScreen
+
+        screen = ConfigScreen()
+        result = screen._highlight_yaml("priority: 10")
+        assert "yellow" in result  # Number color
+
+
+class TestServiceParams:
+    """Tests for service parameter parsing."""
+
+    def test_get_service_params_defaults(self) -> None:
+        """Test default service parameters."""
+        from autoclean.tui.screens.service import ServiceScreen
+
+        # Mock the query_one calls
+        screen = ServiceScreen()
+        screen.query_one = MagicMock(side_effect=Exception("Not mounted"))
+
+        params = screen._get_service_params()
+
+        assert params["max_cycles"] == 1000
+        assert params["idle_limit"] == 10
+        assert params["sleep_seconds"] == 1.0
+        assert params["max_events"] == 1
+        assert params["dry_run"] is False
+        assert params["use_watchfiles"] is True
+        assert params["require_sentinel"] is True
+
+
+class TestIntegration:
+    """Integration tests for TUI components."""
+
+    def test_full_app_creation(self, tmp_path: Path) -> None:
+        """Test creating full app with workspace."""
+        # Create minimal workspace structure
+        (tmp_path / "runtimes" / "test").mkdir(parents=True)
+        (tmp_path / "runtimes" / "live").mkdir(parents=True)
+        (tmp_path / "automations").mkdir()
+        (tmp_path / "deploy").mkdir()
+
+        config = {
+            "mode": "test",
+            "runtime": "runtimes/test",
+            "runtime_package": "autocleaneeg-pipeline",
+            "automation_mode": True,
+            "automation_root": "automations",
+            "workspace_name": "taskfile-montage-version",
+            "taskfile": "TestTask",
+            "montage": "biosemi64",
+            "ingestion_folders": [],
+        }
+
+        import yaml
+        (tmp_path / "serve-test.yaml").write_text(yaml.dump(config))
+        (tmp_path / "serve-live.yaml").write_text(
+            yaml.dump({**config, "mode": "live", "runtime": "runtimes/live"})
+        )
+
+        app = AutoCleanTUI(workspace_path=tmp_path, mode="test")
+        assert app.state.workspace_dir == tmp_path
+
+        # Test config loading
+        app._load_config()
+        # Config may have warnings but should not have fatal errors
+        # (ingestion_folders is empty which is a warning in non-strict mode)
+
+    def test_queue_operations(self, tmp_path: Path) -> None:
+        """Test queue loading and statistics."""
+        queue_data = {
+            "entries": {
+                "/data/file1.bdf": {
+                    "status": "pending",
+                    "added_at": "2024-01-01T00:00:00",
+                    "route_id": "route-1",
+                },
+                "/data/file2.bdf": {
+                    "status": "processed",
+                    "added_at": "2024-01-01T00:00:00",
+                    "processed_at": "2024-01-01T00:01:00",
+                    "route_id": "route-1",
+                },
+                "/data/file3.bdf": {
+                    "status": "failed",
+                    "added_at": "2024-01-01T00:00:00",
+                    "last_error": "Test error",
+                    "route_id": "route-1",
+                },
+            }
+        }
+
+        queue_path = tmp_path / "queue.json"
+        queue_path.write_text(json.dumps(queue_data))
+
+        app = AutoCleanTUI(workspace_path=tmp_path)
+        app._load_queue()
+
+        assert app.state.pending_count == 1
+        assert app.state.failed_count == 1
+
+        # Test get_queue_entries
+        entries = app.get_queue_entries()
+        assert len(entries) == 3
