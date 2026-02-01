@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -28,6 +29,7 @@ from textual.widgets import (
 from autoclean.tui.screens.activity import ActivityScreen
 from autoclean.tui.screens.config import ConfigScreen
 from autoclean.tui.screens.dashboard import DashboardScreen
+from autoclean.utils.ingestion import ServeConfigError
 from autoclean.tui.screens.queue import QueueScreen
 from autoclean.tui.screens.routes import RoutesScreen
 from autoclean.tui.screens.service import ServiceScreen
@@ -142,6 +144,7 @@ class AutoCleanTUI(App):
         self,
         workspace_path: Optional[Path] = None,
         mode: str = "test",
+        watch_files: bool = True,
     ) -> None:
         super().__init__()
         self.state = AppState(
@@ -149,6 +152,8 @@ class AutoCleanTUI(App):
             mode=mode,
         )
         self._file_watcher_task = None
+        self._watcher_stop_event = threading.Event()
+        self._watch_files = watch_files
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -166,7 +171,8 @@ class AutoCleanTUI(App):
         self.push_screen("dashboard")
         if self.state.workspace_dir:
             self._load_workspace_data()
-            self._start_file_watcher()
+            if self._watch_files:
+                self._start_file_watcher()
 
     def _update_status_bar(self) -> None:
         """Update the status bar with current state."""
@@ -197,7 +203,6 @@ class AutoCleanTUI(App):
 
         try:
             from autoclean.utils.ingestion import (
-                ServeConfigError,
                 load_serve_config,
                 parse_serve_config,
             )
@@ -269,7 +274,14 @@ class AutoCleanTUI(App):
             queue_path = self.state.workspace_dir / "queue.json"
             paths_to_watch = [self.state.workspace_dir]
 
-            for changes in watch(*paths_to_watch, recursive=False):
+            # Use stop_event to allow clean shutdown
+            for changes in watch(
+                *paths_to_watch,
+                recursive=False,
+                stop_event=self._watcher_stop_event,
+            ):
+                if self._watcher_stop_event.is_set():
+                    break
                 for change_type, path in changes:
                     if Path(path) == queue_path:
                         self.call_from_thread(self._load_queue)
@@ -283,6 +295,11 @@ class AutoCleanTUI(App):
         """Refresh the current screen with updated data."""
         if self.screen and hasattr(self.screen, "refresh_data"):
             self.screen.refresh_data()
+
+    def action_quit(self) -> None:
+        """Quit the application, stopping file watcher first."""
+        self._watcher_stop_event.set()
+        self.exit()
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle navigation selection."""

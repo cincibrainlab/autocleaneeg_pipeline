@@ -124,7 +124,7 @@ class ActivityScreen(Screen):
 
         if not events:
             log_scroll.mount(
-                Static("No activity logged yet", classes="empty-state", id="empty-log")
+                Static("No activity logged yet", classes="empty-state")
             )
             self._update_status(0, 0)
             return
