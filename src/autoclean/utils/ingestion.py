@@ -497,7 +497,11 @@ def parse_serve_config(
             f"automations[{idx}].file_globs",
         )
         if not route_file_globs:
-            errors.append(f"automations[{idx}].file_globs must be set")
+            if strict:
+                errors.append(f"automations[{idx}].file_globs is required")
+            else:
+                warnings.append(f"automations[{idx}].file_globs is empty")
+                route_file_globs = ["*"]  # Default for viewing partial configs
 
         recursive_value = _coerce_bool(
             route_data.get("recursive", default_recursive),
@@ -542,19 +546,25 @@ def parse_serve_config(
 
         automation_root_value = route_data.get("automation_root", default_automation_root)
         if not automation_root_value:
-            errors.append(f"automations[{idx}].automation_root is required")
+            if strict:
+                errors.append(f"automations[{idx}].automation_root is required")
+            else:
+                warnings.append(f"automations[{idx}].automation_root is empty")
             automation_root_value = ""
         automation_root_path = (
             _resolve_relative_path(workspace_dir, str(automation_root_value))
             if automation_root_value
             else workspace_dir
         )
-        if automation_root_value and not automation_root_path.exists():
+        if strict and automation_root_value and not automation_root_path.exists():
             errors.append(f"Automation root not found: {automation_root_path}")
 
         workspace_template = route_data.get("workspace_name", default_workspace_name)
         if not workspace_template:
-            errors.append(f"automations[{idx}].workspace_name is required")
+            if strict:
+                errors.append(f"automations[{idx}].workspace_name is required")
+            else:
+                warnings.append(f"automations[{idx}].workspace_name is empty")
             workspace_template = "taskfile-montage-version"
         taskfile_label = _taskfile_label(str(taskfile_value))
         workspace_name = build_workspace_name(

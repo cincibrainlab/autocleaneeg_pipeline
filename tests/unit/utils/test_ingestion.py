@@ -727,3 +727,212 @@ def test_readiness_requires_sentinel(tmp_path: Path) -> None:
     result_missing = evaluate_readiness([data_file], sentinel_ext=".done")
     assert result_missing.ready is False
     assert result_missing.missing_sentinels
+
+
+# --- Non-strict validation tests ---
+
+
+def test_parse_serve_config_non_strict_missing_file_globs(tmp_path: Path) -> None:
+    """file_globs defaults to ['*'] with warning in non-strict mode."""
+    runtime_dir = tmp_path / "runtimes" / "test"
+    runtime_dir.mkdir(parents=True)
+    automation_root = tmp_path / "automations"
+    automation_root.mkdir()
+    ingestion_root = tmp_path / "ingest"
+    ingestion_root.mkdir()
+    config = {
+        "mode": "test",
+        "runtime": "runtimes/test",
+        "automation_mode": True,
+        "automations": [
+            {
+                "taskfile": "Resting",
+                "montage": "standard_1020",
+                "automation_root": "automations",
+                "workspace_name": "taskfile-montage",
+                "ingestion_folders": ["ingest"],
+                # file_globs intentionally missing
+            }
+        ],
+    }
+    serve_config, warnings = parse_serve_config(config, tmp_path, strict=False)
+    assert any("file_globs is empty" in w for w in warnings)
+    assert serve_config.routes[0].file_globs == ["*"]
+
+
+def test_parse_serve_config_strict_missing_file_globs(tmp_path: Path) -> None:
+    """file_globs is required error in strict mode."""
+    runtime_dir = tmp_path / "runtimes" / "test"
+    runtime_dir.mkdir(parents=True)
+    automation_root = tmp_path / "automations"
+    automation_root.mkdir()
+    ingestion_root = tmp_path / "ingest"
+    ingestion_root.mkdir()
+    config = {
+        "mode": "test",
+        "runtime": "runtimes/test",
+        "automations": [
+            {
+                "taskfile": "Resting",
+                "montage": "standard_1020",
+                "automation_root": "automations",
+                "workspace_name": "taskfile-montage",
+                "ingestion_folders": ["ingest"],
+            }
+        ],
+    }
+    with pytest.raises(ServeConfigError, match="file_globs is required"):
+        parse_serve_config(config, tmp_path, strict=True)
+
+
+def test_parse_serve_config_non_strict_missing_automation_root(tmp_path: Path) -> None:
+    """automation_root generates warning in non-strict mode."""
+    runtime_dir = tmp_path / "runtimes" / "test"
+    runtime_dir.mkdir(parents=True)
+    ingestion_root = tmp_path / "ingest"
+    ingestion_root.mkdir()
+    config = {
+        "mode": "test",
+        "runtime": "runtimes/test",
+        "automations": [
+            {
+                "taskfile": "Resting",
+                "montage": "standard_1020",
+                "workspace_name": "taskfile-montage",
+                "file_globs": ["*.set"],
+                "ingestion_folders": ["ingest"],
+                # automation_root intentionally missing
+            }
+        ],
+    }
+    serve_config, warnings = parse_serve_config(config, tmp_path, strict=False)
+    assert any("automation_root is empty" in w for w in warnings)
+    # Falls back to workspace_dir when empty
+    assert serve_config.routes[0].automation_root == tmp_path
+
+
+def test_parse_serve_config_strict_missing_automation_root(tmp_path: Path) -> None:
+    """automation_root is required error in strict mode."""
+    runtime_dir = tmp_path / "runtimes" / "test"
+    runtime_dir.mkdir(parents=True)
+    ingestion_root = tmp_path / "ingest"
+    ingestion_root.mkdir()
+    config = {
+        "mode": "test",
+        "runtime": "runtimes/test",
+        "automations": [
+            {
+                "taskfile": "Resting",
+                "montage": "standard_1020",
+                "workspace_name": "taskfile-montage",
+                "file_globs": ["*.set"],
+                "ingestion_folders": ["ingest"],
+            }
+        ],
+    }
+    with pytest.raises(ServeConfigError, match="automation_root is required"):
+        parse_serve_config(config, tmp_path, strict=True)
+
+
+def test_parse_serve_config_non_strict_missing_workspace_name(tmp_path: Path) -> None:
+    """workspace_name generates warning and uses default in non-strict mode."""
+    runtime_dir = tmp_path / "runtimes" / "test"
+    runtime_dir.mkdir(parents=True)
+    automation_root = tmp_path / "automations"
+    automation_root.mkdir()
+    ingestion_root = tmp_path / "ingest"
+    ingestion_root.mkdir()
+    config = {
+        "mode": "test",
+        "runtime": "runtimes/test",
+        "automations": [
+            {
+                "taskfile": "Resting",
+                "montage": "standard_1020",
+                "automation_root": "automations",
+                "file_globs": ["*.set"],
+                "ingestion_folders": ["ingest"],
+                # workspace_name intentionally missing
+            }
+        ],
+    }
+    serve_config, warnings = parse_serve_config(config, tmp_path, strict=False)
+    assert any("workspace_name is empty" in w for w in warnings)
+    # Uses default template
+    assert serve_config.routes[0].workspace_name == "Resting-standard_1020"
+
+
+def test_parse_serve_config_strict_missing_workspace_name(tmp_path: Path) -> None:
+    """workspace_name is required error in strict mode."""
+    runtime_dir = tmp_path / "runtimes" / "test"
+    runtime_dir.mkdir(parents=True)
+    automation_root = tmp_path / "automations"
+    automation_root.mkdir()
+    ingestion_root = tmp_path / "ingest"
+    ingestion_root.mkdir()
+    config = {
+        "mode": "test",
+        "runtime": "runtimes/test",
+        "automations": [
+            {
+                "taskfile": "Resting",
+                "montage": "standard_1020",
+                "automation_root": "automations",
+                "file_globs": ["*.set"],
+                "ingestion_folders": ["ingest"],
+            }
+        ],
+    }
+    with pytest.raises(ServeConfigError, match="workspace_name is required"):
+        parse_serve_config(config, tmp_path, strict=True)
+
+
+def test_parse_serve_config_non_strict_missing_path_skips_existence(
+    tmp_path: Path,
+) -> None:
+    """Non-strict mode skips path existence checks for automation_root."""
+    runtime_dir = tmp_path / "runtimes" / "test"
+    runtime_dir.mkdir(parents=True)
+    ingestion_root = tmp_path / "ingest"
+    ingestion_root.mkdir()
+    config = {
+        "mode": "test",
+        "runtime": "runtimes/test",
+        "automations": [
+            {
+                "taskfile": "Resting",
+                "montage": "standard_1020",
+                "automation_root": "missing-dir",  # doesn't exist
+                "workspace_name": "taskfile-montage",
+                "file_globs": ["*.set"],
+                "ingestion_folders": ["ingest"],
+            }
+        ],
+    }
+    # Should NOT raise even though automation_root doesn't exist
+    serve_config, warnings = parse_serve_config(config, tmp_path, strict=False)
+    assert serve_config.routes[0].automation_root == tmp_path / "missing-dir"
+
+
+def test_parse_serve_config_strict_missing_path_raises(tmp_path: Path) -> None:
+    """Strict mode raises for missing automation_root path."""
+    runtime_dir = tmp_path / "runtimes" / "test"
+    runtime_dir.mkdir(parents=True)
+    ingestion_root = tmp_path / "ingest"
+    ingestion_root.mkdir()
+    config = {
+        "mode": "test",
+        "runtime": "runtimes/test",
+        "automations": [
+            {
+                "taskfile": "Resting",
+                "montage": "standard_1020",
+                "automation_root": "missing-dir",
+                "workspace_name": "taskfile-montage",
+                "file_globs": ["*.set"],
+                "ingestion_folders": ["ingest"],
+            }
+        ],
+    }
+    with pytest.raises(ServeConfigError, match="Automation root not found"):
+        parse_serve_config(config, tmp_path, strict=True)
