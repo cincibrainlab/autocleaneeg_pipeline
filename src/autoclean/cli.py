@@ -9748,12 +9748,16 @@ PORT=8000
 REDIS_URL=redis://localhost:6379
 
 # ─────────────────────────────────────────────────────────────
-# Data Volumes (Docker only - edit docker-compose.yml directly)
+# Docker Volume Mounts
 # ─────────────────────────────────────────────────────────────
-# Add volume mounts in docker-compose.yml for your EEG data:
-#   volumes:
-#     - /Volumes/eeg-data:/data/input:ro
-#     - /Volumes/output:/data/output
+
+# Source code for dev mode (auto-installs on container start)
+# Set to local clone for live code updates, or leave commented for production
+# AUTOCLEAN_SOURCE=/path/to/autocleaneeg_pipeline
+
+# Data directory mounted at /data in containers
+# Set to your EEG data root, or leave commented if data is in workspace
+# DATA_DIR=/path/to/eeg-data
 '''
     with open(env_path, "w", encoding="utf-8") as f:
         f.write(template)
@@ -9827,6 +9831,7 @@ def _write_docker_compose(workspace_dir: Path) -> None:
 # Logs:   docker compose -f docker-compose-test.yml logs -f
 #
 # Dev mode: Set AUTOCLEAN_SOURCE env var to mount source for live code updates
+# Data:     Set DATA_DIR env var to mount external data directory
 
 services:
   redis-test:
@@ -9852,6 +9857,7 @@ services:
     volumes:
       - .:/workspace
       - ${AUTOCLEAN_SOURCE:-/dev/null}:/source:ro
+      - ${DATA_DIR:-/dev/null}:/data:ro
     environment:
       - MODE=test
     depends_on:
@@ -9873,6 +9879,7 @@ services:
     volumes:
       - .:/workspace
       - ${AUTOCLEAN_SOURCE:-/dev/null}:/source:ro
+      - ${DATA_DIR:-/dev/null}:/data:ro
     environment:
       - MODE=test
     depends_on:
@@ -9899,6 +9906,7 @@ volumes:
 #
 # NOTE: Live mode should run continuously. Use test mode for experiments.
 # Dev mode: Set AUTOCLEAN_SOURCE env var to mount source for live code updates
+# Data:     Set DATA_DIR env var to mount external data directory
 
 services:
   redis-live:
@@ -9924,6 +9932,7 @@ services:
     volumes:
       - .:/workspace
       - ${AUTOCLEAN_SOURCE:-/dev/null}:/source:ro
+      - ${DATA_DIR:-/dev/null}:/data:ro
     environment:
       - MODE=live
     depends_on:
@@ -9945,6 +9954,7 @@ services:
     volumes:
       - .:/workspace
       - ${AUTOCLEAN_SOURCE:-/dev/null}:/source:ro
+      - ${DATA_DIR:-/dev/null}:/data:ro
     environment:
       - MODE=live
     depends_on:
