@@ -151,7 +151,7 @@ def dispatch_ready_files(
         # Load queue
         queue = IngestionQueue(queue_path)
 
-        # Get ready files
+        # Get ready files (use_watchfiles=False for immediate scan, don't block)
         dispatch_results = dispatch_ready_ingestion(
             config_path=config_path,
             workspace_dir=workspace,
@@ -159,6 +159,7 @@ def dispatch_ready_files(
             queue=queue,
             automation=not dry_run,
             yes=True,
+            use_watchfiles=False,  # Don't block waiting for events
             runner=lambda cmd: None if dry_run else subprocess.run(cmd, check=True),
         )
 
@@ -231,6 +232,7 @@ def run_ingestion_cycle(
             idle_limit=idle_limit,
             runner=runner,
             queue_path=queue_path,
+            use_watchfiles=False,  # Don't block waiting for events
         )
 
         result["cycles"] = service_result.cycles
