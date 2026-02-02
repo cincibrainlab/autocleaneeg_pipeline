@@ -51,27 +51,14 @@ def process_file(
         # Find the runtime CLI
         from autoclean.utils.ingestion import resolve_runtime_cli
 
-        runtime_dir = workspace / "runtimes" / mode
-        cli_path = None
-
-        # Try runtime CLI first
-        try:
-            candidate = resolve_runtime_cli(runtime_dir)
-            # Verify the CLI is actually runnable (handles cross-platform issues)
-            test_result = subprocess.run(
-                [str(candidate), "--version"],
-                capture_output=True,
-                timeout=10,
-            )
-            if test_result.returncode == 0:
-                cli_path = candidate
-        except (FileNotFoundError, subprocess.SubprocessError, OSError):
-            pass
-
-        # Fallback to container/system CLI
-        if cli_path is None:
+        # In container: use container's venv (installed from mounted source)
+        # On host: use configured runtime
+        if Path("/.dockerenv").exists():
             import sys
             cli_path = Path(sys.executable).parent / "autocleaneeg-pipeline"
+        else:
+            runtime_dir = workspace / "runtimes" / mode
+            cli_path = resolve_runtime_cli(runtime_dir)
 
         # Build command
         cmd = [
