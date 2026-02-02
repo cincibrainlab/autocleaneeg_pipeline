@@ -923,6 +923,19 @@ def execute_dispatch_plan(
     return DispatchResult(processed=processed, failed=failed, attempts=attempts)
 
 
+def _verify_cli_runnable(cli_path: Path) -> bool:
+    """Verify a CLI binary is actually runnable (handles cross-platform issues)."""
+    try:
+        result = subprocess.run(
+            [str(cli_path), "--version"],
+            capture_output=True,
+            timeout=10,
+        )
+        return result.returncode == 0
+    except (subprocess.SubprocessError, OSError):
+        return False
+
+
 def run_dispatch_plan(
     plan: DispatchPlan,
     *,
@@ -932,7 +945,24 @@ def run_dispatch_plan(
     runner: Optional[Callable[[list[str]], None]] = None,
 ) -> DispatchResult:
     """Execute a dispatch plan using the runtime CLI."""
-    cli_path = resolve_runtime_cli(plan.runtime_path)
+    cli_path = None
+
+    # Try runtime CLI first
+    try:
+        candidate = resolve_runtime_cli(plan.runtime_path)
+        if _verify_cli_runnable(candidate):
+            cli_path = candidate
+    except FileNotFoundError:
+        pass
+
+    # Fallback to system CLI
+    if cli_path is None:
+        cli_path = Path(sys.executable).parent / _runtime_cli_name()
+        if not cli_path.exists():
+            raise FileNotFoundError(
+                f"No runnable CLI found: runtime at {plan.runtime_path} is not "
+                f"executable and system CLI not found at {cli_path}"
+            )
 
     def _processor(file_path: Path, dispatch_plan: DispatchPlan) -> None:
         cmd = build_process_command(
