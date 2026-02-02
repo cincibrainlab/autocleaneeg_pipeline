@@ -8,8 +8,79 @@ from typing import Any, Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 
 from autoclean.api.state import APIState, api_state
+
+
+# OpenAPI tag metadata for better documentation
+TAGS_METADATA = [
+    {
+        "name": "Queue",
+        "description": """
+Manage the file ingestion queue. Files are discovered by automation routes
+and added to the queue for processing.
+
+**Workflow:**
+1. Files are detected in monitored folders → status: `pending`
+2. Worker picks up file → status: `processing`
+3. Processing completes → status: `processed` or `failed`
+
+**Common operations:**
+- `GET /api/queue/stats` - Dashboard summary
+- `GET /api/queue/entries` - List with filtering
+- `POST /api/queue/retry` - Requeue failed items
+""",
+    },
+    {
+        "name": "Worker",
+        "description": """
+Monitor and control RQ (Redis Queue) workers that process EEG files.
+
+Workers run the actual pipeline processing. Each worker:
+- Connects to Redis for job distribution
+- Processes one file at a time
+- Reports status via WebSocket events
+
+**Note:** In Docker mode, workers are managed by docker-compose, not this API.
+""",
+    },
+    {
+        "name": "Config",
+        "description": """
+View and manage automation configuration (routes, settings).
+
+**Modes:**
+- `test` - For development/testing (serve-test.yaml)
+- `live` - For production (serve-live.yaml)
+
+**Routes** define which files to process and how:
+- Ingestion folders to monitor
+- File patterns (globs) to match
+- Task/montage configuration
+""",
+    },
+    {
+        "name": "WebSocket",
+        "description": """
+Real-time event streaming via WebSocket.
+
+Connect to `/ws/events` for live updates:
+- Queue changes (file added, status changed)
+- Job events (started, completed, failed)
+- Worker status changes
+
+**Event format:**
+```json
+{
+  "type": "job_completed",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "data": {"job_id": "abc123", "file": "/path/to/file.set"}
+}
+```
+""",
+    },
+]
 
 
 @asynccontextmanager
@@ -39,9 +110,48 @@ def create_app(
     """
     app = FastAPI(
         title="AutoClean Automation API",
-        description="REST API for managing EEG processing automation",
+        description="""
+## EEG Processing Automation API
+
+REST API for managing automated EEG file processing pipelines.
+
+### Architecture
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Monitored  │────▶│   Queue     │────▶│   Worker    │
+│   Folders   │     │  (Redis)    │     │  Pipeline   │
+└─────────────┘     └─────────────┘     └─────────────┘
+       │                   │                   │
+       ▼                   ▼                   ▼
+  File Discovery      Job Queue          EEG Processing
+```
+
+### Quick Start
+
+1. **Check status:** `GET /health`
+2. **View queue:** `GET /api/queue/stats`
+3. **List files:** `GET /api/queue/entries`
+4. **View config:** `GET /api/config`
+
+### Modes
+
+- **test** (port 8000): Development and testing
+- **live** (port 8001): Production processing
+""",
         version="1.0.0",
         lifespan=lifespan,
+        openapi_tags=TAGS_METADATA,
+        docs_url="/docs",
+        redoc_url="/redoc",
+        contact={
+            "name": "Cincinnati Brain Lab",
+            "url": "https://github.com/cincibrainlab/autoclean_pipeline",
+        },
+        license_info={
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT",
+        },
     )
 
     # Configure CORS

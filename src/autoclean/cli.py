@@ -9244,20 +9244,720 @@ def _write_serve_yaml(
 
     runtime_ref = str(runtime_dir.relative_to(root))
     automations_ref = str(automations_dir.relative_to(root))
-    payload = {
-        "mode": mode,
-        "automation_mode": True,
-        "runtime": runtime_ref,
-        "runtime_package": package_spec,
-        "automation_root": automations_ref,
-        "workspace_name": "taskfile-montage-version",
-        "taskfile": "",
-        "montage": "",
-        "ingestion_folders": [],
-    }
+
+    # Create a well-documented template as a string (preserves comments)
+    if mode == "test":
+        template = f'''# =============================================================================
+# AutoClean Serve Configuration - TEST MODE
+# =============================================================================
+# This configuration defines automated "hot-folder" processing for EEG files.
+# Files dropped into watched folders are automatically processed by task pipelines.
+#
+# USAGE:
+#   1. Edit this file to configure your automation routes
+#   2. Validate: autocleaneeg-pipeline serve validate --path . --mode test
+#   3. Deploy:   autocleaneeg-pipeline serve deploy --path . --mode test
+#   4. Run:      autocleaneeg-pipeline serve run --path . --mode test
+#
+# =============================================================================
+
+# Mode: "test" for development/testing, "live" for production
+mode: test
+
+# Must be true for automation to work
+automation_mode: true
+
+# -----------------------------------------------------------------------------
+# RUNTIME CONFIGURATION
+# -----------------------------------------------------------------------------
+# Isolated Python environment for reproducible processing
+
+# Path to runtime virtual environment (relative to this file)
+runtime: {runtime_ref}
+
+# Package to install in runtime. Can be:
+#   - Path to local package: /path/to/autocleaneeg_pipeline
+#   - PyPI package: autocleaneeg-pipeline
+#   - Git URL: git+https://github.com/user/repo.git
+runtime_package: {package_spec}
+
+# -----------------------------------------------------------------------------
+# DEFAULT SETTINGS
+# -----------------------------------------------------------------------------
+# These apply to all routes unless overridden per-route
+
+defaults:
+  # Where output workspaces are created (relative to this file)
+  automation_root: {automations_ref}
+
+  # Output workspace naming scheme:
+  #   - "taskfile-montage-version": BiotrialResting1020-standard_1020-v1
+  #   - Or use a custom fixed name: "my-study-output"
+  workspace_name: taskfile-montage-version
+
+  # File patterns to match (glob syntax)
+  file_globs:
+    - "*.set"
+    # - "*.edf"
+    # - "*_resting.set"
+
+  # Sentinel file extension - file won't process until this exists
+  # Set to null to process immediately without waiting for sentinel
+  sentinel_ext: ".ready"
+  # sentinel_ext: null  # Process immediately
+
+  # Whether to scan subdirectories
+  recursive: true
+
+# -----------------------------------------------------------------------------
+# AUTOMATION ROUTES
+# -----------------------------------------------------------------------------
+# Each route maps input folders to a processing task.
+# You can define multiple routes for different studies/tasks.
+
+automations:
+  # -------------------------
+  # EXAMPLE ROUTE (uncomment and modify)
+  # -------------------------
+  # - taskfile: /path/to/your/TaskFile.py
+  #   montage: standard_1020
+  #   ingestion_folders:
+  #     - /path/to/watch/folder1
+  #     - /path/to/watch/folder2
+  #
+  #   # Optional: override defaults for this route
+  #   # file_globs: ["*_EC.set", "*_EO.set"]
+  #   # sentinel_ext: null
+  #   # recursive: false
+  #   # workspace_name: "custom-output-name"
+
+  # -------------------------
+  # ROUTE 1: Your first automation
+  # -------------------------
+  - taskfile: ""           # REQUIRED: Full path to your task file (.py)
+    montage: ""            # REQUIRED: EEG montage (e.g., standard_1020)
+    ingestion_folders: []  # REQUIRED: List of folders to watch
+
+# -----------------------------------------------------------------------------
+# COMMON MONTAGES
+# -----------------------------------------------------------------------------
+# standard_1020          - 10-20 system (19-21 channels)
+# standard_1010          - 10-10 system (64+ channels)
+# GSN-HydroCel-129       - EGI 128-channel
+# GSN-HydroCel-257       - EGI 256-channel
+# biosemi64              - BioSemi 64-channel
+#
+# Run "autocleaneeg-pipeline montage list" for all available montages
+# =============================================================================
+'''
+    else:  # live mode
+        template = f'''# =============================================================================
+# AutoClean Serve Configuration - LIVE/PRODUCTION MODE
+# =============================================================================
+# CAUTION: This is the PRODUCTION configuration.
+# Changes here affect real data processing.
+#
+# RECOMMENDED WORKFLOW:
+#   1. Test your configuration thoroughly in serve-test.yaml first
+#   2. Copy working settings here when ready for production
+#   3. Validate: autocleaneeg-pipeline serve validate --path . --mode live
+#   4. Deploy:   autocleaneeg-pipeline serve deploy --path . --mode live
+#
+# =============================================================================
+
+mode: live
+automation_mode: true
+
+# -----------------------------------------------------------------------------
+# RUNTIME CONFIGURATION
+# -----------------------------------------------------------------------------
+runtime: {runtime_ref}
+runtime_package: {package_spec}
+
+# -----------------------------------------------------------------------------
+# DEFAULT SETTINGS
+# -----------------------------------------------------------------------------
+defaults:
+  automation_root: {automations_ref}
+  workspace_name: taskfile-montage-version
+  file_globs:
+    - "*.set"
+  sentinel_ext: ".ready"
+  recursive: true
+
+# -----------------------------------------------------------------------------
+# AUTOMATION ROUTES
+# -----------------------------------------------------------------------------
+# Copy your validated routes from serve-test.yaml here
+
+automations:
+  # Copy working routes from serve-test.yaml
+  - taskfile: ""
+    montage: ""
+    ingestion_folders: []
+
+# =============================================================================
+'''
 
     with open(yaml_path, "w", encoding="utf-8") as f:
-        yaml.safe_dump(payload, f, sort_keys=False)
+        f.write(template)
+
+
+def _write_serve_makefile(workspace_dir: Path) -> None:
+    """Write a Makefile with common serve commands to the workspace."""
+    makefile_path = workspace_dir / "Makefile"
+    if makefile_path.exists():
+        message("warning", "Makefile already exists; leaving unchanged")
+        return
+
+    template = '''# AutoClean Serve - Quick Commands
+# Run from this directory: make <target>
+
+# Load workspace.env if present, otherwise use defaults
+-include workspace.env
+MODE ?= test
+HOST ?= 127.0.0.1
+PORT ?= 8000
+REDIS_URL ?= redis://localhost:6379
+
+# Docker compose command (v2 preferred, fallback to v1)
+DOCKER_COMPOSE := $(shell command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1 && echo "docker compose" || echo "docker-compose")
+
+# Colors
+GREEN  := \\033[0;32m
+YELLOW := \\033[0;33m
+BLUE   := \\033[0;34m
+CYAN   := \\033[0;36m
+RED    := \\033[0;31m
+BOLD   := \\033[1m
+DIM    := \\033[2m
+RESET  := \\033[0m
+
+.PHONY: help preflight start stop status logs validate deploy run \\
+        docker-test-up docker-test-down docker-test-logs docker-test-build \\
+        docker-live-up docker-live-down docker-live-logs docker-live-build docker-status
+
+help:
+\t@echo ""
+\t@echo "$(BOLD)AutoClean Serve Commands$(RESET)"
+\t@echo "$(DIM)─────────────────────────$(RESET)"
+\t@echo ""
+\t@echo "  $(CYAN)make preflight$(RESET)   Run startup checks"
+\t@echo "  $(CYAN)make start$(RESET)       Start API server"
+\t@echo "  $(CYAN)make stop$(RESET)        Stop API server"
+\t@echo "  $(CYAN)make status$(RESET)      Check if running"
+\t@echo "  $(CYAN)make logs$(RESET)        Tail API logs"
+\t@echo ""
+\t@echo "  $(CYAN)make validate$(RESET)    Validate config"
+\t@echo "  $(CYAN)make deploy$(RESET)      Deploy config"
+\t@echo "  $(CYAN)make run$(RESET)         Run worker (foreground)"
+\t@echo ""
+\t@echo "$(BOLD)Docker (Dual Stack)$(RESET)"
+\t@echo "  $(CYAN)make docker-test-up$(RESET)    Start test stack (port 8000)"
+\t@echo "  $(CYAN)make docker-test-down$(RESET)  Stop test stack"
+\t@echo "  $(CYAN)make docker-live-up$(RESET)    Start live stack (port 8001)"
+\t@echo "  $(CYAN)make docker-live-down$(RESET)  Stop live stack"
+\t@echo "  $(CYAN)make docker-status$(RESET)     Check all Docker services"
+\t@echo ""
+\t@echo "$(DIM)Settings: MODE=$(MODE) HOST=$(HOST) PORT=$(PORT)$(RESET)"
+\t@echo ""
+
+preflight:
+\t@echo ""
+\t@echo "$(BOLD)$(BLUE)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
+\t@echo "$(BOLD)$(BLUE)  AutoClean Serve · Preflight Check$(RESET)"
+\t@echo "$(BOLD)$(BLUE)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
+\t@echo ""
+\t@echo "$(BOLD)Environment$(RESET)"
+\t@printf "  Workspace directory       " && \\
+\t\tif [ -d "." ]; then echo "$(GREEN)✓$(RESET) $$(pwd)"; else echo "$(RED)✗$(RESET)"; fi
+\t@printf "  workspace.env             " && \\
+\t\tif [ -f "workspace.env" ]; then echo "$(GREEN)✓$(RESET) loaded"; else echo "$(DIM)using defaults$(RESET)"; fi
+\t@printf "  Pipeline version          " && \\
+\t\tver=$$(autocleaneeg-pipeline version 2>/dev/null | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+[a-zA-Z0-9.-]*' | head -1); \\
+\t\tif [ -n "$$ver" ]; then echo "$(GREEN)✓$(RESET) $$ver"; else echo "$(DIM)unknown$(RESET)"; fi
+\t@printf "  Python                    " && \\
+\t\tif command -v python3 >/dev/null 2>&1; then \\
+\t\t\techo "$(GREEN)✓$(RESET) $$(python3 --version 2>&1 | cut -d' ' -f2)"; \\
+\t\telse echo "$(RED)✗ not found$(RESET)"; fi
+\t@echo ""
+\t@echo "$(BOLD)Test Mode$(RESET)                   $(DIM)─────────────────────────────────$(RESET)"
+\t@printf "  serve-test.yaml           " && \\
+\t\tif [ -f "serve-test.yaml" ]; then echo "$(GREEN)✓$(RESET) found"; else echo "$(RED)✗ missing$(RESET)"; fi
+\t@printf "  Config valid              " && \\
+\t\tif autocleaneeg-pipeline serve validate --path . --mode test >/dev/null 2>&1; then \\
+\t\t\techo "$(GREEN)✓$(RESET) yes"; \\
+\t\telse echo "$(YELLOW)⚠ issues$(RESET)"; fi
+\t@printf "  Deployed                  " && \\
+\t\tif [ -f "deploy/serve-test.yaml" ]; then \\
+\t\t\tts=$$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "deploy/serve-test.yaml" 2>/dev/null || stat -c "%y" "deploy/serve-test.yaml" 2>/dev/null | cut -d. -f1); \\
+\t\t\techo "$(GREEN)✓$(RESET) $$ts"; \\
+\t\telse echo "$(DIM)○ not yet$(RESET)"; fi
+\t@printf "  Runtime                   " && \\
+\t\tif [ -f "runtimes/test/.venv/bin/python" ]; then \\
+\t\t\tver=$$(runtimes/test/.venv/bin/autocleaneeg-pipeline version 2>/dev/null | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+[a-zA-Z0-9.-]*' | head -1); \\
+\t\t\tif [ -n "$$ver" ]; then echo "$(GREEN)✓$(RESET) $$ver"; else echo "$(GREEN)✓$(RESET) installed"; fi; \\
+\t\telse echo "$(DIM)○ not installed$(RESET)"; fi
+\t@printf "  Queue                     " && \\
+\t\tif [ -f "queue-test.json" ]; then \\
+\t\t\tpending=$$(grep -o '"status": "pending"' queue-test.json 2>/dev/null | wc -l | tr -d ' '); \\
+\t\t\tfailed=$$(grep -o '"status": "failed"' queue-test.json 2>/dev/null | wc -l | tr -d ' '); \\
+\t\t\tif [ "$$failed" -gt 0 ]; then echo "$(RED)$$failed failed$(RESET), $$pending pending"; \\
+\t\t\telif [ "$$pending" -gt 0 ]; then echo "$(YELLOW)$$pending pending$(RESET)"; \\
+\t\t\telse echo "$(DIM)empty$(RESET)"; fi; \\
+\t\telse echo "$(DIM)—$(RESET)"; fi
+\t@echo ""
+\t@echo "$(BOLD)Live Mode$(RESET)                   $(DIM)─────────────────────────────────$(RESET)"
+\t@printf "  serve-live.yaml           " && \\
+\t\tif [ -f "serve-live.yaml" ]; then echo "$(GREEN)✓$(RESET) found"; else echo "$(RED)✗ missing$(RESET)"; fi
+\t@printf "  Config valid              " && \\
+\t\tif autocleaneeg-pipeline serve validate --path . --mode live >/dev/null 2>&1; then \\
+\t\t\techo "$(GREEN)✓$(RESET) yes"; \\
+\t\telse echo "$(YELLOW)⚠ issues$(RESET)"; fi
+\t@printf "  Deployed                  " && \\
+\t\tif [ -f "deploy/serve-live.yaml" ]; then \\
+\t\t\tts=$$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "deploy/serve-live.yaml" 2>/dev/null || stat -c "%y" "deploy/serve-live.yaml" 2>/dev/null | cut -d. -f1); \\
+\t\t\techo "$(GREEN)✓$(RESET) $$ts"; \\
+\t\telse echo "$(DIM)○ not yet$(RESET)"; fi
+\t@printf "  Runtime                   " && \\
+\t\tif [ -f "runtimes/live/.venv/bin/python" ]; then \\
+\t\t\tver=$$(runtimes/live/.venv/bin/autocleaneeg-pipeline version 2>/dev/null | grep -oE '[0-9]+\\.[0-9]+\\.[0-9]+[a-zA-Z0-9.-]*' | head -1); \\
+\t\t\tif [ -n "$$ver" ]; then echo "$(GREEN)✓$(RESET) $$ver"; else echo "$(GREEN)✓$(RESET) installed"; fi; \\
+\t\telse echo "$(DIM)○ not installed$(RESET)"; fi
+\t@printf "  Queue                     " && \\
+\t\tif [ -f "queue-live.json" ]; then \\
+\t\t\tpending=$$(grep -o '"status": "pending"' queue-live.json 2>/dev/null | wc -l | tr -d ' '); \\
+\t\t\tfailed=$$(grep -o '"status": "failed"' queue-live.json 2>/dev/null | wc -l | tr -d ' '); \\
+\t\t\tif [ "$$failed" -gt 0 ]; then echo "$(RED)$$failed failed$(RESET), $$pending pending"; \\
+\t\t\telif [ "$$pending" -gt 0 ]; then echo "$(YELLOW)$$pending pending$(RESET)"; \\
+\t\t\telse echo "$(DIM)empty$(RESET)"; fi; \\
+\t\telse echo "$(DIM)—$(RESET)"; fi
+\t@echo ""
+\t@echo "$(BOLD)API Server$(RESET)                  $(DIM)─────────────────────────────────$(RESET)"
+\t@printf "  Endpoint                  " && echo "$(CYAN)http://$(HOST):$(PORT)$(RESET)"
+\t@printf "  Status                    " && \\
+\t\tif [ -f .api.pid ] && kill -0 $$(cat .api.pid) 2>/dev/null; then \\
+\t\t\techo "$(GREEN)● running$(RESET) (PID $$(cat .api.pid))"; \\
+\t\telse echo "$(DIM)○ stopped$(RESET)"; fi
+\t@printf "  Redis                     " && \\
+\t\tif command -v redis-cli >/dev/null 2>&1; then \\
+\t\t\tif redis-cli -u $(REDIS_URL) ping >/dev/null 2>&1; then \\
+\t\t\t\techo "$(GREEN)✓$(RESET) $(REDIS_URL)"; \\
+\t\t\telse echo "$(RED)✗ not reachable$(RESET) $(REDIS_URL)"; fi; \\
+\t\telse echo "$(DIM)$(REDIS_URL)$(RESET) (redis-cli not installed)"; fi
+\t@echo ""
+\t@echo "$(BOLD)Docker$(RESET)                      $(DIM)─────────────────────────────────$(RESET)"
+\t@printf "  docker-compose-test.yml   " && \\
+\t\tif [ -f "docker-compose-test.yml" ]; then echo "$(GREEN)✓$(RESET) found"; else echo "$(DIM)not found$(RESET)"; fi
+\t@printf "  docker-compose-live.yml   " && \\
+\t\tif [ -f "docker-compose-live.yml" ]; then echo "$(GREEN)✓$(RESET) found"; else echo "$(DIM)not found$(RESET)"; fi
+\t@printf "  Test stack (8000)         " && \\
+\t\tif command -v docker >/dev/null 2>&1; then \\
+\t\t\trunning=$$($(DOCKER_COMPOSE) -f docker-compose-test.yml ps -q 2>/dev/null | wc -l | tr -d ' '); \\
+\t\t\tif [ "$$running" -gt 0 ]; then echo "$(GREEN)● $$running running$(RESET)"; \\
+\t\t\telse echo "$(DIM)○ stopped$(RESET)"; fi; \\
+\t\telse echo "$(DIM)docker not installed$(RESET)"; fi
+\t@printf "  Live stack (8001)         " && \\
+\t\tif command -v docker >/dev/null 2>&1; then \\
+\t\t\trunning=$$($(DOCKER_COMPOSE) -f docker-compose-live.yml ps -q 2>/dev/null | wc -l | tr -d ' '); \\
+\t\t\tif [ "$$running" -gt 0 ]; then echo "$(GREEN)● $$running running$(RESET)"; \\
+\t\t\telse echo "$(DIM)○ stopped$(RESET)"; fi; \\
+\t\telse echo "$(DIM)—$(RESET)"; fi
+\t@echo ""
+\t@echo "$(BOLD)System$(RESET)                      $(DIM)─────────────────────────────────$(RESET)"
+\t@printf "  Disk space                " && \\
+\t\tfree=$$(df -h . | awk 'NR==2 {print $$4}'); \\
+\t\tpct=$$(df -h . | awk 'NR==2 {gsub(/%/,"",$$5); print $$5}'); \\
+\t\tif [ "$$pct" -gt 90 ]; then echo "$(RED)$$free free$(RESET) ($$pct% used) ⚠"; \\
+\t\telif [ "$$pct" -gt 75 ]; then echo "$(YELLOW)$$free free$(RESET) ($$pct% used)"; \\
+\t\telse echo "$(GREEN)$$free free$(RESET)"; fi
+\t@echo ""
+\t@echo "$(BOLD)$(BLUE)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
+\t@echo ""
+\t@echo "$(BOLD)Next Steps:$(RESET)"
+\t@echo "  1. Edit $(CYAN)serve-test.yaml$(RESET) with your automation routes"
+\t@echo "  2. Run  $(CYAN)make validate$(RESET) to check configuration"
+\t@echo "  3. Run  $(CYAN)make deploy$(RESET) to install runtime"
+\t@echo "  4. Run  $(CYAN)make start$(RESET) to launch API server"
+\t@echo ""
+\t@printf "$(DIM)Writing workspace-info.json...$(RESET) " && \\
+\t\tpython3 -c '\\
+import json, subprocess, datetime; \\
+from pathlib import Path; \\
+info = { \\
+    "generated_at": datetime.datetime.now().isoformat(), \\
+    "workspace": str(Path(".").resolve()), \\
+    "pipeline_version": next((l.split()[-1] for l in subprocess.run(["autocleaneeg-pipeline", "version"], capture_output=True, text=True).stdout.split(chr(10)) if "3." in l and "alpha" in l), "unknown"), \\
+    "python_version": subprocess.run(["python3", "--version"], capture_output=True, text=True).stdout.strip(), \\
+    "test_config_exists": Path("serve-test.yaml").exists(), \\
+    "live_config_exists": Path("serve-live.yaml").exists(), \\
+    "test_deployed": Path("deploy/serve-test.yaml").exists(), \\
+    "live_deployed": Path("deploy/serve-live.yaml").exists(), \\
+    "test_runtime_ready": Path("runtimes/test/.venv/bin/python").exists(), \\
+    "live_runtime_ready": Path("runtimes/live/.venv/bin/python").exists(), \\
+    "test_queue_file": "queue-test.json" if Path("queue-test.json").exists() else None, \\
+    "live_queue_file": "queue-live.json" if Path("queue-live.json").exists() else None, \\
+}; \\
+Path("workspace-info.json").write_text(json.dumps(info, indent=2))' && \\
+\t\techo "$(GREEN)✓$(RESET)"
+\t@echo ""
+
+start:
+\t@if [ -f .api.pid ] && kill -0 $$(cat .api.pid) 2>/dev/null; then \\
+\t\techo "$(YELLOW)Already running$(RESET) (PID $$(cat .api.pid))"; \\
+\telse \\
+\t\techo "$(BOLD)Starting API on $(HOST):$(PORT)...$(RESET)"; \\
+\t\tnohup autocleaneeg-pipeline serve api --path . --mode $(MODE) --host $(HOST) --api-port $(PORT) --redis-url $(REDIS_URL) > api.log 2>&1 & \\
+\t\techo $$! > .api.pid; \\
+\t\tsleep 2; \\
+\t\tif kill -0 $$(cat .api.pid) 2>/dev/null; then \\
+\t\t\techo "$(GREEN)✓ Started$(RESET)"; \\
+\t\t\techo "  $(CYAN)API:$(RESET)   http://localhost:$(PORT)"; \\
+\t\t\techo "  $(CYAN)Docs:$(RESET)  http://localhost:$(PORT)/docs"; \\
+\t\telse \\
+\t\t\techo "$(RED)✗ Failed to start$(RESET) - check api.log"; \\
+\t\t\trm -f .api.pid; \\
+\t\tfi \\
+\tfi
+
+stop:
+\t@if [ -f .api.pid ]; then \\
+\t\tkill $$(cat .api.pid) 2>/dev/null && echo "$(GREEN)✓ Stopped$(RESET)" || echo "$(DIM)Was not running$(RESET)"; \\
+\t\trm -f .api.pid; \\
+\telse \\
+\t\techo "$(DIM)Not running$(RESET)"; \\
+\tfi
+
+status:
+\t@if [ -f .api.pid ] && kill -0 $$(cat .api.pid) 2>/dev/null; then \\
+\t\techo "$(GREEN)● Running$(RESET) (PID $$(cat .api.pid))"; \\
+\t\techo ""; \\
+\t\tcurl -s http://localhost:$(PORT)/health 2>/dev/null | python3 -m json.tool 2>/dev/null || echo "$(RED)Health check failed$(RESET)"; \\
+\telse \\
+\t\techo "$(DIM)○ Not running$(RESET)"; \\
+\tfi
+
+logs:
+\t@tail -f api.log
+
+validate:
+\t@autocleaneeg-pipeline serve validate --path . --mode $(MODE)
+
+deploy:
+\t@autocleaneeg-pipeline serve deploy --path . --mode $(MODE)
+
+run:
+\t@autocleaneeg-pipeline serve run --path . --mode $(MODE) --max-cycles 100
+
+# ─────────────────────────────────────────────────────────────
+# Docker Commands (Dual Stack: Test on 8000, Live on 8001)
+# ─────────────────────────────────────────────────────────────
+
+# Test stack (port 8000)
+docker-test-build:
+\t@echo "$(BOLD)Building Docker test images...$(RESET)"
+\t@$(DOCKER_COMPOSE) -f docker-compose-test.yml build
+
+docker-test-up:
+\t@echo "$(BOLD)Starting Docker test services...$(RESET)"
+\t@$(DOCKER_COMPOSE) -f docker-compose-test.yml up -d
+\t@sleep 5
+\t@$(DOCKER_COMPOSE) -f docker-compose-test.yml ps
+\t@echo ""
+\t@printf "$(CYAN)Test API:$(RESET)  http://localhost:8000\\n"
+\t@printf "$(CYAN)Test Docs:$(RESET) http://localhost:8000/docs\\n"
+
+docker-test-down:
+\t@echo "$(BOLD)Stopping Docker test services...$(RESET)"
+\t@$(DOCKER_COMPOSE) -f docker-compose-test.yml down
+
+docker-test-logs:
+\t@$(DOCKER_COMPOSE) -f docker-compose-test.yml logs -f
+
+# Live stack (port 8001)
+docker-live-build:
+\t@echo "$(BOLD)Building Docker live images...$(RESET)"
+\t@$(DOCKER_COMPOSE) -f docker-compose-live.yml build
+
+docker-live-up:
+\t@echo "$(BOLD)Starting Docker live services...$(RESET)"
+\t@$(DOCKER_COMPOSE) -f docker-compose-live.yml up -d
+\t@sleep 5
+\t@$(DOCKER_COMPOSE) -f docker-compose-live.yml ps
+\t@echo ""
+\t@printf "$(CYAN)Live API:$(RESET)  http://localhost:8001\\n"
+\t@printf "$(CYAN)Live Docs:$(RESET) http://localhost:8001/docs\\n"
+
+docker-live-down:
+\t@echo "$(BOLD)Stopping Docker live services...$(RESET)"
+\t@$(DOCKER_COMPOSE) -f docker-compose-live.yml down
+
+docker-live-logs:
+\t@$(DOCKER_COMPOSE) -f docker-compose-live.yml logs -f
+
+# Both stacks
+docker-status:
+\t@echo "$(BOLD)Docker Services$(RESET)"
+\t@echo ""
+\t@echo "$(CYAN)Test Stack (port 8000):$(RESET)"
+\t@$(DOCKER_COMPOSE) -f docker-compose-test.yml ps 2>/dev/null || echo "  (not running)"
+\t@echo ""
+\t@echo "$(CYAN)Live Stack (port 8001):$(RESET)"
+\t@$(DOCKER_COMPOSE) -f docker-compose-live.yml ps 2>/dev/null || echo "  (not running)"
+\t@echo ""
+\t@printf "Test API:   " && curl -s http://localhost:8000/health 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print('$(GREEN)healthy$(RESET) ('+d.get('mode','?')+')')" 2>/dev/null || echo "$(DIM)not running$(RESET)"
+\t@printf "Live API:   " && curl -s http://localhost:8001/health 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print('$(GREEN)healthy$(RESET) ('+d.get('mode','?')+')')" 2>/dev/null || echo "$(DIM)not running$(RESET)"
+'''
+
+    with open(makefile_path, "w", encoding="utf-8") as f:
+        f.write(template)
+
+
+def _write_workspace_env(workspace_dir: Path) -> None:
+    """Write workspace.env configuration file."""
+    env_path = workspace_dir / "workspace.env"
+    if env_path.exists():
+        return  # Don't overwrite existing config
+
+    template = '''# AutoClean Serve Workspace Configuration
+# Used by both Makefile and docker-compose.yml
+
+# ─────────────────────────────────────────────────────────────
+# Core Settings
+# ─────────────────────────────────────────────────────────────
+
+# Mode: test or live
+MODE=test
+
+# ─────────────────────────────────────────────────────────────
+# API Server (used by: make start, docker-compose)
+# ─────────────────────────────────────────────────────────────
+
+# Host to bind (use 127.0.0.1 for local, 0.0.0.0 for Docker)
+HOST=127.0.0.1
+
+# Port for API server
+PORT=8000
+
+# ─────────────────────────────────────────────────────────────
+# Redis (used by: make start, docker-compose)
+# ─────────────────────────────────────────────────────────────
+
+# For local Redis: redis://localhost:6379
+# For Docker internal: redis://redis:6379 (set automatically)
+REDIS_URL=redis://localhost:6379
+
+# ─────────────────────────────────────────────────────────────
+# Data Volumes (Docker only - edit docker-compose.yml directly)
+# ─────────────────────────────────────────────────────────────
+# Add volume mounts in docker-compose.yml for your EEG data:
+#   volumes:
+#     - /Volumes/eeg-data:/data/input:ro
+#     - /Volumes/output:/data/output
+'''
+    with open(env_path, "w", encoding="utf-8") as f:
+        f.write(template)
+
+
+def _write_dockerfile(workspace_dir: Path) -> None:
+    """Write Dockerfile for serve workspace."""
+    dockerfile_path = workspace_dir / "Dockerfile"
+    if dockerfile_path.exists():
+        return
+
+    template = '''# AutoClean Serve - Container Image
+# Development mode: installs package at runtime from mounted source
+# Production mode: installs from PyPI/git at build time
+
+FROM python:3.12-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \\
+    curl \\
+    git \\
+    build-essential \\
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN pip install uv
+
+# Create app directory and venv
+WORKDIR /app
+RUN uv venv /app/.venv
+
+# Create entrypoint script that handles dev vs prod mode
+# Uses 'uv pip' since uv venv doesn't include pip by default
+RUN echo '#!/bin/bash\\n\\
+if [ -d "/source/src/autoclean" ]; then\\n\\
+    echo "Dev mode: Installing from mounted source..."\\n\\
+    uv pip install --python /app/.venv/bin/python -e /source --quiet 2>&1\\n\\
+fi\\n\\
+exec "$@"\\n\\
+' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+
+# Install package from git (will be overridden in dev mode if source is mounted)
+RUN uv pip install --python /app/.venv/bin/python "autocleaneeg-pipeline @ git+https://github.com/cincibrainlab/autoclean_pipeline.git"
+
+# Workspace mount point (for config and data)
+VOLUME /workspace
+WORKDIR /workspace
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \\
+    CMD /app/.venv/bin/python -c "import autoclean; print('ok')" || exit 1
+
+# Use entrypoint to handle dev/prod mode
+ENTRYPOINT ["/app/entrypoint.sh", "/app/.venv/bin/autocleaneeg-pipeline"]
+CMD ["--help"]
+'''
+    with open(dockerfile_path, "w", encoding="utf-8") as f:
+        f.write(template)
+
+
+def _write_docker_compose(workspace_dir: Path) -> None:
+    """Write docker-compose files for serve workspace (test and live stacks)."""
+    # Write test stack (port 8000)
+    test_path = workspace_dir / "docker-compose-test.yml"
+    if not test_path.exists():
+        test_template = '''# AutoClean Serve - TEST MODE Stack
+# Runs on port 8000, separate Redis instance
+#
+# Start:  docker compose -f docker-compose-test.yml up -d
+# Stop:   docker compose -f docker-compose-test.yml down
+# Logs:   docker compose -f docker-compose-test.yml logs -f
+#
+# Dev mode: Set AUTOCLEAN_SOURCE env var to mount source for live code updates
+
+services:
+  redis-test:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --port 6379
+    volumes:
+      - redis-test-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  api-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["serve", "api", "--path", "/workspace", "--mode", "test", "--host", "0.0.0.0", "--api-port", "8000", "--redis-url", "redis://redis-test:6379"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/workspace
+      - ${AUTOCLEAN_SOURCE:-/dev/null}:/source:ro
+    environment:
+      - MODE=test
+    depends_on:
+      redis-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  worker-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["serve", "worker", "--redis-url", "redis://redis-test:6379"]
+    volumes:
+      - .:/workspace
+      - ${AUTOCLEAN_SOURCE:-/dev/null}:/source:ro
+    environment:
+      - MODE=test
+    depends_on:
+      redis-test:
+        condition: service_healthy
+    deploy:
+      replicas: 1
+
+volumes:
+  redis-test-data:
+'''
+        with open(test_path, "w", encoding="utf-8") as f:
+            f.write(test_template)
+
+    # Write live stack (port 8001)
+    live_path = workspace_dir / "docker-compose-live.yml"
+    if not live_path.exists():
+        live_template = '''# AutoClean Serve - LIVE MODE Stack
+# Runs on port 8001, separate Redis instance
+#
+# Start:  docker compose -f docker-compose-live.yml up -d
+# Stop:   docker compose -f docker-compose-live.yml down
+# Logs:   docker compose -f docker-compose-live.yml logs -f
+#
+# NOTE: Live mode should run continuously. Use test mode for experiments.
+# Dev mode: Set AUTOCLEAN_SOURCE env var to mount source for live code updates
+
+services:
+  redis-live:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --port 6379
+    volumes:
+      - redis-live-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  api-live:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["serve", "api", "--path", "/workspace", "--mode", "live", "--host", "0.0.0.0", "--api-port", "8000", "--redis-url", "redis://redis-live:6379"]
+    ports:
+      - "8001:8000"
+    volumes:
+      - .:/workspace
+      - ${AUTOCLEAN_SOURCE:-/dev/null}:/source:ro
+    environment:
+      - MODE=live
+    depends_on:
+      redis-live:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  worker-live:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["serve", "worker", "--redis-url", "redis://redis-live:6379"]
+    volumes:
+      - .:/workspace
+      - ${AUTOCLEAN_SOURCE:-/dev/null}:/source:ro
+    environment:
+      - MODE=live
+    depends_on:
+      redis-live:
+        condition: service_healthy
+    deploy:
+      replicas: 1
+
+volumes:
+  redis-live-data:
+'''
+        with open(live_path, "w", encoding="utf-8") as f:
+            f.write(live_template)
 
 
 def _runtime_python_bin(venv_dir: Path) -> Path:
@@ -9387,6 +10087,10 @@ def cmd_serve_workspace(args) -> int:
             workspace_dir,
             args.package,
         )
+        _write_serve_makefile(workspace_dir)
+        _write_workspace_env(workspace_dir)
+        _write_dockerfile(workspace_dir)
+        _write_docker_compose(workspace_dir)
         _ensure_deploy_dir(paths)
     elif mode == "existing":
         _ensure_deploy_dir(paths)
@@ -9477,7 +10181,7 @@ def cmd_serve_validate(args) -> int:
 
 
 def cmd_serve_deploy(args) -> int:
-    """Deploy serve configuration YAML after validation."""
+    """Deploy serve configuration YAML after validation and set up runtime."""
     workspace_dir = _resolve_serve_workspace_dir(args.path)
     if workspace_dir is None:
         message("error", "No serve workspace configured")
@@ -9505,6 +10209,22 @@ def cmd_serve_deploy(args) -> int:
         return 1
 
     message("success", f"✓ Deployed {mode} config to {deploy_path}")
+
+    # Set up runtime environment
+    runtime_key = f"runtimes_{mode}"
+    runtime_dir = paths[runtime_key]
+    # Handle runtime as string (path) or dict (with package key)
+    runtime_config = config.get("runtime", {})
+    if isinstance(runtime_config, dict):
+        package_spec = runtime_config.get("package", "autocleaneeg-pipeline")
+    else:
+        package_spec = "autocleaneeg-pipeline"
+    message("info", f"Setting up {mode} runtime...")
+    if not _setup_runtime(runtime_dir, mode, package_spec, skip_uv=False, run_test=True):
+        message("error", f"Failed to set up {mode} runtime")
+        return 1
+
+    message("success", f"✓ Runtime ready at {runtime_dir}")
     return 0
 
 

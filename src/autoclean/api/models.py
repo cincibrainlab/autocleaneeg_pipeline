@@ -5,11 +5,17 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class QueueStatus(str, Enum):
-    """Queue entry status."""
+    """Queue entry status.
+
+    - pending: File discovered, waiting to be processed
+    - processing: Currently being processed by a worker
+    - processed: Successfully completed
+    - failed: Processing failed (can be retried)
+    """
 
     PENDING = "pending"
     PROCESSING = "processing"
@@ -20,6 +26,18 @@ class QueueStatus(str, Enum):
 class QueueStats(BaseModel):
     """Queue statistics response."""
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "pending": 12,
+                "processing": 1,
+                "processed": 45,
+                "failed": 2,
+                "total": 60,
+            }
+        }
+    )
+
     pending: int = Field(description="Number of pending entries")
     processing: int = Field(default=0, description="Number of currently processing")
     processed: int = Field(description="Number of processed entries")
@@ -28,9 +46,24 @@ class QueueStats(BaseModel):
 
 
 class QueueEntry(BaseModel):
-    """A single queue entry."""
+    """A single queue entry representing an EEG file to be processed."""
 
-    path: str = Field(description="File path")
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "path": "/data/input/sub-001/eeg/sub-001_task-rest_eeg.set",
+                "status": "pending",
+                "route_id": "resting-state",
+                "ingestion_root": "/data/input",
+                "added_at": "2024-01-15T10:30:00Z",
+                "processed_at": None,
+                "failed_at": None,
+                "last_error": None,
+            }
+        }
+    )
+
+    path: str = Field(description="Full file path")
     status: QueueStatus = Field(description="Entry status")
     route_id: Optional[str] = Field(default=None, description="Assigned route ID")
     ingestion_root: Optional[str] = Field(default=None, description="Ingestion root path")
@@ -49,7 +82,19 @@ class QueueEntriesResponse(BaseModel):
 
 
 class EnqueueRequest(BaseModel):
-    """Request to enqueue files."""
+    """Request to manually enqueue files for processing."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "paths": [
+                    "/data/input/sub-001_task-rest_eeg.set",
+                    "/data/input/sub-002_task-rest_eeg.set",
+                ],
+                "route_id": "resting-state",
+            }
+        }
+    )
 
     paths: list[str] = Field(description="File paths to enqueue")
     route_id: Optional[str] = Field(default=None, description="Route ID to assign")
