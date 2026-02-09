@@ -1115,8 +1115,8 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     process_parser.add_argument(
         "--format",
         type=str,
-        default="*.{raw,set}",
-        help="File format glob pattern for directory processing (default: *.{raw,set}). Examples: '*.raw', '*.edf', '*.set'. Note: '.raw' will be auto-corrected to '*.raw'",
+        default="*.{raw,set,bdf}",
+        help="File format glob pattern for directory processing (default: *.{raw,set,bdf}). Examples: '*.raw', '*.edf', '*.set', '*.bdf'. Note: '.raw' will be auto-corrected to '*.raw'",
     )
     process_parser.add_argument(
         "--recursive",
@@ -2613,7 +2613,7 @@ def _show_process_guard(args) -> bool:
                 console.print("   Type: [accent]Directory[/accent]")
 
                 # Count files based on format pattern
-                format_pattern = getattr(args, "format", "*.{raw,set}")
+                format_pattern = getattr(args, "format", "*.{raw,set,bdf}")
                 try:
 
                     def _expand_brace_glob(pat: str) -> list[str]:
@@ -2767,7 +2767,7 @@ def validate_args(args) -> bool:
                 )
                 tbl.add_row(
                     "--format",
-                    "Glob pattern (default: *.{raw,set}; '*.raw', '*.edf', ...)",
+                    "Glob pattern (default: *.{raw,set,bdf}; '*.raw', '*.edf', '*.bdf', ...)",
                 )
                 tbl.add_row("--recursive", "Search subdirectories for matching files")
                 tbl.add_row("-p N", "Process N files in parallel (default 3, max 8)")
@@ -2864,7 +2864,7 @@ def validate_args(args) -> bool:
                         )
                         tbl.add_row(
                             "--format",
-                            "Glob pattern (default: *.{raw,set}; '*.raw', '*.edf', ...)",
+                            "Glob pattern (default: *.{raw,set,bdf}; '*.raw', '*.edf', '*.bdf', ...)",
                         )
                         tbl.add_row(
                             "--recursive", "Search subdirectories for matching files"
