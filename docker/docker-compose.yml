@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  autoclean:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: autoclean/serve:latest
+    container_name: autoclean
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./data:/data
+      - ./config:/config
+      - ./output:/output
+      - autoclean-workspace:/workspace
+    environment:
+      - MODE=live
+      - WORKERS=2
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+
+volumes:
+  autoclean-workspace:

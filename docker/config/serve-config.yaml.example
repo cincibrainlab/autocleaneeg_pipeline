@@ -1,0 +1,19 @@
+# AutocleanEEG Serve Configuration
+# Copy this file to serve-config.yaml and customize for your setup
+
+mode: live
+automation_mode: true
+
+defaults:
+  file_globs: ["*.set"]
+  sentinel_ext: ".ready"
+  recursive: true
+
+automations:
+  - taskfile: /data/taskfiles/YourTask.py
+    montage: standard_1020
+    ingestion_folders:
+      - /data/incoming
+    # Optional overrides:
+    # file_globs: ["*_EC.set", "*_EO.set"]
+    # sentinel_ext: null  # Process immediately without sentinel
