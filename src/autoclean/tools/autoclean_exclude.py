@@ -1082,10 +1082,11 @@ class ReviewBase(QWidget):
         root_path = Path(self.current_dir)
         if not root_path.exists():
             return
-        for file_path in sorted(root_path.rglob("*.set")):
-            item = QTreeWidgetItem([file_path.name])
-            item.setData(0, Qt.ItemDataRole.UserRole, str(file_path))
-            self.file_tree.addTopLevelItem(item)
+        for ext in ("*.set", "*.raw", "*.bdf"):
+            for file_path in sorted(root_path.rglob(ext)):
+                item = QTreeWidgetItem([file_path.name])
+                item.setData(0, Qt.ItemDataRole.UserRole, str(file_path))
+                self.file_tree.addTopLevelItem(item)
 
     def updateStatusBar(self) -> None:  # noqa: N802 - public API compatibility
         if self.status_bar is None:
@@ -1093,7 +1094,7 @@ class ReviewBase(QWidget):
         if self.current_dir:
             self.status_bar.showMessage(f"Workspace: {self.current_dir}")
         else:
-            self.status_bar.showMessage("Select a folder with .set files")
+            self.status_bar.showMessage("Select a folder with EEG files (.set, .raw, .bdf)")
 
     def selectDirectory(self) -> None:  # noqa: N802 - public API compatibility
         dir_path = QFileDialog.getExistingDirectory(
@@ -4180,7 +4181,11 @@ class ExclusionFileSelector(ReviewBase):
                 folder = "/".join(relative.parts[:-1])
                 return (folder.lower(), relative.name.lower())
 
-            all_set_files = list(root_path.rglob("*.set"))
+            all_set_files = [
+                f
+                for ext in ("*.set", "*.raw", "*.bdf")
+                for f in root_path.rglob(ext)
+            ]
 
             # Filter backup and reprocess folders if toggle is off
             if not self.show_backup_folders:
@@ -4311,7 +4316,7 @@ class ExclusionFileSelector(ReviewBase):
             QTimer.singleShot(0, _select_initial)
         else:
             if self.status_bar is not None:
-                self.status_bar.showMessage("Select a folder with .set files")
+                self.status_bar.showMessage("Select a folder with EEG files (.set, .raw, .bdf)")
 
     def selectDirectory(self) -> None:  # noqa: N802 - inherited public API
         dir_path = QFileDialog.getExistingDirectory(

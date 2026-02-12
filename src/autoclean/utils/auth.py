@@ -19,7 +19,11 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 from auth0.authentication import GetToken
-from auth0.exceptions import Auth0Error
+
+try:
+    from auth0.exceptions import Auth0Error
+except ImportError:
+    from auth0.authentication.exceptions import Auth0Error
 from cryptography.fernet import Fernet
 from platformdirs import user_config_dir
 
