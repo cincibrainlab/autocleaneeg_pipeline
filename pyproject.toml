@@ -154,9 +154,8 @@ packages = ["src/autoclean", "configs"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "src/autoclean/data/builtins/registry.json",
-    "src/autoclean/data/builtins/tasks/**",
-    "src/autoclean/configkit/schema_exports/**",
+    "src/autoclean/**",
+    "configs/**",
 ]
 
 [tool.pytest.ini_options]
