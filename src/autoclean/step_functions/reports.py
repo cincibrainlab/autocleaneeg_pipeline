@@ -1439,6 +1439,17 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
                 f"Skipping flagged-channels file with invalid encoding: {flagged_chs_path.name}",
             )
 
+    # Add outer layer dropped channels as a named category in channel_dict
+    if "step_drop_outerlayer" in metadata:
+        try:
+            outer_channels = metadata["step_drop_outerlayer"].get(
+                "dropped_outer_layer_channels", []
+            )
+            if outer_channels:
+                channel_dict["outer_layer"] = outer_channels
+        except Exception:  # pylint: disable=broad-except
+            pass
+
     # Get all removed channels from unified metadata (preferred) or legacy sources
     if "channel_removals" in metadata:
         # Use unified channel removals for accurate tracking
