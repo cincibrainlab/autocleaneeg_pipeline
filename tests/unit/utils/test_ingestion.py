@@ -437,7 +437,9 @@ def test_dispatch_ready_ingestion(tmp_path: Path) -> None:
     assert queue.entries()[str(data_file)]["status"] == "processed"
 
 
-def test_dispatch_ready_ingestion_requires_queue_route_id(tmp_path: Path) -> None:
+def test_dispatch_ready_ingestion_marks_unroutable_pending_entries_failed(
+    tmp_path: Path,
+) -> None:
     runtime_dir = tmp_path / "runtimes" / "test"
     _runtime_cli_path(runtime_dir)
     ingestion_root = tmp_path / "ingest"
@@ -466,15 +468,21 @@ def test_dispatch_ready_ingestion_requires_queue_route_id(tmp_path: Path) -> Non
         encoding="utf-8",
     )
     queue = IngestionQueue(tmp_path / "queue.json")
-    queue.enqueue([tmp_path / "orphan.set"])
-    with pytest.raises(ValueError, match="route_id"):
-        dispatch_ready_ingestion(
-            config_path=config_path,
-            workspace_dir=tmp_path,
-            use_watchfiles=False,
-            max_events=1,
-            queue=queue,
-        )
+    orphan = tmp_path / "orphan.set"
+    _write_file(orphan)
+    queue.enqueue([orphan])
+
+    dispatch_ready_ingestion(
+        config_path=config_path,
+        workspace_dir=tmp_path,
+        use_watchfiles=False,
+        max_events=1,
+        queue=queue,
+    )
+
+    entry = queue.entries()[str(orphan)]
+    assert entry["status"] == "failed"
+    assert "Unable to resolve route for queued file" in entry["last_error"]
 
 
 def test_dispatch_ready_ingestion_route_priority(tmp_path: Path) -> None:

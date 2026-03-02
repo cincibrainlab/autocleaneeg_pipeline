@@ -1050,6 +1050,40 @@ def _strip_sentinel(path: Path, sentinel_ext: str) -> Path:
     return path
 
 
+def _assign_pending_routes(
+    queue: "IngestionQueue", routes: Sequence[ServeRoute]
+) -> None:
+    """Backfill route metadata for legacy pending queue entries.
+
+    Entries that cannot be resolved are marked failed with an actionable error
+    instead of remaining indefinitely pending.
+    """
+    for pending_path in queue.pending_without_route():
+        try:
+            match = _select_route_for_file(pending_path, routes)
+        except Exception as exc:
+            queue.mark_failed(
+                pending_path,
+                f"Unable to resolve route for queued file: {exc}",
+            )
+            continue
+
+        if match is None:
+            queue.mark_failed(
+                pending_path,
+                "Unable to resolve route for queued file. "
+                "Ensure file path matches a configured ingestion folder "
+                "and file_globs, or re-enqueue with route_id.",
+            )
+            continue
+
+        queue.assign_route(
+            pending_path,
+            route_id=match.route.id,
+            ingestion_root=match.ingestion_root,
+        )
+
+
 def dispatch_ready_ingestion(
     *,
     config_path: Path,
@@ -1083,11 +1117,7 @@ def dispatch_ready_ingestion(
         return []
 
     if queue is not None:
-        unassigned = queue.pending_without_route()
-        if unassigned:
-            raise ValueError(
-                "Queue has pending entries without route_id; migrate queue data before running."
-            )
+        _assign_pending_routes(queue, routes)
 
     if serve_config.legacy:
         for route in routes:
@@ -1200,19 +1230,29 @@ def dispatch_ready_ingestion(
             plan = build_dispatch_plan_for_route(
                 config=serve_config, route=route, files=pending_files
             )
-            result = run_dispatch_plan(
-                plan,
-                automation=automation,
-                yes=yes,
-                max_attempts=max_attempts,
-                runner=runner,
-            )
 
-        if queue is not None and result is not None:
-            for path in result.processed:
-                queue.mark_processed(path)
-            for path, error in result.failed.items():
-                queue.mark_failed(path, error)
+            if queue is not None:
+                for path in pending_files:
+                    queue.mark_processing(path)
+
+            try:
+                result = run_dispatch_plan(
+                    plan,
+                    automation=automation,
+                    yes=yes,
+                    max_attempts=max_attempts,
+                    runner=runner,
+                )
+            except Exception as exc:
+                error = f"Dispatch failed before completion: {exc}"
+                failed_paths = {path: error for path in pending_files}
+                result = DispatchResult(processed=[], failed=failed_paths, attempts=1)
+
+            if queue is not None:
+                for path in result.processed:
+                    queue.mark_processed(path)
+                for path, error in result.failed.items():
+                    queue.mark_failed(path, error)
 
         dispatch_results.append(
             IngestionDispatchResult(
@@ -1737,6 +1777,38 @@ class IngestionQueue:
             if data.get("status") == "pending" and not data.get("route_id")
         ]
 
+    def assign_route(
+        self,
+        path: Path,
+        *,
+        route_id: str,
+        ingestion_root: Optional[Path] = None,
+    ) -> bool:
+        """Assign route metadata to a pending queue entry.
+
+        Returns True when metadata was written.
+        """
+        key = str(path)
+        entry = self.entries().get(key)
+        if entry is None or entry.get("status") != "pending":
+            return False
+
+        changed = False
+        if entry.get("route_id") != route_id:
+            entry["route_id"] = route_id
+            changed = True
+
+        if ingestion_root is not None:
+            normalized_root = str(ingestion_root)
+            if entry.get("ingestion_root") != normalized_root:
+                entry["ingestion_root"] = normalized_root
+                changed = True
+
+        if changed:
+            self.save()
+
+        return changed
+
     def pending_entries(
         self, *, route_id: Optional[str] = None, include_unassigned: bool = False
     ) -> list[QueueEntry]:
@@ -1764,6 +1836,15 @@ class IngestionQueue:
 
     def pending(self) -> list[Path]:
         return [entry.path for entry in self.pending_entries()]
+
+    def mark_processing(self, path: Path) -> None:
+        key = str(path)
+        entry = self.entries().setdefault(key, {})
+        entry["status"] = "processing"
+        entry["processing_at"] = _timestamp()
+        entry.pop("last_error", None)
+        entry.pop("failed_at", None)
+        self.save()
 
     def mark_processed(self, path: Path) -> None:
         key = str(path)
