@@ -181,6 +181,123 @@ class TestAutoCleanTUIHelpers:
         result = app.get_routes()
         assert result == []
 
+    def test_get_route_specs_no_workspace(self) -> None:
+        """Test getting route specs when no workspace is set."""
+        app = AutoCleanTUI()
+        result = app.get_route_specs()
+        assert result == []
+
+    def test_get_route_specs_with_registry(self, tmp_path: Path) -> None:
+        """Test loading route specs from the route registry."""
+        from autoclean.utils.serve_routes import upsert_route_spec
+
+        workspace = tmp_path
+        (workspace / "serve-test.yaml").write_text(
+            "mode: test\nruntime: runtimes/test\nautomation_mode: true\nautomations: []\n",
+            encoding="utf-8",
+        )
+        (workspace / "serve-live.yaml").write_text(
+            "mode: live\nruntime: runtimes/live\nautomation_mode: true\nautomations: []\n",
+            encoding="utf-8",
+        )
+        taskfile = workspace / "TaskFile.py"
+        taskfile.write_text("print('ok')\n", encoding="utf-8")
+        incoming = workspace / "incoming"
+        incoming.mkdir()
+
+        upsert_route_spec(
+            workspace,
+            "resting-biosemi64",
+            {
+                "taskfile": str(taskfile.resolve()),
+                "montage": "biosemi64",
+                "ingestion_folders": [str(incoming.resolve())],
+                "modes": ["test"],
+            },
+        )
+
+        app = AutoCleanTUI(workspace_path=workspace)
+        result = app.get_route_specs()
+        assert len(result) == 1
+        assert result[0]["id"] == "resting-biosemi64"
+
+    def test_set_route_enabled_updates_registry(self, tmp_path: Path) -> None:
+        """Test toggling route enabled status through the app helper."""
+        import yaml
+
+        from autoclean.utils.serve_routes import sync_route_registry, upsert_route_spec
+
+        workspace = tmp_path
+        (workspace / "serve-test.yaml").write_text(
+            "mode: test\nruntime: runtimes/test\nautomation_mode: true\nautomations: []\n",
+            encoding="utf-8",
+        )
+        (workspace / "serve-live.yaml").write_text(
+            "mode: live\nruntime: runtimes/live\nautomation_mode: true\nautomations: []\n",
+            encoding="utf-8",
+        )
+        taskfile = workspace / "TaskFile.py"
+        taskfile.write_text("print('ok')\n", encoding="utf-8")
+        incoming = workspace / "incoming"
+        incoming.mkdir()
+
+        upsert_route_spec(
+            workspace,
+            "resting-biosemi64",
+            {
+                "taskfile": str(taskfile.resolve()),
+                "montage": "biosemi64",
+                "ingestion_folders": [str(incoming.resolve())],
+                "modes": ["test"],
+                "enabled": True,
+            },
+        )
+        sync_route_registry(workspace)
+
+        app = AutoCleanTUI(workspace_path=workspace)
+        assert app.set_route_enabled("resting-biosemi64", False) is True
+
+        compiled = yaml.safe_load((workspace / "serve-test.yaml").read_text(encoding="utf-8"))
+        assert compiled["automations"][0]["enabled"] is False
+
+    def test_promote_route_updates_live_config(self, tmp_path: Path) -> None:
+        """Test promoting a route through the app helper."""
+        import yaml
+
+        from autoclean.utils.serve_routes import sync_route_registry, upsert_route_spec
+
+        workspace = tmp_path
+        (workspace / "serve-test.yaml").write_text(
+            "mode: test\nruntime: runtimes/test\nautomation_mode: true\nautomations: []\n",
+            encoding="utf-8",
+        )
+        (workspace / "serve-live.yaml").write_text(
+            "mode: live\nruntime: runtimes/live\nautomation_mode: true\nautomations: []\n",
+            encoding="utf-8",
+        )
+        taskfile = workspace / "TaskFile.py"
+        taskfile.write_text("print('ok')\n", encoding="utf-8")
+        incoming = workspace / "incoming"
+        incoming.mkdir()
+
+        upsert_route_spec(
+            workspace,
+            "resting-biosemi64",
+            {
+                "taskfile": str(taskfile.resolve()),
+                "montage": "biosemi64",
+                "ingestion_folders": [str(incoming.resolve())],
+                "modes": ["test"],
+            },
+        )
+        sync_route_registry(workspace)
+
+        app = AutoCleanTUI(workspace_path=workspace)
+        assert app.promote_route("resting-biosemi64") is True
+
+        compiled = yaml.safe_load((workspace / "serve-live.yaml").read_text(encoding="utf-8"))
+        assert compiled["automations"][0]["id"] == "resting-biosemi64"
+
     def test_get_queue_entries_no_workspace(self) -> None:
         """Test getting queue entries when no workspace is set."""
         app = AutoCleanTUI()

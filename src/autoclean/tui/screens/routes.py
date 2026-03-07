@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from textual.app import ComposeResult
@@ -18,7 +19,9 @@ class RoutesScreen(Screen):
 
     BINDINGS = [
         ("r", "refresh", "Refresh"),
-        ("t", "toggle_route", "Toggle"),
+        ("t", "toggle_route", "Enable/Disable"),
+        ("p", "promote_route", "Promote"),
+        ("s", "sync_routes", "Sync"),
         ("enter", "show_details", "Details"),
     ]
 
@@ -33,6 +36,8 @@ class RoutesScreen(Screen):
         table = self.query_one("#routes-table", DataTable)
         table.add_columns(
             "ID",
+            "Draft",
+            "Production",
             "Enabled",
             "Priority",
             "Task",
@@ -46,7 +51,7 @@ class RoutesScreen(Screen):
     def refresh_data(self) -> None:
         """Refresh routes data from app state."""
         app: AutoCleanTUI = self.app  # type: ignore
-        routes = app.get_routes()
+        routes = app.get_route_specs()
 
         table = self.query_one("#routes-table", DataTable)
         table.clear()
@@ -54,30 +59,49 @@ class RoutesScreen(Screen):
         if not routes:
             # Show empty state message
             details = self.query_one("#route-details", Static)
-            details.update("No routes configured. Check your serve configuration.")
+            details.update(
+                "No routes configured yet.\n"
+                "Create one with `serve route upsert ...` and this screen will let you"
+                " toggle and promote it without hand-editing YAML."
+            )
             return
 
         for route in routes:
-            enabled_str = "[green]Yes[/]" if route.enabled else "[red]No[/]"
-            folders_str = str(len(route.ingestion_folders))
-            globs_str = ", ".join(route.file_globs[:2])
-            if len(route.file_globs) > 2:
-                globs_str += f" (+{len(route.file_globs) - 2})"
+            modes = route.get("modes", [])
+            enabled = bool(route.get("enabled", True))
+            folders = route.get("ingestion_folders", [])
+            file_globs = route.get("file_globs", [])
+            enabled_str = "[green]Yes[/]" if enabled else "[red]No[/]"
+            draft_str = "[green]Yes[/]" if "test" in modes else "[dim]-[/]"
+            live_str = "[green]Yes[/]" if "live" in modes else "[dim]-[/]"
+            folders_str = str(len(folders))
+            globs_str = ", ".join(file_globs[:2])
+            if len(file_globs) > 2:
+                globs_str += f" (+{len(file_globs) - 2})"
+            task_label = Path(str(route.get("taskfile", ""))).name or str(
+                route.get("taskfile", "")
+            )
 
             table.add_row(
-                route.id,
+                str(route["id"]),
+                draft_str,
+                live_str,
                 enabled_str,
-                str(route.priority),
-                route.taskfile,
-                route.montage,
+                str(route.get("priority", 0)),
+                task_label,
+                str(route.get("montage", "")),
                 folders_str,
                 globs_str,
-                key=route.id,
+                key=str(route["id"]),
             )
 
         # Update details
         details = self.query_one("#route-details", Static)
-        details.update(f"{len(routes)} route(s) configured. Select a row for details.")
+        details.update(
+            f"{len(routes)} route(s) configured. "
+            "Use T to enable/disable, P to promote a draft route to production, "
+            "and S to rebuild compiled configs."
+        )
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         """Show details when a row is selected."""
@@ -93,11 +117,11 @@ class RoutesScreen(Screen):
             return
 
         app: AutoCleanTUI = self.app  # type: ignore
-        routes = app.get_routes()
+        routes = app.get_route_specs()
 
         route = None
         for r in routes:
-            if r.id == route_id:
+            if r["id"] == route_id:
                 route = r
                 break
 
@@ -107,24 +131,57 @@ class RoutesScreen(Screen):
         details = self.query_one("#route-details", Static)
 
         # Build details text
+        modes = route.get("modes", [])
+        folders = route.get("ingestion_folders", [])
+        file_globs = route.get("file_globs", [])
         lines = [
-            f"[bold]{route.id}[/]",
-            f"Task: {route.taskfile}  |  Montage: {route.montage}",
-            f"Priority: {route.priority}  |  Recursive: {'Yes' if route.recursive else 'No'}  |  Sentinel: {route.sentinel_ext}",
+            f"[bold]{route['id']}[/]",
+            "Draft: "
+            f"{'Yes' if 'test' in modes else 'No'}  |  "
+            f"Production: {'Yes' if 'live' in modes else 'No'}  |  "
+            f"Enabled: {'Yes' if route.get('enabled', True) else 'No'}",
+            f"Task: {route.get('taskfile', '')}  |  Montage: {route.get('montage', '')}",
+            "Priority: "
+            f"{route.get('priority', 0)}  |  "
+            f"Recursive: {'Yes' if route.get('recursive', True) else 'No'}  |  "
+            f"Sentinel: {route.get('sentinel_ext', '.ready')}",
             "Folders:",
         ]
 
-        for folder in route.ingestion_folders[:3]:
+        for folder in folders[:3]:
             lines.append(f"  - {folder}")
-        if len(route.ingestion_folders) > 3:
-            lines.append(f"  ... and {len(route.ingestion_folders) - 3} more")
+        if len(folders) > 3:
+            lines.append(f"  ... and {len(folders) - 3} more")
 
-        lines.append(f"File patterns: {', '.join(route.file_globs)}")
+        lines.append(f"File patterns: {', '.join(file_globs) if file_globs else '*'}")
 
-        if route.version:
-            lines.append(f"Version: {route.version}")
+        if route.get("ingestion_excludes"):
+            lines.append("Excludes:")
+            for entry in route["ingestion_excludes"][:3]:
+                lines.append(f"  - {entry}")
+
+        if route.get("automation_root"):
+            lines.append(f"Automation root: {route['automation_root']}")
+        if route.get("workspace_name"):
+            lines.append(f"Workspace name: {route['workspace_name']}")
+        if route.get("version"):
+            lines.append(f"Version: {route['version']}")
+        lines.append("")
+        lines.append("Safe actions:")
+        lines.append("  T = enable/disable this route")
+        lines.append("  P = add this route to production")
+        lines.append("  S = rebuild serve-test.yaml and serve-live.yaml")
 
         details.update("\n".join(lines))
+
+    def _selected_route_id(self) -> str | None:
+        table = self.query_one("#routes-table", DataTable)
+        if table.cursor_row is None:
+            return None
+        row_key = table.coordinate_to_cell_key((table.cursor_row, 0)).row_key
+        if row_key is None:
+            return None
+        return str(row_key.value)
 
     def action_refresh(self) -> None:
         """Refresh routes data."""
@@ -134,23 +191,62 @@ class RoutesScreen(Screen):
         self.notify("Routes refreshed")
 
     def action_toggle_route(self) -> None:
-        """Toggle route enabled status (display only - actual toggle requires config edit)."""
-        table = self.query_one("#routes-table", DataTable)
-        if table.cursor_row is None:
+        """Toggle route enabled status using the route registry backend."""
+        route_id = self._selected_route_id()
+        if route_id is None:
             return
 
-        self.notify(
-            "To toggle routes, edit the serve YAML configuration file",
-            severity="warning",
-        )
+        app: AutoCleanTUI = self.app  # type: ignore
+        route = next((spec for spec in app.get_route_specs() if spec["id"] == route_id), None)
+        if route is None:
+            self.notify("Route not found", severity="error")
+            return
+
+        enabled = not bool(route.get("enabled", True))
+        if app.set_route_enabled(route_id, enabled):
+            self.refresh_data()
+            state = "enabled" if enabled else "disabled"
+            self.notify(f"Route {state}: {route_id}")
+            return
+
+        self.notify("Failed to update route", severity="error")
+
+    def action_promote_route(self) -> None:
+        """Promote selected route into production."""
+        route_id = self._selected_route_id()
+        if route_id is None:
+            return
+
+        app: AutoCleanTUI = self.app  # type: ignore
+        route = next((spec for spec in app.get_route_specs() if spec["id"] == route_id), None)
+        if route is None:
+            self.notify("Route not found", severity="error")
+            return
+        if "live" in route.get("modes", []):
+            self.notify("Route is already in production")
+            return
+
+        if app.promote_route(route_id):
+            self.refresh_data()
+            self.notify(f"Route promoted to production: {route_id}")
+            return
+
+        self.notify("Failed to promote route", severity="error")
+
+    def action_sync_routes(self) -> None:
+        """Rebuild compiled serve configs from route specs."""
+        app: AutoCleanTUI = self.app  # type: ignore
+        if app.sync_route_registry():
+            self.refresh_data()
+            self.notify("Route registry synced")
+            return
+        self.notify("Failed to sync route registry", severity="error")
 
     def action_show_details(self) -> None:
         """Show expanded details for selected route."""
-        table = self.query_one("#routes-table", DataTable)
-        if table.cursor_row is None:
+        route_id = self._selected_route_id()
+        if route_id is None:
             return
 
-        row_key = table.get_row_at(table.cursor_row)
-        if row_key:
-            # Already showing in details pane
-            self.notify("Route details shown below table")
+        self._show_route_details(route_id)
+        self.notify("Route details shown below table")

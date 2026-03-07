@@ -600,6 +600,66 @@ class AutoCleanTUI(App):
         except Exception:
             return []
 
+    def get_route_specs(self) -> list[dict[str, Any]]:
+        """Get route registry specs for operator-friendly management."""
+        workspace_dir = self.state.workspace_dir
+        if workspace_dir is None:
+            return []
+
+        try:
+            from autoclean.utils.serve_routes import load_route_specs
+
+            return load_route_specs(workspace_dir)
+        except Exception:
+            return []
+
+    def sync_route_registry(self) -> bool:
+        """Recompile route registry into serve YAML files."""
+        workspace_dir = self.state.workspace_dir
+        if workspace_dir is None:
+            return False
+
+        try:
+            from autoclean.utils.serve_routes import sync_route_registry
+
+            sync_route_registry(workspace_dir)
+            self._load_config()
+            return True
+        except Exception:
+            return False
+
+    def set_route_enabled(self, route_id: str, enabled: bool) -> bool:
+        """Toggle a route in the route registry and recompile configs."""
+        workspace_dir = self.state.workspace_dir
+        if workspace_dir is None:
+            return False
+
+        try:
+            from autoclean.utils.serve_routes import sync_route_registry, upsert_route_spec
+
+            upsert_route_spec(workspace_dir, route_id, {"enabled": enabled})
+            sync_route_registry(workspace_dir)
+            self._load_config()
+            return True
+        except Exception:
+            return False
+
+    def promote_route(self, route_id: str) -> bool:
+        """Promote a draft route into production and recompile configs."""
+        workspace_dir = self.state.workspace_dir
+        if workspace_dir is None:
+            return False
+
+        try:
+            from autoclean.utils.serve_routes import promote_route_spec, sync_route_registry
+
+            promote_route_spec(workspace_dir, route_id)
+            sync_route_registry(workspace_dir)
+            self._load_config()
+            return True
+        except Exception:
+            return False
+
     def get_queue_entries(self) -> dict[str, Any]:
         """Get all queue entries."""
         queue_path = self.get_queue_path()
