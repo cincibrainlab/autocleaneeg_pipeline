@@ -35,7 +35,7 @@ dependencies = [
     "PyWavelets==1.9.0",
     # EEG processing core
     "mne==1.10.1",
-    "mne-icalabel==0.8.0",
+    "mne-icalabel==0.8.1",
     "mne-bids==0.17.0",
     "autoreject==0.4.3",
     "pyprep==0.5.0",
