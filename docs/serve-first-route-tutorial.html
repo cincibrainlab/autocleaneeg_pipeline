@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoClean Serve Tutorial: Your First Route</title>
+<style>
+  :root {
+    --bg: #f6f2eb;
+    --panel: rgba(255, 255, 255, 0.88);
+    --panel-strong: #fffdfa;
+    --text: #241d17;
+    --muted: #6a5e51;
+    --border: rgba(67, 49, 30, 0.12);
+    --shadow: 0 24px 52px rgba(77, 57, 35, 0.08);
+    --terracotta: #af4d29;
+    --terracotta-soft: rgba(175, 77, 41, 0.1);
+    --teal: #1e6670;
+    --teal-soft: rgba(30, 102, 112, 0.1);
+    --olive: #657d43;
+    --olive-soft: rgba(101, 125, 67, 0.1);
+    --gold: #bf8c27;
+    --gold-soft: rgba(191, 140, 39, 0.12);
+    --danger: #9b2c2c;
+    --danger-soft: rgba(155, 44, 44, 0.08);
+    --font-display: Georgia, "Times New Roman", serif;
+    --font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #171311;
+      --panel: rgba(31, 25, 22, 0.9);
+      --panel-strong: #221a16;
+      --text: #f3e9df;
+      --muted: #c0ae9b;
+      --border: rgba(255, 240, 225, 0.1);
+      --shadow: 0 24px 52px rgba(0, 0, 0, 0.24);
+      --terracotta: #f1a07a;
+      --terracotta-soft: rgba(241, 160, 122, 0.12);
+      --teal: #9cdde0;
+      --teal-soft: rgba(156, 221, 224, 0.12);
+      --olive: #c5dca0;
+      --olive-soft: rgba(197, 220, 160, 0.12);
+      --gold: #f0ca7b;
+      --gold-soft: rgba(240, 202, 123, 0.12);
+      --danger: #f0a1a1;
+      --danger-soft: rgba(240, 161, 161, 0.12);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--font-body);
+    color: var(--text);
+    line-height: 1.58;
+    background:
+      radial-gradient(circle at top left, var(--gold-soft), transparent 28%),
+      radial-gradient(circle at bottom right, var(--teal-soft), transparent 32%),
+      var(--bg);
+  }
+  a { color: inherit; text-decoration: none; }
+  .wrap {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 32px;
+    display: grid;
+    grid-template-columns: 210px minmax(0, 1fr);
+    gap: 28px;
+  }
+  .toc {
+    position: sticky;
+    top: 20px;
+    align-self: start;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 18px 14px;
+    box-shadow: var(--shadow);
+  }
+  .toc-title,
+  .eyebrow,
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.8px;
+    font-weight: 700;
+  }
+  .toc-title {
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .toc a {
+    display: block;
+    padding: 7px 10px;
+    border-radius: 8px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .toc a:hover { background: var(--terracotta-soft); color: var(--text); }
+  .hero,
+  .section,
+  .card,
+  .lane,
+  .step,
+  .note,
+  .terminal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+  }
+  .main { min-width: 0; }
+  .hero {
+    padding: 32px;
+    background: linear-gradient(135deg, var(--panel-strong), var(--panel));
+    margin-bottom: 18px;
+  }
+  .eyebrow { color: var(--terracotta); }
+  h1 {
+    margin: 10px 0 12px;
+    font-family: var(--font-display);
+    font-size: clamp(2.6rem, 5vw, 4.8rem);
+    line-height: 0.96;
+    max-width: 11ch;
+    font-weight: 400;
+  }
+  .lead {
+    color: var(--muted);
+    max-width: 70ch;
+    font-size: 1.06rem;
+  }
+  .hero-grid,
+  .step-grid,
+  .check-grid,
+  .route-board,
+  .lane-grid {
+    display: grid;
+    gap: 16px;
+  }
+  .hero-grid,
+  .check-grid,
+  .lane-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .step-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .route-board { grid-template-columns: 1.2fr 1fr; }
+  .pill,
+  .mini-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+  .pill { background: var(--terracotta-soft); color: var(--terracotta); }
+  .mini-badge { background: var(--teal-soft); color: var(--teal); }
+  .section {
+    padding: 24px;
+    margin-bottom: 18px;
+  }
+  .kicker { color: var(--terracotta); margin-bottom: 8px; }
+  .section h2 {
+    margin: 0 0 10px;
+    font-size: 1.72rem;
+  }
+  .section-intro {
+    margin: 0 0 18px;
+    color: var(--muted);
+    max-width: 72ch;
+  }
+  .card,
+  .lane,
+  .step,
+  .note {
+    padding: 18px;
+  }
+  .card h3,
+  .lane h3,
+  .step h3,
+  .note h3 {
+    margin: 0 0 8px;
+    font-size: 1.05rem;
+  }
+  .card p,
+  .lane p,
+  .step p,
+  .note p,
+  li { color: var(--muted); }
+  .terminal {
+    padding: 0;
+    overflow: hidden;
+    background: #171311;
+    color: #f4ece2;
+    border-color: rgba(255,255,255,0.06);
+  }
+  .terminal-head {
+    background: rgba(255,255,255,0.06);
+    padding: 10px 14px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: rgba(255,255,255,0.78);
+  }
+  pre {
+    margin: 0;
+    padding: 16px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  code.inline {
+    font-family: var(--font-mono);
+    font-size: 0.93em;
+    background: rgba(127,127,127,0.11);
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+  .note.good { border-left: 5px solid var(--olive); background: linear-gradient(180deg, var(--olive-soft), transparent 120px), var(--panel); }
+  .note.watch { border-left: 5px solid var(--gold); background: linear-gradient(180deg, var(--gold-soft), transparent 120px), var(--panel); }
+  .note.risk { border-left: 5px solid var(--danger); background: linear-gradient(180deg, var(--danger-soft), transparent 120px), var(--panel); }
+  ul { margin: 0; padding-left: 20px; }
+  li + li { margin-top: 7px; }
+  .step-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--terracotta-soft);
+    color: var(--terracotta);
+    font-weight: 800;
+    margin-bottom: 10px;
+  }
+  @media (max-width: 1020px) {
+    .wrap {
+      grid-template-columns: 1fr;
+      padding: 18px;
+    }
+    .toc {
+      position: static;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .hero-grid,
+    .step-grid,
+    .check-grid,
+    .route-board,
+    .lane-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="toc" aria-label="Tutorial sections">
+      <div class="toc-title">Tutorial menu</div>
+      <a href="serve-docs-portal.html">Docs home</a>
+      <a href="#start">Before you start</a>
+      <a href="#workspace">1. Create workspace</a>
+      <a href="#draft">2. Create Draft route</a>
+      <a href="#validate">3. Validate Draft</a>
+      <a href="#run">4. Run safely</a>
+      <a href="#promote">5. Promote to Production</a>
+      <a href="#daily">6. Day-to-day checks</a>
+    </nav>
+
+    <main class="main">
+      <section class="hero" id="start">
+        <div class="eyebrow">Step-by-step tutorial</div>
+        <h1>Set up your first serve route without guessing.</h1>
+        <p class="lead">
+          This tutorial walks one operator through the full first-route workflow: create a serve workspace, define a route in Draft, validate it, run it safely, promote it to Production, and know what to watch afterward.
+        </p>
+        <div class="hero-grid">
+          <div class="card">
+            <h3>What you are making</h3>
+            <p>One route means one clear promise: “When files like this arrive in this folder, run this task with this montage.”</p>
+          </div>
+          <div class="card">
+            <h3>What you are not making</h3>
+            <p>You are not creating a new queue for each route. The system keeps one Draft lane and one Production lane.</p>
+          </div>
+          <div class="card">
+            <h3>Where to start</h3>
+            <p>Use this tutorial if you are setting up the first route in a workspace. Use the operator guide later for concepts and handoff.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="kicker">Before you begin</div>
+        <h2>Get these three things ready first.</h2>
+        <div class="check-grid">
+          <div class="note good">
+            <h3>1. A task file</h3>
+            <p>Example: <code class="inline">/path/to/RestingEyesOpen.py</code></p>
+          </div>
+          <div class="note good">
+            <h3>2. A watch folder</h3>
+            <p>Example: <code class="inline">/data/incoming/resting</code></p>
+          </div>
+          <div class="note good">
+            <h3>3. The montage name</h3>
+            <p>Example: <code class="inline">biosemi64</code></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="workspace">
+        <div class="kicker">1. Create the serve workspace</div>
+        <h2>Make the working folder first.</h2>
+        <p class="section-intro">
+          This creates the serve workspace structure, test/live runtimes, and the baseline files that the route registry will compile into later.
+        </p>
+        <div class="route-board">
+          <div class="terminal">
+            <div class="terminal-head">Terminal</div>
+            <pre>autocleaneeg-pipeline serve workspace \
+  --mode new \
+  --path /path/to/serve-workspace</pre>
+          </div>
+          <div class="note watch">
+            <h3>What you should see</h3>
+            <ul>
+              <li><code class="inline">serve-test.yaml</code></li>
+              <li><code class="inline">serve-live.yaml</code></li>
+              <li><code class="inline">routes/</code></li>
+              <li><code class="inline">runtimes/test</code> and <code class="inline">runtimes/live</code></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="draft">
+        <div class="kicker">2. Create the first route in Draft</div>
+        <h2>Put the route in Draft first, not Production.</h2>
+        <p class="section-intro">
+          Draft is the proving lane. Create the route there, exercise it safely, and only promote it later when it behaves exactly the way you want.
+        </p>
+        <div class="step-grid">
+          <div class="step">
+            <div class="step-number">01</div>
+            <h3>Choose a clear route name</h3>
+            <p>Use the task and montage so another person can recognize it immediately. Example: <code class="inline">resting-biosemi64</code>.</p>
+          </div>
+          <div class="step">
+            <div class="step-number">02</div>
+            <h3>Run the upsert command</h3>
+            <p>This creates or updates one small route spec and recompiles the generated Draft and Production configs.</p>
+          </div>
+        </div>
+        <div class="terminal">
+          <div class="terminal-head">Terminal</div>
+          <pre>autocleaneeg-pipeline serve route upsert \
+  resting-biosemi64 \
+  --path /path/to/serve-workspace \
+  --mode test \
+  --taskfile /path/to/RestingEyesOpen.py \
+  --montage biosemi64 \
+  --ingestion-folder /data/incoming/resting \
+  --file-glob "*.set" \
+  --recursive \
+  --enabled</pre>
+        </div>
+        <div class="lane-grid" style="margin-top: 16px;">
+          <div class="note good">
+            <h3>What this should create</h3>
+            <ul>
+              <li><code class="inline">routes/resting-biosemi64.yaml</code></li>
+              <li>a generated Draft config in <code class="inline">serve-test.yaml</code></li>
+              <li>a generated Production config in <code class="inline">serve-live.yaml</code></li>
+            </ul>
+          </div>
+          <div class="note watch">
+            <h3>Optional TUI check</h3>
+            <p>Open the TUI, go to Routes, and confirm the route appears in Draft. Use <strong>Enter</strong> to inspect details.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="validate">
+        <div class="kicker">3. Validate the Draft route</div>
+        <h2>Confirm the generated Draft config is usable.</h2>
+        <div class="route-board">
+          <div class="terminal">
+            <div class="terminal-head">Terminal</div>
+            <pre>autocleaneeg-pipeline serve validate \
+  --path /path/to/serve-workspace \
+  --mode test</pre>
+          </div>
+          <div class="note watch">
+            <h3>What good looks like</h3>
+            <ul>
+              <li>no missing-path errors</li>
+              <li>the route appears in Draft only</li>
+              <li>the task file and watch folder are correct</li>
+            </ul>
+          </div>
+        </div>
+        <div class="note risk" style="margin-top: 16px;">
+          <h3>If validation fails</h3>
+          <p>Do not promote anything yet. Fix the route definition first, then rerun the same <code class="inline">serve route upsert</code> command. Idempotent setup means repeating that command is expected and safe.</p>
+        </div>
+      </section>
+
+      <section class="section" id="run">
+        <div class="kicker">4. Run the route safely</div>
+        <h2>Exercise the route in Draft before trusting it.</h2>
+        <p class="section-intro">
+          The safest first pass is a Draft run with limits. The goal is to prove the route, not to let it run forever on day one.
+        </p>
+        <div class="step-grid">
+          <div class="terminal">
+            <div class="terminal-head">Terminal</div>
+            <pre>autocleaneeg-pipeline serve run \
+  --path /path/to/serve-workspace \
+  --mode test \
+  --max-cycles 1 \
+  --idle-limit 1 \
+  --dry-run</pre>
+          </div>
+          <div class="note good">
+            <h3>What to verify</h3>
+            <ul>
+              <li>the route is selected correctly</li>
+              <li>the right files are considered ready</li>
+              <li>the output command matches the task and montage you intended</li>
+            </ul>
+          </div>
+        </div>
+        <div class="note watch" style="margin-top: 16px;">
+          <h3>TUI route actions you can use now</h3>
+          <ul>
+            <li><strong>T</strong> enables or disables the selected route</li>
+            <li><strong>P</strong> promotes the selected route to Production</li>
+            <li><strong>S</strong> syncs the generated configs after route updates</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section" id="promote">
+        <div class="kicker">5. Promote the route to Production</div>
+        <h2>Promote the same route. Do not rebuild it from scratch.</h2>
+        <div class="route-board">
+          <div class="terminal">
+            <div class="terminal-head">Terminal</div>
+            <pre>autocleaneeg-pipeline serve route promote \
+  resting-biosemi64 \
+  --path /path/to/serve-workspace</pre>
+          </div>
+          <div class="note good">
+            <h3>What should change</h3>
+            <ul>
+              <li>the route now belongs to both Draft and Production</li>
+              <li><code class="inline">serve-live.yaml</code> now includes the route</li>
+              <li>you still have only one route definition, not two near-duplicates</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="daily">
+        <div class="kicker">6. What to check day to day</div>
+        <h2>Use these checks to stay boring in Production.</h2>
+        <div class="check-grid">
+          <div class="note good">
+            <h3>Route state</h3>
+            <p>Is the route enabled? Is it still clearly named? Does it belong in Draft only or in both Draft and Production?</p>
+          </div>
+          <div class="note watch">
+            <h3>Validation changes</h3>
+            <p>If a folder, file glob, or task changes, rerun <code class="inline">serve route upsert</code>, then validate again.</p>
+          </div>
+          <div class="note risk">
+            <h3>What not to do</h3>
+            <p>Do not create a new queue for every route. Do not clone almost-identical routes just because one field changed.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
