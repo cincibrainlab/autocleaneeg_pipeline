@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -48,17 +49,37 @@ def process_file(
     }
 
     try:
-        # Find the runtime CLI
-        from autoclean.utils.ingestion import resolve_runtime_cli
+        runtime_dir = workspace / "runtimes" / mode
 
-        # In container: use container's venv (installed from mounted source)
-        # On host: use configured runtime
-        if Path("/.dockerenv").exists():
-            import sys
-            cli_path = Path(sys.executable).parent / "autocleaneeg-pipeline"
+        # Dry runs should be able to render the command even if the runtime
+        # has not been installed yet.
+        if dry_run:
+            if Path("/.dockerenv").exists():
+                cli_path = Path(sys.executable).parent / "autocleaneeg-pipeline"
+            elif sys.platform.startswith("win"):
+                cli_path = (
+                    runtime_dir
+                    / ".venv"
+                    / "Scripts"
+                    / "autocleaneeg-pipeline.exe"
+                )
+            else:
+                cli_path = (
+                    runtime_dir
+                    / ".venv"
+                    / "bin"
+                    / "autocleaneeg-pipeline"
+                )
         else:
-            runtime_dir = workspace / "runtimes" / mode
-            cli_path = resolve_runtime_cli(runtime_dir)
+            # Find the runtime CLI
+            from autoclean.utils.ingestion import resolve_runtime_cli
+
+            # In container: use container's venv (installed from mounted source)
+            # On host: use configured runtime
+            if Path("/.dockerenv").exists():
+                cli_path = Path(sys.executable).parent / "autocleaneeg-pipeline"
+            else:
+                cli_path = resolve_runtime_cli(runtime_dir)
 
         # Build command
         cmd = [
