@@ -12,6 +12,8 @@ If you're new to EEG processing or programming, AutoClean provides:
 * **Web-based task builder**: Create processing pipelines through an intuitive interface  
 * **Drop-and-go workflow**: Simply drop your task files and run
 * **No coding required**: Process your data with simple commands
+* **Serve operator guide**: Open `Route-First Serve Guide <serve-route-first-operator-guide.html>`_ for a visual walkthrough of Draft vs Production, route-first setup, and safe reruns
+* **Serve devlog**: Open `Route-First Serve Devlog <serve-route-first-devlog.md>`_ for the implementation notes and exact commands behind the new workflow
 
 🔧 **For Technical Users**  
 --------------------------
