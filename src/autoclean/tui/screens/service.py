@@ -257,6 +257,7 @@ class ServiceScreen(Screen):
             return
 
         params = self._get_service_params()
+        app.configure_service(params)
 
         if params["dry_run"]:
             self.notify("Dry run mode: commands will be logged but not executed")

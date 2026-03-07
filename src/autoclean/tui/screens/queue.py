@@ -199,8 +199,8 @@ class QueueScreen(Screen):
             self.notify("No workspace configured", severity="error")
             return
 
-        queue_path = app.state.workspace_dir / "queue.json"
-        if not queue_path.exists():
+        queue_path = app.get_queue_path()
+        if queue_path is None or not queue_path.exists():
             self.notify("Queue file not found", severity="error")
             return
 
@@ -255,7 +255,10 @@ class QueueScreen(Screen):
             self.notify("No workspace configured", severity="error")
             return
 
-        queue_path = app.state.workspace_dir / "queue.json"
+        queue_path = app.get_queue_path()
+        if queue_path is None:
+            self.notify("Queue file not found", severity="error")
+            return
         try:
             from autoclean.utils.ingestion import IngestionQueue
 
@@ -281,8 +284,8 @@ class QueueScreen(Screen):
             self.notify("No workspace configured", severity="error")
             return
 
-        queue_path = app.state.workspace_dir / "queue.json"
-        if not queue_path.exists():
+        queue_path = app.get_queue_path()
+        if queue_path is None or not queue_path.exists():
             self.notify("Queue file not found", severity="error")
             return
 

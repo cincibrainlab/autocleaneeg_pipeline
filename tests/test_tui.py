@@ -191,9 +191,15 @@ class TestAutoCleanTUIHelpers:
         result = app.get_queue_entries()
         assert result == {}
 
+    def test_get_queue_path_live_mode(self, tmp_path: Path) -> None:
+        """Test queue path resolves by active mode."""
+        app = AutoCleanTUI(workspace_path=tmp_path, mode="live")
+        result = app.get_queue_path()
+        assert result == tmp_path / "queue-live.json"
+
     def test_get_queue_entries_with_data(self, tmp_path: Path) -> None:
         """Test getting queue entries with existing queue file."""
-        queue_path = tmp_path / "queue.json"
+        queue_path = tmp_path / "queue-test.json"
         queue_data = {
             "entries": {
                 "/path/to/file1.bdf": {
@@ -234,7 +240,7 @@ class TestAutoCleanTUIStateLoading:
 
     def test_load_queue_with_data(self, tmp_path: Path) -> None:
         """Test loading queue with entries."""
-        queue_path = tmp_path / "queue.json"
+        queue_path = tmp_path / "queue-test.json"
         queue_data = {
             "entries": {
                 "/file1.bdf": {"status": "pending"},
@@ -305,6 +311,43 @@ class TestAutoCleanTUIActions:
         app.action_start_service()
         app.notify.assert_called_once()
         assert "already running" in str(app.notify.call_args)
+
+    def test_build_service_command_uses_configured_settings(self, tmp_path: Path) -> None:
+        """Test service command reflects configured screen settings."""
+        app = AutoCleanTUI(workspace_path=tmp_path, mode="live")
+        app.configure_service(
+            {
+                "max_cycles": 12,
+                "idle_limit": 3,
+                "sleep_seconds": 2.5,
+                "max_events": 7,
+                "dry_run": True,
+                "use_watchfiles": False,
+                "require_sentinel": False,
+            }
+        )
+
+        cmd = app.build_service_command(Path("/tmp/autocleaneeg-pipeline"))
+
+        assert cmd[:6] == [
+            "/tmp/autocleaneeg-pipeline",
+            "serve",
+            "run",
+            "--mode",
+            "live",
+            "--path",
+        ]
+        assert "--max-cycles" in cmd
+        assert "12" in cmd
+        assert "--idle-limit" in cmd
+        assert "3" in cmd
+        assert "--sleep-seconds" in cmd
+        assert "2.5" in cmd
+        assert "--max-events" in cmd
+        assert "7" in cmd
+        assert "--dry-run" in cmd
+        assert "--no-watch" in cmd
+        assert "--no-sentinel" in cmd
 
 
 class TestMainEntry:
@@ -593,7 +636,7 @@ class TestIntegration:
             }
         }
 
-        queue_path = tmp_path / "queue.json"
+        queue_path = tmp_path / "queue-test.json"
         queue_path.write_text(json.dumps(queue_data))
 
         app = AutoCleanTUI(workspace_path=tmp_path)
