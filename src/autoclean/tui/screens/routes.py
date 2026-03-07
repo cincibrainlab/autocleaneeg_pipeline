@@ -3,15 +3,149 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from textual.app import ComposeResult
-from textual.containers import Vertical
+from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import DataTable, Static
+from textual.widgets import Button, DataTable, Input, Label, Select, Static, Switch
 
 if TYPE_CHECKING:
     from autoclean.tui.app import AutoCleanTUI
+
+
+class RouteEditorScreen(Screen):
+    """Simple create/edit screen for route specs."""
+
+    BINDINGS = [("escape", "cancel", "Cancel")]
+
+    def __init__(self, route_spec: dict[str, Any] | None = None) -> None:
+        super().__init__()
+        self.route_spec = route_spec or {}
+
+    def compose(self) -> ComposeResult:
+        route_id = str(self.route_spec.get("id", ""))
+        taskfile = str(self.route_spec.get("taskfile", ""))
+        montage = str(self.route_spec.get("montage", ""))
+        folders = ", ".join(self.route_spec.get("ingestion_folders", []))
+        globs = ", ".join(self.route_spec.get("file_globs", []))
+        modes = self.route_spec.get("modes", ["test"])
+        mode_scope = "both" if "live" in modes else "test"
+        enabled = bool(self.route_spec.get("enabled", True))
+        recursive = bool(self.route_spec.get("recursive", True))
+        heading = "Edit Route" if route_id else "Create Route"
+
+        with Vertical():
+            yield Static(heading, classes="section-header")
+            yield Static(
+                "This form saves back into the route registry and recompiles the Draft "
+                "and Production configs. Use one route for one workflow.",
+                classes="help-text",
+            )
+
+            with Vertical(classes="service-params"):
+                with Horizontal(classes="param-row"):
+                    yield Label("Route ID:", classes="param-label")
+                    yield Input(
+                        value=route_id,
+                        placeholder="resting-biosemi64",
+                        id="input-route-id",
+                        classes="param-input",
+                    )
+
+                with Horizontal(classes="param-row"):
+                    yield Label("Task File:", classes="param-label")
+                    yield Input(
+                        value=taskfile,
+                        placeholder="/path/to/RestingEyesOpen.py",
+                        id="input-taskfile",
+                        classes="param-input",
+                    )
+
+                with Horizontal(classes="param-row"):
+                    yield Label("Montage:", classes="param-label")
+                    yield Input(
+                        value=montage,
+                        placeholder="biosemi64",
+                        id="input-montage",
+                        classes="param-input",
+                    )
+
+                with Horizontal(classes="param-row"):
+                    yield Label("Folders:", classes="param-label")
+                    yield Input(
+                        value=folders,
+                        placeholder="/data/incoming/resting, /data/incoming/resting2",
+                        id="input-folders",
+                        classes="param-input",
+                    )
+
+                with Horizontal(classes="param-row"):
+                    yield Label("File Globs:", classes="param-label")
+                    yield Input(
+                        value=globs,
+                        placeholder="*.set, *_resting.set",
+                        id="input-globs",
+                        classes="param-input",
+                    )
+
+                with Horizontal(classes="param-row"):
+                    yield Label("Scope:", classes="param-label")
+                    yield Select(
+                        [("Draft only", "test"), ("Draft + Production", "both")],
+                        value=mode_scope,
+                        id="select-scope",
+                    )
+
+                with Horizontal(classes="param-row"):
+                    yield Label("Enabled:", classes="param-label")
+                    yield Switch(value=enabled, id="switch-enabled")
+
+                with Horizontal(classes="param-row"):
+                    yield Label("Recursive:", classes="param-label")
+                    yield Switch(value=recursive, id="switch-recursive")
+
+            with Horizontal(classes="service-controls"):
+                yield Button("Save Route", id="btn-save-route", variant="success")
+                yield Button("Cancel", id="btn-cancel-route", variant="default")
+
+            yield Static(
+                "Folders and globs use comma-separated values. Create in Draft first, "
+                "then switch to Draft + Production when the route is trustworthy.",
+                classes="help-text",
+            )
+
+    def action_cancel(self) -> None:
+        """Close the editor without saving."""
+        self.app.pop_screen()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle save/cancel actions."""
+        if event.button.id == "btn-cancel-route":
+            self.action_cancel()
+            return
+        if event.button.id == "btn-save-route":
+            self._save_route()
+
+    def _save_route(self) -> None:
+        """Persist the route via the shared route registry backend."""
+        app: AutoCleanTUI = self.app  # type: ignore
+        ok, error = app.upsert_route_spec(
+            route_id=self.query_one("#input-route-id", Input).value,
+            taskfile=self.query_one("#input-taskfile", Input).value,
+            montage=self.query_one("#input-montage", Input).value,
+            ingestion_folders=self.query_one("#input-folders", Input).value.split(","),
+            file_globs=self.query_one("#input-globs", Input).value.split(","),
+            mode_scope=str(self.query_one("#select-scope", Select).value),
+            enabled=self.query_one("#switch-enabled", Switch).value,
+            recursive=self.query_one("#switch-recursive", Switch).value,
+        )
+        if not ok:
+            self.notify(error or "Failed to save route", severity="error")
+            return
+
+        self.notify("Route saved")
+        self.app.pop_screen()
 
 
 class RoutesScreen(Screen):
@@ -19,6 +153,8 @@ class RoutesScreen(Screen):
 
     BINDINGS = [
         ("r", "refresh", "Refresh"),
+        ("n", "new_route", "New"),
+        ("e", "edit_route", "Edit"),
         ("t", "toggle_route", "Enable/Disable"),
         ("p", "promote_route", "Promote"),
         ("s", "sync_routes", "Sync"),
@@ -46,6 +182,10 @@ class RoutesScreen(Screen):
             "Globs",
         )
         table.cursor_type = "row"
+        self.refresh_data()
+
+    def on_show(self) -> None:
+        """Refresh whenever the route screen becomes active again."""
         self.refresh_data()
 
     def refresh_data(self) -> None:
@@ -99,7 +239,7 @@ class RoutesScreen(Screen):
         details = self.query_one("#route-details", Static)
         details.update(
             f"{len(routes)} route(s) configured. "
-            "Use T to enable/disable, P to promote a draft route to production, "
+            "Use N to create, E to edit, T to enable/disable, P to promote, "
             "and S to rebuild compiled configs."
         )
 
@@ -168,6 +308,8 @@ class RoutesScreen(Screen):
             lines.append(f"Version: {route['version']}")
         lines.append("")
         lines.append("Safe actions:")
+        lines.append("  N = create a new route")
+        lines.append("  E = edit this route")
         lines.append("  T = enable/disable this route")
         lines.append("  P = add this route to production")
         lines.append("  S = rebuild serve-test.yaml and serve-live.yaml")
@@ -189,6 +331,24 @@ class RoutesScreen(Screen):
         app._load_config()
         self.refresh_data()
         self.notify("Routes refreshed")
+
+    def action_new_route(self) -> None:
+        """Open the create-route flow."""
+        self.app.push_screen(RouteEditorScreen())
+
+    def action_edit_route(self) -> None:
+        """Open the editor for the selected route."""
+        route_id = self._selected_route_id()
+        if route_id is None:
+            return
+
+        app: AutoCleanTUI = self.app  # type: ignore
+        route = app.get_route_spec(route_id)
+        if route is None:
+            self.notify("Route not found", severity="error")
+            return
+
+        self.app.push_screen(RouteEditorScreen(route))
 
     def action_toggle_route(self) -> None:
         """Toggle route enabled status using the route registry backend."""

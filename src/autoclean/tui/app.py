@@ -613,6 +613,13 @@ class AutoCleanTUI(App):
         except Exception:
             return []
 
+    def get_route_spec(self, route_id: str) -> Optional[dict[str, Any]]:
+        """Get one route spec from the route registry."""
+        for route in self.get_route_specs():
+            if route.get("id") == route_id:
+                return route
+        return None
+
     def sync_route_registry(self) -> bool:
         """Recompile route registry into serve YAML files."""
         workspace_dir = self.state.workspace_dir
@@ -627,6 +634,62 @@ class AutoCleanTUI(App):
             return True
         except Exception:
             return False
+
+    def upsert_route_spec(
+        self,
+        *,
+        route_id: str,
+        taskfile: str,
+        montage: str,
+        ingestion_folders: list[str],
+        file_globs: list[str],
+        mode_scope: str,
+        enabled: bool,
+        recursive: bool,
+    ) -> tuple[bool, str]:
+        """Create or update one route spec from TUI form data."""
+        workspace_dir = self.state.workspace_dir
+        if workspace_dir is None:
+            return False, "No serve workspace configured"
+
+        route_id = route_id.strip()
+        taskfile = taskfile.strip()
+        montage = montage.strip()
+        folders = [item.strip() for item in ingestion_folders if item.strip()]
+        globs = [item.strip() for item in file_globs if item.strip()]
+
+        if not route_id:
+            return False, "Route ID is required"
+        if not taskfile:
+            return False, "Task file is required"
+        if not montage:
+            return False, "Montage is required"
+        if not folders:
+            return False, "At least one ingestion folder is required"
+
+        try:
+            from autoclean.utils.serve_routes import sync_route_registry, upsert_route_spec
+
+            modes = ["test", "live"] if mode_scope == "both" else ["test"]
+            updates: dict[str, Any] = {
+                "modes": modes,
+                "taskfile": str(Path(taskfile).expanduser().resolve()),
+                "montage": montage,
+                "ingestion_folders": [
+                    str(Path(item).expanduser().resolve()) for item in folders
+                ],
+                "enabled": enabled,
+                "recursive": recursive,
+            }
+            if globs:
+                updates["file_globs"] = globs
+
+            upsert_route_spec(workspace_dir, route_id, updates)
+            sync_route_registry(workspace_dir)
+            self._load_config()
+            return True, ""
+        except Exception as exc:
+            return False, str(exc)
 
     def set_route_enabled(self, route_id: str, enabled: bool) -> bool:
         """Toggle a route in the route registry and recompile configs."""
