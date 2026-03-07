@@ -4,6 +4,11 @@ This note is the technical companion to `docs/serve-route-first-operator-guide.h
 
 Use the HTML guide first if you are training operators or documenting handoff. Use this devlog when you need the backend model, the exact route-management commands, or the implementation boundaries that should stay stable while the TUI keeps improving.
 
+Quick links:
+
+- Docs portal: `docs/serve-docs-portal.html`
+- Operator guide: `docs/serve-route-first-operator-guide.html`
+
 ## What changed
 
 The older serve workflow could process files, but it exposed the wrong things to the wrong people.
