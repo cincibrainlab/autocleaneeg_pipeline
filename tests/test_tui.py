@@ -23,6 +23,8 @@ class TestAppState:
         assert state.mode == "test"
         assert state.service_running is False
         assert state.service_process is None
+        assert state.service_stop_requested is False
+        assert state.service_log_path is None
         assert state.pending_count == 0
         assert state.ready_count == 0
         assert state.running_count == 0
@@ -315,6 +317,7 @@ class TestAutoCleanTUIActions:
     def test_build_service_command_uses_configured_settings(self, tmp_path: Path) -> None:
         """Test service command reflects configured screen settings."""
         app = AutoCleanTUI(workspace_path=tmp_path, mode="live")
+        (tmp_path / "serve-live.yaml").write_text("mode: live\nruntime: runtimes/live\n")
         app.configure_service(
             {
                 "max_cycles": 12,
@@ -345,9 +348,12 @@ class TestAutoCleanTUIActions:
         assert "2.5" in cmd
         assert "--max-events" in cmd
         assert "7" in cmd
+        assert "--queue-path" in cmd
+        assert str(tmp_path / "queue-live.json") in cmd
         assert "--dry-run" in cmd
         assert "--no-watch" in cmd
         assert "--no-sentinel" in cmd
+        assert "--use-operator" in cmd
 
 
 class TestMainEntry:

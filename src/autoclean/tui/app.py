@@ -68,6 +68,7 @@ class AppState:
     mode: str = "test"
     service_running: bool = False
     service_process: Optional[subprocess.Popen] = None
+    service_stop_requested: bool = False
     service_settings: ServiceSettings = field(default_factory=ServiceSettings)
     service_log_path: Optional[Path] = None
 
@@ -227,6 +228,12 @@ class AutoCleanTUI(App):
             raise ValueError("No workspace configured")
 
         settings = self.state.service_settings
+        deployed_config = self.get_config_path(deployed=True)
+        operator_config = self.get_config_path(deployed=False)
+        use_operator_config = deployed_config is None or not deployed_config.exists()
+        if use_operator_config and (operator_config is None or not operator_config.exists()):
+            raise FileNotFoundError("No serve configuration available")
+
         cmd = [
             str(cli_path),
             "serve",
@@ -245,12 +252,17 @@ class AutoCleanTUI(App):
             str(settings.max_events),
         ]
 
+        queue_path = self.get_queue_path()
+        if queue_path is not None:
+            cmd.extend(["--queue-path", str(queue_path)])
         if settings.dry_run:
             cmd.append("--dry-run")
         if not settings.use_watchfiles:
             cmd.append("--no-watch")
         if not settings.require_sentinel:
             cmd.append("--no-sentinel")
+        if use_operator_config:
+            cmd.append("--use-operator")
 
         return cmd
 
@@ -470,10 +482,6 @@ class AutoCleanTUI(App):
         try:
             from autoclean.utils.ingestion import resolve_runtime_cli
 
-            config_path = self.get_config_path(deployed=True)
-            if not config_path.exists():
-                config_path = self.get_config_path(deployed=False)
-
             # Try to find the runtime CLI
             runtime_dir = self.state.workspace_dir / "runtimes" / self.state.mode
             try:
@@ -484,8 +492,13 @@ class AutoCleanTUI(App):
             cmd = self.build_service_command(cli_path)
             log_path = self.state.workspace_dir / f"serve-{self.state.mode}.log"
             self.state.service_log_path = log_path
+            self.state.service_stop_requested = False
 
             with log_path.open("a", encoding="utf-8") as log_handle:
+                log_handle.write(
+                    f"\n[{datetime.now().isoformat()}] Starting service: {' '.join(cmd)}\n"
+                )
+                log_handle.flush()
                 self.state.service_process = subprocess.Popen(
                     cmd,
                     stdout=log_handle,
@@ -504,19 +517,36 @@ class AutoCleanTUI(App):
                 )
 
                 # Monitor process
-                self.state.service_process.wait()
+                returncode = self.state.service_process.wait()
 
+            stop_requested = self.state.service_stop_requested
+            self.state.service_stop_requested = False
             self.state.service_running = False
             self.state.service_process = None
             self.call_from_thread(self._update_status_bar)
-            self.call_from_thread(
-                self.notify, "Service stopped", severity="information"
-            )
-            self.call_from_thread(
-                self._add_activity_event, "service_stop", "Service stopped"
-            )
+            if stop_requested or returncode == 0:
+                self.call_from_thread(
+                    self.notify, "Service stopped", severity="information"
+                )
+                self.call_from_thread(
+                    self._add_activity_event, "service_stop", "Service stopped"
+                )
+            else:
+                self.call_from_thread(
+                    self.notify,
+                    f"Service exited with code {returncode}",
+                    severity="error",
+                )
+                self.call_from_thread(
+                    self._add_activity_event,
+                    "error",
+                    f"Service exited with code {returncode}",
+                )
         except Exception as exc:
             self.state.service_running = False
+            self.state.service_stop_requested = False
+            self.state.service_process = None
+            self.call_from_thread(self._update_status_bar)
             self.call_from_thread(
                 self.notify, f"Failed to start service: {exc}", severity="error"
             )
@@ -524,11 +554,10 @@ class AutoCleanTUI(App):
     def _stop_service(self) -> None:
         """Stop the running service."""
         if self.state.service_process:
+            self.state.service_stop_requested = True
             self.state.service_process.terminate()
-            self.state.service_running = False
-            self._update_status_bar()
-            self._add_activity_event("service_stop", "Service stopped by user")
-            self.notify("Service stopped", severity="information")
+            self._add_activity_event("service_stop", "Service stop requested by user")
+            self.notify("Stopping service...", severity="information")
 
     def _add_activity_event(
         self,
