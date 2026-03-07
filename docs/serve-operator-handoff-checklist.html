@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoClean Serve Operator Handoff Checklist</title>
+<style>
+  :root {
+    --bg: #f6f2eb;
+    --panel: rgba(255, 255, 255, 0.88);
+    --panel-strong: #fffdfa;
+    --text: #241d17;
+    --muted: #6a5e51;
+    --border: rgba(67, 49, 30, 0.12);
+    --shadow: 0 24px 52px rgba(77, 57, 35, 0.08);
+    --terracotta: #af4d29;
+    --terracotta-soft: rgba(175, 77, 41, 0.1);
+    --teal: #1e6670;
+    --teal-soft: rgba(30, 102, 112, 0.1);
+    --olive: #657d43;
+    --olive-soft: rgba(101, 125, 67, 0.1);
+    --gold: #bf8c27;
+    --gold-soft: rgba(191, 140, 39, 0.12);
+    --danger: #9b2c2c;
+    --danger-soft: rgba(155, 44, 44, 0.08);
+    --font-display: Georgia, "Times New Roman", serif;
+    --font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #171311;
+      --panel: rgba(31, 25, 22, 0.9);
+      --panel-strong: #221a16;
+      --text: #f3e9df;
+      --muted: #c0ae9b;
+      --border: rgba(255, 240, 225, 0.1);
+      --shadow: 0 24px 52px rgba(0, 0, 0, 0.24);
+      --terracotta: #f1a07a;
+      --terracotta-soft: rgba(241, 160, 122, 0.12);
+      --teal: #9cdde0;
+      --teal-soft: rgba(156, 221, 224, 0.12);
+      --olive: #c5dca0;
+      --olive-soft: rgba(197, 220, 160, 0.12);
+      --gold: #f0ca7b;
+      --gold-soft: rgba(240, 202, 123, 0.12);
+      --danger: #f0a1a1;
+      --danger-soft: rgba(240, 161, 161, 0.12);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--font-body);
+    color: var(--text);
+    line-height: 1.58;
+    background:
+      radial-gradient(circle at top left, var(--gold-soft), transparent 28%),
+      radial-gradient(circle at bottom right, var(--teal-soft), transparent 32%),
+      var(--bg);
+  }
+  a { color: inherit; text-decoration: none; }
+  .wrap {
+    max-width: 1340px;
+    margin: 0 auto;
+    padding: 32px;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 28px;
+  }
+  .toc {
+    position: sticky;
+    top: 20px;
+    align-self: start;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 18px 14px;
+    box-shadow: var(--shadow);
+  }
+  .toc-title,
+  .eyebrow,
+  .kicker,
+  .mini-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.8px;
+    font-weight: 700;
+  }
+  .toc-title {
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .toc a {
+    display: block;
+    padding: 7px 10px;
+    border-radius: 8px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .toc a:hover {
+    background: var(--terracotta-soft);
+    color: var(--text);
+  }
+  .main { min-width: 0; }
+  .hero,
+  .section,
+  .card,
+  .note,
+  .lane,
+  .checklist,
+  .escalation {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+  }
+  .hero {
+    padding: 32px;
+    margin-bottom: 18px;
+    background: linear-gradient(135deg, var(--panel-strong), var(--panel));
+  }
+  .eyebrow { color: var(--terracotta); }
+  h1 {
+    margin: 10px 0 12px;
+    font-family: var(--font-display);
+    font-size: clamp(2.6rem, 5vw, 4.7rem);
+    line-height: 0.96;
+    max-width: 12ch;
+    font-weight: 400;
+  }
+  .lead {
+    color: var(--muted);
+    max-width: 72ch;
+    font-size: 1.06rem;
+  }
+  .hero-grid,
+  .card-grid,
+  .lane-grid,
+  .escalation-grid,
+  .source-grid {
+    display: grid;
+    gap: 16px;
+  }
+  .hero-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lane-grid,
+  .escalation-grid,
+  .source-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    background: var(--terracotta-soft);
+    color: var(--terracotta);
+  }
+  .section {
+    padding: 24px;
+    margin-bottom: 18px;
+  }
+  .kicker {
+    color: var(--terracotta);
+    margin-bottom: 8px;
+  }
+  .section h2 {
+    margin: 0 0 10px;
+    font-size: 1.72rem;
+  }
+  .section-intro {
+    margin: 0 0 18px;
+    color: var(--muted);
+    max-width: 74ch;
+  }
+  .card,
+  .note,
+  .lane,
+  .checklist,
+  .escalation {
+    padding: 18px;
+  }
+  .card h3,
+  .note h3,
+  .lane h3,
+  .checklist h3,
+  .escalation h3 {
+    margin: 0 0 8px;
+    font-size: 1.06rem;
+  }
+  p,
+  li {
+    color: var(--muted);
+  }
+  ul {
+    margin: 0;
+    padding-left: 20px;
+  }
+  li + li { margin-top: 8px; }
+  .checklist {
+    border-top: 4px solid var(--olive);
+    background: linear-gradient(180deg, var(--olive-soft), transparent 120px), var(--panel);
+  }
+  .checklist.warning {
+    border-top-color: var(--gold);
+    background: linear-gradient(180deg, var(--gold-soft), transparent 120px), var(--panel);
+  }
+  .checklist.risk {
+    border-top-color: var(--danger);
+    background: linear-gradient(180deg, var(--danger-soft), transparent 120px), var(--panel);
+  }
+  .note {
+    border-left: 5px solid var(--teal);
+    background: linear-gradient(180deg, var(--teal-soft), transparent 120px), var(--panel);
+  }
+  .lane.operator { border-top: 4px solid var(--terracotta); }
+  .lane.lead { border-top: 4px solid var(--teal); }
+  .lane.reference { border-top: 4px solid var(--olive); }
+  .mini-label {
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.93em;
+    background: rgba(127, 127, 127, 0.11);
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+  .check-item {
+    display: grid;
+    grid-template-columns: 24px 1fr;
+    gap: 10px;
+    align-items: start;
+    margin-bottom: 12px;
+  }
+  .box {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 2px solid currentColor;
+    margin-top: 3px;
+  }
+  .ok { color: var(--olive); }
+  .watch { color: var(--gold); }
+  .risk-color { color: var(--danger); }
+  @media (max-width: 1020px) {
+    .wrap {
+      grid-template-columns: 1fr;
+      padding: 18px;
+    }
+    .toc {
+      position: static;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .hero-grid,
+    .card-grid,
+    .lane-grid,
+    .escalation-grid,
+    .source-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="toc" aria-label="Checklist sections">
+      <div class="toc-title">Checklist menu</div>
+      <a href="serve-docs-portal.html">Docs home</a>
+      <a href="serve-first-route-tutorial.html">First-route tutorial</a>
+      <a href="serve-route-first-operator-guide.html">Operator guide</a>
+      <a href="#before">Before handoff</a>
+      <a href="#daily">Daily checks</a>
+      <a href="#weekly">Weekly checks</a>
+      <a href="#escalate">Escalation map</a>
+      <a href="#sources">Files and pages</a>
+    </nav>
+
+    <main class="main">
+      <section class="hero">
+        <div class="eyebrow">Operator handoff checklist</div>
+        <h1>Hand off the serve workflow only when this page stays boring.</h1>
+        <p class="lead">
+          This SOP checklist is for the moment when a technical lead hands the serve workflow to lab operators. The goal is not “it runs on my machine.” The goal is that another person can run it, monitor it, and know when to escalate.
+        </p>
+        <div class="hero-grid">
+          <div class="card">
+            <h3>For operators</h3>
+            <p>Use this page as the day-to-day checklist once the workflow is already set up and documented.</p>
+          </div>
+          <div class="card">
+            <h3>For technical leads</h3>
+            <p>Use this page before handoff to confirm the route setup is explainable, validated, and supported.</p>
+          </div>
+          <div class="card">
+            <h3>What this page assumes</h3>
+            <p>The workspace exists, at least one route has already been proven in Draft, and the team has agreed who owns escalations.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="before">
+        <div class="kicker">Before handoff</div>
+        <h2>Do not hand this off until these are true.</h2>
+        <p class="section-intro">
+          A handoff is ready only when the route behavior, the operator workflow, and the escalation path are all explicit. If any of these are still fuzzy, this is still a technical lead problem.
+        </p>
+        <div class="card-grid">
+          <div class="checklist">
+            <h3>Workflow readiness</h3>
+            <div class="check-item ok">
+              <div class="box"></div>
+              <div>The workspace path is known and documented.</div>
+            </div>
+            <div class="check-item ok">
+              <div class="box"></div>
+              <div>Each active route has a clear name, task, montage, and watched folder.</div>
+            </div>
+            <div class="check-item ok">
+              <div class="box"></div>
+              <div>The route has been proven in Draft before any Production promotion.</div>
+            </div>
+            <div class="check-item ok">
+              <div class="box"></div>
+              <div>The operator can explain what files should arrive and what output should happen next.</div>
+            </div>
+          </div>
+          <div class="checklist warning">
+            <h3>Operator readiness</h3>
+            <div class="check-item watch">
+              <div class="box"></div>
+              <div>The operator has used the TUI Routes screen at least once.</div>
+            </div>
+            <div class="check-item watch">
+              <div class="box"></div>
+              <div>The operator knows the difference between Draft and Production.</div>
+            </div>
+            <div class="check-item watch">
+              <div class="box"></div>
+              <div>The operator knows how to validate after a route update.</div>
+            </div>
+            <div class="check-item watch">
+              <div class="box"></div>
+              <div>The operator knows which issues are normal warnings versus escalation triggers.</div>
+            </div>
+          </div>
+          <div class="checklist risk">
+            <h3>Support readiness</h3>
+            <div class="check-item risk-color">
+              <div class="box"></div>
+              <div>A technical lead is explicitly named as the escalation owner.</div>
+            </div>
+            <div class="check-item risk-color">
+              <div class="box"></div>
+              <div>The operator knows where the guide, tutorial, and portal live.</div>
+            </div>
+            <div class="check-item risk-color">
+              <div class="box"></div>
+              <div>The team agrees whether operators may only toggle/promote routes or may also change route definitions.</div>
+            </div>
+            <div class="check-item risk-color">
+              <div class="box"></div>
+              <div>Someone owns Production incidents outside operator hours.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="daily">
+        <div class="kicker">Daily checks</div>
+        <h2>Five-minute operator sweep.</h2>
+        <p class="section-intro">
+          This is the lightweight routine for a workflow that should feel stable. If daily checks become long or confusing, the handoff was premature.
+        </p>
+        <div class="lane-grid">
+          <div class="lane operator">
+            <div class="mini-label">Route view</div>
+            <h3>Check the route state</h3>
+            <ul>
+              <li>Are the expected routes still present?</li>
+              <li>Are Production routes still enabled?</li>
+              <li>Is anything unexpectedly stuck in Draft only?</li>
+            </ul>
+          </div>
+          <div class="lane lead">
+            <div class="mini-label">Queue and activity view</div>
+            <h3>Check for obvious drift</h3>
+            <ul>
+              <li>Are files moving through the expected work states?</li>
+              <li>Did any route start failing when it was stable yesterday?</li>
+              <li>Is there a repeated warning tied to one route name?</li>
+            </ul>
+          </div>
+          <div class="lane reference">
+            <div class="mini-label">When to stop</div>
+            <h3>Escalate instead of experimenting</h3>
+            <ul>
+              <li>Do not invent a new route during daily operations.</li>
+              <li>Do not clone near-identical routes to “see if it helps.”</li>
+              <li>Do not bypass Draft if a Production route needs real changes.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="weekly">
+        <div class="kicker">Weekly checks</div>
+        <h2>Fifteen- to twenty-minute review.</h2>
+        <p class="section-intro">
+          Weekly review is where a technical lead checks that the system remains explainable, not just technically alive.
+        </p>
+        <div class="card-grid">
+          <div class="note">
+            <h3>Review active routes</h3>
+            <ul>
+              <li>Remove or disable routes that are no longer needed.</li>
+              <li>Confirm route names still match their actual task and montage.</li>
+              <li>Check that watched folders are still the intended folders.</li>
+            </ul>
+          </div>
+          <div class="note">
+            <h3>Review handoff quality</h3>
+            <ul>
+              <li>Can a second person explain the same routes the same way?</li>
+              <li>Are operators relying on undocumented manual tricks?</li>
+              <li>Do the linked docs still match the real workflow?</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="escalate">
+        <div class="kicker">Escalation map</div>
+        <h2>Who to escalate to and when.</h2>
+        <p class="section-intro">
+          Replace these role descriptions with actual names in your team process. The page keeps the role logic explicit even if the people change.
+        </p>
+        <div class="escalation-grid">
+          <div class="escalation">
+            <div class="mini-label">Operator can usually handle</div>
+            <h3>Normal operating actions</h3>
+            <ul>
+              <li>checking route state</li>
+              <li>syncing generated configs</li>
+              <li>enabling or disabling a route with prior approval</li>
+              <li>using the tutorial or guide to confirm the intended workflow</li>
+            </ul>
+          </div>
+          <div class="escalation">
+            <div class="mini-label">Escalate to technical lead</div>
+            <h3>Configuration or route problems</h3>
+            <ul>
+              <li>a route that used to work now fails validation</li>
+              <li>a watched folder or task file changed unexpectedly</li>
+              <li>Production behavior needs a real route change</li>
+              <li>operators are unsure whether to edit an existing route or create a new one</li>
+            </ul>
+          </div>
+          <div class="escalation">
+            <div class="mini-label">Escalate immediately</div>
+            <h3>Production-risk situations</h3>
+            <ul>
+              <li>files are not being processed in Production when they should be</li>
+              <li>wrong task or montage is being applied to real incoming data</li>
+              <li>outputs look materially wrong or incomplete</li>
+              <li>there is no clear owner available for the incident</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="sources">
+        <div class="kicker">Files and pages to use</div>
+        <h2>Know what is source of truth and what is reference.</h2>
+        <div class="source-grid">
+          <div class="lane operator">
+            <div class="mini-label">Primary pages</div>
+            <h3>Use these first</h3>
+            <ul>
+              <li><a href="serve-docs-portal.html"><code>serve-docs-portal.html</code></a></li>
+              <li><a href="serve-first-route-tutorial.html"><code>serve-first-route-tutorial.html</code></a></li>
+              <li><a href="serve-route-first-operator-guide.html"><code>serve-route-first-operator-guide.html</code></a></li>
+            </ul>
+          </div>
+          <div class="lane lead">
+            <div class="mini-label">Config artifacts</div>
+            <h3>Know which files matter</h3>
+            <ul>
+              <li><code>routes/*.yaml</code> is the route registry source of truth</li>
+              <li><code>serve-test.yaml</code> is the compiled Draft config</li>
+              <li><code>serve-live.yaml</code> is the compiled Production config</li>
+            </ul>
+          </div>
+          <div class="lane reference">
+            <div class="mini-label">Runtime artifacts</div>
+            <h3>Use for monitoring, not design</h3>
+            <ul>
+              <li><code>queue-test.json</code></li>
+              <li><code>queue-live.json</code></li>
+              <li>TUI activity and queue views</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
