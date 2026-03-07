@@ -122,6 +122,136 @@ class TestResolveWorkspaceDir:
         assert result.is_absolute()
 
 
+class TestServeRouteCommands:
+    """Tests for route-first serve management."""
+
+    def test_route_upsert_creates_registry_and_compiles(self, tmp_path: Path) -> None:
+        """Route upsert should create a spec file and compile mode configs."""
+        from autoclean.cli import cmd_serve_route_upsert
+
+        workspace = create_minimal_serve_workspace(tmp_path)
+        taskfile = tmp_path / "TaskFile.py"
+        taskfile.write_text("print('ok')\n", encoding="utf-8")
+        watch_dir = tmp_path / "incoming"
+        watch_dir.mkdir()
+
+        args = MagicMock()
+        args.path = workspace
+        args.route_id = "resting-biosemi64"
+        args.mode = "test"
+        args.taskfile = str(taskfile)
+        args.montage = "biosemi64"
+        args.version = None
+        args.ingestion_folders = [str(watch_dir)]
+        args.ingestion_excludes = None
+        args.file_globs = ["*.set"]
+        args.priority = 5
+        args.automation_root = None
+        args.workspace_name = None
+        args.sentinel_ext = ".ready"
+        args.enabled = True
+        args.recursive = True
+
+        result = cmd_serve_route_upsert(args)
+
+        assert result == 0
+        route_path = workspace / "routes" / "resting-biosemi64.yaml"
+        assert route_path.exists()
+
+        import yaml
+
+        route_spec = yaml.safe_load(route_path.read_text(encoding="utf-8"))
+        assert route_spec["modes"] == ["test"]
+        assert route_spec["priority"] == 5
+
+        serve_test = yaml.safe_load((workspace / "serve-test.yaml").read_text(encoding="utf-8"))
+        serve_live = yaml.safe_load((workspace / "serve-live.yaml").read_text(encoding="utf-8"))
+        assert serve_test["automations"][0]["id"] == "resting-biosemi64"
+        assert serve_test["automations"][0]["taskfile"] == str(taskfile.resolve())
+        assert serve_live["automations"] == []
+
+    def test_route_upsert_is_idempotent(self, tmp_path: Path) -> None:
+        """Upserting the same route twice should be a no-op on the second run."""
+        from autoclean.cli import cmd_serve_route_upsert
+
+        workspace = create_minimal_serve_workspace(tmp_path)
+        taskfile = tmp_path / "TaskFile.py"
+        taskfile.write_text("print('ok')\n", encoding="utf-8")
+        watch_dir = tmp_path / "incoming"
+        watch_dir.mkdir()
+
+        args = MagicMock()
+        args.path = workspace
+        args.route_id = "resting-biosemi64"
+        args.mode = "test"
+        args.taskfile = str(taskfile)
+        args.montage = "biosemi64"
+        args.version = None
+        args.ingestion_folders = [str(watch_dir)]
+        args.ingestion_excludes = None
+        args.file_globs = ["*.set"]
+        args.priority = None
+        args.automation_root = None
+        args.workspace_name = None
+        args.sentinel_ext = None
+        args.enabled = True
+        args.recursive = True
+
+        assert cmd_serve_route_upsert(args) == 0
+        route_path = workspace / "routes" / "resting-biosemi64.yaml"
+        before = route_path.read_text(encoding="utf-8")
+
+        assert cmd_serve_route_upsert(args) == 0
+        after = route_path.read_text(encoding="utf-8")
+
+        assert before == after
+
+    def test_route_promote_adds_live_mode(self, tmp_path: Path) -> None:
+        """Promoting a route should compile it into live config as well."""
+        from autoclean.cli import cmd_serve_route_promote, cmd_serve_route_upsert
+
+        workspace = create_minimal_serve_workspace(tmp_path)
+        taskfile = tmp_path / "TaskFile.py"
+        taskfile.write_text("print('ok')\n", encoding="utf-8")
+        watch_dir = tmp_path / "incoming"
+        watch_dir.mkdir()
+
+        upsert_args = MagicMock()
+        upsert_args.path = workspace
+        upsert_args.route_id = "resting-biosemi64"
+        upsert_args.mode = "test"
+        upsert_args.taskfile = str(taskfile)
+        upsert_args.montage = "biosemi64"
+        upsert_args.version = None
+        upsert_args.ingestion_folders = [str(watch_dir)]
+        upsert_args.ingestion_excludes = None
+        upsert_args.file_globs = ["*.set"]
+        upsert_args.priority = None
+        upsert_args.automation_root = None
+        upsert_args.workspace_name = None
+        upsert_args.sentinel_ext = None
+        upsert_args.enabled = True
+        upsert_args.recursive = True
+
+        assert cmd_serve_route_upsert(upsert_args) == 0
+
+        promote_args = MagicMock()
+        promote_args.path = workspace
+        promote_args.route_id = "resting-biosemi64"
+
+        assert cmd_serve_route_promote(promote_args) == 0
+
+        import yaml
+
+        route_spec = yaml.safe_load(
+            (workspace / "routes" / "resting-biosemi64.yaml").read_text(encoding="utf-8")
+        )
+        serve_live = yaml.safe_load((workspace / "serve-live.yaml").read_text(encoding="utf-8"))
+
+        assert route_spec["modes"] == ["test", "live"]
+        assert serve_live["automations"][0]["id"] == "resting-biosemi64"
+
+
 class TestServeTUICommand:
     """Tests for serve tui command edge cases."""
 
