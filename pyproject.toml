@@ -41,7 +41,7 @@ dependencies = [
     "pyprep==0.5.0",
     "python-picard==0.8",
     # EEG file formats
-    "eeglabio==0.1.1",
+    "eeglabio==0.1.2",
     "pybv==0.7.6",
     "fastparquet==2024.11.0",
     # Connectivity analysis
