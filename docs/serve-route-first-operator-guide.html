@@ -13,59 +13,60 @@
     --font-body: "IBM Plex Sans", system-ui, sans-serif;
     --font-mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
 
-    --bg: #faf6f1;
-    --surface: rgba(255, 255, 255, 0.8);
-    --surface-strong: #fffdf9;
-    --surface-soft: #f2ebe3;
-    --border: rgba(63, 42, 25, 0.12);
-    --border-strong: rgba(63, 42, 25, 0.2);
+    --bg: #f9f5ef;
+    --surface: rgba(255, 255, 255, 0.84);
+    --surface-strong: #fffdfa;
+    --surface-soft: #f1e8de;
+    --border: rgba(71, 48, 29, 0.12);
+    --border-strong: rgba(71, 48, 29, 0.2);
     --text: #2a2118;
-    --text-dim: #756656;
-    --terracotta: #b4532a;
-    --terracotta-soft: rgba(180, 83, 42, 0.1);
-    --sage: #5f7a49;
-    --sage-soft: rgba(95, 122, 73, 0.12);
-    --ink: #1f4d5a;
-    --ink-soft: rgba(31, 77, 90, 0.12);
-    --gold: #d39c28;
-    --gold-soft: rgba(211, 156, 40, 0.12);
-    --shadow: 0 18px 40px rgba(78, 55, 31, 0.08);
+    --text-dim: #746555;
+    --terracotta: #b14f28;
+    --terracotta-soft: rgba(177, 79, 40, 0.1);
+    --sage: #5c7c4a;
+    --sage-soft: rgba(92, 124, 74, 0.12);
+    --ink: #1e5363;
+    --ink-soft: rgba(30, 83, 99, 0.12);
+    --gold: #d29a2c;
+    --gold-soft: rgba(210, 154, 44, 0.12);
+    --shadow: 0 20px 44px rgba(76, 55, 32, 0.08);
   }
 
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #161312;
-      --surface: rgba(30, 25, 22, 0.88);
+      --bg: #151211;
+      --surface: rgba(31, 25, 22, 0.88);
       --surface-strong: #241d19;
       --surface-soft: #1c1714;
-      --border: rgba(255, 243, 230, 0.08);
-      --border-strong: rgba(255, 243, 230, 0.16);
+      --border: rgba(255, 244, 231, 0.08);
+      --border-strong: rgba(255, 244, 231, 0.16);
       --text: #f4ece4;
-      --text-dim: #c1b09f;
-      --terracotta: #f29c6b;
-      --terracotta-soft: rgba(242, 156, 107, 0.12);
-      --sage: #b6d088;
-      --sage-soft: rgba(182, 208, 136, 0.12);
-      --ink: #93d4e3;
-      --ink-soft: rgba(147, 212, 227, 0.12);
-      --gold: #f2c56b;
-      --gold-soft: rgba(242, 197, 107, 0.12);
-      --shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+      --text-dim: #c3b1a0;
+      --terracotta: #f29d70;
+      --terracotta-soft: rgba(242, 157, 112, 0.12);
+      --sage: #b7d38e;
+      --sage-soft: rgba(183, 211, 142, 0.12);
+      --ink: #95d8e9;
+      --ink-soft: rgba(149, 216, 233, 0.12);
+      --gold: #f2c86f;
+      --gold-soft: rgba(242, 200, 111, 0.12);
+      --shadow: 0 20px 44px rgba(0, 0, 0, 0.25);
     }
   }
 
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
+
   body {
     margin: 0;
     font-family: var(--font-body);
     color: var(--text);
-    background:
-      radial-gradient(circle at top left, var(--gold-soft) 0%, transparent 32%),
-      radial-gradient(circle at bottom right, var(--ink-soft) 0%, transparent 34%),
-      linear-gradient(180deg, rgba(255,255,255,0.12), transparent 30%),
-      var(--bg);
     line-height: 1.6;
+    background:
+      radial-gradient(circle at top left, var(--gold-soft) 0%, transparent 28%),
+      radial-gradient(circle at bottom right, var(--ink-soft) 0%, transparent 32%),
+      linear-gradient(180deg, rgba(255,255,255,0.14), transparent 26%),
+      var(--bg);
   }
 
   a { color: inherit; }
@@ -76,7 +77,7 @@
   }
 
   .wrap {
-    max-width: 1380px;
+    max-width: 1400px;
     margin: 0 auto;
     padding: 32px;
     display: grid;
@@ -124,20 +125,19 @@
     border-left-color: var(--terracotta);
   }
 
-  .main {
-    min-width: 0;
-  }
+  .main { min-width: 0; }
 
   .hero,
   .section,
-  .band {
+  .band,
+  .mini-callout {
     animation: fadeUp 0.45s ease-out both;
   }
 
   .hero {
     background: linear-gradient(135deg, var(--surface-strong), var(--surface));
     border: 1px solid var(--border);
-    border-radius: 28px;
+    border-radius: 30px;
     padding: 34px;
     box-shadow: var(--shadow);
     overflow: hidden;
@@ -147,9 +147,9 @@
   .hero::after {
     content: "";
     position: absolute;
-    inset: auto -80px -80px auto;
-    width: 260px;
-    height: 260px;
+    inset: auto -90px -90px auto;
+    width: 280px;
+    height: 280px;
     border-radius: 50%;
     background: radial-gradient(circle, var(--gold-soft) 0%, transparent 68%);
     pointer-events: none;
@@ -168,64 +168,114 @@
   h1 {
     margin: 10px 0 12px;
     font-family: var(--font-display);
-    font-size: clamp(2.5rem, 6vw, 4.8rem);
-    line-height: 0.96;
+    font-size: clamp(2.6rem, 6vw, 5rem);
+    line-height: 0.95;
     font-weight: 400;
     letter-spacing: -0.04em;
     max-width: 11ch;
   }
 
-  .hero p.lead {
+  h2 {
+    margin: 8px 0 10px;
+    font-size: 1.75rem;
+    line-height: 1.08;
+    font-weight: 600;
+  }
+
+  h3 {
+    margin: 0 0 8px;
+    font-size: 1.02rem;
+  }
+
+  .lead {
     font-size: 1.08rem;
     color: var(--text-dim);
-    max-width: 62ch;
+    max-width: 64ch;
     margin: 0 0 20px;
+  }
+
+  .section-intro,
+  p,
+  li {
+    color: var(--text-dim);
   }
 
   .hero-grid,
   .triptych,
+  .lane-grid,
+  .route-layout,
   .step-grid,
   .rerun-grid,
   .monitor-grid,
-  .faq-grid {
+  .faq-grid,
+  .decision-grid,
+  .handoff-grid,
+  .board {
     display: grid;
     gap: 16px;
   }
 
   .hero-grid {
-    grid-template-columns: 1.45fr 1fr;
+    grid-template-columns: 1.4fr 1fr;
     margin-top: 26px;
   }
 
-  .band {
+  .triptych,
+  .rerun-grid,
+  .monitor-grid,
+  .faq-grid,
+  .handoff-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .lane-grid,
+  .route-layout,
+  .decision-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .step-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .board {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .band,
+  .section,
+  .card,
+  .lane,
+  .route-card,
+  .step,
+  .faq,
+  .column,
+  .mini-callout,
+  .legend,
+  .decision,
+  .handoff {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 22px;
-    padding: 22px;
-    backdrop-filter: blur(14px);
+    backdrop-filter: blur(12px);
   }
 
-  .band h2,
-  .section h2 {
-    margin: 8px 0 10px;
-    font-size: 1.7rem;
-    line-height: 1.1;
-    font-weight: 600;
-  }
-
+  .band,
   .section {
-    margin-top: 22px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 26px;
-    padding: 26px;
-    backdrop-filter: blur(14px);
+    padding: 24px;
   }
 
-  .section-intro {
-    margin: 0 0 20px;
-    color: var(--text-dim);
-    max-width: 70ch;
+  .card,
+  .lane,
+  .route-card,
+  .step,
+  .faq,
+  .column,
+  .mini-callout,
+  .legend,
+  .decision,
+  .handoff {
+    padding: 18px;
   }
 
   .pill-row {
@@ -235,19 +285,21 @@
     margin-top: 16px;
   }
 
-  .pill {
+  .pill,
+  .mini-badge {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: var(--surface-soft);
-    border: 1px solid var(--border);
     border-radius: 999px;
     padding: 7px 12px;
     font-size: 12px;
-    color: var(--text);
+    border: 1px solid var(--border);
+    background: var(--surface-soft);
   }
 
-  .pill .dot {
+  .pill .dot,
+  .lane-tag .dot,
+  .chip .dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
@@ -258,89 +310,33 @@
   .dot-prod { background: var(--sage); }
   .dot-safe { background: var(--ink); }
 
-  .triptych {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .card,
-  .route-card,
-  .step,
-  .faq,
-  .metric {
-    background: var(--surface-strong);
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 18px;
-  }
-
-  .card h3,
-  .route-card h3,
-  .step h3,
-  .faq h3,
-  .metric h3 {
-    margin: 0 0 8px;
-    font-size: 1.02rem;
-  }
-
-  .card p,
-  .route-card p,
-  .step p,
-  .faq p,
-  .metric p,
-  li {
-    color: var(--text-dim);
-    font-size: 0.96rem;
-  }
-
-  ul {
-    margin: 10px 0 0 18px;
-    padding: 0;
-  }
-
-  .lane-grid {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    gap: 14px;
-    align-items: stretch;
-  }
-
   .lane {
-    background: var(--surface-strong);
-    border: 1px solid var(--border);
-    border-radius: 22px;
-    padding: 20px;
+    box-shadow: inset 0 0 0 1px transparent;
   }
 
   .lane--draft { box-shadow: inset 0 0 0 1px var(--gold-soft); }
   .lane--prod { box-shadow: inset 0 0 0 1px var(--sage-soft); }
 
-  .lane-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+  .lane-tag,
+  .chip,
+  .field-label,
+  .legend small,
+  .step-number,
+  .decision-label,
+  .column-label {
     font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 600;
-    letter-spacing: 1.5px;
+    letter-spacing: 1.4px;
     text-transform: uppercase;
-    margin-bottom: 10px;
   }
 
-  .arrow-stack {
-    display: flex;
+  .lane-tag,
+  .chip {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    color: var(--text-dim);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    padding: 0 8px;
-  }
-
-  .route-layout {
-    display: grid;
-    grid-template-columns: 1.15fr 0.85fr;
-    gap: 18px;
-    align-items: stretch;
+    gap: 8px;
+    margin-bottom: 10px;
   }
 
   .route-card {
@@ -360,23 +356,12 @@
   .route-name {
     display: flex;
     justify-content: space-between;
-    align-items: center;
     gap: 12px;
+    align-items: center;
     margin-top: 10px;
   }
 
-  .route-name strong {
-    font-size: 1.05rem;
-  }
-
-  .mini-badge {
-    border-radius: 999px;
-    padding: 5px 10px;
-    font-size: 11px;
-    font-family: var(--font-mono);
-    border: 1px solid var(--border);
-    background: var(--surface-soft);
-  }
+  .route-name strong { font-size: 1.06rem; }
 
   .field-list {
     display: grid;
@@ -386,21 +371,13 @@
 
   .field {
     display: grid;
-    grid-template-columns: 120px 1fr;
+    grid-template-columns: 126px 1fr;
     gap: 12px;
     align-items: start;
     padding: 10px 12px;
     border-radius: 14px;
     background: var(--surface-soft);
     border: 1px solid var(--border);
-  }
-
-  .field-label {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--text-dim);
   }
 
   .field-value strong {
@@ -415,28 +392,35 @@
     color: var(--text-dim);
   }
 
+  ul {
+    margin: 10px 0 0 18px;
+    padding: 0;
+  }
+
+  .arrow-stack {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .lane-shell {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 14px;
+    align-items: stretch;
+  }
+
   .legend-stack {
     display: grid;
     gap: 12px;
   }
 
-  .legend {
-    border-radius: 16px;
-    padding: 16px;
-    border: 1px solid var(--border);
+  .legend,
+  .mini-callout {
     background: var(--surface-strong);
-  }
-
-  .legend small {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-
-  .step-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .step-number {
@@ -448,18 +432,27 @@
     border-radius: 50%;
     background: var(--terracotta-soft);
     color: var(--terracotta);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 700;
     margin-bottom: 12px;
   }
 
+  .decision {
+    display: grid;
+    gap: 10px;
+  }
+
+  .decision-label {
+    color: var(--text-dim);
+  }
+
+  .decision.good { border-top: 4px solid var(--sage); }
+  .decision.caution { border-top: 4px solid var(--gold); }
+
   .callout {
+    margin-top: 16px;
     border-radius: 18px;
     padding: 18px;
     border: 1px solid var(--border);
     background: linear-gradient(135deg, var(--surface-strong), var(--surface-soft));
-    margin-top: 16px;
   }
 
   .callout strong {
@@ -468,42 +461,14 @@
     color: var(--text);
   }
 
-  .rerun-grid,
-  .monitor-grid,
-  .faq-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+  .faq.yes,
+  .handoff.yes { border-top: 4px solid var(--sage); }
+  .faq.watch,
+  .handoff.watch { border-top: 4px solid var(--ink); }
+  .faq.avoid,
+  .handoff.avoid { border-top: 4px solid var(--terracotta); }
 
-  .yes {
-    border-top: 4px solid var(--sage);
-  }
-
-  .watch {
-    border-top: 4px solid var(--ink);
-  }
-
-  .avoid {
-    border-top: 4px solid var(--terracotta);
-  }
-
-  .board {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-    margin-top: 18px;
-  }
-
-  .column {
-    border-radius: 16px;
-    padding: 14px;
-    border: 1px solid var(--border);
-    background: var(--surface-strong);
-  }
-
-  .column h3 {
-    margin-top: 0;
-    margin-bottom: 10px;
-  }
+  .column h3 { margin-top: 0; margin-bottom: 10px; }
 
   .job {
     border-radius: 12px;
@@ -517,18 +482,20 @@
     display: block;
     margin-bottom: 4px;
     font-size: 0.95rem;
+    color: var(--text);
   }
 
-  .job code {
+  .job code,
+  code.inline {
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 0.9em;
     color: var(--ink);
   }
 
-  .note {
-    margin-top: 18px;
-    font-size: 0.94rem;
-    color: var(--text-dim);
+  code.inline {
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: var(--ink-soft);
   }
 
   .footer {
@@ -541,13 +508,10 @@
     color: var(--text-dim);
   }
 
-  code.inline {
-    font-family: var(--font-mono);
-    font-size: 0.9em;
-    padding: 2px 6px;
-    border-radius: 5px;
-    background: var(--terracotta-soft);
-    color: var(--terracotta);
+  .note {
+    margin-top: 18px;
+    font-size: 0.94rem;
+    color: var(--text-dim);
   }
 
   @media (max-width: 1080px) {
@@ -562,8 +526,8 @@
       z-index: 100;
       max-height: none;
       display: flex;
-      overflow-x: auto;
       gap: 6px;
+      overflow-x: auto;
       background: color-mix(in srgb, var(--bg) 86%, transparent);
       backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--border);
@@ -594,7 +558,10 @@
     .rerun-grid,
     .monitor-grid,
     .faq-grid,
-    .board {
+    .decision-grid,
+    .handoff-grid,
+    .board,
+    .lane-shell {
       grid-template-columns: 1fr;
     }
 
@@ -625,52 +592,54 @@
       <div class="toc-title">Contents</div>
       <a href="#overview">At a glance</a>
       <a href="#lanes">Draft vs Production</a>
-      <a href="#routes">What a route is</a>
-      <a href="#setup">Route-first setup</a>
+      <a href="#routes">Route anatomy</a>
+      <a href="#decisions">Edit vs create</a>
+      <a href="#setup">Operator setup path</a>
       <a href="#rerun">Safe reruns</a>
-      <a href="#operate">What to watch daily</a>
-      <a href="#faq">Operator FAQ</a>
+      <a href="#operate">Daily operations</a>
+      <a href="#handoff">Handoff checklist</a>
     </nav>
 
     <main class="main">
       <section class="hero" id="overview">
         <div class="eyebrow">Operator guide</div>
-        <h1>Run serve with routes, not guesswork.</h1>
+        <h1>Run serve with routes, not hidden mechanics.</h1>
         <p class="lead">
-          The new serve model is designed for operators. You define a route once, validate it in <strong>Draft</strong>, then promote it to <strong>Production</strong>. Re-running setup is safe: if nothing changed, nothing moves; if something changed, only that route is updated.
+          The route-first serve model is built for operators. Define a route once, prove it safely in <strong>Draft</strong>, then promote the same route into <strong>Production</strong>. If you run setup again later, the system should update only what changed and leave old work alone.
         </p>
-        <div class="pill-row" aria-label="Key ideas">
-          <div class="pill"><span class="dot dot-draft"></span>Draft = safe proving ground</div>
-          <div class="pill"><span class="dot dot-prod"></span>Production = live processing</div>
-          <div class="pill"><span class="dot dot-safe"></span>Safe rerun = repeat without duplication</div>
+        <div class="pill-row" aria-label="Core promises">
+          <div class="pill"><span class="dot dot-draft"></span>Draft is the proving lane</div>
+          <div class="pill"><span class="dot dot-prod"></span>Production is the trusted lane</div>
+          <div class="pill"><span class="dot dot-safe"></span>Reruns should be safe and repeatable</div>
         </div>
 
         <div class="hero-grid">
           <div class="band">
-            <div class="section-kicker">The short version</div>
-            <h2>One route describes one kind of incoming work.</h2>
-            <p class="section-intro">
-              A route is the operational unit. It describes where files arrive, what task should run, which montage to use, and whether that setup is still in Draft or already approved for Production.
-            </p>
+            <div class="section-kicker">If you only remember four things</div>
+            <h2>The operator mental model</h2>
             <div class="triptych">
-              <div class="metric">
-                <h3>Think in routes</h3>
-                <p>One route per task-and-montage combination. You do not need a separate queue for every combination.</p>
+              <div class="card">
+                <h3>Manage routes</h3>
+                <p>A route is the thing you create, review, update, and explain to another person. It represents one kind of incoming work.</p>
               </div>
-              <div class="metric">
-                <h3>Only two lanes</h3>
-                <p>Behind the scenes there are only two processing lanes: Draft and Production. In the current system these map to <code class="inline">test</code> and <code class="inline">live</code>.</p>
+              <div class="card">
+                <h3>Ignore queue internals</h3>
+                <p>Behind the scenes there are still only two lanes. Operators should think in Draft and Production, not raw queue files.</p>
               </div>
-              <div class="metric">
-                <h3>Repeat is safe</h3>
-                <p>Running setup again should not duplicate finished work or wipe history. It simply confirms or updates the route definition.</p>
+              <div class="card">
+                <h3>Update, do not duplicate</h3>
+                <p>If a folder or rule changes, update the route. Do not make near-identical copies unless the work is genuinely different.</p>
               </div>
+            </div>
+            <div class="callout">
+              <strong>Backend terms</strong>
+              The current backend still uses <code class="inline">test</code> and <code class="inline">live</code>. In operator language, read those as <strong>Draft</strong> and <strong>Production</strong>.
             </div>
           </div>
 
           <div class="band">
-            <div class="section-kicker">Mental model</div>
-            <h2>Route card</h2>
+            <div class="section-kicker">Route card</div>
+            <h2>What a good route looks like</h2>
             <div class="route-card">
               <div class="route-name">
                 <strong>RestingEyesOpen 64ch</strong>
@@ -681,7 +650,7 @@
                   <div class="field-label">Watch folder</div>
                   <div class="field-value">
                     <strong>Incoming recordings</strong>
-                    <span>Where new EEG files arrive</span>
+                    <span>Where completed EEG files arrive</span>
                   </div>
                 </div>
                 <div class="field">
@@ -695,14 +664,14 @@
                   <div class="field-label">Montage</div>
                   <div class="field-value">
                     <strong>EGI 64-channel</strong>
-                    <span>The channel layout expected for these files</span>
+                    <span>The expected cap layout for these files</span>
                   </div>
                 </div>
                 <div class="field">
                   <div class="field-label">Ready rule</div>
                   <div class="field-value">
-                    <strong>Process only complete files</strong>
-                    <span>A safety check so the service does not grab partial uploads</span>
+                    <strong>Only pick up complete files</strong>
+                    <span>A safety check so partial uploads are ignored</span>
                   </div>
                 </div>
               </div>
@@ -713,287 +682,318 @@
 
       <section class="section" id="lanes">
         <div class="section-kicker">1. Draft vs Production</div>
-        <h2>Use Draft to prove a route. Use Production to trust it.</h2>
+        <h2>Use Draft to gain trust. Use Production to stay boring.</h2>
         <p class="section-intro">
-          The biggest usability shift is that operators no longer need to think in raw queue files. Think in two lanes instead: a safe lane for proving a route and a live lane for real work.
+          Operators need the difference to be obvious. Draft is where you prove that a route is correct. Production is where you expect that route to run without surprises.
         </p>
-        <div class="lane-grid">
+        <div class="lane-shell">
           <div class="lane lane--draft">
             <div class="lane-tag"><span class="dot dot-draft"></span>Draft</div>
-            <h3>Where you try things safely</h3>
+            <h3>Use this when a route is new or changing</h3>
             <ul>
-              <li>Use this while creating a new route.</li>
-              <li>Validate folders, task selection, montage, and file readiness rules.</li>
-              <li>Watch for obvious mistakes before you trust the route with live intake.</li>
-              <li>Good for dry runs, sample files, and operator review.</li>
+              <li>Set up the route definition.</li>
+              <li>Validate folders, task choice, montage, and readiness rules.</li>
+              <li>Run dry runs or sample files.</li>
+              <li>Watch for obvious mistakes before anyone depends on it.</li>
             </ul>
           </div>
           <div class="arrow-stack" aria-hidden="true">Promote when stable →</div>
           <div class="lane lane--prod">
             <div class="lane-tag"><span class="dot dot-prod"></span>Production</div>
-            <h3>Where approved routes process real work</h3>
+            <h3>Use this only after the route is predictable</h3>
             <ul>
-              <li>Only move a route here after Draft behaves as expected.</li>
-              <li>Production should be boring, predictable, and easy to monitor.</li>
-              <li>Keep changes small. If you need to experiment, go back to Draft first.</li>
-              <li>Operators should be able to explain every active Production route.</li>
+              <li>Keep it focused on live, approved work.</li>
+              <li>Prefer small changes over big rewrites.</li>
+              <li>If you need to experiment, step back into Draft first.</li>
+              <li>Every active Production route should be easy to explain.</li>
             </ul>
           </div>
         </div>
         <div class="callout">
-          <strong>Good rule of thumb</strong>
-          If you would feel nervous explaining a route to someone else, it still belongs in Draft.
+          <strong>Simple check</strong>
+          If you would feel nervous handing the route to a coworker today, it does not belong in Production yet.
         </div>
       </section>
 
       <section class="section" id="routes">
-        <div class="section-kicker">2. Route-first model</div>
-        <h2>A route is the thing you manage.</h2>
+        <div class="section-kicker">2. Route anatomy</div>
+        <h2>A route is one clear promise about incoming files.</h2>
         <p class="section-intro">
-          A route is a clean promise: “When files like this appear in this place, run this task with this montage.” That is easier to reason about than creating many separate queues.
+          A good route answers one sentence cleanly: “When files like this arrive here, run this task with this montage.” That is the unit that scales cleanly to many workflows.
         </p>
         <div class="route-layout">
           <div class="route-card">
-            <div class="section-kicker">Route anatomy</div>
-            <h3>What every route needs</h3>
+            <div class="section-kicker">Every route needs</div>
+            <h3>Core ingredients</h3>
             <div class="field-list">
               <div class="field">
-                <div class="field-label">Route name</div>
+                <div class="field-label">Name</div>
                 <div class="field-value">
-                  <strong>Human-readable label</strong>
-                  <span>Example: “AuditoryOddball 128ch” or “Resting Eyes Closed 64ch”</span>
+                  <strong>Human-readable route label</strong>
+                  <span>Use the task and montage so the route is recognizable at a glance</span>
                 </div>
               </div>
               <div class="field">
-                <div class="field-label">Input location</div>
+                <div class="field-label">Input</div>
                 <div class="field-value">
-                  <strong>Which folder to watch</strong>
-                  <span>The place where finished files arrive</span>
+                  <strong>Where the files arrive</strong>
+                  <span>The watched folder or folders for this exact workflow</span>
                 </div>
               </div>
               <div class="field">
                 <div class="field-label">Task</div>
                 <div class="field-value">
-                  <strong>Which workflow to run</strong>
-                  <span>The experimental task or processing recipe</span>
+                  <strong>Which processing recipe runs</strong>
+                  <span>The experiment-specific workflow to apply</span>
                 </div>
               </div>
               <div class="field">
                 <div class="field-label">Montage</div>
                 <div class="field-value">
                   <strong>Which channel layout applies</strong>
-                  <span>The expected cap or channel structure for these files</span>
+                  <span>The cap or channel structure expected for these files</span>
                 </div>
               </div>
               <div class="field">
                 <div class="field-label">Ready rule</div>
                 <div class="field-value">
-                  <strong>When the file is safe to pick up</strong>
-                  <span>Examples: file size stable, sidecar present, upload complete</span>
+                  <strong>When pickup is safe</strong>
+                  <span>Examples: sidecar present, upload finished, or file size stable</span>
                 </div>
               </div>
             </div>
           </div>
           <div class="legend-stack">
             <div class="legend">
-              <small>Why this is scalable</small>
-              <h3>10 to 20 combinations still stay manageable.</h3>
-              <p>You can have many routes while still using only two processing lanes. That keeps monitoring simple without flattening meaningful differences between tasks.</p>
+              <small>Scaling rule</small>
+              <h3>Many routes, only two lanes.</h3>
+              <p>You can support many task-and-montage combinations without creating many queues. That keeps monitoring understandable for operators.</p>
             </div>
             <div class="legend">
               <small>What not to do</small>
-              <h3>Do not create a new queue for every montage.</h3>
-              <p>Queues are operational lanes. Routes are configuration units. Keep those roles separate so the system stays understandable.</p>
+              <h3>Do not make a queue for every montage.</h3>
+              <p>Queues are operational lanes. Routes are configuration units. Mixing those ideas makes the system harder to run.</p>
             </div>
             <div class="legend">
-              <small>Operator test</small>
-              <h3>If you can explain the route card, you can operate it.</h3>
-              <p>That is the right standard for a non-technical team member covering intake or review.</p>
+              <small>Good naming</small>
+              <h3>Name routes so another person can identify them fast.</h3>
+              <p>Example pattern: task name + montage + anything operationally important, such as a lab site or special intake rule.</p>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section class="section" id="decisions">
+        <div class="section-kicker">3. Edit vs create</div>
+        <h2>Most operator confusion comes from this one decision.</h2>
+        <p class="section-intro">
+          When something changes, the safest question is not “How do I patch the queue?” It is “Is this still the same route?” Use this rule before you touch anything.
+        </p>
+        <div class="decision-grid">
+          <div class="decision good">
+            <div class="decision-label">Edit the existing route when</div>
+            <h3>The work is still the same kind of work</h3>
+            <ul>
+              <li>The watch folder moved but the task is unchanged.</li>
+              <li>The readiness rule needs tightening.</li>
+              <li>The route name needs cleanup.</li>
+              <li>You are promoting the same route from Draft into Production.</li>
+            </ul>
+          </div>
+          <div class="decision caution">
+            <div class="decision-label">Create a new route when</div>
+            <h3>The incoming work is materially different</h3>
+            <ul>
+              <li>The task changes to a different experiment or workflow.</li>
+              <li>The montage changes in a way that affects processing intent.</li>
+              <li>The files come from a different intake stream that should be tracked separately.</li>
+              <li>The old route must keep working exactly as it already does.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout">
+          <strong>Operator shortcut</strong>
+          If you would need to explain the change as “this is basically a different job,” make a new route. Otherwise, update the existing one.
         </div>
       </section>
 
       <section class="section" id="setup">
-        <div class="section-kicker">3. Step-by-step setup</div>
-        <h2>Build a route once, then promote it when it proves itself.</h2>
+        <div class="section-kicker">4. Operator setup path</div>
+        <h2>Build once in Draft, then promote the same route.</h2>
         <p class="section-intro">
-          This is the operator path. It is intentionally repetitive and safe. The goal is not speed on the first run. The goal is confidence and clean handoff later.
+          This workflow is intentionally repetitive and safe. The current TUI route screen now supports the safe operator actions, but these steps should remain true even if the screen layout changes later.
         </p>
         <div class="step-grid">
           <div class="step">
             <div class="step-number">01</div>
-            <h3>Name the route in plain language</h3>
-            <p>Use the task and montage in the name so anyone can recognize it later. Good names reduce support questions.</p>
+            <h3>Name the route clearly</h3>
+            <p>Use a label that captures the task and montage so the route makes sense in logs, lists, and handoffs.</p>
           </div>
           <div class="step">
             <div class="step-number">02</div>
-            <h3>Choose the input folder and ready rule</h3>
-            <p>Decide where the files appear and how the service will know they are complete. This is the most important safety setting.</p>
+            <h3>Choose the intake folder and ready rule</h3>
+            <p>Decide where the files arrive and what counts as complete. This is one of the most important operator safety settings.</p>
           </div>
           <div class="step">
             <div class="step-number">03</div>
             <h3>Select the task and montage</h3>
-            <p>These tell the system how to process the files. One route should describe one clear task-and-montage combination.</p>
+            <p>One route should represent one clear task-and-montage combination. Avoid overloading a route with multiple meanings.</p>
           </div>
           <div class="step">
             <div class="step-number">04</div>
-            <h3>Validate in Draft</h3>
-            <p>Run the route in the safe lane first. Use sample files or dry runs until the route behaves exactly the way you expect.</p>
+            <h3>Compile and validate in Draft</h3>
+            <p>The route registry should build the Draft configuration deterministically and validation should confirm that the route is usable.</p>
           </div>
           <div class="step">
             <div class="step-number">05</div>
-            <h3>Promote to Production</h3>
-            <p>Once the route is boring and predictable, move it into live use. Promotion should feel like approval, not experimentation.</p>
+            <h3>Exercise the route safely</h3>
+            <p>Use dry runs or sample files until the route does exactly what you expect and the outputs are easy to interpret.</p>
           </div>
           <div class="step">
             <div class="step-number">06</div>
-            <h3>Repeat the same process for new routes</h3>
-            <p>Do not mutate old routes into completely different ones. Create or update routes deliberately so the history stays easy to read.</p>
+            <h3>Promote to Production</h3>
+            <p>Once the route is stable, promote the same route into Production instead of rebuilding it from scratch.</p>
           </div>
         </div>
+        <div class="mini-callout">
+          <strong>Current TUI route actions</strong>
+          <p>
+            In the current route screen, operators can inspect one route at a time, toggle whether it is enabled, promote a Draft route into Production, and sync the generated serve configs after route updates.
+          </p>
+          <ul>
+            <li><strong>Enter</strong> shows the full route details below the table.</li>
+            <li><strong>T</strong> enables or disables the selected route.</li>
+            <li><strong>P</strong> promotes the selected route into Production.</li>
+            <li><strong>S</strong> rebuilds the generated Draft and Production configs from the route registry.</li>
+          </ul>
+        </div>
         <div class="callout">
-          <strong>What success looks like</strong>
-          A new team member should be able to answer three questions from the route card alone: what arrives, what runs, and whether it is still in Draft or already trusted in Production.
+          <strong>Why the route registry matters</strong>
+          Small independent route specs are easier to update safely than one giant hand-edited config file. That is the backbone of the new workflow.
         </div>
       </section>
 
       <section class="section" id="rerun">
-        <div class="section-kicker">4. Safe reruns</div>
-        <h2>Re-running setup should be calm, not scary.</h2>
+        <div class="section-kicker">5. Safe reruns</div>
+        <h2>Rerun setup without fear.</h2>
         <p class="section-intro">
-          The route-first workflow should be idempotent. That means you can run setup again without creating duplicate jobs or destroying past work. Operators need this because folders change, task details change, and names sometimes need cleanup.
+          Idempotent setup means you can repeat the same workflow later without creating duplicate jobs or wiping prior history. Operators need this because folders, names, and readiness rules inevitably change.
         </p>
         <div class="rerun-grid">
           <div class="faq yes">
-            <h3>What a safe rerun should do</h3>
-            <ul>
-              <li>Create the route if it does not exist yet.</li>
-              <li>Update only the fields that changed.</li>
-              <li>Leave queue history and prior outputs alone.</li>
-              <li>Do nothing visible if nothing changed.</li>
-            </ul>
+            <h3>If nothing changed</h3>
+            <p>The route should remain exactly as it was. Re-running setup should behave like a no-op, not a reset.</p>
           </div>
           <div class="faq watch">
-            <h3>What operators should expect</h3>
-            <ul>
-              <li>The same route name should stay the same route.</li>
-              <li>Changing a watch folder should update the route, not make a twin copy.</li>
-              <li>Validation should run again after a meaningful change.</li>
-              <li>Promotion should stay explicit, not automatic.</li>
-            </ul>
+            <h3>If a route detail changed</h3>
+            <p>The system should update only that route, then recompile and revalidate the generated Draft or Production config as needed.</p>
           </div>
           <div class="faq avoid">
-            <h3>What safe rerun should never do</h3>
-            <ul>
-              <li>Duplicate jobs just because setup was repeated.</li>
-              <li>Erase queue files or processing history.</li>
-              <li>Quietly switch a Production route to a different task.</li>
-              <li>Force operators to rebuild the whole workspace for one small update.</li>
-            </ul>
+            <h3>If old work already exists</h3>
+            <p>The rerun should leave queue history, outputs, and prior results alone. Setup should not act like a destructive cleanup tool.</p>
           </div>
         </div>
+        <div class="mini-callout">
+          <div class="chip"><span class="dot dot-safe"></span>What safe rerun means in practice</div>
+          <ul>
+            <li>Create the route if it does not exist.</li>
+            <li>Update only the fields that changed.</li>
+            <li>Do nothing visible if the route definition is unchanged.</li>
+            <li>Keep promotion explicit instead of silently changing Production behavior.</li>
+          </ul>
+        </div>
         <div class="callout">
-          <strong>Best operator habit</strong>
-          When something changes, update the route and validate again. Do not create a second nearly-identical route unless it truly represents different incoming work.
+          <strong>What safe rerun should never mean</strong>
+          It should never duplicate jobs, clone a second nearly identical route behind your back, or erase prior work just because someone ran setup again.
         </div>
       </section>
 
       <section class="section" id="operate">
-        <div class="section-kicker">5. Daily operations</div>
-        <h2>Most operators only need to watch four things.</h2>
+        <div class="section-kicker">6. Daily operations</div>
+        <h2>Most operators only need four views of the world.</h2>
         <p class="section-intro">
-          Queue internals matter to developers. Operators need a simpler work board. These are the four states that actually help people keep the service healthy.
+          Good operations language is human. People need to know what is waiting, what is running, what needs attention, and what finished cleanly. That is more useful than exposing raw queue internals all day.
         </p>
-        <div class="board" aria-label="Example operations board">
+        <div class="board" aria-label="Example route operations board">
           <div class="column">
-            <h3>Waiting</h3>
+            <div class="column-label">Waiting</div>
+            <h3>Ready for pickup</h3>
             <div class="job">
               <strong>RestingEyesOpen 64ch</strong>
-              <code>Folder has new complete files</code>
+              <code>Complete files detected in intake folder</code>
             </div>
             <div class="job">
               <strong>AuditoryOddball 128ch</strong>
-              <code>Ready for pickup</code>
+              <code>Next route in line</code>
             </div>
           </div>
           <div class="column">
-            <h3>Running</h3>
+            <div class="column-label">Running</div>
+            <h3>Currently processing</h3>
             <div class="job">
               <strong>VisualOddball 64ch</strong>
-              <code>Task started 4 min ago</code>
+              <code>Started 4 minutes ago</code>
             </div>
           </div>
           <div class="column">
-            <h3>Needs attention</h3>
+            <div class="column-label">Needs attention</div>
+            <h3>Human check required</h3>
             <div class="job">
               <strong>MemoryTask 64ch</strong>
-              <code>File not yet complete</code>
+              <code>File appears incomplete</code>
             </div>
             <div class="job">
               <strong>RestingEyesClosed 64ch</strong>
-              <code>Validation warning after update</code>
+              <code>Validation warning after route update</code>
             </div>
           </div>
           <div class="column">
-            <h3>Completed</h3>
+            <div class="column-label">Completed</div>
+            <h3>Finished cleanly</h3>
             <div class="job">
               <strong>LanguageTask 64ch</strong>
-              <code>Last run finished cleanly</code>
+              <code>Last run succeeded</code>
             </div>
           </div>
         </div>
         <div class="monitor-grid">
           <div class="faq">
             <h3>Watch the route name</h3>
-            <p>If a job fails, the route name should tell you what kind of work was affected without opening a config file.</p>
+            <p>The route name should tell you what kind of work was affected without forcing you to open a config file.</p>
           </div>
           <div class="faq">
             <h3>Watch the lane</h3>
-            <p>Draft problems are expected. Production problems need a cleaner response plan and clear ownership.</p>
+            <p>Draft issues are part of proving a route. Production issues usually need faster, more explicit escalation.</p>
           </div>
           <div class="faq">
             <h3>Watch the last clear signal</h3>
-            <p>Good status messages are human: what arrived, what ran, what failed, and what action the operator should take next.</p>
+            <p>Useful status messages explain what arrived, what ran, what failed, and what action the operator should take next.</p>
           </div>
         </div>
         <p class="note">
-          The product should still keep the two underlying queues. The operator experience should simply present them as understandable workflow lanes instead of raw internals.
+          Behind the scenes the runtime still uses the two underlying queues. The operator experience should translate that into understandable workflow lanes instead of exposing storage details.
         </p>
       </section>
 
-      <section class="section" id="faq">
-        <div class="section-kicker">6. Operator FAQ</div>
-        <h2>Questions non-technical users should be able to answer quickly.</h2>
-        <div class="faq-grid">
-          <div class="faq">
-            <h3>Can I have many task-and-montage combinations?</h3>
-            <p>Yes. Add more routes. Each route represents one clear combination. You still keep only the two processing lanes.</p>
+      <section class="section" id="handoff">
+        <div class="section-kicker">7. Handoff checklist</div>
+        <h2>Before you tell someone a route is ready, make sure these are true.</h2>
+        <div class="handoff-grid">
+          <div class="handoff yes">
+            <h3>The route is explainable</h3>
+            <p>A teammate can answer what arrives, what task runs, which montage applies, and whether the route is still in Draft or already trusted in Production.</p>
           </div>
-          <div class="faq">
-            <h3>What if a folder changes later?</h3>
-            <p>Update the route and rerun setup. That should refresh the route definition without duplicating old work.</p>
+          <div class="handoff watch">
+            <h3>The route is repeatable</h3>
+            <p>Running setup again produces the same result when nothing changed and a targeted update when something did.</p>
           </div>
-          <div class="faq">
-            <h3>Should every experiment get its own queue?</h3>
-            <p>No. That makes operations harder. Queues are lanes. Routes are the specific rules for incoming work.</p>
-          </div>
-          <div class="faq">
-            <h3>When do I move something to Production?</h3>
-            <p>After Draft behaves predictably and the route is easy to explain. Promotion is a trust step, not a convenience step.</p>
-          </div>
-          <div class="faq">
-            <h3>What if I am unsure whether to edit or create a route?</h3>
-            <p>Edit when the route is still the same kind of work. Create a new route only when the incoming files or processing intent are materially different.</p>
-          </div>
-          <div class="faq">
-            <h3>What is the core promise of this model?</h3>
-            <p>You can safely repeat setup, understand live routes at a glance, and manage many workflows without drowning in queue details.</p>
+          <div class="handoff avoid">
+            <h3>The route is not hiding a workaround</h3>
+            <p>If the route only works because of a special manual trick, it is not ready for handoff yet.</p>
           </div>
         </div>
         <div class="footer">
-          Open this file directly in a browser when training new operators or documenting a handoff:
-          <code class="inline">docs/serve-route-first-operator-guide.html</code>
+          Start with this guide for the operating model. Use <code class="inline">docs/serve-route-first-devlog.md</code> when you need the backend terminology and exact route-management commands.
         </div>
       </section>
     </main>
