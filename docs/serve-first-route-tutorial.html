@@ -220,6 +220,100 @@
   .note.good { border-left: 5px solid var(--olive); background: linear-gradient(180deg, var(--olive-soft), transparent 120px), var(--panel); }
   .note.watch { border-left: 5px solid var(--gold); background: linear-gradient(180deg, var(--gold-soft), transparent 120px), var(--panel); }
   .note.risk { border-left: 5px solid var(--danger); background: linear-gradient(180deg, var(--danger-soft), transparent 120px), var(--panel); }
+  .ui-shot {
+    overflow: hidden;
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    background: #1a1512;
+    color: #efe5db;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+  .ui-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.06);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: rgba(255,255,255,0.74);
+  }
+  .ui-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.24);
+  }
+  .ui-body {
+    display: grid;
+    grid-template-columns: 170px minmax(0, 1fr);
+    min-height: 280px;
+  }
+  .ui-side {
+    border-right: 1px solid rgba(255,255,255,0.08);
+    padding: 16px 12px;
+    background: rgba(255,255,255,0.03);
+  }
+  .ui-side h4,
+  .ui-main h4 {
+    margin: 0 0 12px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 1.6px;
+    color: rgba(255,255,255,0.62);
+  }
+  .ui-nav {
+    padding: 10px 12px;
+    border-radius: 10px;
+    margin-bottom: 6px;
+    background: transparent;
+    color: rgba(255,255,255,0.72);
+  }
+  .ui-nav.active {
+    background: rgba(156, 221, 224, 0.14);
+    color: #d9f5f6;
+    border: 1px solid rgba(156, 221, 224, 0.18);
+  }
+  .ui-main {
+    padding: 16px;
+  }
+  .ui-table {
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    overflow: hidden;
+    font-size: 13px;
+  }
+  .ui-row {
+    display: grid;
+    grid-template-columns: 1.4fr 0.8fr 0.8fr 0.8fr 1fr;
+    gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .ui-row.header {
+    background: rgba(255,255,255,0.05);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: rgba(255,255,255,0.66);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .ui-row.selected {
+    background: rgba(175, 77, 41, 0.14);
+  }
+  .ui-detail {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.82);
+  }
+  .ui-caption {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
   ul { margin: 0; padding-left: 20px; }
   li + li { margin-top: 7px; }
   .step-number {
@@ -267,6 +361,7 @@
       <a href="#run">4. Run safely</a>
       <a href="#promote">5. Promote to Production</a>
       <a href="#daily">6. Day-to-day checks</a>
+      <a href="#mistakes">7. Common mistakes</a>
     </nav>
 
     <main class="main">
@@ -441,6 +536,41 @@
             <li><strong>S</strong> syncs the generated configs after route updates</li>
           </ul>
         </div>
+        <div class="note good" style="margin-top: 16px;">
+          <h3>Screenshot-style example of the current route screen</h3>
+          <div class="ui-shot">
+            <div class="ui-bar">
+              <span class="ui-dot"></span><span class="ui-dot"></span><span class="ui-dot"></span>
+              AutoClean TUI · Routes
+            </div>
+            <div class="ui-body">
+              <div class="ui-side">
+                <h4>Navigation</h4>
+                <div class="ui-nav">Dashboard</div>
+                <div class="ui-nav active">Routes</div>
+                <div class="ui-nav">Queue</div>
+                <div class="ui-nav">Activity</div>
+                <div class="ui-nav">Config</div>
+                <div class="ui-nav">Service</div>
+              </div>
+              <div class="ui-main">
+                <h4>Configured routes</h4>
+                <div class="ui-table">
+                  <div class="ui-row header">
+                    <div>ID</div><div>Draft</div><div>Prod</div><div>On</div><div>Montage</div>
+                  </div>
+                  <div class="ui-row selected">
+                    <div>resting-biosemi64</div><div>Yes</div><div>-</div><div>Yes</div><div>biosemi64</div>
+                  </div>
+                </div>
+                <div class="ui-detail">
+                  Enter = details · T = enable/disable · P = promote · S = sync
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="ui-caption">This is a faithful visual of the current route screen, not a pixel-perfect capture. The exact spacing may vary, but these are the controls and concepts that matter.</p>
+        </div>
       </section>
 
       <section class="section" id="promote">
@@ -479,6 +609,34 @@
           <div class="note risk">
             <h3>What not to do</h3>
             <p>Do not create a new queue for every route. Do not clone almost-identical routes just because one field changed.</p>
+          </div>
+        </div>
+        <div class="note watch" style="margin-top: 16px;">
+          <h3>What to read next</h3>
+          <p>If the route already exists and you need to change it safely, use the edit tutorial next instead of improvising a config change.</p>
+          <p><a href="serve-edit-route-tutorial.html">Open the edit-route tutorial</a></p>
+        </div>
+      </section>
+
+      <section class="section" id="mistakes">
+        <div class="kicker">7. Common mistakes</div>
+        <h2>Avoid these on the first route.</h2>
+        <div class="check-grid">
+          <div class="note risk">
+            <h3>Starting in Production</h3>
+            <p>Do not do this. A first route belongs in Draft until you have validated it and seen it behave correctly.</p>
+          </div>
+          <div class="note risk">
+            <h3>Creating one queue per route</h3>
+            <p>The architecture is route-first, not queue-per-workflow. Keep the one Draft lane and one Production lane.</p>
+          </div>
+          <div class="note risk">
+            <h3>Editing generated config files first</h3>
+            <p><code class="inline">serve-test.yaml</code> and <code class="inline">serve-live.yaml</code> are generated outputs. The route registry is the safer source of truth.</p>
+          </div>
+          <div class="note risk">
+            <h3>Cloning nearly identical routes</h3>
+            <p>If it is still the same job, update the route. Make a new route only when the workflow is meaningfully different or live behavior must stay untouched.</p>
           </div>
         </div>
       </section>

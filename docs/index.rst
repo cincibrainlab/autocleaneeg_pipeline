@@ -14,6 +14,7 @@ If you're new to EEG processing or programming, AutoClean provides:
 * **No coding required**: Process your data with simple commands
 * **Serve docs portal**: Start with `Serve Docs Portal <serve-docs-portal.html>`_ if you want a browsable local menu instead of a single standalone guide page
 * **Serve tutorial**: Open `First Route Tutorial <serve-first-route-tutorial.html>`_ for the step-by-step workflow from workspace creation through Draft validation and Production promotion
+* **Edit tutorial**: Open `Edit Existing Route Tutorial <serve-edit-route-tutorial.html>`_ when a route already exists and you need to change it without casually changing live behavior
 * **Serve operator guide**: Start with `Route-First Serve Guide <serve-route-first-operator-guide.html>`_ for the visual operator workflow: Draft vs Production, route-first setup, edit-vs-create decisions, safe reruns, and the current TUI route actions
 
 🔧 **For Technical Users**  
