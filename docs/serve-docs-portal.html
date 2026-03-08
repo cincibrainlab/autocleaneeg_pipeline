@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoClean Serve Docs Portal</title>
+<style>
+  :root {
+    --bg: #f7f4ef;
+    --panel: rgba(255, 255, 255, 0.88);
+    --panel-strong: #fffdfa;
+    --text: #241d16;
+    --muted: #6d6154;
+    --border: rgba(66, 48, 30, 0.12);
+    --shadow: 0 22px 48px rgba(76, 55, 32, 0.08);
+    --accent: #a64926;
+    --accent-soft: rgba(166, 73, 38, 0.1);
+    --teal: #1f6b75;
+    --teal-soft: rgba(31, 107, 117, 0.1);
+    --olive: #617c3e;
+    --olive-soft: rgba(97, 124, 62, 0.1);
+    --gold: #c38b22;
+    --gold-soft: rgba(195, 139, 34, 0.12);
+    --font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-display: Georgia, "Times New Roman", serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161210;
+      --panel: rgba(31, 25, 22, 0.9);
+      --panel-strong: #211915;
+      --text: #f2e9e0;
+      --muted: #c0ae9c;
+      --border: rgba(255, 241, 226, 0.1);
+      --shadow: 0 22px 48px rgba(0, 0, 0, 0.25);
+      --accent: #f39f76;
+      --accent-soft: rgba(243, 159, 118, 0.12);
+      --teal: #98dfe2;
+      --teal-soft: rgba(152, 223, 226, 0.12);
+      --olive: #c1db94;
+      --olive-soft: rgba(193, 219, 148, 0.12);
+      --gold: #f2cb78;
+      --gold-soft: rgba(242, 203, 120, 0.14);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--font-body);
+    color: var(--text);
+    background:
+      radial-gradient(circle at top left, var(--gold-soft), transparent 28%),
+      radial-gradient(circle at bottom right, var(--teal-soft), transparent 32%),
+      var(--bg);
+    line-height: 1.55;
+  }
+  a { color: inherit; text-decoration: none; }
+  .wrap {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 32px;
+  }
+  .hero,
+  .section,
+  .card,
+  .rail {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(8px);
+  }
+  .hero {
+    padding: 32px;
+    margin-bottom: 22px;
+    background: linear-gradient(135deg, var(--panel-strong), var(--panel));
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.4rem, 5vw, 4.6rem);
+    line-height: 0.96;
+    margin: 10px 0 12px;
+    max-width: 10ch;
+    font-weight: 400;
+  }
+  .lead {
+    font-size: 1.05rem;
+    color: var(--muted);
+    max-width: 68ch;
+    margin: 0 0 20px;
+  }
+  .hero-links,
+  .card-grid,
+  .quick-grid,
+  .note-grid {
+    display: grid;
+    gap: 16px;
+  }
+  .hero-links {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .quick-grid,
+  .note-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  .section {
+    padding: 24px;
+    margin-bottom: 18px;
+  }
+  .section h2 {
+    margin: 0 0 10px;
+    font-size: 1.65rem;
+  }
+  .section-intro {
+    margin: 0 0 18px;
+    color: var(--muted);
+    max-width: 70ch;
+  }
+  .card,
+  .rail {
+    padding: 20px;
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 220px;
+  }
+  .card.operator { border-top: 4px solid var(--accent); }
+  .card.technical { border-top: 4px solid var(--teal); }
+  .card.reference { border-top: 4px solid var(--olive); }
+  .card.misc { border-top: 4px solid var(--gold); }
+  .card h3 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+  .meta {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .body {
+    color: var(--muted);
+    flex: 1;
+  }
+  .action {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+  }
+  .action::after {
+    content: "→";
+  }
+  .panel-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.8px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  ul {
+    margin: 0;
+    padding-left: 20px;
+    color: var(--muted);
+  }
+  li + li { margin-top: 8px; }
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.93em;
+    background: rgba(127, 127, 127, 0.1);
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+  @media (max-width: 960px) {
+    .hero-links,
+    .card-grid,
+    .quick-grid,
+    .note-grid {
+      grid-template-columns: 1fr;
+    }
+    .wrap { padding: 18px; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="eyebrow">Serve docs portal</div>
+      <h1>Use this page as the menu, not the raw docs source.</h1>
+      <p class="lead">
+        The operator guide is a standalone page, so it was easy to get stuck inside it. This portal is the actual entry point for the serve workflow. Start here, then pick the operator or technical path you need.
+      </p>
+      <div class="hero-links">
+        <div class="chip">Operators start with the guide</div>
+        <div class="chip" style="background: var(--teal-soft); color: var(--teal);">Developers use the devlog</div>
+        <div class="chip" style="background: var(--olive-soft); color: var(--olive);">One queue per mode, many routes</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Operator path</h2>
+      <p class="section-intro">
+        Use these pages when you are running the system, onboarding lab staff, or documenting the day-to-day workflow.
+      </p>
+      <div class="card-grid">
+        <a class="card operator" href="serve-first-route-tutorial.html">
+          <div class="meta">Step-by-step tutorial</div>
+          <h3>Set Up Your First Route</h3>
+          <div class="body">
+            A true first-run walkthrough: create the workspace, create the first Draft route, validate it, run safely, promote it, and know what to check after that.
+          </div>
+          <div class="action">Open tutorial</div>
+        </a>
+        <a class="card operator" href="serve-edit-route-tutorial.html">
+          <div class="meta">Follow-up tutorial</div>
+          <h3>Edit an Existing Route</h3>
+          <div class="body">
+            Use this when a route already exists and you need to change it without accidentally turning Production into an experiment.
+          </div>
+          <div class="action">Open edit tutorial</div>
+        </a>
+        <a class="card operator" href="serve-failures-recovery-tutorial.html">
+          <div class="meta">Recovery tutorial</div>
+          <h3>Failures and Recovery</h3>
+          <div class="body">
+            Use this when validation fails, a route goes missing, the wrong files are matched, or Production no longer feels trustworthy.
+          </div>
+          <div class="action">Open recovery tutorial</div>
+        </a>
+        <a class="card operator" href="serve-operator-handoff-checklist.html">
+          <div class="meta">SOP checklist</div>
+          <h3>Operator Handoff Checklist</h3>
+          <div class="body">
+            Use this when you are handing the serve workflow to another operator or lab team and need a clear readiness and escalation checklist.
+          </div>
+          <div class="action">Open handoff checklist</div>
+        </a>
+        <a class="card operator" href="serve-route-first-operator-guide.html">
+          <div class="meta">Visual guide</div>
+          <h3>Route-First Serve Guide</h3>
+          <div class="body">
+            Draft vs Production, route anatomy, edit-vs-create decisions, safe reruns, and the current TUI route actions.
+          </div>
+          <div class="action">Open operator guide</div>
+        </a>
+        <a class="card operator" href="../README.md">
+          <div class="meta">Getting started</div>
+          <h3>README</h3>
+          <div class="body">
+            Use this when someone needs the broader project overview, install path, or wants to understand what AutoClean is before diving into serve.
+          </div>
+          <div class="action">Open README</div>
+        </a>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Technical path</h2>
+      <p class="section-intro">
+        Use these pages when you need the backend contract, branching rules, or implementation notes behind the operator workflow.
+      </p>
+      <div class="card-grid">
+        <a class="card technical" href="serve-route-first-devlog.md">
+          <div class="meta">Technical companion</div>
+          <h3>Serve Route-First Devlog</h3>
+          <div class="body">
+            Exact route-management commands, route registry rules, deterministic compile behavior, and what is still intentionally unfinished.
+          </div>
+          <div class="action">Open devlog</div>
+        </a>
+        <a class="card technical" href="../BRANCHING.md">
+          <div class="meta">Workflow policy</div>
+          <h3>Branching Policy</h3>
+          <div class="body">
+            Documents the current repo policy: branch from <code>main</code>, use short-lived feature branches, and delete merged branches.
+          </div>
+          <div class="action">Open branching policy</div>
+        </a>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>What to use when</h2>
+      <div class="quick-grid">
+        <div class="rail">
+          <div class="panel-label">If you are an operator</div>
+          <ul>
+            <li>Open the first-route tutorial if you are starting from zero.</li>
+            <li>Open the edit tutorial when the route already exists and something changed.</li>
+            <li>Open the recovery tutorial when something feels wrong or unclear.</li>
+            <li>Open the handoff checklist before you give this workflow to someone else.</li>
+            <li>Open the visual guide when you want the broader model and handoff framing.</li>
+            <li>Use the route screen to create, edit, inspect, toggle, promote, and sync routes.</li>
+            <li>Think in Draft and Production, not raw queue files.</li>
+          </ul>
+        </div>
+        <div class="rail">
+          <div class="panel-label">If you are debugging behavior</div>
+          <ul>
+            <li>Open the devlog.</li>
+            <li>Check the route registry under <code>routes/*.yaml</code>.</li>
+            <li>Remember that <code>serve-test.yaml</code> and <code>serve-live.yaml</code> are compiled outputs.</li>
+          </ul>
+        </div>
+        <div class="rail">
+          <div class="panel-label">If you are onboarding someone</div>
+          <ul>
+            <li>Start with this portal.</li>
+            <li>Send operators to the guide.</li>
+            <li>Send developers to the devlog and branching policy.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Important notes</h2>
+      <div class="note-grid">
+        <div class="rail">
+          <div class="panel-label">Docs source vs docs page</div>
+          <ul>
+            <li><code>docs/index.rst</code> is the docs source, not the best local entry point.</li>
+            <li>This HTML file is the better page to open directly from Finder or the terminal.</li>
+          </ul>
+        </div>
+        <div class="rail">
+          <div class="panel-label">Current product boundary</div>
+          <ul>
+            <li>The backend and route actions are real.</li>
+            <li>A full create/edit wizard is still a follow-up slice.</li>
+          </ul>
+        </div>
+        <div class="rail">
+          <div class="panel-label">Where to reopen this</div>
+          <ul>
+            <li>Repo copy: <code>docs/serve-docs-portal.html</code></li>
+            <li>Opened copy: <code>~/.agent/diagrams/autoclean-serve-docs-portal.html</code></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

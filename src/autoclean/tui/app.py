@@ -48,6 +48,19 @@ class ActivityEvent:
 
 
 @dataclass
+class ServiceSettings:
+    """User-configurable service execution settings."""
+
+    max_cycles: int = 1000
+    idle_limit: int = 10
+    sleep_seconds: float = 1.0
+    max_events: int = 1
+    dry_run: bool = False
+    use_watchfiles: bool = True
+    require_sentinel: bool = True
+
+
+@dataclass
 class AppState:
     """Application state container."""
 
@@ -55,6 +68,9 @@ class AppState:
     mode: str = "test"
     service_running: bool = False
     service_process: Optional[subprocess.Popen] = None
+    service_stop_requested: bool = False
+    service_settings: ServiceSettings = field(default_factory=ServiceSettings)
+    service_log_path: Optional[Path] = None
 
     # Queue statistics
     pending_count: int = 0
@@ -188,14 +204,76 @@ class AutoCleanTUI(App):
         self._load_config()
         self._load_queue()
 
+    def get_queue_path(self) -> Optional[Path]:
+        """Get the active mode-specific queue path."""
+        if not self.state.workspace_dir:
+            return None
+        return self.state.workspace_dir / f"queue-{self.state.mode}.json"
+
+    def get_config_path(self, deployed: bool = False) -> Optional[Path]:
+        """Get the active mode-specific config path."""
+        if not self.state.workspace_dir:
+            return None
+        if deployed:
+            return self.state.workspace_dir / "deploy" / f"serve-{self.state.mode}.yaml"
+        return self.state.workspace_dir / f"serve-{self.state.mode}.yaml"
+
+    def configure_service(self, params: dict[str, Any]) -> None:
+        """Store service settings for the next launch."""
+        self.state.service_settings = ServiceSettings(**params)
+
+    def build_service_command(self, cli_path: Path) -> list[str]:
+        """Build the serve run command using current app state."""
+        if not self.state.workspace_dir:
+            raise ValueError("No workspace configured")
+
+        settings = self.state.service_settings
+        deployed_config = self.get_config_path(deployed=True)
+        operator_config = self.get_config_path(deployed=False)
+        use_operator_config = deployed_config is None or not deployed_config.exists()
+        if use_operator_config and (operator_config is None or not operator_config.exists()):
+            raise FileNotFoundError("No serve configuration available")
+
+        cmd = [
+            str(cli_path),
+            "serve",
+            "run",
+            "--mode",
+            self.state.mode,
+            "--path",
+            str(self.state.workspace_dir),
+            "--max-cycles",
+            str(settings.max_cycles),
+            "--idle-limit",
+            str(settings.idle_limit),
+            "--sleep-seconds",
+            str(settings.sleep_seconds),
+            "--max-events",
+            str(settings.max_events),
+        ]
+
+        queue_path = self.get_queue_path()
+        if queue_path is not None:
+            cmd.extend(["--queue-path", str(queue_path)])
+        if settings.dry_run:
+            cmd.append("--dry-run")
+        if not settings.use_watchfiles:
+            cmd.append("--no-watch")
+        if not settings.require_sentinel:
+            cmd.append("--no-sentinel")
+        if use_operator_config:
+            cmd.append("--use-operator")
+
+        return cmd
+
     def _load_config(self) -> None:
         """Load and validate serve configuration."""
         if not self.state.workspace_dir:
             return
 
-        config_file = (
-            self.state.workspace_dir / f"serve-{self.state.mode}.yaml"
-        )
+        config_file = self.get_config_path(deployed=False)
+        if config_file is None:
+            return
         if not config_file.exists():
             self.state.config_valid = False
             self.state.config_errors = [f"Config file not found: {config_file}"]
@@ -224,10 +302,10 @@ class AutoCleanTUI(App):
 
     def _load_queue(self) -> None:
         """Load queue data and update statistics."""
-        if not self.state.workspace_dir:
+        queue_path = self.get_queue_path()
+        if queue_path is None:
             return
 
-        queue_path = self.state.workspace_dir / "queue.json"
         if not queue_path.exists():
             self.state.pending_count = 0
             self.state.ready_count = 0
@@ -271,7 +349,14 @@ class AutoCleanTUI(App):
         try:
             from watchfiles import watch
 
-            queue_path = self.state.workspace_dir / "queue.json"
+            queue_paths = {
+                self.state.workspace_dir / "queue-test.json",
+                self.state.workspace_dir / "queue-live.json",
+            }
+            config_paths = {
+                self.state.workspace_dir / "serve-test.yaml",
+                self.state.workspace_dir / "serve-live.yaml",
+            }
             paths_to_watch = [self.state.workspace_dir]
 
             # Use stop_event to allow clean shutdown
@@ -283,8 +368,12 @@ class AutoCleanTUI(App):
                 if self._watcher_stop_event.is_set():
                     break
                 for change_type, path in changes:
-                    if Path(path) == queue_path:
+                    changed_path = Path(path)
+                    if changed_path in queue_paths:
                         self.call_from_thread(self._load_queue)
+                        self.call_from_thread(self._refresh_current_screen)
+                    elif changed_path in config_paths:
+                        self.call_from_thread(self._load_config)
                         self.call_from_thread(self._refresh_current_screen)
         except ImportError:
             pass
@@ -393,14 +482,6 @@ class AutoCleanTUI(App):
         try:
             from autoclean.utils.ingestion import resolve_runtime_cli
 
-            config_path = (
-                self.state.workspace_dir / "deploy" / f"serve-{self.state.mode}.yaml"
-            )
-            if not config_path.exists():
-                config_path = (
-                    self.state.workspace_dir / f"serve-{self.state.mode}.yaml"
-                )
-
             # Try to find the runtime CLI
             runtime_dir = self.state.workspace_dir / "runtimes" / self.state.mode
             try:
@@ -408,43 +489,64 @@ class AutoCleanTUI(App):
             except FileNotFoundError:
                 cli_path = Path(sys.executable).parent / "autocleaneeg-pipeline"
 
-            cmd = [
-                str(cli_path),
-                "serve",
-                "run",
-                "--mode",
-                self.state.mode,
-                "--path",
-                str(self.state.workspace_dir),
-                "--max-cycles",
-                "1000",
-                "--idle-limit",
-                "10",
-            ]
+            cmd = self.build_service_command(cli_path)
+            log_path = self.state.workspace_dir / f"serve-{self.state.mode}.log"
+            self.state.service_log_path = log_path
+            self.state.service_stop_requested = False
 
-            self.state.service_process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            self.state.service_running = True
-            self.call_from_thread(self._update_status_bar)
-            self.call_from_thread(
-                self.notify, "Service started", severity="information"
-            )
-            self.call_from_thread(self._add_activity_event, "service_start", "Service started")
+            with log_path.open("a", encoding="utf-8") as log_handle:
+                log_handle.write(
+                    f"\n[{datetime.now().isoformat()}] Starting service: {' '.join(cmd)}\n"
+                )
+                log_handle.flush()
+                self.state.service_process = subprocess.Popen(
+                    cmd,
+                    stdout=log_handle,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+                self.state.service_running = True
+                self.call_from_thread(self._update_status_bar)
+                self.call_from_thread(
+                    self.notify, "Service started", severity="information"
+                )
+                self.call_from_thread(
+                    self._add_activity_event,
+                    "service_start",
+                    f"Service started ({log_path.name})",
+                )
 
-            # Monitor process
-            self.state.service_process.wait()
+                # Monitor process
+                returncode = self.state.service_process.wait()
+
+            stop_requested = self.state.service_stop_requested
+            self.state.service_stop_requested = False
             self.state.service_running = False
             self.state.service_process = None
             self.call_from_thread(self._update_status_bar)
-            self.call_from_thread(
-                self.notify, "Service stopped", severity="information"
-            )
-            self.call_from_thread(self._add_activity_event, "service_stop", "Service stopped")
+            if stop_requested or returncode == 0:
+                self.call_from_thread(
+                    self.notify, "Service stopped", severity="information"
+                )
+                self.call_from_thread(
+                    self._add_activity_event, "service_stop", "Service stopped"
+                )
+            else:
+                self.call_from_thread(
+                    self.notify,
+                    f"Service exited with code {returncode}",
+                    severity="error",
+                )
+                self.call_from_thread(
+                    self._add_activity_event,
+                    "error",
+                    f"Service exited with code {returncode}",
+                )
         except Exception as exc:
             self.state.service_running = False
+            self.state.service_stop_requested = False
+            self.state.service_process = None
+            self.call_from_thread(self._update_status_bar)
             self.call_from_thread(
                 self.notify, f"Failed to start service: {exc}", severity="error"
             )
@@ -452,11 +554,10 @@ class AutoCleanTUI(App):
     def _stop_service(self) -> None:
         """Stop the running service."""
         if self.state.service_process:
+            self.state.service_stop_requested = True
             self.state.service_process.terminate()
-            self.state.service_running = False
-            self._update_status_bar()
-            self._add_activity_event("service_stop", "Service stopped by user")
-            self.notify("Service stopped", severity="information")
+            self._add_activity_event("service_stop", "Service stop requested by user")
+            self.notify("Stopping service...", severity="information")
 
     def _add_activity_event(
         self,
@@ -479,12 +580,9 @@ class AutoCleanTUI(App):
 
     def get_routes(self) -> list[Any]:
         """Get parsed routes from configuration."""
-        if not self.state.workspace_dir:
+        config_file = self.get_config_path(deployed=False)
+        if config_file is None:
             return []
-
-        config_file = (
-            self.state.workspace_dir / f"serve-{self.state.mode}.yaml"
-        )
         if not config_file.exists():
             return []
 
@@ -502,12 +600,135 @@ class AutoCleanTUI(App):
         except Exception:
             return []
 
+    def get_route_specs(self) -> list[dict[str, Any]]:
+        """Get route registry specs for operator-friendly management."""
+        workspace_dir = self.state.workspace_dir
+        if workspace_dir is None:
+            return []
+
+        try:
+            from autoclean.utils.serve_routes import load_route_specs
+
+            return load_route_specs(workspace_dir)
+        except Exception:
+            return []
+
+    def get_route_spec(self, route_id: str) -> Optional[dict[str, Any]]:
+        """Get one route spec from the route registry."""
+        for route in self.get_route_specs():
+            if route.get("id") == route_id:
+                return route
+        return None
+
+    def sync_route_registry(self) -> bool:
+        """Recompile route registry into serve YAML files."""
+        workspace_dir = self.state.workspace_dir
+        if workspace_dir is None:
+            return False
+
+        try:
+            from autoclean.utils.serve_routes import sync_route_registry
+
+            sync_route_registry(workspace_dir)
+            self._load_config()
+            return True
+        except Exception:
+            return False
+
+    def upsert_route_spec(
+        self,
+        *,
+        route_id: str,
+        taskfile: str,
+        montage: str,
+        ingestion_folders: list[str],
+        file_globs: list[str],
+        mode_scope: str,
+        enabled: bool,
+        recursive: bool,
+    ) -> tuple[bool, str]:
+        """Create or update one route spec from TUI form data."""
+        workspace_dir = self.state.workspace_dir
+        if workspace_dir is None:
+            return False, "No serve workspace configured"
+
+        route_id = route_id.strip()
+        taskfile = taskfile.strip()
+        montage = montage.strip()
+        folders = [item.strip() for item in ingestion_folders if item.strip()]
+        globs = [item.strip() for item in file_globs if item.strip()]
+
+        if not route_id:
+            return False, "Route ID is required"
+        if not taskfile:
+            return False, "Task file is required"
+        if not montage:
+            return False, "Montage is required"
+        if not folders:
+            return False, "At least one ingestion folder is required"
+
+        try:
+            from autoclean.utils.serve_routes import sync_route_registry, upsert_route_spec
+
+            modes = ["test", "live"] if mode_scope == "both" else ["test"]
+            updates: dict[str, Any] = {
+                "modes": modes,
+                "taskfile": str(Path(taskfile).expanduser().resolve()),
+                "montage": montage,
+                "ingestion_folders": [
+                    str(Path(item).expanduser().resolve()) for item in folders
+                ],
+                "enabled": enabled,
+                "recursive": recursive,
+            }
+            if globs:
+                updates["file_globs"] = globs
+
+            upsert_route_spec(workspace_dir, route_id, updates)
+            sync_route_registry(workspace_dir)
+            self._load_config()
+            return True, ""
+        except Exception as exc:
+            return False, str(exc)
+
+    def set_route_enabled(self, route_id: str, enabled: bool) -> bool:
+        """Toggle a route in the route registry and recompile configs."""
+        workspace_dir = self.state.workspace_dir
+        if workspace_dir is None:
+            return False
+
+        try:
+            from autoclean.utils.serve_routes import sync_route_registry, upsert_route_spec
+
+            upsert_route_spec(workspace_dir, route_id, {"enabled": enabled})
+            sync_route_registry(workspace_dir)
+            self._load_config()
+            return True
+        except Exception:
+            return False
+
+    def promote_route(self, route_id: str) -> bool:
+        """Promote a draft route into production and recompile configs."""
+        workspace_dir = self.state.workspace_dir
+        if workspace_dir is None:
+            return False
+
+        try:
+            from autoclean.utils.serve_routes import promote_route_spec, sync_route_registry
+
+            promote_route_spec(workspace_dir, route_id)
+            sync_route_registry(workspace_dir)
+            self._load_config()
+            return True
+        except Exception:
+            return False
+
     def get_queue_entries(self) -> dict[str, Any]:
         """Get all queue entries."""
-        if not self.state.workspace_dir:
+        queue_path = self.get_queue_path()
+        if queue_path is None:
             return {}
 
-        queue_path = self.state.workspace_dir / "queue.json"
         if not queue_path.exists():
             return {}
 
@@ -521,12 +742,9 @@ class AutoCleanTUI(App):
 
     def get_config_yaml(self) -> str:
         """Get the raw YAML configuration content."""
-        if not self.state.workspace_dir:
+        config_file = self.get_config_path(deployed=False)
+        if config_file is None:
             return ""
-
-        config_file = (
-            self.state.workspace_dir / f"serve-{self.state.mode}.yaml"
-        )
         if not config_file.exists():
             return f"# Config file not found: {config_file}"
 
@@ -534,6 +752,48 @@ class AutoCleanTUI(App):
             return config_file.read_text(encoding="utf-8")
         except Exception as exc:
             return f"# Error reading config: {exc}"
+
+    def deploy_current_config(self) -> tuple[bool, str]:
+        """Validate and deploy the active config using the CLI contract."""
+        if not self.state.workspace_dir:
+            return False, "No workspace configured"
+
+        source = self.get_config_path(deployed=False)
+        target = self.get_config_path(deployed=True)
+        if source is None or target is None:
+            return False, "No workspace configured"
+        if not source.exists():
+            return False, f"Config file not found: {source}"
+
+        try:
+            from autoclean.utils.ingestion import (
+                ServeConfigError,
+                load_serve_config,
+                parse_serve_config,
+            )
+
+            raw_config = load_serve_config(source)
+            parse_serve_config(raw_config, self.state.workspace_dir, strict=True)
+        except ServeConfigError as exc:
+            return False, (
+                "Cannot deploy invalid configuration: " + "; ".join(exc.errors)
+            )
+        except Exception as exc:
+            return False, f"Deploy failed: {exc}"
+
+        try:
+            import shutil
+
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.exists():
+                target.chmod(0o644)
+            shutil.copy2(source, target)
+            target.chmod(0o444)
+        except Exception as exc:
+            return False, f"Deploy failed: {exc}"
+
+        self._load_config()
+        return True, f"Configuration deployed to {target.name}"
 
 
 def run_tui(workspace_path: Optional[Path] = None, mode: str = "test") -> None:

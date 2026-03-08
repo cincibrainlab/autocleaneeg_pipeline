@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoClean Serve Tutorial: Edit an Existing Route</title>
+<style>
+  :root {
+    --bg: #f7f3ed;
+    --panel: rgba(255,255,255,0.9);
+    --panel-strong: #fffdfa;
+    --text: #251e17;
+    --muted: #6a5e51;
+    --border: rgba(69,50,31,0.12);
+    --shadow: 0 22px 50px rgba(80,58,35,0.08);
+    --terracotta: #ad4a28;
+    --terracotta-soft: rgba(173, 74, 40, 0.1);
+    --teal: #1f6771;
+    --teal-soft: rgba(31, 103, 113, 0.1);
+    --olive: #657b45;
+    --olive-soft: rgba(101, 123, 69, 0.1);
+    --danger: #9a2e2e;
+    --danger-soft: rgba(154, 46, 46, 0.1);
+    --font-display: Georgia, "Times New Roman", serif;
+    --font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #171311;
+      --panel: rgba(31,25,22,0.9);
+      --panel-strong: #221a16;
+      --text: #f2e9e0;
+      --muted: #c2b1a0;
+      --border: rgba(255,240,225,0.1);
+      --shadow: 0 22px 50px rgba(0,0,0,0.26);
+      --terracotta: #f0a07b;
+      --terracotta-soft: rgba(240,160,123,0.12);
+      --teal: #9cdde1;
+      --teal-soft: rgba(156,221,225,0.12);
+      --olive: #c7dda3;
+      --olive-soft: rgba(199,221,163,0.12);
+      --danger: #f0a6a6;
+      --danger-soft: rgba(240,166,166,0.12);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--font-body);
+    color: var(--text);
+    line-height: 1.58;
+    background:
+      radial-gradient(circle at top left, var(--olive-soft), transparent 28%),
+      radial-gradient(circle at bottom right, var(--teal-soft), transparent 32%),
+      var(--bg);
+  }
+  a { color: inherit; text-decoration: none; }
+  .wrap {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 32px;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 28px;
+  }
+  .toc {
+    position: sticky;
+    top: 20px;
+    align-self: start;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 18px 14px;
+    box-shadow: var(--shadow);
+  }
+  .toc-title, .eyebrow, .kicker {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.8px;
+    font-weight: 700;
+  }
+  .toc-title { color: var(--muted); margin-bottom: 10px; }
+  .toc a { display: block; padding: 7px 10px; border-radius: 8px; color: var(--muted); margin-bottom: 4px; }
+  .toc a:hover { background: var(--terracotta-soft); color: var(--text); }
+  .hero, .section, .note, .terminal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+  }
+  .hero { padding: 32px; background: linear-gradient(135deg, var(--panel-strong), var(--panel)); margin-bottom: 18px; }
+  .eyebrow, .kicker { color: var(--terracotta); }
+  h1 {
+    margin: 10px 0 12px;
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 5vw, 4.6rem);
+    line-height: 0.96;
+    max-width: 12ch;
+    font-weight: 400;
+  }
+  .lead, .section-intro, p, li { color: var(--muted); }
+  .lead { max-width: 70ch; font-size: 1.05rem; }
+  .section { padding: 24px; margin-bottom: 18px; }
+  .section h2 { margin: 0 0 10px; font-size: 1.72rem; }
+  .grid, .decision-grid { display: grid; gap: 16px; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .decision-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .note { padding: 18px; }
+  .note.safe { border-left: 5px solid var(--olive); background: linear-gradient(180deg, var(--olive-soft), transparent 120px), var(--panel); }
+  .note.watch { border-left: 5px solid var(--teal); background: linear-gradient(180deg, var(--teal-soft), transparent 120px), var(--panel); }
+  .note.risk { border-left: 5px solid var(--danger); background: linear-gradient(180deg, var(--danger-soft), transparent 120px), var(--panel); }
+  .terminal {
+    padding: 0;
+    overflow: hidden;
+    background: #171311;
+    color: #f4ece2;
+    border-color: rgba(255,255,255,0.06);
+  }
+  .terminal-head {
+    background: rgba(255,255,255,0.06);
+    padding: 10px 14px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: rgba(255,255,255,0.78);
+  }
+  pre {
+    margin: 0;
+    padding: 16px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  code.inline {
+    font-family: var(--font-mono);
+    font-size: 0.93em;
+    background: rgba(127,127,127,0.11);
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+  ul { margin: 0; padding-left: 20px; }
+  li + li { margin-top: 7px; }
+  @media (max-width: 1020px) {
+    .wrap { grid-template-columns: 1fr; padding: 18px; }
+    .toc { position: static; }
+    .grid, .decision-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="toc" aria-label="Tutorial sections">
+      <div class="toc-title">Tutorial menu</div>
+      <a href="serve-docs-portal.html">Docs home</a>
+      <a href="serve-first-route-tutorial.html">First-route tutorial</a>
+      <a href="#decide">1. Decide edit vs create</a>
+      <a href="#draft">2. Update in Draft</a>
+      <a href="#validate">3. Validate again</a>
+      <a href="#live">4. Handle Production carefully</a>
+      <a href="#mistakes">5. Common mistakes</a>
+    </nav>
+
+    <main>
+      <section class="hero">
+        <div class="eyebrow">Edit tutorial</div>
+        <h1>Edit an existing route without making Production scary.</h1>
+        <p class="lead">
+          This tutorial is for the moment after the first route already exists and something needs to change. The key question is not just “how do I edit it?” It is “should I edit this route at all, or should this become a new Draft route instead?”
+        </p>
+      </section>
+
+      <section class="section" id="decide">
+        <div class="kicker">1. Decide edit vs create</div>
+        <h2>Use this decision first.</h2>
+        <div class="decision-grid">
+          <div class="note safe">
+            <h3>Edit the existing route when</h3>
+            <ul>
+              <li>the route is still the same job</li>
+              <li>you are fixing folder, glob, or naming details</li>
+              <li>you want the existing route to evolve in place</li>
+            </ul>
+          </div>
+          <div class="note watch">
+            <h3>Pause and think when</h3>
+            <ul>
+              <li>the route already runs in Production</li>
+              <li>the change affects which files will match</li>
+              <li>someone else depends on the current live behavior</li>
+            </ul>
+          </div>
+          <div class="note risk">
+            <h3>Create a new Draft route when</h3>
+            <ul>
+              <li>the workflow is meaningfully different</li>
+              <li>live behavior must stay untouched for now</li>
+              <li>you would describe it as “basically a different job”</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="draft">
+        <div class="kicker">2. Update the route in Draft</div>
+        <h2>Use the same route id if it is still the same route.</h2>
+        <p class="section-intro">
+          The safe way to edit a route is still <code class="inline">serve route upsert</code>. Re-running it is normal. That is the idempotent model.
+        </p>
+        <div class="terminal">
+          <div class="terminal-head">Terminal</div>
+          <pre>autocleaneeg-pipeline serve route upsert \
+  resting-biosemi64 \
+  --path /path/to/serve-workspace \
+  --mode test \
+  --taskfile /path/to/RestingEyesOpen.py \
+  --montage biosemi64 \
+  --ingestion-folder /data/incoming/resting-updated \
+  --file-glob "*_rest.set" \
+  --recursive \
+  --enabled</pre>
+        </div>
+        <div class="grid" style="margin-top: 16px;">
+          <div class="note safe">
+            <h3>Why this is safe</h3>
+            <p>The route spec is updated in place and the generated configs are rebuilt deterministically. Repeating the command is expected, not a failure state.</p>
+          </div>
+          <div class="note watch">
+            <h3>TUI help</h3>
+            <p>After the update, use the route screen to inspect the route, verify the details, and sync if needed.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="validate">
+        <div class="kicker">3. Validate again</div>
+        <h2>Do not assume a small edit is harmless.</h2>
+        <div class="terminal">
+          <div class="terminal-head">Terminal</div>
+          <pre>autocleaneeg-pipeline serve validate \
+  --path /path/to/serve-workspace \
+  --mode test</pre>
+        </div>
+        <div class="grid" style="margin-top: 16px;">
+          <div class="note safe">
+            <h3>Good result</h3>
+            <p>The route validates cleanly and the new folder/glob/task still describe the same job you intended.</p>
+          </div>
+          <div class="note risk">
+            <h3>Bad result</h3>
+            <p>If validation fails, do not improvise a live edit. Fix the route definition and rerun the same Draft update path until it is clean.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="live">
+        <div class="kicker">4. Handle Production carefully</div>
+        <h2>The hard part is not syntax. It is protecting live behavior.</h2>
+        <div class="grid">
+          <div class="note watch">
+            <h3>If the route is Draft only</h3>
+            <p>Edit it freely, validate again, exercise it safely, then promote it later.</p>
+          </div>
+          <div class="note risk">
+            <h3>If the route is already in Production</h3>
+            <p>If the change would alter live behavior before you are ready, do not reuse the live route casually. Make a new Draft route instead and prove it there first.</p>
+          </div>
+        </div>
+        <div class="note safe" style="margin-top: 16px;">
+          <h3>Practical rule</h3>
+          <p>If you need live to stay exactly as it is today, do not treat this as a harmless edit. Treat it as a new Draft route until it earns promotion.</p>
+        </div>
+      </section>
+
+      <section class="section" id="mistakes">
+        <div class="kicker">5. Common mistakes</div>
+        <h2>These are the route-edit traps to avoid.</h2>
+        <div class="decision-grid">
+          <div class="note risk">
+            <h3>Editing the live route casually</h3>
+            <p>This is how Production becomes experimental without anyone admitting it.</p>
+          </div>
+          <div class="note risk">
+            <h3>Creating a new queue instead of a new route</h3>
+            <p>The problem is route identity, not queue count.</p>
+          </div>
+          <div class="note risk">
+            <h3>Cloning the route just because one field changed</h3>
+            <p>If it is still the same job, keep the same route id and update it in Draft.</p>
+          </div>
+        </div>
+        <div class="note watch" style="margin-top: 16px;">
+          <h3>What to read next</h3>
+          <p>Use the <a href="serve-route-first-operator-guide.html">operator guide</a> for the broader mental model and the <a href="serve-first-route-tutorial.html">first-route tutorial</a> when training someone from zero.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

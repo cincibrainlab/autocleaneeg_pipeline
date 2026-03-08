@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Route-First Serve Guide for Operators</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --font-display: "Instrument Serif", Georgia, serif;
+    --font-body: "IBM Plex Sans", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+
+    --bg: #f9f5ef;
+    --surface: rgba(255, 255, 255, 0.84);
+    --surface-strong: #fffdfa;
+    --surface-soft: #f1e8de;
+    --border: rgba(71, 48, 29, 0.12);
+    --border-strong: rgba(71, 48, 29, 0.2);
+    --text: #2a2118;
+    --text-dim: #746555;
+    --terracotta: #b14f28;
+    --terracotta-soft: rgba(177, 79, 40, 0.1);
+    --sage: #5c7c4a;
+    --sage-soft: rgba(92, 124, 74, 0.12);
+    --ink: #1e5363;
+    --ink-soft: rgba(30, 83, 99, 0.12);
+    --gold: #d29a2c;
+    --gold-soft: rgba(210, 154, 44, 0.12);
+    --shadow: 0 20px 44px rgba(76, 55, 32, 0.08);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151211;
+      --surface: rgba(31, 25, 22, 0.88);
+      --surface-strong: #241d19;
+      --surface-soft: #1c1714;
+      --border: rgba(255, 244, 231, 0.08);
+      --border-strong: rgba(255, 244, 231, 0.16);
+      --text: #f4ece4;
+      --text-dim: #c3b1a0;
+      --terracotta: #f29d70;
+      --terracotta-soft: rgba(242, 157, 112, 0.12);
+      --sage: #b7d38e;
+      --sage-soft: rgba(183, 211, 142, 0.12);
+      --ink: #95d8e9;
+      --ink-soft: rgba(149, 216, 233, 0.12);
+      --gold: #f2c86f;
+      --gold-soft: rgba(242, 200, 111, 0.12);
+      --shadow: 0 20px 44px rgba(0, 0, 0, 0.25);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    font-family: var(--font-body);
+    color: var(--text);
+    line-height: 1.6;
+    background:
+      radial-gradient(circle at top left, var(--gold-soft) 0%, transparent 28%),
+      radial-gradient(circle at bottom right, var(--ink-soft) 0%, transparent 32%),
+      linear-gradient(180deg, rgba(255,255,255,0.14), transparent 26%),
+      var(--bg);
+  }
+
+  a { color: inherit; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .wrap {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px;
+    display: grid;
+    grid-template-columns: 188px minmax(0, 1fr);
+    gap: 36px;
+  }
+
+  .toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
+    padding: 14px 0;
+  }
+
+  .toc-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .toc a {
+    display: block;
+    text-decoration: none;
+    color: var(--text-dim);
+    border-left: 2px solid transparent;
+    padding: 6px 10px;
+    font-size: 12px;
+    border-radius: 6px;
+    margin-bottom: 3px;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .toc a:hover,
+  .toc a.active {
+    color: var(--text);
+    background: var(--surface-soft);
+    border-left-color: var(--terracotta);
+  }
+
+  .main { min-width: 0; }
+
+  .hero,
+  .section,
+  .band,
+  .mini-callout {
+    animation: fadeUp 0.45s ease-out both;
+  }
+
+  .hero {
+    background: linear-gradient(135deg, var(--surface-strong), var(--surface));
+    border: 1px solid var(--border);
+    border-radius: 30px;
+    padding: 34px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .hero::after {
+    content: "";
+    position: absolute;
+    inset: auto -90px -90px auto;
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--gold-soft) 0%, transparent 68%);
+    pointer-events: none;
+  }
+
+  .eyebrow,
+  .section-kicker {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: var(--terracotta);
+  }
+
+  h1 {
+    margin: 10px 0 12px;
+    font-family: var(--font-display);
+    font-size: clamp(2.6rem, 6vw, 5rem);
+    line-height: 0.95;
+    font-weight: 400;
+    letter-spacing: -0.04em;
+    max-width: 11ch;
+  }
+
+  h2 {
+    margin: 8px 0 10px;
+    font-size: 1.75rem;
+    line-height: 1.08;
+    font-weight: 600;
+  }
+
+  h3 {
+    margin: 0 0 8px;
+    font-size: 1.02rem;
+  }
+
+  .lead {
+    font-size: 1.08rem;
+    color: var(--text-dim);
+    max-width: 64ch;
+    margin: 0 0 20px;
+  }
+
+  .section-intro,
+  p,
+  li {
+    color: var(--text-dim);
+  }
+
+  .hero-grid,
+  .triptych,
+  .lane-grid,
+  .route-layout,
+  .step-grid,
+  .rerun-grid,
+  .monitor-grid,
+  .faq-grid,
+  .decision-grid,
+  .handoff-grid,
+  .board {
+    display: grid;
+    gap: 16px;
+  }
+
+  .hero-grid {
+    grid-template-columns: 1.4fr 1fr;
+    margin-top: 26px;
+  }
+
+  .triptych,
+  .rerun-grid,
+  .monitor-grid,
+  .faq-grid,
+  .handoff-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .lane-grid,
+  .route-layout,
+  .decision-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .step-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .board {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .band,
+  .section,
+  .card,
+  .lane,
+  .route-card,
+  .step,
+  .faq,
+  .column,
+  .mini-callout,
+  .legend,
+  .decision,
+  .handoff {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    backdrop-filter: blur(12px);
+  }
+
+  .band,
+  .section {
+    padding: 24px;
+  }
+
+  .card,
+  .lane,
+  .route-card,
+  .step,
+  .faq,
+  .column,
+  .mini-callout,
+  .legend,
+  .decision,
+  .handoff {
+    padding: 18px;
+  }
+
+  .pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .pill,
+  .mini-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface-soft);
+  }
+
+  .pill .dot,
+  .lane-tag .dot,
+  .chip .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .dot-draft { background: var(--gold); }
+  .dot-prod { background: var(--sage); }
+  .dot-safe { background: var(--ink); }
+
+  .lane {
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+
+  .lane--draft { box-shadow: inset 0 0 0 1px var(--gold-soft); }
+  .lane--prod { box-shadow: inset 0 0 0 1px var(--sage-soft); }
+
+  .lane-tag,
+  .chip,
+  .field-label,
+  .legend small,
+  .step-number,
+  .decision-label,
+  .column-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+  }
+
+  .lane-tag,
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .route-card {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .route-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, var(--terracotta), var(--gold), var(--sage));
+  }
+
+  .route-name {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    margin-top: 10px;
+  }
+
+  .route-name strong { font-size: 1.06rem; }
+
+  .field-list {
+    display: grid;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .field {
+    display: grid;
+    grid-template-columns: 126px 1fr;
+    gap: 12px;
+    align-items: start;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+  }
+
+  .field-value strong {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--text);
+  }
+
+  .field-value span {
+    display: block;
+    font-size: 0.92rem;
+    color: var(--text-dim);
+  }
+
+  ul {
+    margin: 10px 0 0 18px;
+    padding: 0;
+  }
+
+  .arrow-stack {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .lane-shell {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 14px;
+    align-items: stretch;
+  }
+
+  .legend-stack {
+    display: grid;
+    gap: 12px;
+  }
+
+  .legend,
+  .mini-callout {
+    background: var(--surface-strong);
+  }
+
+  .step-number {
+    display: inline-flex;
+    width: 34px;
+    height: 34px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--terracotta-soft);
+    color: var(--terracotta);
+    margin-bottom: 12px;
+  }
+
+  .decision {
+    display: grid;
+    gap: 10px;
+  }
+
+  .decision-label {
+    color: var(--text-dim);
+  }
+
+  .decision.good { border-top: 4px solid var(--sage); }
+  .decision.caution { border-top: 4px solid var(--gold); }
+
+  .callout {
+    margin-top: 16px;
+    border-radius: 18px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    background: linear-gradient(135deg, var(--surface-strong), var(--surface-soft));
+  }
+
+  .callout strong {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+
+  .faq.yes,
+  .handoff.yes { border-top: 4px solid var(--sage); }
+  .faq.watch,
+  .handoff.watch { border-top: 4px solid var(--ink); }
+  .faq.avoid,
+  .handoff.avoid { border-top: 4px solid var(--terracotta); }
+
+  .column h3 { margin-top: 0; margin-bottom: 10px; }
+
+  .job {
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface-soft);
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+
+  .job strong {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.95rem;
+    color: var(--text);
+  }
+
+  .job code,
+  code.inline {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    color: var(--ink);
+  }
+
+  code.inline {
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: var(--ink-soft);
+  }
+
+  .footer {
+    margin: 24px 0 6px;
+    padding: 18px 22px;
+    border-radius: 18px;
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    font-size: 0.95rem;
+    color: var(--text-dim);
+  }
+
+  .note {
+    margin-top: 18px;
+    font-size: 0.94rem;
+    color: var(--text-dim);
+  }
+
+  @media (max-width: 1080px) {
+    .wrap {
+      grid-template-columns: 1fr;
+      padding-top: 0;
+    }
+
+    .toc {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      max-height: none;
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      background: color-mix(in srgb, var(--bg) 86%, transparent);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+      margin: 0 -32px;
+      padding: 12px 32px;
+    }
+
+    .toc-title { display: none; }
+
+    .toc a {
+      white-space: nowrap;
+      border-left: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: 0;
+    }
+
+    .toc a:hover,
+    .toc a.active {
+      border-left-color: transparent;
+      border-bottom-color: var(--terracotta);
+    }
+
+    .hero-grid,
+    .triptych,
+    .lane-grid,
+    .route-layout,
+    .step-grid,
+    .rerun-grid,
+    .monitor-grid,
+    .faq-grid,
+    .decision-grid,
+    .handoff-grid,
+    .board,
+    .lane-shell {
+      grid-template-columns: 1fr;
+    }
+
+    .arrow-stack {
+      min-height: 44px;
+      transform: rotate(90deg);
+    }
+
+    .field {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="toc" id="toc" aria-label="Page sections">
+      <div class="toc-title">Contents</div>
+      <a href="serve-docs-portal.html">Docs home</a>
+      <a href="serve-route-first-devlog.md">Technical devlog</a>
+      <a href="#overview">At a glance</a>
+      <a href="#lanes">Draft vs Production</a>
+      <a href="#routes">Route anatomy</a>
+      <a href="#decisions">Edit vs create</a>
+      <a href="#setup">Operator setup path</a>
+      <a href="#rerun">Safe reruns</a>
+      <a href="#operate">Daily operations</a>
+      <a href="#handoff">Handoff checklist</a>
+    </nav>
+
+    <main class="main">
+      <section class="hero" id="overview">
+        <div class="eyebrow">Operator guide</div>
+        <h1>Run serve with routes, not hidden mechanics.</h1>
+        <p class="lead">
+          The route-first serve model is built for operators. Define a route once, prove it safely in <strong>Draft</strong>, then promote the same route into <strong>Production</strong>. If you run setup again later, the system should update only what changed and leave old work alone.
+        </p>
+        <div class="pill-row" aria-label="Core promises">
+          <div class="pill"><span class="dot dot-draft"></span>Draft is the proving lane</div>
+          <div class="pill"><span class="dot dot-prod"></span>Production is the trusted lane</div>
+          <div class="pill"><span class="dot dot-safe"></span>Reruns should be safe and repeatable</div>
+        </div>
+
+        <div class="hero-grid">
+          <div class="band">
+            <div class="section-kicker">If you only remember four things</div>
+            <h2>The operator mental model</h2>
+            <div class="triptych">
+              <div class="card">
+                <h3>Manage routes</h3>
+                <p>A route is the thing you create, review, update, and explain to another person. It represents one kind of incoming work.</p>
+              </div>
+              <div class="card">
+                <h3>Ignore queue internals</h3>
+                <p>Behind the scenes there are still only two lanes. Operators should think in Draft and Production, not raw queue files.</p>
+              </div>
+              <div class="card">
+                <h3>Update, do not duplicate</h3>
+                <p>If a folder or rule changes, update the route. Do not make near-identical copies unless the work is genuinely different.</p>
+              </div>
+            </div>
+            <div class="callout">
+              <strong>Backend terms</strong>
+              The current backend still uses <code class="inline">test</code> and <code class="inline">live</code>. In operator language, read those as <strong>Draft</strong> and <strong>Production</strong>.
+            </div>
+          </div>
+
+          <div class="band">
+            <div class="section-kicker">Route card</div>
+            <h2>What a good route looks like</h2>
+            <div class="route-card">
+              <div class="route-name">
+                <strong>RestingEyesOpen 64ch</strong>
+                <span class="mini-badge">Draft</span>
+              </div>
+              <div class="field-list">
+                <div class="field">
+                  <div class="field-label">Watch folder</div>
+                  <div class="field-value">
+                    <strong>Incoming recordings</strong>
+                    <span>Where completed EEG files arrive</span>
+                  </div>
+                </div>
+                <div class="field">
+                  <div class="field-label">Task</div>
+                  <div class="field-value">
+                    <strong>RestingEyesOpen</strong>
+                    <span>The task configuration to run</span>
+                  </div>
+                </div>
+                <div class="field">
+                  <div class="field-label">Montage</div>
+                  <div class="field-value">
+                    <strong>EGI 64-channel</strong>
+                    <span>The expected cap layout for these files</span>
+                  </div>
+                </div>
+                <div class="field">
+                  <div class="field-label">Ready rule</div>
+                  <div class="field-value">
+                    <strong>Only pick up complete files</strong>
+                    <span>A safety check so partial uploads are ignored</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="lanes">
+        <div class="section-kicker">1. Draft vs Production</div>
+        <h2>Use Draft to gain trust. Use Production to stay boring.</h2>
+        <p class="section-intro">
+          Operators need the difference to be obvious. Draft is where you prove that a route is correct. Production is where you expect that route to run without surprises.
+        </p>
+        <div class="lane-shell">
+          <div class="lane lane--draft">
+            <div class="lane-tag"><span class="dot dot-draft"></span>Draft</div>
+            <h3>Use this when a route is new or changing</h3>
+            <ul>
+              <li>Set up the route definition.</li>
+              <li>Validate folders, task choice, montage, and readiness rules.</li>
+              <li>Run dry runs or sample files.</li>
+              <li>Watch for obvious mistakes before anyone depends on it.</li>
+            </ul>
+          </div>
+          <div class="arrow-stack" aria-hidden="true">Promote when stable →</div>
+          <div class="lane lane--prod">
+            <div class="lane-tag"><span class="dot dot-prod"></span>Production</div>
+            <h3>Use this only after the route is predictable</h3>
+            <ul>
+              <li>Keep it focused on live, approved work.</li>
+              <li>Prefer small changes over big rewrites.</li>
+              <li>If you need to experiment, step back into Draft first.</li>
+              <li>Every active Production route should be easy to explain.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout">
+          <strong>Simple check</strong>
+          If you would feel nervous handing the route to a coworker today, it does not belong in Production yet.
+        </div>
+      </section>
+
+      <section class="section" id="routes">
+        <div class="section-kicker">2. Route anatomy</div>
+        <h2>A route is one clear promise about incoming files.</h2>
+        <p class="section-intro">
+          A good route answers one sentence cleanly: “When files like this arrive here, run this task with this montage.” That is the unit that scales cleanly to many workflows.
+        </p>
+        <div class="route-layout">
+          <div class="route-card">
+            <div class="section-kicker">Every route needs</div>
+            <h3>Core ingredients</h3>
+            <div class="field-list">
+              <div class="field">
+                <div class="field-label">Name</div>
+                <div class="field-value">
+                  <strong>Human-readable route label</strong>
+                  <span>Use the task and montage so the route is recognizable at a glance</span>
+                </div>
+              </div>
+              <div class="field">
+                <div class="field-label">Input</div>
+                <div class="field-value">
+                  <strong>Where the files arrive</strong>
+                  <span>The watched folder or folders for this exact workflow</span>
+                </div>
+              </div>
+              <div class="field">
+                <div class="field-label">Task</div>
+                <div class="field-value">
+                  <strong>Which processing recipe runs</strong>
+                  <span>The experiment-specific workflow to apply</span>
+                </div>
+              </div>
+              <div class="field">
+                <div class="field-label">Montage</div>
+                <div class="field-value">
+                  <strong>Which channel layout applies</strong>
+                  <span>The cap or channel structure expected for these files</span>
+                </div>
+              </div>
+              <div class="field">
+                <div class="field-label">Ready rule</div>
+                <div class="field-value">
+                  <strong>When pickup is safe</strong>
+                  <span>Examples: sidecar present, upload finished, or file size stable</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="legend-stack">
+            <div class="legend">
+              <small>Scaling rule</small>
+              <h3>Many routes, only two lanes.</h3>
+              <p>You can support many task-and-montage combinations without creating many queues. That keeps monitoring understandable for operators.</p>
+            </div>
+            <div class="legend">
+              <small>What not to do</small>
+              <h3>Do not make a queue for every montage.</h3>
+              <p>Queues are operational lanes. Routes are configuration units. Mixing those ideas makes the system harder to run.</p>
+            </div>
+            <div class="legend">
+              <small>Good naming</small>
+              <h3>Name routes so another person can identify them fast.</h3>
+              <p>Example pattern: task name + montage + anything operationally important, such as a lab site or special intake rule.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="decisions">
+        <div class="section-kicker">3. Edit vs create</div>
+        <h2>Most operator confusion comes from this one decision.</h2>
+        <p class="section-intro">
+          When something changes, the safest question is not “How do I patch the queue?” It is “Is this still the same route?” Use this rule before you touch anything.
+        </p>
+        <div class="decision-grid">
+          <div class="decision good">
+            <div class="decision-label">Edit the existing route when</div>
+            <h3>The work is still the same kind of work</h3>
+            <ul>
+              <li>The watch folder moved but the task is unchanged.</li>
+              <li>The readiness rule needs tightening.</li>
+              <li>The route name needs cleanup.</li>
+              <li>You are promoting the same route from Draft into Production.</li>
+            </ul>
+          </div>
+          <div class="decision caution">
+            <div class="decision-label">Create a new route when</div>
+            <h3>The incoming work is materially different</h3>
+            <ul>
+              <li>The task changes to a different experiment or workflow.</li>
+              <li>The montage changes in a way that affects processing intent.</li>
+              <li>The files come from a different intake stream that should be tracked separately.</li>
+              <li>The old route must keep working exactly as it already does.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout">
+          <strong>Operator shortcut</strong>
+          If you would need to explain the change as “this is basically a different job,” make a new route. Otherwise, update the existing one.
+        </div>
+      </section>
+
+      <section class="section" id="setup">
+        <div class="section-kicker">4. Operator setup path</div>
+        <h2>Build once in Draft, then promote the same route.</h2>
+        <p class="section-intro">
+          This workflow is intentionally repetitive and safe. The current TUI route screen now supports the safe operator actions, but these steps should remain true even if the screen layout changes later.
+        </p>
+        <div class="step-grid">
+          <div class="step">
+            <div class="step-number">01</div>
+            <h3>Name the route clearly</h3>
+            <p>Use a label that captures the task and montage so the route makes sense in logs, lists, and handoffs.</p>
+          </div>
+          <div class="step">
+            <div class="step-number">02</div>
+            <h3>Choose the intake folder and ready rule</h3>
+            <p>Decide where the files arrive and what counts as complete. This is one of the most important operator safety settings.</p>
+          </div>
+          <div class="step">
+            <div class="step-number">03</div>
+            <h3>Select the task and montage</h3>
+            <p>One route should represent one clear task-and-montage combination. Avoid overloading a route with multiple meanings.</p>
+          </div>
+          <div class="step">
+            <div class="step-number">04</div>
+            <h3>Compile and validate in Draft</h3>
+            <p>The route registry should build the Draft configuration deterministically and validation should confirm that the route is usable.</p>
+          </div>
+          <div class="step">
+            <div class="step-number">05</div>
+            <h3>Exercise the route safely</h3>
+            <p>Use dry runs or sample files until the route does exactly what you expect and the outputs are easy to interpret.</p>
+          </div>
+          <div class="step">
+            <div class="step-number">06</div>
+            <h3>Promote to Production</h3>
+            <p>Once the route is stable, promote the same route into Production instead of rebuilding it from scratch.</p>
+          </div>
+        </div>
+        <div class="mini-callout">
+          <strong>Current TUI route actions</strong>
+          <p>
+            In the current route screen, operators can create a route, edit a route, inspect one route at a time, toggle whether it is enabled, promote a Draft route into Production, and sync the generated serve configs after route updates.
+          </p>
+          <ul>
+            <li><strong>N</strong> opens the create-route flow.</li>
+            <li><strong>E</strong> edits the selected route.</li>
+            <li><strong>Enter</strong> shows the full route details below the table.</li>
+            <li><strong>T</strong> enables or disables the selected route.</li>
+            <li><strong>P</strong> promotes the selected route into Production.</li>
+            <li><strong>S</strong> rebuilds the generated Draft and Production configs from the route registry.</li>
+          </ul>
+        </div>
+        <div class="callout">
+          <strong>Why the route registry matters</strong>
+          Small independent route specs are easier to update safely than one giant hand-edited config file. That is the backbone of the new workflow.
+        </div>
+      </section>
+
+      <section class="section" id="rerun">
+        <div class="section-kicker">5. Safe reruns</div>
+        <h2>Rerun setup without fear.</h2>
+        <p class="section-intro">
+          Idempotent setup means you can repeat the same workflow later without creating duplicate jobs or wiping prior history. Operators need this because folders, names, and readiness rules inevitably change.
+        </p>
+        <div class="rerun-grid">
+          <div class="faq yes">
+            <h3>If nothing changed</h3>
+            <p>The route should remain exactly as it was. Re-running setup should behave like a no-op, not a reset.</p>
+          </div>
+          <div class="faq watch">
+            <h3>If a route detail changed</h3>
+            <p>The system should update only that route, then recompile and revalidate the generated Draft or Production config as needed.</p>
+          </div>
+          <div class="faq avoid">
+            <h3>If old work already exists</h3>
+            <p>The rerun should leave queue history, outputs, and prior results alone. Setup should not act like a destructive cleanup tool.</p>
+          </div>
+        </div>
+        <div class="mini-callout">
+          <div class="chip"><span class="dot dot-safe"></span>What safe rerun means in practice</div>
+          <ul>
+            <li>Create the route if it does not exist.</li>
+            <li>Update only the fields that changed.</li>
+            <li>Do nothing visible if the route definition is unchanged.</li>
+            <li>Keep promotion explicit instead of silently changing Production behavior.</li>
+          </ul>
+        </div>
+        <div class="callout">
+          <strong>What safe rerun should never mean</strong>
+          It should never duplicate jobs, clone a second nearly identical route behind your back, or erase prior work just because someone ran setup again.
+        </div>
+      </section>
+
+      <section class="section" id="operate">
+        <div class="section-kicker">6. Daily operations</div>
+        <h2>Most operators only need four views of the world.</h2>
+        <p class="section-intro">
+          Good operations language is human. People need to know what is waiting, what is running, what needs attention, and what finished cleanly. That is more useful than exposing raw queue internals all day.
+        </p>
+        <div class="board" aria-label="Example route operations board">
+          <div class="column">
+            <div class="column-label">Waiting</div>
+            <h3>Ready for pickup</h3>
+            <div class="job">
+              <strong>RestingEyesOpen 64ch</strong>
+              <code>Complete files detected in intake folder</code>
+            </div>
+            <div class="job">
+              <strong>AuditoryOddball 128ch</strong>
+              <code>Next route in line</code>
+            </div>
+          </div>
+          <div class="column">
+            <div class="column-label">Running</div>
+            <h3>Currently processing</h3>
+            <div class="job">
+              <strong>VisualOddball 64ch</strong>
+              <code>Started 4 minutes ago</code>
+            </div>
+          </div>
+          <div class="column">
+            <div class="column-label">Needs attention</div>
+            <h3>Human check required</h3>
+            <div class="job">
+              <strong>MemoryTask 64ch</strong>
+              <code>File appears incomplete</code>
+            </div>
+            <div class="job">
+              <strong>RestingEyesClosed 64ch</strong>
+              <code>Validation warning after route update</code>
+            </div>
+          </div>
+          <div class="column">
+            <div class="column-label">Completed</div>
+            <h3>Finished cleanly</h3>
+            <div class="job">
+              <strong>LanguageTask 64ch</strong>
+              <code>Last run succeeded</code>
+            </div>
+          </div>
+        </div>
+        <div class="monitor-grid">
+          <div class="faq">
+            <h3>Watch the route name</h3>
+            <p>The route name should tell you what kind of work was affected without forcing you to open a config file.</p>
+          </div>
+          <div class="faq">
+            <h3>Watch the lane</h3>
+            <p>Draft issues are part of proving a route. Production issues usually need faster, more explicit escalation.</p>
+          </div>
+          <div class="faq">
+            <h3>Watch the last clear signal</h3>
+            <p>Useful status messages explain what arrived, what ran, what failed, and what action the operator should take next.</p>
+          </div>
+        </div>
+        <p class="note">
+          Behind the scenes the runtime still uses the two underlying queues. The operator experience should translate that into understandable workflow lanes instead of exposing storage details.
+        </p>
+      </section>
+
+      <section class="section" id="handoff">
+        <div class="section-kicker">7. Handoff checklist</div>
+        <h2>Before you tell someone a route is ready, make sure these are true.</h2>
+        <div class="handoff-grid">
+          <div class="handoff yes">
+            <h3>The route is explainable</h3>
+            <p>A teammate can answer what arrives, what task runs, which montage applies, and whether the route is still in Draft or already trusted in Production.</p>
+          </div>
+          <div class="handoff watch">
+            <h3>The route is repeatable</h3>
+            <p>Running setup again produces the same result when nothing changed and a targeted update when something did.</p>
+          </div>
+          <div class="handoff avoid">
+            <h3>The route is not hiding a workaround</h3>
+            <p>If the route only works because of a special manual trick, it is not ready for handoff yet.</p>
+          </div>
+        </div>
+        <div class="footer">
+          Start with this guide for the operating model. Use <code class="inline">docs/serve-route-first-devlog.md</code> when you need the backend terminology and exact route-management commands.
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (function() {
+      const toc = document.getElementById("toc");
+      const links = toc ? toc.querySelectorAll("a") : [];
+      const sections = [];
+
+      links.forEach((link) => {
+        const id = link.getAttribute("href").slice(1);
+        const el = document.getElementById(id);
+        if (el) sections.push({ el, link });
+      });
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          links.forEach((link) => link.classList.remove("active"));
+          const match = sections.find((section) => section.el === entry.target);
+          if (match) {
+            match.link.classList.add("active");
+            if (window.innerWidth <= 1080) {
+              match.link.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+            }
+          }
+        });
+      }, { rootMargin: "-12% 0px -74% 0px" });
+
+      sections.forEach((section) => observer.observe(section.el));
+
+      links.forEach((link) => {
+        link.addEventListener("click", (event) => {
+          event.preventDefault();
+          const id = link.getAttribute("href").slice(1);
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+          history.replaceState(null, "", "#" + id);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

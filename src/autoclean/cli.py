@@ -2213,6 +2213,157 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="Optional serve workspace path",
     )
 
+    serve_route = serve_subparsers.add_parser(
+        "route", help="Manage route registry", add_help=False
+    )
+    attach_rich_help(serve_route)
+    serve_route_subparsers = serve_route.add_subparsers(
+        dest="route_action", help="Route actions"
+    )
+
+    serve_route_list = serve_route_subparsers.add_parser(
+        "list", help="List registered routes", add_help=False
+    )
+    attach_rich_help(serve_route_list)
+    serve_route_list.add_argument(
+        "--path",
+        type=Path,
+        default=None,
+        help="Optional serve workspace path",
+    )
+    serve_route_list.add_argument(
+        "--mode",
+        choices=["test", "live"],
+        default=None,
+        help="Filter routes by mode",
+    )
+
+    serve_route_upsert = serve_route_subparsers.add_parser(
+        "upsert", help="Create or update one route spec", add_help=False
+    )
+    attach_rich_help(serve_route_upsert)
+    serve_route_upsert.add_argument("route_id", help="Stable route id")
+    serve_route_upsert.add_argument(
+        "--path",
+        type=Path,
+        default=None,
+        help="Optional serve workspace path",
+    )
+    serve_route_upsert.add_argument(
+        "--mode",
+        choices=["test", "live", "both"],
+        default=None,
+        help="Route availability; new routes default to test",
+    )
+    serve_route_upsert.add_argument(
+        "--taskfile",
+        default=None,
+        help="Task file path for this route",
+    )
+    serve_route_upsert.add_argument(
+        "--montage",
+        default=None,
+        help="Montage name for this route",
+    )
+    serve_route_upsert.add_argument(
+        "--version",
+        default=None,
+        help="Optional version tag for workspace naming",
+    )
+    serve_route_upsert.add_argument(
+        "--ingestion-folder",
+        dest="ingestion_folders",
+        action="append",
+        default=None,
+        help="Folder to watch; repeat for multiple folders",
+    )
+    serve_route_upsert.add_argument(
+        "--ingestion-exclude",
+        dest="ingestion_excludes",
+        action="append",
+        default=None,
+        help="Optional child folder to exclude; repeat as needed",
+    )
+    serve_route_upsert.add_argument(
+        "--file-glob",
+        dest="file_globs",
+        action="append",
+        default=None,
+        help="Optional file glob override; repeat as needed",
+    )
+    serve_route_upsert.add_argument(
+        "--priority",
+        type=int,
+        default=None,
+        help="Priority override for competing routes",
+    )
+    serve_route_upsert.add_argument(
+        "--automation-root",
+        default=None,
+        help="Optional automation output root override",
+    )
+    serve_route_upsert.add_argument(
+        "--workspace-name",
+        default=None,
+        help="Optional workspace naming template override",
+    )
+    serve_route_upsert.add_argument(
+        "--sentinel-ext",
+        default=None,
+        help="Optional sentinel extension override",
+    )
+    route_enabled_group = serve_route_upsert.add_mutually_exclusive_group()
+    route_enabled_group.add_argument(
+        "--enabled",
+        dest="enabled",
+        action="store_true",
+        default=None,
+        help="Enable the route",
+    )
+    route_enabled_group.add_argument(
+        "--disabled",
+        dest="enabled",
+        action="store_false",
+        help="Disable the route",
+    )
+    route_recursive_group = serve_route_upsert.add_mutually_exclusive_group()
+    route_recursive_group.add_argument(
+        "--recursive",
+        dest="recursive",
+        action="store_true",
+        default=None,
+        help="Scan subdirectories for matching files",
+    )
+    route_recursive_group.add_argument(
+        "--no-recursive",
+        dest="recursive",
+        action="store_false",
+        help="Do not scan subdirectories",
+    )
+
+    serve_route_promote = serve_route_subparsers.add_parser(
+        "promote", help="Copy a route from draft into production", add_help=False
+    )
+    attach_rich_help(serve_route_promote)
+    serve_route_promote.add_argument("route_id", help="Stable route id")
+    serve_route_promote.add_argument(
+        "--path",
+        type=Path,
+        default=None,
+        help="Optional serve workspace path",
+    )
+
+    serve_route_sync = serve_route_subparsers.add_parser(
+        "sync", help="Compile route specs into serve YAML", add_help=False
+    )
+    attach_rich_help(serve_route_sync)
+    serve_route_sync.add_argument(
+        "--path",
+        type=Path,
+        default=None,
+        help="Optional serve workspace path",
+    )
+
     serve_validate = serve_subparsers.add_parser(
         "validate", help="Validate serve YAML configuration", add_help=False
     )
@@ -9136,6 +9287,8 @@ def cmd_serve(args) -> int:
         return cmd_serve_workspace(args)
     if action == "list":
         return cmd_serve_list(args)
+    if action == "route":
+        return cmd_serve_route(args)
     if action == "validate":
         return cmd_serve_validate(args)
     if action == "deploy":
@@ -9161,6 +9314,7 @@ def _serve_workspace_paths(workspace_dir: Path) -> dict[str, Path]:
         "runtimes_test": runtimes_dir / "test",
         "runtimes_live": runtimes_dir / "live",
         "automations": workspace_dir / "automations",
+        "routes": workspace_dir / "routes",
         "deploy": deploy_dir,
         "deploy_test": deploy_dir / "serve-test.yaml",
         "deploy_live": deploy_dir / "serve-live.yaml",
@@ -10079,6 +10233,7 @@ def cmd_serve_workspace(args) -> int:
             return 1
         workspace_dir.mkdir(parents=True, exist_ok=True)
         paths["automations"].mkdir(parents=True, exist_ok=True)
+        paths["routes"].mkdir(parents=True, exist_ok=True)
         paths["runtimes_test"].mkdir(parents=True, exist_ok=True)
         paths["runtimes_live"].mkdir(parents=True, exist_ok=True)
         _write_serve_yaml(
@@ -10149,6 +10304,7 @@ def cmd_serve_list(args) -> int:
     items = [
         ("serve-test.yaml", paths["serve_test"]),
         ("serve-live.yaml", paths["serve_live"]),
+        ("routes/", paths["routes"]),
         ("deploy/serve-test.yaml", paths["deploy_test"]),
         ("deploy/serve-live.yaml", paths["deploy_live"]),
         ("runtimes/test", paths["runtimes_test"]),
@@ -10166,6 +10322,205 @@ def cmd_serve_list(args) -> int:
             message("info", f"- {name}")
     else:
         message("warning", f"Automations directory missing: {automations_dir}")
+
+    routes_dir = paths["routes"]
+    if routes_dir.exists():
+        route_specs = sorted(p.name for p in routes_dir.glob("*.yaml"))
+        message("info", f"Routes: {len(route_specs)}")
+        for name in route_specs:
+            message("info", f"- {name}")
+    else:
+        message("warning", f"Routes directory missing: {routes_dir}")
+    return 0
+
+
+def _resolve_route_updates(args) -> dict[str, object]:
+    updates: dict[str, object] = {}
+    if args.mode:
+        if args.mode == "both":
+            updates["modes"] = ["test", "live"]
+        else:
+            updates["modes"] = [args.mode]
+
+    if args.taskfile is not None:
+        taskfile_path = Path(args.taskfile).expanduser().resolve()
+        if not taskfile_path.exists():
+            raise FileNotFoundError(f"Task file not found: {taskfile_path}")
+        updates["taskfile"] = str(taskfile_path)
+
+    if args.montage is not None:
+        updates["montage"] = args.montage
+
+    if args.version is not None:
+        updates["version"] = args.version
+
+    if args.ingestion_folders is not None:
+        folders: list[str] = []
+        for entry in args.ingestion_folders:
+            folder = Path(entry).expanduser().resolve()
+            if not folder.exists():
+                raise FileNotFoundError(f"Ingestion folder not found: {folder}")
+            folders.append(str(folder))
+        updates["ingestion_folders"] = folders
+
+    if args.ingestion_excludes is not None:
+        updates["ingestion_excludes"] = [
+            str(Path(entry).expanduser().resolve()) for entry in args.ingestion_excludes
+        ]
+
+    if args.file_globs is not None:
+        updates["file_globs"] = list(args.file_globs)
+
+    if args.priority is not None:
+        updates["priority"] = args.priority
+
+    if args.automation_root is not None:
+        updates["automation_root"] = str(Path(args.automation_root).expanduser().resolve())
+
+    if args.workspace_name is not None:
+        updates["workspace_name"] = args.workspace_name
+
+    if args.sentinel_ext is not None:
+        updates["sentinel_ext"] = args.sentinel_ext
+
+    if args.enabled is not None:
+        updates["enabled"] = args.enabled
+
+    if args.recursive is not None:
+        updates["recursive"] = args.recursive
+
+    return updates
+
+
+def _print_route_sync(results: dict[str, dict[str, object]]) -> None:
+    for mode, result in sorted(results.items()):
+        state = "updated" if result["changed"] else "unchanged"
+        message(
+            "info",
+            f"{mode}: {result['route_count']} routes compiled ({state}) -> {result['path']}",
+        )
+
+
+def cmd_serve_route(args) -> int:
+    """Route registry dispatcher."""
+    action = getattr(args, "route_action", None)
+    if action in (None, "list"):
+        return cmd_serve_route_list(args)
+    if action == "upsert":
+        return cmd_serve_route_upsert(args)
+    if action == "promote":
+        return cmd_serve_route_promote(args)
+    if action == "sync":
+        return cmd_serve_route_sync(args)
+    message("error", f"Unknown serve route action: {action}")
+    return 1
+
+
+def cmd_serve_route_list(args) -> int:
+    """List route specs from the route registry."""
+    workspace_dir = _resolve_serve_workspace_dir(args.path)
+    if workspace_dir is None:
+        message("error", "No serve workspace configured")
+        return 1
+
+    try:
+        from autoclean.utils.serve_routes import load_route_specs
+
+        route_specs = load_route_specs(workspace_dir)
+    except Exception as exc:
+        message("error", f"Failed to load route specs: {exc}")
+        return 1
+
+    filtered = [
+        spec for spec in route_specs
+        if args.mode is None or args.mode in spec.get("modes", [])
+    ]
+    if not filtered:
+        message("info", "No route specs found")
+        return 0
+
+    message("info", f"Routes: {len(filtered)}")
+    for spec in filtered:
+        modes = ",".join(spec.get("modes", []))
+        folders = len(spec.get("ingestion_folders", []))
+        message(
+            "info",
+            f"- {spec['id']} [{modes}] taskfile={spec['taskfile']} "
+            f"montage={spec['montage']} folders={folders}",
+        )
+    return 0
+
+
+def cmd_serve_route_upsert(args) -> int:
+    """Create or update a route spec and sync compiled serve YAML."""
+    workspace_dir = _resolve_serve_workspace_dir(args.path)
+    if workspace_dir is None:
+        message("error", "No serve workspace configured")
+        return 1
+
+    try:
+        from autoclean.utils.serve_routes import sync_route_registry, upsert_route_spec
+
+        updates = _resolve_route_updates(args)
+        route_path, spec, status = upsert_route_spec(workspace_dir, args.route_id, updates)
+        sync_results = sync_route_registry(workspace_dir)
+    except Exception as exc:
+        message("error", f"Failed to upsert route: {exc}")
+        return 1
+
+    message(
+        "success",
+        f"✓ Route {status}: {spec['id']} -> {route_path}",
+    )
+    _print_route_sync(sync_results)
+    return 0
+
+
+def cmd_serve_route_promote(args) -> int:
+    """Add live mode to an existing route and sync compiled serve YAML."""
+    workspace_dir = _resolve_serve_workspace_dir(args.path)
+    if workspace_dir is None:
+        message("error", "No serve workspace configured")
+        return 1
+
+    try:
+        from autoclean.utils.serve_routes import promote_route_spec, sync_route_registry
+
+        route_path, spec, status = promote_route_spec(workspace_dir, args.route_id)
+        sync_results = sync_route_registry(workspace_dir)
+    except Exception as exc:
+        message("error", f"Failed to promote route: {exc}")
+        return 1
+
+    message(
+        "success",
+        f"✓ Route {status}: {spec['id']} now targets {', '.join(spec['modes'])} -> {route_path}",
+    )
+    _print_route_sync(sync_results)
+    return 0
+
+
+def cmd_serve_route_sync(args) -> int:
+    """Compile route specs into serve-test.yaml and serve-live.yaml."""
+    workspace_dir = _resolve_serve_workspace_dir(args.path)
+    if workspace_dir is None:
+        message("error", "No serve workspace configured")
+        return 1
+
+    try:
+        from autoclean.utils.serve_routes import load_route_specs, sync_route_registry
+
+        route_specs = load_route_specs(workspace_dir)
+        if not route_specs:
+            message("error", "No route specs found in routes/")
+            return 1
+        sync_results = sync_route_registry(workspace_dir)
+    except Exception as exc:
+        message("error", f"Failed to sync route registry: {exc}")
+        return 1
+
+    message("success", "✓ Route registry compiled")
+    _print_route_sync(sync_results)
     return 0
 
 

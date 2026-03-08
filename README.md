@@ -65,6 +65,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full development guidelines.
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+For branch workflow and cleanup expectations, see [BRANCHING.md](BRANCHING.md).
 
 ## License
 

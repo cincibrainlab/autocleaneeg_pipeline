@@ -23,6 +23,8 @@ class TestAppState:
         assert state.mode == "test"
         assert state.service_running is False
         assert state.service_process is None
+        assert state.service_stop_requested is False
+        assert state.service_log_path is None
         assert state.pending_count == 0
         assert state.ready_count == 0
         assert state.running_count == 0
@@ -179,6 +181,123 @@ class TestAutoCleanTUIHelpers:
         result = app.get_routes()
         assert result == []
 
+    def test_get_route_specs_no_workspace(self) -> None:
+        """Test getting route specs when no workspace is set."""
+        app = AutoCleanTUI()
+        result = app.get_route_specs()
+        assert result == []
+
+    def test_get_route_specs_with_registry(self, tmp_path: Path) -> None:
+        """Test loading route specs from the route registry."""
+        from autoclean.utils.serve_routes import upsert_route_spec
+
+        workspace = tmp_path
+        (workspace / "serve-test.yaml").write_text(
+            "mode: test\nruntime: runtimes/test\nautomation_mode: true\nautomations: []\n",
+            encoding="utf-8",
+        )
+        (workspace / "serve-live.yaml").write_text(
+            "mode: live\nruntime: runtimes/live\nautomation_mode: true\nautomations: []\n",
+            encoding="utf-8",
+        )
+        taskfile = workspace / "TaskFile.py"
+        taskfile.write_text("print('ok')\n", encoding="utf-8")
+        incoming = workspace / "incoming"
+        incoming.mkdir()
+
+        upsert_route_spec(
+            workspace,
+            "resting-biosemi64",
+            {
+                "taskfile": str(taskfile.resolve()),
+                "montage": "biosemi64",
+                "ingestion_folders": [str(incoming.resolve())],
+                "modes": ["test"],
+            },
+        )
+
+        app = AutoCleanTUI(workspace_path=workspace)
+        result = app.get_route_specs()
+        assert len(result) == 1
+        assert result[0]["id"] == "resting-biosemi64"
+
+    def test_set_route_enabled_updates_registry(self, tmp_path: Path) -> None:
+        """Test toggling route enabled status through the app helper."""
+        import yaml
+
+        from autoclean.utils.serve_routes import sync_route_registry, upsert_route_spec
+
+        workspace = tmp_path
+        (workspace / "serve-test.yaml").write_text(
+            "mode: test\nruntime: runtimes/test\nautomation_mode: true\nautomations: []\n",
+            encoding="utf-8",
+        )
+        (workspace / "serve-live.yaml").write_text(
+            "mode: live\nruntime: runtimes/live\nautomation_mode: true\nautomations: []\n",
+            encoding="utf-8",
+        )
+        taskfile = workspace / "TaskFile.py"
+        taskfile.write_text("print('ok')\n", encoding="utf-8")
+        incoming = workspace / "incoming"
+        incoming.mkdir()
+
+        upsert_route_spec(
+            workspace,
+            "resting-biosemi64",
+            {
+                "taskfile": str(taskfile.resolve()),
+                "montage": "biosemi64",
+                "ingestion_folders": [str(incoming.resolve())],
+                "modes": ["test"],
+                "enabled": True,
+            },
+        )
+        sync_route_registry(workspace)
+
+        app = AutoCleanTUI(workspace_path=workspace)
+        assert app.set_route_enabled("resting-biosemi64", False) is True
+
+        compiled = yaml.safe_load((workspace / "serve-test.yaml").read_text(encoding="utf-8"))
+        assert compiled["automations"][0]["enabled"] is False
+
+    def test_promote_route_updates_live_config(self, tmp_path: Path) -> None:
+        """Test promoting a route through the app helper."""
+        import yaml
+
+        from autoclean.utils.serve_routes import sync_route_registry, upsert_route_spec
+
+        workspace = tmp_path
+        (workspace / "serve-test.yaml").write_text(
+            "mode: test\nruntime: runtimes/test\nautomation_mode: true\nautomations: []\n",
+            encoding="utf-8",
+        )
+        (workspace / "serve-live.yaml").write_text(
+            "mode: live\nruntime: runtimes/live\nautomation_mode: true\nautomations: []\n",
+            encoding="utf-8",
+        )
+        taskfile = workspace / "TaskFile.py"
+        taskfile.write_text("print('ok')\n", encoding="utf-8")
+        incoming = workspace / "incoming"
+        incoming.mkdir()
+
+        upsert_route_spec(
+            workspace,
+            "resting-biosemi64",
+            {
+                "taskfile": str(taskfile.resolve()),
+                "montage": "biosemi64",
+                "ingestion_folders": [str(incoming.resolve())],
+                "modes": ["test"],
+            },
+        )
+        sync_route_registry(workspace)
+
+        app = AutoCleanTUI(workspace_path=workspace)
+        assert app.promote_route("resting-biosemi64") is True
+
+        compiled = yaml.safe_load((workspace / "serve-live.yaml").read_text(encoding="utf-8"))
+        assert compiled["automations"][0]["id"] == "resting-biosemi64"
+
     def test_get_queue_entries_no_workspace(self) -> None:
         """Test getting queue entries when no workspace is set."""
         app = AutoCleanTUI()
@@ -191,9 +310,15 @@ class TestAutoCleanTUIHelpers:
         result = app.get_queue_entries()
         assert result == {}
 
+    def test_get_queue_path_live_mode(self, tmp_path: Path) -> None:
+        """Test queue path resolves by active mode."""
+        app = AutoCleanTUI(workspace_path=tmp_path, mode="live")
+        result = app.get_queue_path()
+        assert result == tmp_path / "queue-live.json"
+
     def test_get_queue_entries_with_data(self, tmp_path: Path) -> None:
         """Test getting queue entries with existing queue file."""
-        queue_path = tmp_path / "queue.json"
+        queue_path = tmp_path / "queue-test.json"
         queue_data = {
             "entries": {
                 "/path/to/file1.bdf": {
@@ -234,7 +359,7 @@ class TestAutoCleanTUIStateLoading:
 
     def test_load_queue_with_data(self, tmp_path: Path) -> None:
         """Test loading queue with entries."""
-        queue_path = tmp_path / "queue.json"
+        queue_path = tmp_path / "queue-test.json"
         queue_data = {
             "entries": {
                 "/file1.bdf": {"status": "pending"},
@@ -305,6 +430,47 @@ class TestAutoCleanTUIActions:
         app.action_start_service()
         app.notify.assert_called_once()
         assert "already running" in str(app.notify.call_args)
+
+    def test_build_service_command_uses_configured_settings(self, tmp_path: Path) -> None:
+        """Test service command reflects configured screen settings."""
+        app = AutoCleanTUI(workspace_path=tmp_path, mode="live")
+        (tmp_path / "serve-live.yaml").write_text("mode: live\nruntime: runtimes/live\n")
+        app.configure_service(
+            {
+                "max_cycles": 12,
+                "idle_limit": 3,
+                "sleep_seconds": 2.5,
+                "max_events": 7,
+                "dry_run": True,
+                "use_watchfiles": False,
+                "require_sentinel": False,
+            }
+        )
+
+        cmd = app.build_service_command(Path("/tmp/autocleaneeg-pipeline"))
+
+        assert cmd[:6] == [
+            "/tmp/autocleaneeg-pipeline",
+            "serve",
+            "run",
+            "--mode",
+            "live",
+            "--path",
+        ]
+        assert "--max-cycles" in cmd
+        assert "12" in cmd
+        assert "--idle-limit" in cmd
+        assert "3" in cmd
+        assert "--sleep-seconds" in cmd
+        assert "2.5" in cmd
+        assert "--max-events" in cmd
+        assert "7" in cmd
+        assert "--queue-path" in cmd
+        assert str(tmp_path / "queue-live.json") in cmd
+        assert "--dry-run" in cmd
+        assert "--no-watch" in cmd
+        assert "--no-sentinel" in cmd
+        assert "--use-operator" in cmd
 
 
 class TestMainEntry:
@@ -593,7 +759,7 @@ class TestIntegration:
             }
         }
 
-        queue_path = tmp_path / "queue.json"
+        queue_path = tmp_path / "queue-test.json"
         queue_path.write_text(json.dumps(queue_data))
 
         app = AutoCleanTUI(workspace_path=tmp_path)

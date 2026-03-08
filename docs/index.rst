@@ -12,6 +12,12 @@ If you're new to EEG processing or programming, AutoClean provides:
 * **Web-based task builder**: Create processing pipelines through an intuitive interface  
 * **Drop-and-go workflow**: Simply drop your task files and run
 * **No coding required**: Process your data with simple commands
+* **Serve docs portal**: Start with `Serve Docs Portal <serve-docs-portal.html>`_ if you want a browsable local menu instead of a single standalone guide page
+* **Serve tutorial**: Open `First Route Tutorial <serve-first-route-tutorial.html>`_ for the step-by-step workflow from workspace creation through Draft validation and Production promotion
+* **Edit tutorial**: Open `Edit Existing Route Tutorial <serve-edit-route-tutorial.html>`_ when a route already exists and you need to change it without casually changing live behavior
+* **Recovery tutorial**: Open `Failures and Recovery Tutorial <serve-failures-recovery-tutorial.html>`_ when validation fails, a route is missing, the wrong files are matched, or Production no longer feels safe
+* **Handoff checklist**: Open `Operator Handoff Checklist <serve-operator-handoff-checklist.html>`_ for readiness, daily checks, weekly checks, and escalation guidance
+* **Serve operator guide**: Start with `Route-First Serve Guide <serve-route-first-operator-guide.html>`_ for the visual operator workflow: Draft vs Production, route-first setup, edit-vs-create decisions, safe reruns, and the current TUI route actions
 
 🔧 **For Technical Users**  
 --------------------------
@@ -22,6 +28,7 @@ If you're a programmer or advanced researcher, AutoClean offers:
 * **Modular architecture**: Build custom processing pipelines with reusable components
 * **Advanced customization**: Create sophisticated workflows with mixins and plugins
 * **Developer tools**: CLI commands and configuration management
+* **Serve devlog**: Open `Route-First Serve Devlog <serve-route-first-devlog.md>`_ for the route registry contract, exact serve route commands, and the current boundaries between backend, TUI, and future setup flows
 
 Key Features
 ------------

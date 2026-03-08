@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoClean Serve Tutorial: Failures and Recovery</title>
+<style>
+  :root {
+    --bg: #f7f3ed;
+    --panel: rgba(255,255,255,0.9);
+    --panel-strong: #fffdfa;
+    --text: #251e17;
+    --muted: #6b5f53;
+    --border: rgba(68,49,30,0.12);
+    --shadow: 0 24px 54px rgba(78,57,35,0.08);
+    --terracotta: #b0502b;
+    --terracotta-soft: rgba(176,80,43,0.1);
+    --teal: #1c6976;
+    --teal-soft: rgba(28,105,118,0.1);
+    --olive: #657d43;
+    --olive-soft: rgba(101,125,67,0.1);
+    --gold: #c08924;
+    --gold-soft: rgba(192,137,36,0.12);
+    --danger: #9f2d2d;
+    --danger-soft: rgba(159,45,45,0.08);
+    --font-display: Georgia, "Times New Roman", serif;
+    --font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #171311;
+      --panel: rgba(31,25,22,0.9);
+      --panel-strong: #231a16;
+      --text: #f3e9df;
+      --muted: #c1ae9b;
+      --border: rgba(255,240,225,0.1);
+      --shadow: 0 24px 54px rgba(0,0,0,0.24);
+      --terracotta: #f0a07a;
+      --terracotta-soft: rgba(240,160,122,0.12);
+      --teal: #99dde3;
+      --teal-soft: rgba(153,221,227,0.12);
+      --olive: #c4dca1;
+      --olive-soft: rgba(196,220,161,0.12);
+      --gold: #efc97b;
+      --gold-soft: rgba(239,201,123,0.12);
+      --danger: #f0a5a5;
+      --danger-soft: rgba(240,165,165,0.12);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--font-body);
+    color: var(--text);
+    line-height: 1.58;
+    background:
+      radial-gradient(circle at top left, var(--gold-soft), transparent 28%),
+      radial-gradient(circle at bottom right, var(--teal-soft), transparent 30%),
+      var(--bg);
+  }
+  a { color: inherit; text-decoration: none; }
+  .wrap {
+    max-width: 1360px;
+    margin: 0 auto;
+    padding: 30px;
+    display: grid;
+    grid-template-columns: 230px minmax(0,1fr);
+    gap: 28px;
+  }
+  .toc {
+    position: sticky;
+    top: 20px;
+    align-self: start;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    padding: 16px 14px;
+    box-shadow: var(--shadow);
+  }
+  .toc-title, .eyebrow, .kicker {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.8px;
+    font-weight: 700;
+  }
+  .toc-title { color: var(--muted); margin-bottom: 10px; }
+  .toc a {
+    display: block;
+    padding: 7px 10px;
+    border-radius: 8px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .toc a:hover { background: var(--terracotta-soft); color: var(--text); }
+  .hero, .section, .card, .terminal, .callout, table {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+  }
+  .hero {
+    padding: 32px;
+    background: linear-gradient(135deg, var(--panel-strong), var(--panel));
+    margin-bottom: 18px;
+  }
+  .eyebrow, .kicker { color: var(--terracotta); }
+  h1 {
+    margin: 10px 0 12px;
+    font-family: var(--font-display);
+    font-size: clamp(2.6rem, 5vw, 4.8rem);
+    line-height: 0.96;
+    font-weight: 400;
+    max-width: 10ch;
+  }
+  .lead, .section-intro, p, li, td { color: var(--muted); }
+  .lead { max-width: 70ch; font-size: 1.06rem; }
+  .hero-grid, .card-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(3, minmax(0,1fr));
+  }
+  .section { padding: 24px; margin-bottom: 18px; }
+  .section h2 { margin: 0 0 10px; font-size: 1.72rem; }
+  .card, .callout { padding: 18px; }
+  .card h3, .callout h3 { margin: 0 0 8px; font-size: 1.05rem; }
+  .terminal {
+    padding: 0;
+    overflow: hidden;
+    background: #171311;
+    color: #f4ece2;
+    border-color: rgba(255,255,255,0.06);
+  }
+  .terminal-head {
+    background: rgba(255,255,255,0.06);
+    padding: 10px 14px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: rgba(255,255,255,0.78);
+  }
+  pre {
+    margin: 0;
+    padding: 16px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  code.inline {
+    font-family: var(--font-mono);
+    font-size: 0.93em;
+    background: rgba(127,127,127,0.11);
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+  .card.good { border-top: 4px solid var(--olive); }
+  .card.watch { border-top: 4px solid var(--gold); }
+  .card.risk { border-top: 4px solid var(--danger); }
+  .callout {
+    background: linear-gradient(135deg, var(--panel-strong), var(--panel));
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    overflow: hidden;
+  }
+  thead th {
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text);
+    padding: 14px 16px;
+    background: rgba(127,127,127,0.08);
+  }
+  tbody td {
+    padding: 16px;
+    border-top: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tbody tr:nth-child(even) td {
+    background: rgba(127,127,127,0.03);
+  }
+  ul { margin: 0; padding-left: 20px; }
+  li + li { margin-top: 7px; }
+  @media (max-width: 1020px) {
+    .wrap { grid-template-columns: 1fr; padding: 18px; }
+    .toc {
+      position: static;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 6px;
+    }
+    .hero-grid, .card-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="toc" aria-label="Recovery tutorial sections">
+      <div class="toc-title">Recovery menu</div>
+      <a href="serve-docs-portal.html">Docs home</a>
+      <a href="serve-first-route-tutorial.html">First-route tutorial</a>
+      <a href="serve-edit-route-tutorial.html">Edit-route tutorial</a>
+      <a href="#triage">Triage first</a>
+      <a href="#cases">Common failures</a>
+      <a href="#commands">Safe recovery commands</a>
+      <a href="#never">What never to do</a>
+    </nav>
+
+    <main>
+      <section class="hero">
+        <div class="eyebrow">Recovery tutorial</div>
+        <h1>Recover from serve problems without turning them into bigger problems.</h1>
+        <p class="lead">
+          This page is for the operator moment after setup: something looks wrong, a route is missing, validation fails, or Production no longer feels trustworthy. The goal is to recover safely, not improvise changes that make the state harder to explain.
+        </p>
+        <div class="hero-grid">
+          <div class="card good">
+            <h3>First principle</h3>
+            <p>Most route problems should be fixed by updating the route definition and validating again.</p>
+          </div>
+          <div class="card watch">
+            <h3>Second principle</h3>
+            <p>Draft is the proving lane. If Production feels uncertain, step back into Draft.</p>
+          </div>
+          <div class="card risk">
+            <h3>Biggest risk</h3>
+            <p>Cloning routes, hand-editing generated files, or treating queue files like the source of truth.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="triage">
+        <div class="kicker">Triage first</div>
+        <h2>Before you change anything, answer these three questions.</h2>
+        <div class="card-grid">
+          <div class="card watch">
+            <h3>Is the route still the same job?</h3>
+            <p>If yes, update the route. If no, create a new route instead of warping the old one.</p>
+          </div>
+          <div class="card watch">
+            <h3>Is this only a Draft issue?</h3>
+            <p>If yes, fix it there first. Do not drag uncertainty into Production.</p>
+          </div>
+          <div class="card watch">
+            <h3>Can you explain the issue simply?</h3>
+            <p>If you cannot explain it, pause and inspect the route details in the TUI before making changes.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="cases">
+        <div class="kicker">Common failures</div>
+        <h2>Use the symptom, not the panic, to choose the recovery path.</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>What you see</th>
+              <th>Likely cause</th>
+              <th>Safe recovery</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Validation fails right after a route change</td>
+              <td>Bad folder path, bad task path, wrong glob, or invalid route field</td>
+              <td>Rerun <code class="inline">serve route upsert</code> with the corrected values, then validate again.</td>
+            </tr>
+            <tr>
+              <td>The route does not show up in the TUI</td>
+              <td>The route spec was never created, the route id changed, or the registry needs sync</td>
+              <td>Run <code class="inline">serve route list</code>, then <code class="inline">serve route sync</code>, then reopen or refresh the TUI.</td>
+            </tr>
+            <tr>
+              <td>The wrong files are being matched</td>
+              <td>The folder path or file glob is too broad</td>
+              <td>Update the route in Draft only, validate, and dry-run again before trusting it.</td>
+            </tr>
+            <tr>
+              <td>A route should stop running for now</td>
+              <td>The route is enabled but should be paused</td>
+              <td>Disable it from the TUI with <code class="inline">T</code> or rerun <code class="inline">serve route upsert</code> with the route disabled.</td>
+            </tr>
+            <tr>
+              <td>Production no longer feels trustworthy</td>
+              <td>A recent change was promoted too early</td>
+              <td>Stop treating Production as the test lane. Reproduce and fix the route in Draft first, then promote again only after it is boring.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section" id="commands">
+        <div class="kicker">Safe recovery commands</div>
+        <h2>These are the boring commands you want in a problem.</h2>
+        <div class="card-grid">
+          <div class="terminal">
+            <div class="terminal-head">List routes</div>
+            <pre>autocleaneeg-pipeline serve route list --path /path/to/serve-workspace</pre>
+          </div>
+          <div class="terminal">
+            <div class="terminal-head">Rebuild generated configs</div>
+            <pre>autocleaneeg-pipeline serve route sync --path /path/to/serve-workspace</pre>
+          </div>
+          <div class="terminal">
+            <div class="terminal-head">Validate Draft again</div>
+            <pre>autocleaneeg-pipeline serve validate --path /path/to/serve-workspace --mode test</pre>
+          </div>
+        </div>
+        <div class="callout" style="margin-top: 16px;">
+          <h3>Recovery order</h3>
+          <ul>
+            <li>inspect the route</li>
+            <li>update the route definition if needed</li>
+            <li>sync generated configs if needed</li>
+            <li>validate in Draft</li>
+            <li>only then think about Production</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section" id="never">
+        <div class="kicker">What never to do</div>
+        <h2>These moves create confusion faster than they solve the incident.</h2>
+        <div class="card-grid">
+          <div class="card risk">
+            <h3>Do not patch queue files by hand</h3>
+            <p>Queues are runtime state, not the operator-facing source of truth.</p>
+          </div>
+          <div class="card risk">
+            <h3>Do not edit generated configs first</h3>
+            <p><code class="inline">serve-test.yaml</code> and <code class="inline">serve-live.yaml</code> are compiled outputs. Start with the route registry.</p>
+          </div>
+          <div class="card risk">
+            <h3>Do not fork a new route for a tiny fix</h3>
+            <p>If it is still the same workflow, update the existing route instead of inventing a duplicate.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

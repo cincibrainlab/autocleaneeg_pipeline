@@ -179,29 +179,16 @@ class ConfigScreen(Screen):
         """Deploy configuration from operator to deployed."""
         app: AutoCleanTUI = self.app  # type: ignore
 
-        if not app.state.workspace_dir:
-            self.notify("No workspace configured", severity="error")
-            return
-
-        if not app.state.config_valid:
-            self.notify("Cannot deploy invalid configuration", severity="error")
-            return
-
-        source = app.state.workspace_dir / f"serve-{app.state.mode}.yaml"
-        deploy_dir = app.state.workspace_dir / "deploy"
-        target = deploy_dir / f"serve-{app.state.mode}.yaml"
-
-        try:
-            deploy_dir.mkdir(parents=True, exist_ok=True)
-            import shutil
-            shutil.copy2(source, target)
-            self.notify(f"Configuration deployed to {target.name}", severity="information")
+        success, detail = app.deploy_current_config()
+        if success:
+            self.refresh_data()
+            self.notify(detail, severity="information")
             app._add_activity_event(
                 "info",
                 f"Configuration deployed: {app.state.mode}",
             )
-        except Exception as exc:
-            self.notify(f"Deploy failed: {exc}", severity="error")
+        else:
+            self.notify(detail, severity="error")
 
     def action_open_editor(self) -> None:
         """Open configuration in external editor."""
