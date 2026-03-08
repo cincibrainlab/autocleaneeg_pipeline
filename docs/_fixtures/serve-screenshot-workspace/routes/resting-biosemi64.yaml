@@ -1,0 +1,10 @@
+id: resting-biosemi64
+modes:
+- test
+enabled: true
+taskfile: /Users/ernie/Documents/irl_projects/260302-autocleaneeg/autocleaneeg_pipeline/docs/_fixtures/serve-screenshot-workspace/RestingEyesOpen.py
+montage: biosemi64
+ingestion_folders:
+- /Users/ernie/Documents/irl_projects/260302-autocleaneeg/autocleaneeg_pipeline/docs/_fixtures/serve-screenshot-workspace/incoming
+file_globs:
+- '*.set'
