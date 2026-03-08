@@ -75,6 +75,7 @@ class AppState:
     # Queue statistics
     pending_count: int = 0
     ready_count: int = 0
+    completed_count: int = 0
     running_count: int = 0
     failed_count: int = 0
 
@@ -85,6 +86,13 @@ class AppState:
     config_valid: bool = False
     config_errors: list[str] = field(default_factory=list)
     config_warnings: list[str] = field(default_factory=list)
+    service_started_at: Optional[datetime] = None
+    service_last_command: list[str] = field(default_factory=list)
+    service_last_config_source: str = ""
+    service_last_returncode: Optional[int] = None
+    last_completed_file: Optional[str] = None
+    last_failed_file: Optional[str] = None
+    last_failed_error: Optional[str] = None
 
 
 class NavSidebar(Container):
@@ -94,7 +102,7 @@ class NavSidebar(Container):
         yield ListView(
             ListItem(Label("Dashboard"), id="nav-dashboard"),
             ListItem(Label("Routes"), id="nav-routes"),
-            ListItem(Label("Queue"), id="nav-queue"),
+            ListItem(Label("Work Board"), id="nav-queue"),
             ListItem(Label("Activity"), id="nav-activity"),
             ListItem(Label("Config"), id="nav-config"),
             ListItem(Label("Service"), id="nav-service"),
@@ -109,12 +117,12 @@ class StatusBar(Static):
     service_running = reactive(False)
 
     def render(self) -> str:
-        mode_display = f"[bold cyan]{self.mode}[/]"
+        mode_display = "[bold cyan]Draft[/]" if self.mode == "test" else "[bold cyan]Production[/]"
         if self.service_running:
             status = "[bold green]Running[/]"
         else:
             status = "[dim]Stopped[/]"
-        return f"Mode: {mode_display}  |  Service: {status}"
+        return f"Lane: {mode_display}  |  Service: {status}"
 
 
 class MainContent(Container):
@@ -218,6 +226,21 @@ class AutoCleanTUI(App):
             return self.state.workspace_dir / "deploy" / f"serve-{self.state.mode}.yaml"
         return self.state.workspace_dir / f"serve-{self.state.mode}.yaml"
 
+    def get_mode_label(self, mode: Optional[str] = None) -> str:
+        """Return the operator-facing lane label."""
+        selected_mode = mode or self.state.mode
+        return "Draft" if selected_mode == "test" else "Production"
+
+    def get_service_config_source(self) -> tuple[str, Optional[Path]]:
+        """Describe which config source the current lane will use."""
+        deployed_config = self.get_config_path(deployed=True)
+        operator_config = self.get_config_path(deployed=False)
+        if deployed_config is not None and deployed_config.exists():
+            return ("deployed", deployed_config)
+        if operator_config is not None and operator_config.exists():
+            return ("operator", operator_config)
+        return ("missing", operator_config or deployed_config)
+
     def configure_service(self, params: dict[str, Any]) -> None:
         """Store service settings for the next launch."""
         self.state.service_settings = ServiceSettings(**params)
@@ -228,10 +251,9 @@ class AutoCleanTUI(App):
             raise ValueError("No workspace configured")
 
         settings = self.state.service_settings
-        deployed_config = self.get_config_path(deployed=True)
-        operator_config = self.get_config_path(deployed=False)
-        use_operator_config = deployed_config is None or not deployed_config.exists()
-        if use_operator_config and (operator_config is None or not operator_config.exists()):
+        config_source, config_path = self.get_service_config_source()
+        use_operator_config = config_source != "deployed"
+        if config_source == "missing" or config_path is None:
             raise FileNotFoundError("No serve configuration available")
 
         cmd = [
@@ -309,8 +331,12 @@ class AutoCleanTUI(App):
         if not queue_path.exists():
             self.state.pending_count = 0
             self.state.ready_count = 0
+            self.state.completed_count = 0
             self.state.running_count = 0
             self.state.failed_count = 0
+            self.state.last_completed_file = None
+            self.state.last_failed_file = None
+            self.state.last_failed_error = None
             return
 
         try:
@@ -320,23 +346,42 @@ class AutoCleanTUI(App):
             entries = queue.entries()
 
             pending = 0
+            processing = 0
             failed = 0
             processed = 0
+            latest_processed_at = ""
+            latest_failed_at = ""
 
-            for entry_data in entries.values():
+            self.state.last_completed_file = None
+            self.state.last_failed_file = None
+            self.state.last_failed_error = None
+            for path_str, entry_data in entries.items():
                 status = entry_data.get("status", "pending")
                 if status == "pending":
                     pending += 1
+                elif status == "processing":
+                    processing += 1
                 elif status == "failed":
                     failed += 1
+                    failed_at = str(entry_data.get("failed_at") or entry_data.get("added_at") or "")
+                    if failed_at >= latest_failed_at:
+                        latest_failed_at = failed_at
+                        self.state.last_failed_file = Path(path_str).name
+                        self.state.last_failed_error = entry_data.get("last_error")
                 elif status == "processed":
                     processed += 1
+                    processed_at = str(
+                        entry_data.get("processed_at") or entry_data.get("added_at") or ""
+                    )
+                    if processed_at >= latest_processed_at:
+                        latest_processed_at = processed_at
+                        self.state.last_completed_file = Path(path_str).name
 
             self.state.pending_count = pending
+            self.state.completed_count = processed
             self.state.failed_count = failed
-            # ready_count and running_count would come from live monitoring
             self.state.ready_count = 0
-            self.state.running_count = 1 if self.state.service_running else 0
+            self.state.running_count = processing
         except Exception:
             pass
 
@@ -382,8 +427,12 @@ class AutoCleanTUI(App):
 
     def _refresh_current_screen(self) -> None:
         """Refresh the current screen with updated data."""
-        if self.screen and hasattr(self.screen, "refresh_data"):
-            self.screen.refresh_data()
+        try:
+            screen = self.screen
+        except Exception:
+            return
+        if screen and hasattr(screen, "refresh_data"):
+            screen.refresh_data()
 
     def action_quit(self) -> None:
         """Quit the application, stopping file watcher first."""
@@ -430,7 +479,7 @@ class AutoCleanTUI(App):
         self._update_status_bar()
         self._load_workspace_data()
         self._refresh_current_screen()
-        self.notify(f"Switched to {self.state.mode} mode")
+        self.notify(f"Switched to {self.get_mode_label()} lane")
 
     def action_start_service(self) -> None:
         """Start the ingestion service."""
@@ -466,7 +515,7 @@ class AutoCleanTUI(App):
     def action_show_help(self) -> None:
         """Show help screen."""
         self.notify(
-            "F1: Help | D: Dashboard | R: Routes | U: Queue | "
+            "F1: Help | D: Dashboard | R: Routes | U: Work Board | "
             "A: Activity | C: Config | E: Service | Q: Quit"
         )
 
@@ -490,9 +539,14 @@ class AutoCleanTUI(App):
                 cli_path = Path(sys.executable).parent / "autocleaneeg-pipeline"
 
             cmd = self.build_service_command(cli_path)
+            config_source, _ = self.get_service_config_source()
             log_path = self.state.workspace_dir / f"serve-{self.state.mode}.log"
             self.state.service_log_path = log_path
             self.state.service_stop_requested = False
+            self.state.service_started_at = datetime.now()
+            self.state.service_last_command = list(cmd)
+            self.state.service_last_config_source = config_source
+            self.state.service_last_returncode = None
 
             with log_path.open("a", encoding="utf-8") as log_handle:
                 log_handle.write(
@@ -522,8 +576,11 @@ class AutoCleanTUI(App):
             stop_requested = self.state.service_stop_requested
             self.state.service_stop_requested = False
             self.state.service_running = False
+            self.state.service_started_at = None
             self.state.service_process = None
+            self.state.service_last_returncode = returncode
             self.call_from_thread(self._update_status_bar)
+            self.call_from_thread(self._refresh_current_screen)
             if stop_requested or returncode == 0:
                 self.call_from_thread(
                     self.notify, "Service stopped", severity="information"
@@ -545,6 +602,7 @@ class AutoCleanTUI(App):
         except Exception as exc:
             self.state.service_running = False
             self.state.service_stop_requested = False
+            self.state.service_started_at = None
             self.state.service_process = None
             self.call_from_thread(self._update_status_bar)
             self.call_from_thread(
@@ -577,6 +635,7 @@ class AutoCleanTUI(App):
         self.state.activity_log.insert(0, event)
         # Keep only last 100 events
         self.state.activity_log = self.state.activity_log[:100]
+        self._refresh_current_screen()
 
     def get_routes(self) -> list[Any]:
         """Get parsed routes from configuration."""
@@ -600,7 +659,7 @@ class AutoCleanTUI(App):
         except Exception:
             return []
 
-    def get_route_specs(self) -> list[dict[str, Any]]:
+    def get_route_specs(self, include_archived: bool = False) -> list[dict[str, Any]]:
         """Get route registry specs for operator-friendly management."""
         workspace_dir = self.state.workspace_dir
         if workspace_dir is None:
@@ -609,13 +668,16 @@ class AutoCleanTUI(App):
         try:
             from autoclean.utils.serve_routes import load_route_specs
 
-            return load_route_specs(workspace_dir)
+            routes = load_route_specs(workspace_dir)
+            if include_archived:
+                return routes
+            return [route for route in routes if not route.get("archived", False)]
         except Exception:
             return []
 
     def get_route_spec(self, route_id: str) -> Optional[dict[str, Any]]:
         """Get one route spec from the route registry."""
-        for route in self.get_route_specs():
+        for route in self.get_route_specs(include_archived=True):
             if route.get("id") == route_id:
                 return route
         return None
@@ -639,6 +701,7 @@ class AutoCleanTUI(App):
         self,
         *,
         route_id: str,
+        existing_route_id: Optional[str] = None,
         taskfile: str,
         montage: str,
         ingestion_folders: list[str],
@@ -658,6 +721,8 @@ class AutoCleanTUI(App):
         folders = [item.strip() for item in ingestion_folders if item.strip()]
         globs = [item.strip() for item in file_globs if item.strip()]
 
+        if existing_route_id is not None and route_id != existing_route_id:
+            return False, "Route ID is locked during edit. Create a new route instead."
         if not route_id:
             return False, "Route ID is required"
         if not taskfile:
@@ -691,6 +756,59 @@ class AutoCleanTUI(App):
         except Exception as exc:
             return False, str(exc)
 
+    def preview_route_spec(
+        self,
+        *,
+        taskfile: str,
+        montage: str,
+        ingestion_folders: list[str],
+        file_globs: list[str],
+        mode_scope: str,
+        recursive: bool,
+    ) -> dict[str, Any]:
+        """Resolve and preview route form data without saving."""
+        folders = [item.strip() for item in ingestion_folders if item.strip()]
+        globs = [item.strip() for item in file_globs if item.strip()]
+        preview: dict[str, Any] = {
+            "taskfile": taskfile.strip(),
+            "montage": montage.strip(),
+            "folders": [],
+            "mode_scope": "Draft + Production" if mode_scope == "both" else "Draft only",
+            "matches": [],
+            "warnings": [],
+        }
+        if taskfile.strip():
+            preview["taskfile"] = str(Path(taskfile.strip()).expanduser().resolve())
+            if not Path(preview["taskfile"]).exists():
+                preview["warnings"].append("Task file does not exist yet.")
+        else:
+            preview["warnings"].append("Task file is required.")
+        for folder in folders:
+            resolved = Path(folder).expanduser().resolve()
+            preview["folders"].append(str(resolved))
+            if not resolved.exists():
+                preview["warnings"].append(f"Folder missing: {resolved}")
+                continue
+            patterns = globs or ["*"]
+            for pattern in patterns:
+                iterator = resolved.rglob(pattern) if recursive else resolved.glob(pattern)
+                for match in iterator:
+                    if match.is_file():
+                        preview["matches"].append(str(match))
+                    if len(preview["matches"]) >= 5:
+                        break
+                if len(preview["matches"]) >= 5:
+                    break
+            if len(preview["matches"]) >= 5:
+                break
+        if not folders:
+            preview["warnings"].append("At least one ingestion folder is required.")
+        if not montage.strip():
+            preview["warnings"].append("Montage is required.")
+        if not preview["matches"]:
+            preview["warnings"].append("No matching files found in the selected folders yet.")
+        return preview
+
     def set_route_enabled(self, route_id: str, enabled: bool) -> bool:
         """Toggle a route in the route registry and recompile configs."""
         workspace_dir = self.state.workspace_dir
@@ -701,6 +819,29 @@ class AutoCleanTUI(App):
             from autoclean.utils.serve_routes import sync_route_registry, upsert_route_spec
 
             upsert_route_spec(workspace_dir, route_id, {"enabled": enabled})
+            sync_route_registry(workspace_dir)
+            self._load_config()
+            return True
+        except Exception:
+            return False
+
+    def set_route_archived(self, route_id: str, archived: bool) -> bool:
+        """Archive or restore a route and recompile configs."""
+        workspace_dir = self.state.workspace_dir
+        if workspace_dir is None:
+            return False
+
+        try:
+            from autoclean.utils.serve_routes import (
+                archive_route_spec,
+                sync_route_registry,
+                unarchive_route_spec,
+            )
+
+            if archived:
+                archive_route_spec(workspace_dir, route_id)
+            else:
+                unarchive_route_spec(workspace_dir, route_id)
             sync_route_registry(workspace_dir)
             self._load_config()
             return True
@@ -739,6 +880,42 @@ class AutoCleanTUI(App):
             return queue.entries()
         except Exception:
             return {}
+
+    def get_service_runtime_snapshot(self) -> dict[str, Any]:
+        """Return operator-facing runtime details for the service screen."""
+        config_source, config_path = self.get_service_config_source()
+        queue_path = self.get_queue_path()
+        uptime = None
+        if self.state.service_started_at is not None and self.state.service_running:
+            uptime_seconds = int((datetime.now() - self.state.service_started_at).total_seconds())
+            minutes, seconds = divmod(uptime_seconds, 60)
+            hours, minutes = divmod(minutes, 60)
+            uptime = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        return {
+            "lane": self.get_mode_label(),
+            "workspace": str(self.state.workspace_dir) if self.state.workspace_dir else "Not configured",
+            "queue_path": str(queue_path) if queue_path else "Unavailable",
+            "config_source": self.state.service_last_config_source or config_source,
+            "config_path": str(config_path) if config_path else "Unavailable",
+            "log_path": str(self.state.service_log_path) if self.state.service_log_path else "Unavailable",
+            "pid": self.state.service_process.pid if self.state.service_process else None,
+            "uptime": uptime,
+            "command": " ".join(self.state.service_last_command) if self.state.service_last_command else "Not started yet",
+            "completed": self.state.last_completed_file,
+            "failed": self.state.last_failed_file,
+            "failed_error": self.state.last_failed_error,
+        }
+
+    def read_service_log_tail(self, line_count: int = 12) -> str:
+        """Read the tail of the current service log file."""
+        log_path = self.state.service_log_path
+        if log_path is None or not log_path.exists():
+            return ""
+        try:
+            lines = log_path.read_text(encoding="utf-8").splitlines()
+            return "\n".join(lines[-line_count:])
+        except Exception:
+            return ""
 
     def get_config_yaml(self) -> str:
         """Get the raw YAML configuration content."""

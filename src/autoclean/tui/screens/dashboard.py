@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
 from textual.screen import Screen
-from textual.widgets import Button, Label, Static
+from textual.widgets import Button, Static
 
 if TYPE_CHECKING:
     from autoclean.tui.app import AutoCleanTUI
@@ -38,7 +38,6 @@ class StatBox(Static):
         yield Static(self.label_text, classes="stat-label")
 
     def watch_value(self, value: int) -> None:
-        """Update display when value changes."""
         try:
             stat_value = self.query_one(".stat-value", Static)
             stat_value.update(str(value))
@@ -85,61 +84,52 @@ class DashboardScreen(Screen):
 
     def compose(self) -> ComposeResult:
         with Vertical():
-            # Section header
-            yield Static("Queue Statistics", classes="section-header")
+            yield Static("Lane Overview", classes="section-header")
 
-            # Stats row
             with Horizontal(classes="stats-container"):
-                yield StatBox(0, "Pending", "pending", id="stat-pending", classes="stat-box")
-                yield StatBox(0, "Ready", "ready", id="stat-ready", classes="stat-box")
+                yield StatBox(0, "Waiting", "pending", id="stat-pending", classes="stat-box")
                 yield StatBox(0, "Running", "running", id="stat-running", classes="stat-box")
-                yield StatBox(0, "Failed", "failed", id="stat-failed", classes="stat-box")
+                yield StatBox(0, "Completed", "ready", id="stat-completed", classes="stat-box")
+                yield StatBox(0, "Needs attention", "failed", id="stat-failed", classes="stat-box")
 
-            # Quick actions
             with Horizontal(classes="service-controls"):
                 yield Button("Start Service", id="btn-start", variant="success")
                 yield Button("Stop Service", id="btn-stop", variant="error")
                 yield Button("Validate Config", id="btn-validate", variant="primary")
 
-            # Activity section
             yield Static("Recent Activity", classes="section-header")
 
             with Vertical(id="activity-feed", classes="activity-container"):
                 yield Static("No recent activity", classes="empty-state", id="empty-activity")
 
     def on_mount(self) -> None:
-        """Initialize dashboard data."""
+        self.set_interval(2.0, self.refresh_data)
         self.refresh_data()
 
     def refresh_data(self) -> None:
-        """Refresh dashboard data from app state."""
         app: AutoCleanTUI = self.app  # type: ignore
 
-        # Update stats
         try:
             pending_box = self.query_one("#stat-pending", StatBox)
             pending_box.value = app.state.pending_count
 
-            ready_box = self.query_one("#stat-ready", StatBox)
-            ready_box.value = app.state.ready_count
-
             running_box = self.query_one("#stat-running", StatBox)
             running_box.value = app.state.running_count
+
+            completed_box = self.query_one("#stat-completed", StatBox)
+            completed_box.value = app.state.completed_count
 
             failed_box = self.query_one("#stat-failed", StatBox)
             failed_box.value = app.state.failed_count
         except Exception:
             pass
 
-        # Update activity feed
         self._update_activity_feed()
 
     def _update_activity_feed(self) -> None:
-        """Update the activity feed with recent events."""
         app: AutoCleanTUI = self.app  # type: ignore
         feed = self.query_one("#activity-feed", Vertical)
 
-        # Clear existing items
         for child in list(feed.children):
             child.remove()
 
@@ -147,7 +137,6 @@ class DashboardScreen(Screen):
             feed.mount(Static("No recent activity", classes="empty-state"))
             return
 
-        # Show last 10 events
         for event in app.state.activity_log[:10]:
             timestamp = event.timestamp.strftime("%H:%M:%S")
             item = ActivityItem(timestamp, event.event_type, event.message)
@@ -155,7 +144,6 @@ class DashboardScreen(Screen):
             feed.mount(item)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle button presses."""
         button_id = event.button.id
 
         if button_id == "btn-start":
@@ -166,20 +154,16 @@ class DashboardScreen(Screen):
             self.action_validate_config()
 
     def action_start_service(self) -> None:
-        """Start the ingestion service."""
         self.app.action_start_service()
 
     def action_stop_service(self) -> None:
-        """Stop the ingestion service."""
         self.app.action_stop_service()
 
     def action_validate_config(self) -> None:
-        """Validate configuration."""
         self.app.action_validate_config()
         self.refresh_data()
 
     def action_refresh(self) -> None:
-        """Refresh dashboard data."""
         app: AutoCleanTUI = self.app  # type: ignore
         app._load_workspace_data()
         self.refresh_data()

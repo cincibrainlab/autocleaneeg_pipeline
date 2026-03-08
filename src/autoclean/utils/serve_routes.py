@@ -16,6 +16,7 @@ _ROUTE_SPEC_KEYS = (
     "id",
     "modes",
     "enabled",
+    "archived",
     "priority",
     "taskfile",
     "montage",
@@ -132,12 +133,15 @@ def _clean_route_spec(route_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     spec = dict(payload)
     spec["id"] = normalize_route_id(route_id)
     spec["modes"] = _normalize_modes(spec.get("modes"))
+    archived = bool(spec.get("archived", False))
 
     for key in ("taskfile", "montage"):
         if not spec.get(key):
             raise ValueError(f"Route {route_id} missing required field: {key}")
     if not spec.get("ingestion_folders"):
         raise ValueError(f"Route {route_id} missing required field: ingestion_folders")
+    if archived:
+        spec["enabled"] = False
 
     cleaned: dict[str, Any] = {}
     for key in _ROUTE_SPEC_KEYS:
@@ -145,6 +149,8 @@ def _clean_route_spec(route_id: str, payload: dict[str, Any]) -> dict[str, Any]:
             continue
         value = spec[key]
         if value is None:
+            continue
+        if key == "archived" and value is False:
             continue
         if key in ("ingestion_excludes", "file_globs") and value == []:
             continue
@@ -216,6 +222,31 @@ def promote_route_spec(workspace_dir: Path, route_id: str) -> tuple[Path, dict[s
     return upsert_route_spec(workspace_dir, route_id, {"modes": modes})
 
 
+def set_route_archived(
+    workspace_dir: Path, route_id: str, archived: bool
+) -> tuple[Path, dict[str, Any], str]:
+    """Archive or unarchive an existing route spec."""
+    path = route_spec_path(workspace_dir, route_id)
+    if not path.exists():
+        raise FileNotFoundError(f"Route not found: {normalize_route_id(route_id)}")
+    updates: dict[str, Any] = {"archived": archived}
+    if archived:
+        updates["enabled"] = False
+    return upsert_route_spec(workspace_dir, route_id, updates)
+
+
+def archive_route_spec(workspace_dir: Path, route_id: str) -> tuple[Path, dict[str, Any], str]:
+    """Archive an existing route spec."""
+    return set_route_archived(workspace_dir, route_id, True)
+
+
+def unarchive_route_spec(
+    workspace_dir: Path, route_id: str
+) -> tuple[Path, dict[str, Any], str]:
+    """Unarchive an existing route spec."""
+    return set_route_archived(workspace_dir, route_id, False)
+
+
 def _compiled_route(route: dict[str, Any]) -> dict[str, Any]:
     compiled: dict[str, Any] = {}
     for key in _COMPILED_ROUTE_KEYS:
@@ -255,7 +286,11 @@ def sync_route_registry(
     for mode in modes:
         config_path = workspace_dir / f"serve-{mode}.yaml"
         base_config = _load_yaml_mapping(config_path)
-        selected = [route for route in route_specs if mode in _route_modes(route)]
+        selected = [
+            route
+            for route in route_specs
+            if not route.get("archived", False) and mode in _route_modes(route)
+        ]
         payload = _render_compiled_config(base_config, mode, selected)
         changed = True
         if config_path.exists():
