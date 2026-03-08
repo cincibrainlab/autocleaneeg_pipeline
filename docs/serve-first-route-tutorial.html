@@ -445,22 +445,20 @@
           </div>
           <div class="step">
             <div class="step-number">02</div>
-            <h3>Run the upsert command</h3>
-            <p>This creates or updates one small route spec and recompiles the generated Draft and Production configs.</p>
+            <h3>Open the TUI route form</h3>
+            <p>Open the TUI, go to Routes, press <strong>N</strong>, fill in the route, and use Preview before Save. This is now the primary operator path.</p>
           </div>
         </div>
-        <div class="terminal">
-          <div class="terminal-head">Terminal</div>
-          <pre>autocleaneeg-pipeline serve route upsert \
-  resting-biosemi64 \
-  --path /path/to/serve-workspace \
-  --mode test \
-  --taskfile /path/to/RestingEyesOpen.py \
-  --montage biosemi64 \
-  --ingestion-folder /data/incoming/resting \
-  --file-glob "*.set" \
-  --recursive \
-  --enabled</pre>
+        <div class="note good">
+          <h3>TUI-first route creation</h3>
+          <ol>
+            <li>Open <code class="inline">autocleaneeg-pipeline serve tui --path /path/to/serve-workspace --mode test</code>.</li>
+            <li>Go to <strong>Routes</strong>.</li>
+            <li>Press <strong>N</strong>.</li>
+            <li>Fill in route ID, task file, montage, folders, and file globs.</li>
+            <li>Press <strong>Preview</strong> to verify resolved paths and sample matching files.</li>
+            <li>Press <strong>Save Route</strong>.</li>
+          </ol>
         </div>
         <div class="lane-grid" style="margin-top: 16px;">
           <div class="note good">
@@ -473,8 +471,13 @@
           </div>
           <div class="note watch">
             <h3>Optional TUI check</h3>
-            <p>Open the TUI, go to Routes, and confirm the route appears in Draft. Use <strong>Enter</strong> to inspect details.</p>
+            <p>Confirm the route appears in Draft. Use <strong>Enter</strong> to inspect details, <strong>E</strong> to edit safely, and <strong>X</strong> later if the route should be archived.</p>
           </div>
+        </div>
+        <div class="note good" style="margin-top: 16px;">
+          <h3>Actual route screen capture</h3>
+          <img src="images/serve-routes-screen.svg" alt="Captured AutoClean TUI routes screen" style="width: 100%; border-radius: 18px; border: 1px solid rgba(0,0,0,0.08);" />
+          <p class="ui-caption">This is a real captured screen from the current route-first TUI, using a stable example workspace.</p>
         </div>
       </section>
 
@@ -482,11 +485,9 @@
         <div class="kicker">3. Validate the Draft route</div>
         <h2>Confirm the generated Draft config is usable.</h2>
         <div class="route-board">
-          <div class="terminal">
-            <div class="terminal-head">Terminal</div>
-            <pre>autocleaneeg-pipeline serve validate \
-  --path /path/to/serve-workspace \
-  --mode test</pre>
+          <div class="note good">
+            <h3>Use the built-in validation action</h3>
+            <p>From the TUI, press <strong>V</strong> or choose <strong>Validate Config</strong> from the dashboard. Validation still checks the generated Draft config, but you no longer need to start from the shell to use it.</p>
           </div>
           <div class="note watch">
             <h3>What good looks like</h3>
@@ -499,7 +500,7 @@
         </div>
         <div class="note risk" style="margin-top: 16px;">
           <h3>If validation fails</h3>
-          <p>Do not promote anything yet. Fix the route definition first, then rerun the same <code class="inline">serve route upsert</code> command. Idempotent setup means repeating that command is expected and safe.</p>
+          <p>Do not promote anything yet. Fix the route definition in the TUI, use Preview again, and save. Idempotent setup means repeating that edit flow is expected and safe.</p>
         </div>
       </section>
 
@@ -510,14 +511,9 @@
           The safest first pass is a Draft run with limits. The goal is to prove the route, not to let it run forever on day one.
         </p>
         <div class="step-grid">
-          <div class="terminal">
-            <div class="terminal-head">Terminal</div>
-            <pre>autocleaneeg-pipeline serve run \
-  --path /path/to/serve-workspace \
-  --mode test \
-  --max-cycles 1 \
-  --idle-limit 1 \
-  --dry-run</pre>
+          <div class="note good">
+            <h3>Use the Service screen</h3>
+            <p>Switch to <strong>Service</strong>, keep the lane on Draft, turn on <strong>Dry Run</strong>, set low limits such as one cycle and one idle limit, then start the service from there.</p>
           </div>
           <div class="note good">
             <h3>What to verify</h3>
@@ -534,44 +530,15 @@
             <li><strong>N</strong> opens the create-route flow</li>
             <li><strong>E</strong> edits the selected route</li>
             <li><strong>T</strong> enables or disables the selected route</li>
+            <li><strong>X</strong> archives or restores the selected route</li>
             <li><strong>P</strong> promotes the selected route to Production</li>
             <li><strong>S</strong> syncs the generated configs after route updates</li>
           </ul>
         </div>
         <div class="note good" style="margin-top: 16px;">
-          <h3>Screenshot-style example of the current route screen</h3>
-          <div class="ui-shot">
-            <div class="ui-bar">
-              <span class="ui-dot"></span><span class="ui-dot"></span><span class="ui-dot"></span>
-              AutoClean TUI · Routes
-            </div>
-            <div class="ui-body">
-              <div class="ui-side">
-                <h4>Navigation</h4>
-                <div class="ui-nav">Dashboard</div>
-                <div class="ui-nav active">Routes</div>
-                <div class="ui-nav">Queue</div>
-                <div class="ui-nav">Activity</div>
-                <div class="ui-nav">Config</div>
-                <div class="ui-nav">Service</div>
-              </div>
-              <div class="ui-main">
-                <h4>Configured routes</h4>
-                <div class="ui-table">
-                  <div class="ui-row header">
-                    <div>ID</div><div>Draft</div><div>Prod</div><div>On</div><div>Montage</div>
-                  </div>
-                  <div class="ui-row selected">
-                    <div>resting-biosemi64</div><div>Yes</div><div>-</div><div>Yes</div><div>biosemi64</div>
-                  </div>
-                </div>
-                <div class="ui-detail">
-                  N = new · E = edit · Enter = details · T = enable/disable · P = promote · S = sync
-                </div>
-              </div>
-            </div>
-          </div>
-          <p class="ui-caption">This is a faithful visual of the current route screen, not a pixel-perfect capture. The exact spacing may vary, but these are the controls and concepts that matter.</p>
+          <h3>Actual service screen capture</h3>
+          <img src="images/serve-service-screen.svg" alt="Captured AutoClean TUI service screen" style="width: 100%; border-radius: 18px; border: 1px solid rgba(0,0,0,0.08);" />
+          <p class="ui-caption">This is a real captured service screen showing the command, config source, queue path, log path, and recent service output.</p>
         </div>
       </section>
 
@@ -579,11 +546,9 @@
         <div class="kicker">5. Promote the route to Production</div>
         <h2>Promote the same route. Do not rebuild it from scratch.</h2>
         <div class="route-board">
-          <div class="terminal">
-            <div class="terminal-head">Terminal</div>
-            <pre>autocleaneeg-pipeline serve route promote \
-  resting-biosemi64 \
-  --path /path/to/serve-workspace</pre>
+          <div class="note good">
+            <h3>Use the route action</h3>
+            <p>From Routes, select the route and press <strong>P</strong>. The same route moves into Production. You are not cloning it, renaming it, or creating a second workflow.</p>
           </div>
           <div class="note good">
             <h3>What should change</h3>
@@ -606,7 +571,7 @@
           </div>
           <div class="note watch">
             <h3>Validation changes</h3>
-            <p>If a folder, file glob, or task changes, rerun <code class="inline">serve route upsert</code>, then validate again.</p>
+            <p>If a folder, file glob, or task changes, edit the route in the TUI, preview it again, save it, then validate the lane before you trust the change.</p>
           </div>
           <div class="note risk">
             <h3>What not to do</h3>

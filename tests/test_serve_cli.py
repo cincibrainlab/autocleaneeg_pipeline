@@ -251,6 +251,102 @@ class TestServeRouteCommands:
         assert route_spec["modes"] == ["test", "live"]
         assert serve_live["automations"][0]["id"] == "resting-biosemi64"
 
+    def test_route_archive_hides_route_from_compiled_configs(self, tmp_path: Path) -> None:
+        """Archiving a route should remove it from generated configs without deleting the spec."""
+        from autoclean.cli import cmd_serve_route_archive, cmd_serve_route_upsert
+
+        workspace = create_minimal_serve_workspace(tmp_path)
+        taskfile = tmp_path / "TaskFile.py"
+        taskfile.write_text("print('ok')\n", encoding="utf-8")
+        watch_dir = tmp_path / "incoming"
+        watch_dir.mkdir()
+
+        upsert_args = MagicMock()
+        upsert_args.path = workspace
+        upsert_args.route_id = "resting-biosemi64"
+        upsert_args.mode = "both"
+        upsert_args.taskfile = str(taskfile)
+        upsert_args.montage = "biosemi64"
+        upsert_args.version = None
+        upsert_args.ingestion_folders = [str(watch_dir)]
+        upsert_args.ingestion_excludes = None
+        upsert_args.file_globs = ["*.set"]
+        upsert_args.priority = None
+        upsert_args.automation_root = None
+        upsert_args.workspace_name = None
+        upsert_args.sentinel_ext = None
+        upsert_args.enabled = True
+        upsert_args.recursive = True
+
+        assert cmd_serve_route_upsert(upsert_args) == 0
+
+        archive_args = MagicMock()
+        archive_args.path = workspace
+        archive_args.route_id = "resting-biosemi64"
+
+        assert cmd_serve_route_archive(archive_args) == 0
+
+        import yaml
+
+        route_spec = yaml.safe_load(
+            (workspace / "routes" / "resting-biosemi64.yaml").read_text(encoding="utf-8")
+        )
+        serve_test = yaml.safe_load((workspace / "serve-test.yaml").read_text(encoding="utf-8"))
+        serve_live = yaml.safe_load((workspace / "serve-live.yaml").read_text(encoding="utf-8"))
+
+        assert route_spec["archived"] is True
+        assert route_spec["enabled"] is False
+        assert serve_test["automations"] == []
+        assert serve_live["automations"] == []
+
+    def test_route_list_hides_archived_by_default(self, tmp_path: Path) -> None:
+        """Archived routes should only appear when include_archived is requested."""
+        from autoclean.cli import cmd_serve_route_archive, cmd_serve_route_list, cmd_serve_route_upsert
+
+        workspace = create_minimal_serve_workspace(tmp_path)
+        taskfile = tmp_path / "TaskFile.py"
+        taskfile.write_text("print('ok')\n", encoding="utf-8")
+        watch_dir = tmp_path / "incoming"
+        watch_dir.mkdir()
+
+        upsert_args = MagicMock()
+        upsert_args.path = workspace
+        upsert_args.route_id = "resting-biosemi64"
+        upsert_args.mode = "test"
+        upsert_args.taskfile = str(taskfile)
+        upsert_args.montage = "biosemi64"
+        upsert_args.version = None
+        upsert_args.ingestion_folders = [str(watch_dir)]
+        upsert_args.ingestion_excludes = None
+        upsert_args.file_globs = ["*.set"]
+        upsert_args.priority = None
+        upsert_args.automation_root = None
+        upsert_args.workspace_name = None
+        upsert_args.sentinel_ext = None
+        upsert_args.enabled = True
+        upsert_args.recursive = True
+        assert cmd_serve_route_upsert(upsert_args) == 0
+
+        archive_args = MagicMock()
+        archive_args.path = workspace
+        archive_args.route_id = "resting-biosemi64"
+        assert cmd_serve_route_archive(archive_args) == 0
+
+        list_args = MagicMock()
+        list_args.path = workspace
+        list_args.mode = None
+        list_args.include_archived = False
+        with patch("autoclean.cli.message") as mock_message:
+            assert cmd_serve_route_list(list_args) == 0
+        emitted = " ".join(call.args[1] for call in mock_message.call_args_list)
+        assert "resting-biosemi64" not in emitted
+
+        list_args.include_archived = True
+        with patch("autoclean.cli.message") as mock_message:
+            assert cmd_serve_route_list(list_args) == 0
+        emitted = " ".join(call.args[1] for call in mock_message.call_args_list)
+        assert "resting-biosemi64" in emitted
+
 
 class TestServeTUICommand:
     """Tests for serve tui command edge cases."""

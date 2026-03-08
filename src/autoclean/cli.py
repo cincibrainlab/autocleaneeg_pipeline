@@ -2237,6 +2237,11 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         default=None,
         help="Filter routes by mode",
     )
+    serve_route_list.add_argument(
+        "--include-archived",
+        action="store_true",
+        help="Include archived routes in the list output",
+    )
 
     serve_route_upsert = serve_route_subparsers.add_parser(
         "upsert", help="Create or update one route spec", add_help=False
@@ -2347,6 +2352,30 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     attach_rich_help(serve_route_promote)
     serve_route_promote.add_argument("route_id", help="Stable route id")
     serve_route_promote.add_argument(
+        "--path",
+        type=Path,
+        default=None,
+        help="Optional serve workspace path",
+    )
+
+    serve_route_archive = serve_route_subparsers.add_parser(
+        "archive", help="Archive one route spec", add_help=False
+    )
+    attach_rich_help(serve_route_archive)
+    serve_route_archive.add_argument("route_id", help="Stable route id")
+    serve_route_archive.add_argument(
+        "--path",
+        type=Path,
+        default=None,
+        help="Optional serve workspace path",
+    )
+
+    serve_route_unarchive = serve_route_subparsers.add_parser(
+        "unarchive", help="Restore one archived route spec", add_help=False
+    )
+    attach_rich_help(serve_route_unarchive)
+    serve_route_unarchive.add_argument("route_id", help="Stable route id")
+    serve_route_unarchive.add_argument(
         "--path",
         type=Path,
         default=None,
@@ -10410,6 +10439,10 @@ def cmd_serve_route(args) -> int:
         return cmd_serve_route_upsert(args)
     if action == "promote":
         return cmd_serve_route_promote(args)
+    if action == "archive":
+        return cmd_serve_route_archive(args)
+    if action == "unarchive":
+        return cmd_serve_route_unarchive(args)
     if action == "sync":
         return cmd_serve_route_sync(args)
     message("error", f"Unknown serve route action: {action}")
@@ -10431,10 +10464,13 @@ def cmd_serve_route_list(args) -> int:
         message("error", f"Failed to load route specs: {exc}")
         return 1
 
-    filtered = [
-        spec for spec in route_specs
-        if args.mode is None or args.mode in spec.get("modes", [])
-    ]
+    filtered = []
+    for spec in route_specs:
+        if args.mode is not None and args.mode not in spec.get("modes", []):
+            continue
+        if not args.include_archived and spec.get("archived", False):
+            continue
+        filtered.append(spec)
     if not filtered:
         message("info", "No route specs found")
         return 0
@@ -10443,10 +10479,12 @@ def cmd_serve_route_list(args) -> int:
     for spec in filtered:
         modes = ",".join(spec.get("modes", []))
         folders = len(spec.get("ingestion_folders", []))
+        state = "archived" if spec.get("archived", False) else "active"
+        enabled = "enabled" if spec.get("enabled", True) else "disabled"
         message(
             "info",
-            f"- {spec['id']} [{modes}] taskfile={spec['taskfile']} "
-            f"montage={spec['montage']} folders={folders}",
+            f"- {spec['id']} [{modes}] {state}/{enabled} "
+            f"taskfile={spec['taskfile']} montage={spec['montage']} folders={folders}",
         )
     return 0
 
@@ -10496,6 +10534,48 @@ def cmd_serve_route_promote(args) -> int:
         "success",
         f"✓ Route {status}: {spec['id']} now targets {', '.join(spec['modes'])} -> {route_path}",
     )
+    _print_route_sync(sync_results)
+    return 0
+
+
+def cmd_serve_route_archive(args) -> int:
+    """Archive an existing route and sync compiled serve YAML."""
+    workspace_dir = _resolve_serve_workspace_dir(args.path)
+    if workspace_dir is None:
+        message("error", "No serve workspace configured")
+        return 1
+
+    try:
+        from autoclean.utils.serve_routes import archive_route_spec, sync_route_registry
+
+        route_path, spec, status = archive_route_spec(workspace_dir, args.route_id)
+        sync_results = sync_route_registry(workspace_dir)
+    except Exception as exc:
+        message("error", f"Failed to archive route: {exc}")
+        return 1
+
+    message("success", f"✓ Route {status}: {spec['id']} archived -> {route_path}")
+    _print_route_sync(sync_results)
+    return 0
+
+
+def cmd_serve_route_unarchive(args) -> int:
+    """Restore an archived route and sync compiled serve YAML."""
+    workspace_dir = _resolve_serve_workspace_dir(args.path)
+    if workspace_dir is None:
+        message("error", "No serve workspace configured")
+        return 1
+
+    try:
+        from autoclean.utils.serve_routes import sync_route_registry, unarchive_route_spec
+
+        route_path, spec, status = unarchive_route_spec(workspace_dir, args.route_id)
+        sync_results = sync_route_registry(workspace_dir)
+    except Exception as exc:
+        message("error", f"Failed to unarchive route: {exc}")
+        return 1
+
+    message("success", f"✓ Route {status}: {spec['id']} restored -> {route_path}")
     _print_route_sync(sync_results)
     return 0
 

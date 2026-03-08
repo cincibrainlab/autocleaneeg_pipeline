@@ -116,3 +116,41 @@ def test_sync_route_registry_compiles_mode_specific_configs(tmp_path: Path) -> N
         "draft-only",
     ]
     assert [route["id"] for route in live_config["automations"]] == ["draft-and-live"]
+
+
+def test_archived_routes_are_excluded_from_compiled_configs(tmp_path: Path) -> None:
+    """Archived routes should remain in the registry but stay out of compiled configs."""
+    from autoclean.utils.serve_routes import archive_route_spec, sync_route_registry, upsert_route_spec
+
+    workspace = create_route_workspace(tmp_path)
+    taskfile = tmp_path / "TaskFile.py"
+    taskfile.write_text("print('ok')\n", encoding="utf-8")
+    watch_dir = tmp_path / "incoming"
+    watch_dir.mkdir()
+
+    upsert_route_spec(
+        workspace,
+        "retired-route",
+        {
+            "taskfile": str(taskfile.resolve()),
+            "montage": "biosemi64",
+            "ingestion_folders": [str(watch_dir.resolve())],
+            "modes": ["test", "live"],
+            "enabled": True,
+        },
+    )
+    archive_route_spec(workspace, "retired-route")
+
+    results = sync_route_registry(workspace)
+    route_spec = yaml.safe_load(
+        (workspace / "routes" / "retired-route.yaml").read_text(encoding="utf-8")
+    )
+    test_config = yaml.safe_load((workspace / "serve-test.yaml").read_text(encoding="utf-8"))
+    live_config = yaml.safe_load((workspace / "serve-live.yaml").read_text(encoding="utf-8"))
+
+    assert route_spec["archived"] is True
+    assert route_spec["enabled"] is False
+    assert results["test"]["route_count"] == 0
+    assert results["live"]["route_count"] == 0
+    assert test_config["automations"] == []
+    assert live_config["automations"] == []

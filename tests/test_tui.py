@@ -27,6 +27,7 @@ class TestAppState:
         assert state.service_log_path is None
         assert state.pending_count == 0
         assert state.ready_count == 0
+        assert state.completed_count == 0
         assert state.running_count == 0
         assert state.failed_count == 0
         assert state.activity_log == []
@@ -221,6 +222,40 @@ class TestAutoCleanTUIHelpers:
         assert len(result) == 1
         assert result[0]["id"] == "resting-biosemi64"
 
+    def test_get_route_specs_hides_archived_by_default(self, tmp_path: Path) -> None:
+        """Archived routes should be hidden unless explicitly requested."""
+        from autoclean.utils.serve_routes import archive_route_spec, upsert_route_spec
+
+        workspace = tmp_path
+        (workspace / "serve-test.yaml").write_text(
+            "mode: test\nruntime: runtimes/test\nautomation_mode: true\nautomations: []\n",
+            encoding="utf-8",
+        )
+        (workspace / "serve-live.yaml").write_text(
+            "mode: live\nruntime: runtimes/live\nautomation_mode: true\nautomations: []\n",
+            encoding="utf-8",
+        )
+        taskfile = workspace / "TaskFile.py"
+        taskfile.write_text("print('ok')\n", encoding="utf-8")
+        incoming = workspace / "incoming"
+        incoming.mkdir()
+
+        upsert_route_spec(
+            workspace,
+            "resting-biosemi64",
+            {
+                "taskfile": str(taskfile.resolve()),
+                "montage": "biosemi64",
+                "ingestion_folders": [str(incoming.resolve())],
+                "modes": ["test"],
+            },
+        )
+        archive_route_spec(workspace, "resting-biosemi64")
+
+        app = AutoCleanTUI(workspace_path=workspace)
+        assert app.get_route_specs() == []
+        assert len(app.get_route_specs(include_archived=True)) == 1
+
     def test_set_route_enabled_updates_registry(self, tmp_path: Path) -> None:
         """Test toggling route enabled status through the app helper."""
         import yaml
@@ -298,6 +333,49 @@ class TestAutoCleanTUIHelpers:
         compiled = yaml.safe_load((workspace / "serve-live.yaml").read_text(encoding="utf-8"))
         assert compiled["automations"][0]["id"] == "resting-biosemi64"
 
+    def test_set_route_archived_updates_registry(self, tmp_path: Path) -> None:
+        """Test archiving a route through the app helper."""
+        import yaml
+
+        from autoclean.utils.serve_routes import sync_route_registry, upsert_route_spec
+
+        workspace = tmp_path
+        (workspace / "serve-test.yaml").write_text(
+            "mode: test\nruntime: runtimes/test\nautomation_mode: true\nautomations: []\n",
+            encoding="utf-8",
+        )
+        (workspace / "serve-live.yaml").write_text(
+            "mode: live\nruntime: runtimes/live\nautomation_mode: true\nautomations: []\n",
+            encoding="utf-8",
+        )
+        taskfile = workspace / "TaskFile.py"
+        taskfile.write_text("print('ok')\n", encoding="utf-8")
+        incoming = workspace / "incoming"
+        incoming.mkdir()
+
+        upsert_route_spec(
+            workspace,
+            "resting-biosemi64",
+            {
+                "taskfile": str(taskfile.resolve()),
+                "montage": "biosemi64",
+                "ingestion_folders": [str(incoming.resolve())],
+                "modes": ["test", "live"],
+                "enabled": True,
+            },
+        )
+        sync_route_registry(workspace)
+
+        app = AutoCleanTUI(workspace_path=workspace)
+        assert app.set_route_archived("resting-biosemi64", True) is True
+
+        compiled = yaml.safe_load((workspace / "serve-test.yaml").read_text(encoding="utf-8"))
+        route_spec = yaml.safe_load(
+            (workspace / "routes" / "resting-biosemi64.yaml").read_text(encoding="utf-8")
+        )
+        assert compiled["automations"] == []
+        assert route_spec["archived"] is True
+
     def test_get_queue_entries_no_workspace(self) -> None:
         """Test getting queue entries when no workspace is set."""
         app = AutoCleanTUI()
@@ -374,6 +452,7 @@ class TestAutoCleanTUIStateLoading:
         app._load_queue()
 
         assert app.state.pending_count == 2
+        assert app.state.completed_count == 1
         assert app.state.failed_count == 1
 
     def test_load_config_no_workspace(self) -> None:
@@ -471,6 +550,48 @@ class TestAutoCleanTUIActions:
         assert "--no-watch" in cmd
         assert "--no-sentinel" in cmd
         assert "--use-operator" in cmd
+
+    def test_preview_route_spec_resolves_paths(self, tmp_path: Path) -> None:
+        """Preview should resolve folders and show sample matches without saving."""
+        app = AutoCleanTUI(workspace_path=tmp_path, mode="test")
+        taskfile = tmp_path / "TaskFile.py"
+        taskfile.write_text("print('ok')\n", encoding="utf-8")
+        incoming = tmp_path / "incoming"
+        incoming.mkdir()
+        sample = incoming / "example.set"
+        sample.write_text("data", encoding="utf-8")
+
+        preview = app.preview_route_spec(
+            taskfile=str(taskfile),
+            montage="biosemi64",
+            ingestion_folders=[str(incoming)],
+            file_globs=["*.set"],
+            mode_scope="test",
+            recursive=True,
+        )
+
+        assert str(taskfile.resolve()) == preview["taskfile"]
+        assert str(incoming.resolve()) in preview["folders"]
+        assert str(sample.resolve()) in preview["matches"]
+
+    def test_service_runtime_snapshot_uses_operator_labels(self, tmp_path: Path) -> None:
+        """Service snapshot should expose Draft/Production labels and command details."""
+        app = AutoCleanTUI(workspace_path=tmp_path, mode="live")
+        (tmp_path / "serve-live.yaml").write_text("mode: live\nruntime: runtimes/live\n")
+        app.state.service_last_command = [
+            "/tmp/autocleaneeg-pipeline",
+            "serve",
+            "run",
+            "--mode",
+            "live",
+        ]
+        app.state.service_last_config_source = "operator"
+        app.state.service_log_path = tmp_path / "serve-live.log"
+
+        snapshot = app.get_service_runtime_snapshot()
+
+        assert snapshot["lane"] == "Production"
+        assert "serve run" in snapshot["command"]
 
 
 class TestMainEntry:
@@ -624,7 +745,7 @@ class TestStatusBar:
         bar.service_running = False
 
         rendered = bar.render()
-        assert "test" in rendered
+        assert "Draft" in rendered
         assert "Stopped" in rendered
 
     def test_status_bar_render_running(self) -> None:
@@ -636,7 +757,7 @@ class TestStatusBar:
         bar.service_running = True
 
         rendered = bar.render()
-        assert "live" in rendered
+        assert "Production" in rendered
         assert "Running" in rendered
 
 

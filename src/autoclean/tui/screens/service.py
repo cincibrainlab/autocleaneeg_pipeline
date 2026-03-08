@@ -25,109 +25,68 @@ class ServiceScreen(Screen):
     def compose(self) -> ComposeResult:
         with Vertical(classes="service-container"):
             yield Static("Service Control", classes="section-header")
-
-            # Service status
             yield Static("", id="service-status", classes="service-status")
 
-            # Control buttons
             with Horizontal(classes="service-controls"):
                 yield Button("Start Service", id="btn-start", variant="success")
                 yield Button("Stop Service", id="btn-stop", variant="error")
-                yield Button("Toggle Mode", id="btn-toggle-mode", variant="default")
+                yield Button("Switch Lane", id="btn-toggle-mode", variant="default")
 
-            # Parameters section
-            yield Static("Service Parameters", classes="section-header")
+            yield Static("Launch Settings", classes="section-header")
 
             with Vertical(classes="service-params"):
-                # Max cycles
                 with Horizontal(classes="param-row"):
                     yield Label("Max Cycles:", classes="param-label")
-                    yield Input(
-                        value="1000",
-                        placeholder="Maximum cycles to run",
-                        id="input-max-cycles",
-                        classes="param-input",
-                    )
+                    yield Input(value="1000", placeholder="Maximum cycles to run", id="input-max-cycles", classes="param-input")
 
-                # Idle limit
                 with Horizontal(classes="param-row"):
                     yield Label("Idle Limit:", classes="param-label")
-                    yield Input(
-                        value="10",
-                        placeholder="Idle cycles before exit",
-                        id="input-idle-limit",
-                        classes="param-input",
-                    )
+                    yield Input(value="10", placeholder="Idle cycles before exit", id="input-idle-limit", classes="param-input")
 
-                # Sleep seconds
                 with Horizontal(classes="param-row"):
                     yield Label("Sleep (sec):", classes="param-label")
-                    yield Input(
-                        value="1.0",
-                        placeholder="Seconds between cycles",
-                        id="input-sleep",
-                        classes="param-input",
-                    )
+                    yield Input(value="1.0", placeholder="Seconds between cycles", id="input-sleep", classes="param-input")
 
-                # Max events
                 with Horizontal(classes="param-row"):
                     yield Label("Max Events:", classes="param-label")
-                    yield Input(
-                        value="1",
-                        placeholder="Max watch events per cycle",
-                        id="input-max-events",
-                        classes="param-input",
-                    )
+                    yield Input(value="1", placeholder="Max watch events per cycle", id="input-max-events", classes="param-input")
 
-            # Options section
             yield Static("Options", classes="section-header")
 
             with Vertical(classes="service-params"):
-                # Dry run toggle
                 with Horizontal(classes="param-row"):
                     yield Label("Dry Run:", classes="param-label")
                     yield Switch(value=False, id="switch-dry-run")
-                    yield Static(
-                        "Print commands without executing",
-                        classes="help-text",
-                    )
+                    yield Static("Print commands without executing", classes="help-text")
 
-                # Watch mode toggle
                 with Horizontal(classes="param-row"):
                     yield Label("Watch Mode:", classes="param-label")
                     yield Switch(value=True, id="switch-watch")
-                    yield Static(
-                        "Use watchfiles for file monitoring",
-                        classes="help-text",
-                    )
+                    yield Static("Use watchfiles for file monitoring", classes="help-text")
 
-                # Require sentinel toggle
                 with Horizontal(classes="param-row"):
                     yield Label("Require Sentinel:", classes="param-label")
                     yield Switch(value=True, id="switch-sentinel")
-                    yield Static(
-                        "Require .ready sentinel files",
-                        classes="help-text",
-                    )
+                    yield Static("Require .ready sentinel files", classes="help-text")
 
-            # Status/log section
+            yield Static("Runtime Snapshot", classes="section-header")
+            yield Static("", id="service-runtime", classes="help-text")
+
             yield Static("Service Log", classes="section-header")
             yield Static("", id="service-log", classes="help-text")
 
     def on_mount(self) -> None:
-        """Initialize service screen."""
+        self.set_interval(2.0, self.refresh_data)
         self.refresh_data()
 
     def refresh_data(self) -> None:
-        """Refresh service status."""
         app: AutoCleanTUI = self.app  # type: ignore
 
-        # Update status
         status_widget = self.query_one("#service-status", Static)
         if app.state.service_running:
             status_widget.update(
                 f"[bold green]Service Running[/]\n"
-                f"Mode: {app.state.mode}  |  "
+                f"Lane: {app.get_mode_label()}  |  "
                 f"Workspace: {app.state.workspace_dir or 'Not configured'}"
             )
             status_widget.remove_class("stopped")
@@ -135,34 +94,58 @@ class ServiceScreen(Screen):
         else:
             status_widget.update(
                 f"[bold]Service Stopped[/]\n"
-                f"Mode: {app.state.mode}  |  "
+                f"Lane: {app.get_mode_label()}  |  "
                 f"Workspace: {app.state.workspace_dir or 'Not configured'}"
             )
             status_widget.remove_class("running")
             status_widget.add_class("stopped")
 
-        # Update button states
         try:
             btn_start = self.query_one("#btn-start", Button)
             btn_stop = self.query_one("#btn-stop", Button)
-
             btn_start.disabled = app.state.service_running
             btn_stop.disabled = not app.state.service_running
         except Exception:
             pass
 
-        # Update service log
+        self._update_service_runtime()
         self._update_service_log()
 
-    def _update_service_log(self) -> None:
-        """Update the service log section."""
+    def _update_service_runtime(self) -> None:
         app: AutoCleanTUI = self.app  # type: ignore
+        runtime_widget = self.query_one("#service-runtime", Static)
+        snapshot = app.get_service_runtime_snapshot()
 
-        # Show recent service-related events
+        lines = [
+            f"Lane: {snapshot['lane']}",
+            f"Config source: {snapshot['config_source']}",
+            f"Config path: {snapshot['config_path']}",
+            f"Queue path: {snapshot['queue_path']}",
+            f"Log path: {snapshot['log_path']}",
+            f"PID: {snapshot['pid'] or 'Not running'}",
+            f"Uptime: {snapshot['uptime'] or 'Not running'}",
+            f"Command: {snapshot['command']}",
+        ]
+        if snapshot["completed"]:
+            lines.append(f"Last completed file: {snapshot['completed']}")
+        if snapshot["failed"]:
+            lines.append(f"Last file needing attention: {snapshot['failed']}")
+            if snapshot["failed_error"]:
+                lines.append(f"Last error: {snapshot['failed_error']}")
+        runtime_widget.update("\n".join(lines))
+
+    def _update_service_log(self) -> None:
+        app: AutoCleanTUI = self.app  # type: ignore
         log_widget = self.query_one("#service-log", Static)
 
+        log_tail = app.read_service_log_tail()
+        if log_tail:
+            log_widget.update(log_tail)
+            return
+
         service_events = [
-            e for e in app.state.activity_log
+            e
+            for e in app.state.activity_log
             if e.event_type.startswith("service") or e.event_type in ("error", "complete")
         ][:5]
 
@@ -185,7 +168,6 @@ class ServiceScreen(Screen):
         log_widget.update("\n".join(lines))
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle button presses."""
         button_id = event.button.id
 
         if button_id == "btn-start":
@@ -196,7 +178,6 @@ class ServiceScreen(Screen):
             self.action_toggle_mode()
 
     def _get_service_params(self) -> dict:
-        """Get current service parameters from inputs."""
         params = {}
 
         try:
@@ -241,7 +222,6 @@ class ServiceScreen(Screen):
         return params
 
     def action_start_service(self) -> None:
-        """Start the ingestion service."""
         app: AutoCleanTUI = self.app  # type: ignore
 
         if app.state.service_running:
@@ -258,34 +238,13 @@ class ServiceScreen(Screen):
 
         params = self._get_service_params()
         app.configure_service(params)
-
-        if params["dry_run"]:
-            self.notify("Dry run mode: commands will be logged but not executed")
-
-        app._start_service()
+        app.action_start_service()
         self.refresh_data()
 
     def action_stop_service(self) -> None:
-        """Stop the ingestion service."""
-        app: AutoCleanTUI = self.app  # type: ignore
-
-        if not app.state.service_running:
-            self.notify("Service is not running", severity="warning")
-            return
-
-        app._stop_service()
+        self.app.action_stop_service()
         self.refresh_data()
 
     def action_toggle_mode(self) -> None:
-        """Toggle between test and live mode."""
-        app: AutoCleanTUI = self.app  # type: ignore
-
-        if app.state.service_running:
-            self.notify(
-                "Cannot change mode while service is running",
-                severity="warning",
-            )
-            return
-
-        app.action_toggle_mode()
+        self.app.action_toggle_mode()
         self.refresh_data()

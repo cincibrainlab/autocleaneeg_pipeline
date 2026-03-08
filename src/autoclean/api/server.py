@@ -19,11 +19,11 @@ TAGS_METADATA = [
         "name": "Queue",
         "description": """
 Manage the file ingestion queue. Files are discovered by automation routes
-and added to the queue for processing.
+and added to the active mode queue for processing.
 
 **Workflow:**
 1. Files are detected in monitored folders → status: `pending`
-2. Worker picks up file → status: `processing`
+2. `serve run` dispatch picks up file → status: `processing`
 3. Processing completes → status: `processed` or `failed`
 
 **Common operations:**
@@ -37,12 +37,10 @@ and added to the queue for processing.
         "description": """
 Monitor and control RQ (Redis Queue) workers that process EEG files.
 
-Workers run the actual pipeline processing. Each worker:
-- Connects to Redis for job distribution
-- Processes one file at a time
-- Reports status via WebSocket events
+This is an advanced path. The operator-facing serve workflow in this repo
+uses route specs plus `serve run` with mode-specific queue files.
 
-**Note:** In Docker mode, workers are managed by docker-compose, not this API.
+Keep this worker surface separate from the default route-first operator workflow.
 """,
     },
     {
@@ -51,8 +49,8 @@ Workers run the actual pipeline processing. Each worker:
 View and manage automation configuration (routes, settings).
 
 **Modes:**
-- `test` - For development/testing (serve-test.yaml)
-- `live` - For production (serve-live.yaml)
+- `test` - Draft lane (`serve-test.yaml`)
+- `live` - Production lane (`serve-live.yaml`)
 
 **Routes** define which files to process and how:
 - Ingestion folders to monitor
@@ -115,16 +113,16 @@ def create_app(
 
 REST API for managing automated EEG file processing pipelines.
 
-### Architecture
+### Default architecture
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Monitored  │────▶│   Queue     │────▶│   Worker    │
-│   Folders   │     │  (Redis)    │     │  Pipeline   │
-└─────────────┘     └─────────────┘     └─────────────┘
-       │                   │                   │
-       ▼                   ▼                   ▼
-  File Discovery      Job Queue          EEG Processing
+┌─────────────┐     ┌──────────────┐     ┌──────────────┐
+│  Monitored  │────▶│ queue-*.json │────▶│  serve run   │
+│   Folders   │     │ per mode     │     │  dispatch    │
+└─────────────┘     └──────────────┘     └──────────────┘
+       │                    │                     │
+       ▼                    ▼                     ▼
+  File Discovery       Mode queue           EEG Processing
 ```
 
 ### Quick Start
@@ -134,10 +132,10 @@ REST API for managing automated EEG file processing pipelines.
 3. **List files:** `GET /api/queue/entries`
 4. **View config:** `GET /api/config`
 
-### Modes
+### Lanes
 
-- **test** (port 8000): Development and testing
-- **live** (port 8001): Production processing
+- **test** (port 8000): Draft
+- **live** (port 8001): Production
 """,
         version="1.0.0",
         lifespan=lifespan,
