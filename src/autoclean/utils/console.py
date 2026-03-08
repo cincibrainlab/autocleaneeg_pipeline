@@ -146,7 +146,11 @@ GLOBAL_CONSOLE: Optional[Console] = None
 def make_console(theme_mode: Optional[str] = None) -> Console:
     if NO_COLOR and not FORCE_COLOR:
         return Console(
-            color_system=None, no_color=True, highlight=False, soft_wrap=True
+            theme=_theme_for("mono"),
+            color_system=None,
+            no_color=True,
+            highlight=False,
+            soft_wrap=True,
         )
     mode = _resolve_mode(theme_mode)
     return Console(
