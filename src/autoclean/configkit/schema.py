@@ -140,6 +140,25 @@ def _source_psd_descriptor() -> dict:
     }
 
 
+def _sensor_psd_descriptor() -> dict:
+    return {
+        "enabled": "bool",
+        "value": {
+            "method": "'welch'|'multitaper'",
+            "fmin": "number (minimum frequency in Hz)",
+            "fmax": "number (maximum frequency in Hz)",
+            "picks": "str|sequence|None",
+            "n_jobs": "integer (parallel jobs)",
+            "n_fft": "integer|None (Welch only)",
+            "n_overlap": "integer|None (Welch only)",
+            "bandwidth": "number|None (multitaper only)",
+            "adaptive": "bool (multitaper only)",
+            "low_bias": "bool (multitaper only)",
+            "normalization": "string (multitaper only)",
+        },
+    }
+
+
 def _source_connectivity_descriptor() -> dict:
     return {
         "enabled": "bool",
@@ -383,6 +402,22 @@ def _build_task_settings_schema() -> Schema:
                     Optional("generate_plots"): bool,
                 },
             },
+            Optional("apply_sensor_psd"): {
+                "enabled": bool,
+                "value": {
+                    Optional("method"): Or("welch", "multitaper"),
+                    Optional("fmin"): Or(int, float),
+                    Optional("fmax"): Or(int, float),
+                    Optional("picks"): Or(str, list, tuple, None),
+                    Optional("n_jobs"): int,
+                    Optional("n_fft"): Or(int, None),
+                    Optional("n_overlap"): Or(int, None),
+                    Optional("bandwidth"): Or(int, float, None),
+                    Optional("adaptive"): bool,
+                    Optional("low_bias"): bool,
+                    Optional("normalization"): str,
+                },
+            },
             # Source Connectivity
             Optional("apply_source_connectivity"): {
                 "enabled": bool,
@@ -456,6 +491,7 @@ def export_task_schema_layout() -> dict:
             "apply_autoreject": _autoreject_descriptor(),
             "apply_source_localization": _source_localization_descriptor(),
             "apply_source_psd": _source_psd_descriptor(),
+            "apply_sensor_psd": _sensor_psd_descriptor(),
             "apply_source_connectivity": _source_connectivity_descriptor(),
             "apply_fooof_aperiodic": _fooof_aperiodic_descriptor(),
             "apply_fooof_periodic": _fooof_periodic_descriptor(),

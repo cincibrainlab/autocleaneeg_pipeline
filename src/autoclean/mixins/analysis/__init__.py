@@ -7,10 +7,13 @@ metadata tracking, and result saving while wrapping standalone analysis function
 Classes
 -------
 InterTrialCoherenceMixin : Mixin for computing inter-trial coherence analysis
+SensorPSDMixin : Mixin for computing electrode-level PSD summaries
 """
 
 from .inter_trial_coherence import InterTrialCoherenceMixin
+from .sensor_psd import SensorPSDMixin
 
 __all__ = [
     "InterTrialCoherenceMixin",
+    "SensorPSDMixin",
 ]
