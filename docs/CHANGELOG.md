@@ -8,6 +8,11 @@
   - Montage test command now detects and uses plugins for enhanced validation
   - Custom HTML report sections explain plugin transformations automatically
   - Architecture supports future plugins (XDAT, custom arrays, etc.)
+- **Epoched Sensor PSD Analysis**: Added `apply_sensor_psd()` for electrode-level PSD on `Epochs`
+  - Usage: load an epoched `.set` or `.fif` with `self.import_epochs()`, then call `self.apply_sensor_psd()`
+  - Methods: supports `welch` and `multitaper`
+  - Outputs: saves per-electrode spectra and per-electrode band-power summaries under `reports/sensor_psd/`
+  - Templates: added a minimal PSD-only task template for users who only want to import epochs and export PSD results
 - **MEA30 EDF Plugin**: Complete support for mouse EEG with MEA30 electrode arrays
   - Added `EDFMouseMEA30Plugin` with automatic channel remapping (33→30 channels)
   - Drops reference/ground channels (Chan 2, 32, 33) automatically
