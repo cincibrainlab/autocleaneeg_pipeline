@@ -254,12 +254,29 @@ def _log_cli_execution(args: argparse.Namespace) -> None:
 # ------------------------------------------------------------
 # Rich help integration
 # ------------------------------------------------------------
-def _get_current_montage() -> Optional[str]:
+def _get_current_montage(
+    task_name: Optional[str] = None, task_file: Optional[Path] = None
+) -> Optional[str]:
     """
-    Retrieve the current montage from the active task file with guard logic.
-    Returns None if no task is active or montage cannot be determined.
+    Retrieve the montage from explicit task context or active task fallback.
+    Returns None if montage cannot be determined.
     """
     try:
+        if task_file and task_file.exists():
+            source = task_file.read_text(encoding="utf-8")
+            block, _, _ = _locate_montage_block(source)
+            if block:
+                return _extract_montage_value(block)
+            return None
+
+        if task_name:
+            montage_info = extract_config_from_task(task_name, "montage")
+            if isinstance(montage_info, dict) and "value" in montage_info:
+                montage_value = montage_info["value"]
+            else:
+                montage_value = montage_info
+            return str(montage_value) if montage_value else None
+
         active_task = user_config.get_active_task()
         if not active_task:
             return None
@@ -282,6 +299,10 @@ def _print_context(
     style: str = "centered",
     include_system_info: bool = True,
     include_disk: bool = True,
+    task_name: Optional[str] = None,
+    input_path: Optional[Path] = None,
+    task_file: Optional[Path] = None,
+    montage: Optional[str] = None,
 ) -> None:
     """
     Unified context display function with configurable formatting.
@@ -322,8 +343,8 @@ def _print_context(
     workspace_dir = user_config.config_dir
     workspace_valid = False
     workspace_display = str(workspace_dir)
-    active_task_val = None
-    montage_val = None
+    active_task_val = task_name or (task_file.stem if task_file else None)
+    montage_val = montage
     input_val = None
     input_type = None  # 'file', 'dir', 'missing', or None
 
@@ -336,20 +357,22 @@ def _print_context(
     if workspace_display.startswith(home):
         workspace_display = workspace_display.replace(home, "~", 1)
 
-    try:
-        active_task_val = user_config.get_active_task()
-    except Exception:
-        pass
+    if active_task_val is None:
+        try:
+            active_task_val = user_config.get_active_task()
+        except Exception:
+            pass
+
+    if montage_val is None:
+        try:
+            montage_val = _get_current_montage(task_name=task_name, task_file=task_file)
+        except Exception:
+            pass
 
     try:
-        montage_val = _get_current_montage()
-    except Exception:
-        pass
-
-    try:
-        input_val = user_config.get_active_source()
-        if input_val:
-            p = Path(input_val)
+        raw_input = input_path if input_path is not None else user_config.get_active_source()
+        if raw_input:
+            p = Path(raw_input)
             input_display = str(p)
             if input_display.startswith(home):
                 input_display = input_display.replace(home, "~", 1)
@@ -503,10 +526,23 @@ def _print_context(
             pass
 
 
-def _print_startup_context(console) -> None:
+def _print_startup_context(
+    console,
+    task_name: Optional[str] = None,
+    input_path: Optional[Path] = None,
+    task_file: Optional[Path] = None,
+    montage: Optional[str] = None,
+) -> None:
     """Print system info, workspace path, and free disk space (shared for header/help)."""
     _print_context(
-        console, style="centered", include_system_info=True, include_disk=True
+        console,
+        style="centered",
+        include_system_info=True,
+        include_disk=True,
+        task_name=task_name,
+        input_path=input_path,
+        task_file=task_file,
+        montage=montage,
     )
 
 
@@ -2915,7 +2951,7 @@ def validate_args(args) -> bool:
         if not task_name and not args.task_file:
             console = get_console(args)
             _simple_header(console)
-            _print_startup_context(console)
+            _print_startup_context(console, input_path=input_path)
             try:
                 from rich.table import Table as _Table
 
@@ -3017,7 +3053,12 @@ def validate_args(args) -> bool:
                     # No fallback available, show help
                     console = get_console(args)
                     _simple_header(console)
-                    _print_startup_context(console)
+                    _print_startup_context(
+                        console,
+                        task_name=task_name,
+                        input_path=input_path,
+                        task_file=args.task_file,
+                    )
                     try:
                         from rich.table import Table as _Table
 
@@ -11946,7 +11987,7 @@ def main(argv: Optional[list] = None) -> int:
     post_command_reminder = reminder_text if args.command else None
 
     # For real sub-commands, log the workspace path via the existing logger.
-    if args.command and args.command != "workspace":
+    if args.command and args.command not in {"workspace", "process"}:
         # Compact branding header for consistency across all commands (except workspace which has its own branding)
         console = get_console(args)
         _print_context(
@@ -12046,6 +12087,18 @@ def main(argv: Optional[list] = None) -> int:
     # Validate arguments
     if not validate_args(args):
         return 1
+
+    if args.command == "process":
+        console = get_console(args)
+        _print_context(
+            console,
+            style="compact",
+            include_system_info=False,
+            include_disk=False,
+            task_name=getattr(args, "final_task", None),
+            input_path=getattr(args, "final_input", None),
+            task_file=getattr(args, "task_file", None),
+        )
 
     def _finish(result: int) -> int:
         if post_command_reminder:

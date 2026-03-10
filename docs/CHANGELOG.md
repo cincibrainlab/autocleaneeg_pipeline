@@ -30,6 +30,7 @@
 
 ### Fixed
 - **CLI `process` Positional Parsing**: Fixed `autocleaneeg-pipeline process <TaskName> ...` so documented positional task usage no longer conflicts with the `process ica` subcommand parser
+- **CLI `process` Startup Banner**: Fixed the startup banner so `process` shows the effective task, montage, and input from the current command instead of stale workspace defaults
 
 ### Technical
 - Added `PLUGIN_REPORT_INTERFACE_PROPOSAL.md` documenting the architecture decision
