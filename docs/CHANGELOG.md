@@ -13,6 +13,7 @@
   - Methods: supports `welch` and `multitaper`
   - Outputs: saves per-electrode spectra and per-electrode band-power summaries under `reports/sensor_psd/`
   - Templates: added a minimal PSD-only task template for users who only want to import epochs and export PSD results
+  - Built-in task: added `RestingState_SensorPSD` for the common HydroCel-129 resting-state case
 - **MEA30 EDF Plugin**: Complete support for mouse EEG with MEA30 electrode arrays
   - Added `EDFMouseMEA30Plugin` with automatic channel remapping (33→30 channels)
   - Drops reference/ground channels (Chan 2, 32, 33) automatically
