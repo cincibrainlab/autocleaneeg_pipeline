@@ -28,6 +28,9 @@
 - **Montage Validation**: Enhanced `cmd_montage_test` to process files through plugins before validation
 - **Report Generation**: Updated `montage_validation.py` to accept and render custom plugin report sections
 
+### Fixed
+- **CLI `process` Positional Parsing**: Fixed `autocleaneeg-pipeline process <TaskName> ...` so documented positional task usage no longer conflicts with the `process ica` subcommand parser
+
 ### Technical
 - Added `PLUGIN_REPORT_INTERFACE_PROPOSAL.md` documenting the architecture decision
 - Plugin report sections include transformation overview, mapping tables, and validation info

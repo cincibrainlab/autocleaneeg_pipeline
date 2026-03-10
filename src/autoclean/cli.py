@@ -11814,8 +11814,88 @@ def main(argv: Optional[list] = None) -> int:
         # Defer to argparse for normal parsing and help behavior
         pass
 
+    def _looks_like_input_path(token: str) -> bool:
+        """Heuristic: distinguish likely file/dir inputs from task names."""
+        if not token or token.startswith("-"):
+            return False
+        if token.startswith(("~", ".", "/")):
+            return True
+        if any(sep in token for sep in ("/", "\\")):
+            return True
+        suffixes = (
+            ".set",
+            ".fif",
+            ".edf",
+            ".bdf",
+            ".mff",
+            ".vhdr",
+            ".raw",
+            ".cnt",
+            ".csv",
+        )
+        if token.lower().endswith(suffixes):
+            return True
+        return Path(token).exists()
+
+    def _normalize_process_argv(tokens: list[str]) -> list[str]:
+        """Support documented positional process usage alongside `process ica`."""
+        normalized = list(tokens)
+
+        command_index: Optional[int] = None
+        i = 0
+        while i < len(normalized):
+            tok = normalized[i]
+            if tok == "--":
+                break
+            if tok == "--theme" and i + 1 < len(normalized):
+                i += 2
+                continue
+            if tok.startswith("-"):
+                i += 1
+                continue
+            command_index = i
+            break
+
+        if command_index is None or normalized[command_index] != "process":
+            return normalized
+
+        process_parser = None
+        for action in parser._actions:
+            if isinstance(action, argparse._SubParsersAction):  # type: ignore[attr-defined]
+                process_parser = action.choices.get("process")
+                if process_parser is not None:
+                    break
+
+        process_subcommands = set()
+        if process_parser is not None:
+            for action in process_parser._actions:
+                if isinstance(action, argparse._SubParsersAction):  # type: ignore[attr-defined]
+                    process_subcommands = set(action.choices.keys())
+                    break
+
+        process_args = normalized[command_index + 1 :]
+        if not process_args:
+            return normalized
+
+        first = process_args[0]
+        if first.startswith("-") or first in process_subcommands:
+            return normalized
+
+        if _looks_like_input_path(first):
+            return normalized
+
+        return (
+            normalized[: command_index + 1]
+            + ["--task", first]
+            + normalized[command_index + 2 :]
+        )
+
+    argv_to_parse = _normalize_process_argv(
+        list(argv) if isinstance(argv, list) else sys.argv[1:]
+    )
+
     # Parse arguments - custom error handling is done via TaskSubcommandParser
-    args = parser.parse_args(argv)
+    args = parser.parse_args(argv_to_parse)
 
     # ------------------------------------------------------------------
     # Log CLI execution for process tracking
