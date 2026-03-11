@@ -20,8 +20,6 @@ from textual.reactive import reactive
 from textual.widgets import (
     Button,
     DataTable,
-    Footer,
-    Header,
     Input,
     Label,
     Select,
@@ -85,20 +83,32 @@ class AppState:
 
 class StatusBar(Static):
     mode = reactive("test")
+    hint_text = reactive("")
+    last_action = reactive("")
+
+    def render(self) -> str:
+        lane = "Draft" if self.mode == "test" else "Production"
+        action = f"  •  {self.last_action}" if self.last_action else ""
+        return f"{lane}  •  {self.hint_text}{action}"
+
+
+class TitleBar(Static):
+    mode = reactive("test")
     service_running = reactive(False)
     config_source = reactive("missing")
     queue_summary = reactive("Queue: 0")
     last_refresh = reactive("Never")
-    last_action = reactive("")
 
     def render(self) -> str:
         lane = "[bold cyan]Draft[/]" if self.mode == "test" else "[bold magenta]Production[/]"
-        service = "[bold green]Running[/]" if self.service_running else "[bold yellow]Stopped[/]"
-        source = f"Config: [bold]{self.config_source}[/]"
-        action = f" | [green]{self.last_action}[/]" if self.last_action else ""
+        service = "[bold green]running[/]" if self.service_running else "[bold yellow]stopped[/]"
         return (
-            f"Lane: {lane} | Service: {service} | {source} | {self.queue_summary} | "
-            f"Updated: {self.last_refresh}{action}"
+            "AutoClean Serve"
+            f"  •  {lane}"
+            f"  •  service {service}"
+            f"  •  config [bold]{self.config_source}[/]"
+            f"  •  {self.queue_summary}"
+            f"  •  refreshed {self.last_refresh}"
         )
 
 
@@ -116,6 +126,18 @@ class AutoCleanTUI(App):
         Binding("l", "toggle_mode", "Toggle Lane", show=True),
         Binding("r", "refresh_snapshot", "Refresh", show=True),
         Binding("s", "toggle_service", "Start/Stop", show=True),
+        Binding("f", "follow_next", "Follow Next", show=False),
+        Binding("n", "route_new", "New Route", show=False),
+        Binding("e", "route_edit", "Edit Route", show=False),
+        Binding("p", "route_promote", "Promote Route", show=False),
+        Binding("x", "route_archive", "Archive Route", show=False),
+        Binding("ctrl+p", "route_preview", "Preview Route", show=False),
+        Binding("ctrl+s", "route_save", "Save Route", show=False),
+        Binding("y", "queue_retry", "Retry Failed", show=False),
+        Binding("backspace", "queue_remove", "Remove Queue Item", show=False),
+        Binding("c", "queue_clear", "Clear Completed", show=False),
+        Binding("v", "publish_validate", "Validate", show=False),
+        Binding("d", "publish_deploy", "Deploy", show=False),
     ]
 
     def __init__(
@@ -138,8 +160,7 @@ class AutoCleanTUI(App):
         self._route_editor_mode = "create"
 
     def compose(self) -> ComposeResult:
-        yield Header(show_clock=True)
-        yield StatusBar(id="status-bar")
+        yield TitleBar(id="title-bar")
         with TabbedContent(id="main-tabs", initial="tab-home"):
             with TabPane("Home", id="tab-home"):
                 with Horizontal(classes="top-cards"):
@@ -276,7 +297,7 @@ class AutoCleanTUI(App):
                                 yield Button("Refresh", id="btn-service-refresh")
                     with VerticalScroll(classes="pane detail-pane"):
                         yield Static("", id="service-log", classes="detail-block code-block")
-        yield Footer()
+        yield StatusBar(id="status-bar")
 
     def on_mount(self) -> None:
         self._initialize_tables()
@@ -297,17 +318,31 @@ class AutoCleanTUI(App):
         self._update_status_bar()
 
     def _update_status_bar(self) -> None:
-        bar = self.query_one("#status-bar", StatusBar)
-        bar.mode = self.state.mode
-        bar.service_running = self.state.service_running
-        bar.config_source = self.state.service_last_config_source or self.get_service_config_source()[0]
-        bar.queue_summary = (
+        title_bar = self.query_one("#title-bar", TitleBar)
+        title_bar.mode = self.state.mode
+        title_bar.service_running = self.state.service_running
+        title_bar.config_source = self.state.service_last_config_source or self.get_service_config_source()[0]
+        title_bar.queue_summary = (
             f"Queue: {self.state.failed_count} failed / {self.state.running_count} running / "
             f"{self.state.pending_count} waiting"
         )
         if self._snapshot is not None:
-            bar.last_refresh = self._snapshot.last_refresh.strftime("%H:%M:%S")
+            title_bar.last_refresh = self._snapshot.last_refresh.strftime("%H:%M:%S")
+        bar = self.query_one("#status-bar", StatusBar)
+        bar.mode = self.state.mode
+        bar.hint_text = self._current_tab_hints()
         bar.last_action = self._last_action_message
+
+    def _current_tab_hints(self) -> str:
+        active = self.query_one("#main-tabs", TabbedContent).active
+        hints = {
+            "tab-home": "1-5 switch tabs  •  f follow next step  •  r refresh  •  l switch lane",
+            "tab-routes": "n new  •  e edit  •  p promote  •  x archive  •  ctrl+p preview  •  ctrl+s save",
+            "tab-queue": "y retry failed  •  backspace remove  •  c clear completed  •  r refresh",
+            "tab-publish": "v validate  •  d deploy  •  r refresh",
+            "tab-service": "s start/stop  •  r refresh  •  l switch lane",
+        }
+        return hints.get(active, "1-5 switch tabs  •  r refresh  •  q quit")
 
     def get_queue_path(self) -> Optional[Path]:
         if not self.state.workspace_dir:
@@ -1027,6 +1062,7 @@ class AutoCleanTUI(App):
 
     def _set_active_tab(self, tab_id: str) -> None:
         self.query_one("#main-tabs", TabbedContent).active = tab_id
+        self._update_status_bar()
 
     def action_show_home(self) -> None:
         self._set_active_tab("tab-home")
@@ -1042,6 +1078,103 @@ class AutoCleanTUI(App):
 
     def action_show_service(self) -> None:
         self._set_active_tab("tab-service")
+
+    def action_follow_next(self) -> None:
+        self._follow_recommendation()
+
+    def action_route_new(self) -> None:
+        self._set_active_tab("tab-routes")
+        self._load_route_editor(None, edit_mode=False)
+
+    def action_route_edit(self) -> None:
+        self._set_active_tab("tab-routes")
+        self._load_route_editor(self._selected_route_spec(), edit_mode=True)
+
+    def action_route_promote(self) -> None:
+        route = self._selected_route_spec()
+        if route and self.promote_route(str(route.get("id"))):
+            self.refresh_snapshot()
+            self._set_last_action("Route promoted")
+            self.notify("Route promoted to Production")
+
+    def action_route_archive(self) -> None:
+        route = self._selected_route_spec()
+        if route and self.set_route_archived(str(route.get("id")), not bool(route.get("archived", False))):
+            self.refresh_snapshot()
+            self._set_last_action("Route archive state updated")
+            self.notify("Route archive state updated")
+
+    def action_route_preview(self) -> None:
+        self._set_active_tab("tab-routes")
+        self._refresh_route_preview()
+
+    def action_route_save(self) -> None:
+        self._set_active_tab("tab-routes")
+        ok, error = self.upsert_route_spec(
+            route_id=self.query_one("#route-id", Input).value,
+            existing_route_id=self._route_editor_existing_id,
+            taskfile=self.query_one("#route-taskfile", Input).value,
+            montage=self.query_one("#route-montage", Input).value,
+            ingestion_folders=self.query_one("#route-folders", Input).value.split(","),
+            file_globs=self.query_one("#route-globs", Input).value.split(","),
+            mode_scope=str(self.query_one("#route-scope", Select).value),
+            enabled=self.query_one("#route-enabled", Switch).value,
+            recursive=self.query_one("#route-recursive", Switch).value,
+        )
+        if ok:
+            self.refresh_snapshot()
+            self._set_last_action("Route saved")
+            self.notify("Route saved")
+        else:
+            self.notify(error or "Failed to save route", severity="error")
+            self._refresh_route_preview()
+
+    def action_queue_retry(self) -> None:
+        self._set_active_tab("tab-queue")
+        ok, message = self._mutate_queue(self._retry_failed_entries)
+        if ok:
+            self.refresh_snapshot()
+            self._set_last_action(message)
+            self.notify(message)
+        else:
+            self.notify(message, severity="error")
+
+    def action_queue_remove(self) -> None:
+        self._set_active_tab("tab-queue")
+        ok, message = self._mutate_queue(self._remove_selected_entry)
+        if ok:
+            self.refresh_snapshot()
+            self._set_last_action(message)
+            self.notify(message)
+        else:
+            self.notify(message, severity="error")
+
+    def action_queue_clear(self) -> None:
+        self._set_active_tab("tab-queue")
+        ok, message = self._mutate_queue(self._clear_processed_entries)
+        if ok:
+            self.refresh_snapshot()
+            self._set_last_action(message)
+            self.notify(message)
+        else:
+            self.notify(message, severity="error")
+
+    def action_publish_validate(self) -> None:
+        self._set_active_tab("tab-publish")
+        self._load_config()
+        self.refresh_snapshot()
+        self._set_last_action("Validation refreshed")
+        self.notify("Configuration revalidated")
+
+    def action_publish_deploy(self) -> None:
+        self._set_active_tab("tab-publish")
+        ok, message = self.deploy_current_config()
+        if ok:
+            self.refresh_snapshot()
+            self._set_last_action("Configuration deployed")
+            self.notify(message)
+        else:
+            self.notify(message, severity="error")
 
     def action_refresh_snapshot(self) -> None:
         self.refresh_snapshot()
@@ -1391,6 +1524,9 @@ class AutoCleanTUI(App):
             self._refresh_routes_tab()
         elif event.select.id in {"queue-status-filter", "queue-route-filter"}:
             self._refresh_queue_tab()
+
+    def on_tabbed_content_tab_activated(self, event: TabbedContent.TabActivated) -> None:
+        self._update_status_bar()
 
     def action_quit(self) -> None:
         self._watcher_stop_event.set()
