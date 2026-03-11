@@ -1,0 +1,138 @@
+Screen {
+    layout: vertical;
+}
+
+#status-bar {
+    dock: top;
+    height: 1;
+    padding: 0 1;
+    background: $panel;
+    color: $text;
+}
+
+TabbedContent {
+    height: 1fr;
+}
+
+TabPane {
+    padding: 1 1;
+}
+
+.top-cards {
+    height: auto;
+    margin-bottom: 1;
+}
+
+.card {
+    border: round $primary;
+    padding: 1 2;
+    width: 1fr;
+    min-height: 8;
+    margin-right: 1;
+}
+
+.card:last-child {
+    margin-right: 0;
+}
+
+.emphasis {
+    border: heavy $accent;
+    background: $boost;
+}
+
+.split {
+    height: 1fr;
+}
+
+.pane {
+    border: round $surface;
+    padding: 1;
+    width: 1fr;
+    margin-right: 1;
+}
+
+.pane:last-child {
+    margin-right: 0;
+}
+
+.list-pane {
+    width: 48%;
+}
+
+.detail-pane {
+    width: 52%;
+}
+
+.detail-scroll {
+    border: round $surface;
+    padding: 1;
+    height: 1fr;
+}
+
+.detail-block {
+    width: 1fr;
+}
+
+.code-block {
+    text-wrap: wrap;
+}
+
+.action-row {
+    height: auto;
+    margin: 1 0;
+}
+
+.action-row Button {
+    margin-right: 1;
+}
+
+.filter-row {
+    height: auto;
+    margin-bottom: 1;
+    align: left middle;
+}
+
+.filter-row Label {
+    width: auto;
+    margin-right: 1;
+}
+
+.filter-row Select {
+    width: 24;
+    margin-right: 2;
+}
+
+.section-title {
+    text-style: bold;
+    margin: 1 0;
+}
+
+.editor-block {
+    border: tall $panel-darken-1;
+    padding: 1;
+}
+
+.editor-row {
+    height: auto;
+    margin-bottom: 1;
+    align: left middle;
+}
+
+.editor-label {
+    width: 14;
+    color: $text-muted;
+}
+
+.editor-row Input,
+.editor-row Select {
+    width: 1fr;
+    margin-right: 1;
+}
+
+.editor-row Switch {
+    margin-right: 2;
+}
+
+DataTable {
+    height: 1fr;
+}
