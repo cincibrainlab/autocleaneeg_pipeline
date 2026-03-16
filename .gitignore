@@ -88,3 +88,6 @@ docs/archive/
 
 # Test outputs
 test_outputs/
+# Web UI
+web/node_modules/
+web/dist/

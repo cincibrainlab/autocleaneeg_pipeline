@@ -1,5 +1,5 @@
 """API route modules."""
 
-from autoclean.api.routes import config, queue, worker
+from autoclean.api.routes import config, queue, serve_routes, service, worker
 
-__all__ = ["config", "queue", "worker"]
+__all__ = ["config", "queue", "serve_routes", "service", "worker"]
