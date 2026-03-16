@@ -264,7 +264,7 @@ REST API for managing automated EEG file processing pipelines.
 
     # Import routes here to avoid circular imports
     from autoclean.api import events
-    from autoclean.api.routes import config, event_analyzer, filesystem, montage_browser, queue, results, serve_routes, service, task_browser, task_manager, tunnel, tutorial, worker
+    from autoclean.api.routes import config, event_analyzer, exclude, filesystem, montage_browser, queue, results, serve_routes, service, task_browser, task_manager, tunnel, tutorial, worker
 
     # Include routers
     app.include_router(queue.router, prefix="/api/queue", tags=["Queue"])
@@ -279,6 +279,7 @@ REST API for managing automated EEG file processing pipelines.
     app.include_router(task_manager.router, prefix="/api/task-manager", tags=["Task Manager"])
     app.include_router(montage_browser.router, prefix="/api/montages", tags=["Montages"])
     app.include_router(results.router, prefix="/api/results", tags=["Results"])
+    app.include_router(exclude.router, prefix="/api/exclude", tags=["Exclude"])
     app.include_router(event_analyzer.router, prefix="/api/events", tags=["Events"])
     app.include_router(events.router, prefix="/ws", tags=["WebSocket"])
 
