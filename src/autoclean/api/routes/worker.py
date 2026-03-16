@@ -115,7 +115,7 @@ async def start_workers(request: WorkerStartRequest) -> WorkerStartResponse:
         raise HTTPException(status_code=503, detail="Redis not available")
 
     if not api_state.workspace_dir:
-        raise HTTPException(status_code=500, detail="Workspace not configured")
+        raise HTTPException(status_code=409, detail="Workspace not configured")
 
     started_pids = []
 

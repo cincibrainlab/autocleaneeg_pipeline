@@ -10,8 +10,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -88,3 +88,10 @@ docs/archive/
 
 # Test outputs
 test_outputs/
+
+# Web frontend
+web/node_modules/
+web/dist/
+web/tsconfig.app.tsbuildinfo
+src/autoclean/api/static/assets/
+src/autoclean/api/static/index.html
