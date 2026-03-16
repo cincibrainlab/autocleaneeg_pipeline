@@ -193,15 +193,15 @@ export default function RoutesPage() {
     if (isActive && currentStep === 3 && showModal && tutorialData?.suggestedRoute) {
       const r = tutorialData.suggestedRoute;
       setForm({
-        id: r.id,
-        taskfile: r.taskfile,
-        montage: r.montage,
-        ingestion_folders: r.ingestion_folders,
-        file_globs: r.file_globs,
-        modes: r.modes,
-        enabled: r.enabled,
-        recursive: r.recursive,
-        priority: r.priority,
+        id: r.id ?? "",
+        taskfile: r.taskfile ?? "",
+        montage: r.montage ?? "",
+        ingestion_folders: r.ingestion_folders ?? [],
+        file_globs: r.file_globs ?? [],
+        modes: r.modes ?? ["test"],
+        enabled: r.enabled ?? true,
+        recursive: r.recursive ?? false,
+        priority: r.priority ?? 100,
       });
     }
   }, [isActive, currentStep, showModal, tutorialData]);
@@ -394,8 +394,8 @@ export default function RoutesPage() {
       file_globs: [...route.file_globs],
       modes: [...route.modes],
       enabled: route.enabled,
-      recursive: route.recursive,
-      priority: route.priority,
+      recursive: route.recursive ?? false,
+      priority: route.priority ?? 100,
     });
     setSaveError(null);
     setShowModal(true);

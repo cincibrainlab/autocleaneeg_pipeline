@@ -238,7 +238,7 @@ function MontageDetailPanel({
           )}
 
           {/* Landmarks */}
-          {Object.keys(detail.landmarks).length > 0 && (
+          {detail.landmarks && Object.keys(detail.landmarks).length > 0 && (
             <div className="px-5 py-3 border-b border-border">
               <p className="text-[10px] uppercase font-medium text-zinc-500 tracking-wider mb-2">
                 Landmarks
@@ -283,13 +283,13 @@ function MontageDetailPanel({
                         {ch.name}
                       </td>
                       <td className="py-0.5 text-right font-mono text-zinc-500">
-                        {ch.x.toFixed(3)}
+                        {ch.x?.toFixed(3) ?? "—"}
                       </td>
                       <td className="py-0.5 text-right font-mono text-zinc-500">
-                        {ch.y.toFixed(3)}
+                        {ch.y?.toFixed(3) ?? "—"}
                       </td>
                       <td className="py-0.5 text-right font-mono text-zinc-500">
-                        {ch.z.toFixed(3)}
+                        {ch.z?.toFixed(3) ?? "—"}
                       </td>
                     </tr>
                   ))}
@@ -340,7 +340,7 @@ export default function MontagesPage() {
       list = list.filter(
         (m) =>
           m.name.toLowerCase().includes(q) ||
-          m.description.toLowerCase().includes(q) ||
+          (m.description ?? "").toLowerCase().includes(q) ||
           m.category.toLowerCase().includes(q)
       );
     }

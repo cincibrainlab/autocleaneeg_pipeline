@@ -99,10 +99,12 @@ export function TutorialProvider({ children }: { children: React.ReactNode }) {
   const startTutorial = useCallback(async () => {
     try {
       const result = await api.tutorialSetup();
-      setTutorialData({
-        sampleFile: result.sample_file,
-        suggestedRoute: result.suggested_route,
-      });
+      if (result.sample_file && result.suggested_route) {
+        setTutorialData({
+          sampleFile: result.sample_file,
+          suggestedRoute: result.suggested_route,
+        });
+      }
     } catch (err) {
       console.warn("Tutorial setup failed, continuing without sample data:", err);
     }

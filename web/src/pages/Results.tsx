@@ -330,11 +330,11 @@ function SummaryTab({ detail }: { detail: RunDetail }) {
               <span className="text-zinc-200 font-mono">{m.filter_low} Hz</span>
             </>
           )}
-          {m.notch_freqs.length > 0 && (
+          {(m.notch_freqs ?? []).length > 0 && (
             <>
               <span className="text-zinc-500">Notch filters</span>
               <span className="text-zinc-200 font-mono">
-                {m.notch_freqs.join(", ")} Hz
+                {(m.notch_freqs ?? []).join(", ")} Hz
               </span>
             </>
           )}
@@ -624,7 +624,7 @@ function IcaTab({
           </button>
           <span className="text-xs text-zinc-500">Topography Grid</span>
         </div>
-        {topoPage !== null ? (
+        {topoPage != null ? (
           <img
             src={pageUrl(topoPage)}
             alt="ICA topography grid"
@@ -697,7 +697,7 @@ function IcaTab({
             </span>
           )}
         </div>
-        {structure.topo_grid_page !== null && (
+        {structure.topo_grid_page != null && (
           <button
             onClick={() => setView("topo")}
             className="px-2.5 py-1 rounded text-xs font-medium border border-border bg-surface-50 text-zinc-300 hover:bg-surface-50/60 transition-colors"
@@ -1025,7 +1025,7 @@ function RunDetailPanel({
             {activeTab === "ica" && (
               <IcaTab
                 runId={run.run_id}
-                available={detail.assets.ica_report}
+                available={Boolean(detail.assets.ica_report)}
               />
             )}
 
@@ -1307,7 +1307,9 @@ export default function ResultsPage() {
                       </td>
                     </tr>
                   )
-                  : filtered.map((run) => (
+                  : filtered.map((run) => {
+                      const runDecision = decisions[run.run_id];
+                      return (
                       <tr
                         key={run.run_id}
                         onClick={() =>
@@ -1347,21 +1349,21 @@ export default function ResultsPage() {
                           </span>
                         </td>
                         <td className="px-3 py-2.5 w-8">
-                          {decisions[run.run_id] && (
+                          {runDecision && (
                             <span
                               className={`inline-block w-2 h-2 rounded-full ${
-                                decisions[run.run_id].decision === "pass"
+                                runDecision.decision === "pass"
                                   ? "bg-emerald-400"
-                                  : decisions[run.run_id].decision === "fail"
+                                  : runDecision.decision === "fail"
                                   ? "bg-red-400"
                                   : "bg-amber-400"
                               }`}
-                              title={decisions[run.run_id].decision}
+                              title={runDecision.decision}
                             />
                           )}
                         </td>
                       </tr>
-                    ))}
+                    )})}
               </tbody>
             </table>
           </div>

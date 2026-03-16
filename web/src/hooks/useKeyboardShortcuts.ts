@@ -31,9 +31,10 @@ export function useKeyboardShortcuts(onToggleHelp: () => void) {
       }
 
       // Number keys for page navigation (no modifiers)
-      if (!e.ctrlKey && !e.metaKey && !e.altKey && PAGE_SHORTCUTS[e.key]) {
+      const target = PAGE_SHORTCUTS[e.key];
+      if (!e.ctrlKey && !e.metaKey && !e.altKey && target) {
         e.preventDefault();
-        navigate(PAGE_SHORTCUTS[e.key]);
+        navigate(target);
         return;
       }
     };
