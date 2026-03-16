@@ -15,6 +15,7 @@ const pageTitles: Record<string, string> = {
   "/tasks": "Task Manager",
   "/montages": "Montages",
   "/results": "Results",
+  "/exclude": "Exclude",
   "/events": "Events",
   "/settings": "Settings",
   "/setup": "Setup",
