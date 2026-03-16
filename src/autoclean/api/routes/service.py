@@ -79,7 +79,7 @@ class ServiceStartRequest(BaseModel):
 def _require_workspace():
     """Raise 500 if workspace is not configured."""
     if not api_state.workspace_dir:
-        raise HTTPException(status_code=500, detail="Workspace not configured")
+        raise HTTPException(status_code=409, detail="Workspace not configured")
 
 
 def get_service_status() -> dict:

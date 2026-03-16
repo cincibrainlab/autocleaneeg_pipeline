@@ -320,6 +320,10 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
                       {" "}&rarr; Networks &rarr; Tunnels &rarr; Create.
                       Copy the token and your tunnel's public hostname below.
                     </p>
+                    <p className="text-[10px] text-amber-500/80 leading-relaxed">
+                      The token is stored locally in your workspace directory.
+                      Do not commit tunnel_config.json to version control.
+                    </p>
                     <div>
                       <label className="block text-[11px] text-zinc-500 mb-1">Tunnel Token</label>
                       <input

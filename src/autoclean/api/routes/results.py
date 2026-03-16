@@ -9,18 +9,18 @@ with notes, persisted to decisions.json and decisions.csv in the workspace.
 
 from __future__ import annotations
 
+import base64
 import csv
 import io
 import json
 import logging
 import sqlite3
 import statistics
+import threading
 import time
 from collections import Counter
 from pathlib import Path
 from typing import Any, Literal
-
-import base64
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -57,6 +57,7 @@ def _extract_stem(filename: str) -> str:
 
 _runs_cache: list[tuple[dict[str, Any], Path]] = []
 _runs_cache_time: float = 0.0
+_runs_cache_lock = threading.Lock()
 _RUNS_CACHE_TTL = 5.0  # seconds
 
 
@@ -65,14 +66,16 @@ def _find_all_runs(workspace: Path) -> list[tuple[dict[str, Any], Path]]:
     global _runs_cache, _runs_cache_time
 
     now = time.time()
-    if _runs_cache and (now - _runs_cache_time) < _RUNS_CACHE_TTL:
-        return _runs_cache
+    with _runs_cache_lock:
+        if _runs_cache and (now - _runs_cache_time) < _RUNS_CACHE_TTL:
+            return _runs_cache
 
     results: list[tuple[dict[str, Any], Path]] = []
     automations = workspace / "automations"
     if not automations.exists():
-        _runs_cache = results
-        _runs_cache_time = now
+        with _runs_cache_lock:
+            _runs_cache = results
+            _runs_cache_time = now
         return results
 
     for auto_dir in automations.iterdir():
@@ -96,8 +99,9 @@ def _find_all_runs(workspace: Path) -> list[tuple[dict[str, Any], Path]]:
                 continue
 
     results.sort(key=lambda t: t[0].get("created_at", ""), reverse=True)
-    _runs_cache = results
-    _runs_cache_time = now
+    with _runs_cache_lock:
+        _runs_cache = results
+        _runs_cache_time = now
     return results
 
 
@@ -315,7 +319,7 @@ class RunDetail(BaseModel):
 
 def _require_workspace() -> Path:
     if not api_state.workspace_dir:
-        raise HTTPException(status_code=500, detail="Workspace not configured")
+        raise HTTPException(status_code=409, detail="Workspace not configured")
     return api_state.workspace_dir
 
 

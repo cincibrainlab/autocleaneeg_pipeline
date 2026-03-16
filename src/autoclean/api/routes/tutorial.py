@@ -24,7 +24,7 @@ router = APIRouter()
 def _require_workspace():
     """Raise 500 if workspace is not configured."""
     if not api_state.workspace_dir:
-        raise HTTPException(status_code=500, detail="Workspace not configured")
+        raise HTTPException(status_code=409, detail="Workspace not configured")
 
 
 def _generate_tutorial_data(tutorial_dir: Path) -> Path:
