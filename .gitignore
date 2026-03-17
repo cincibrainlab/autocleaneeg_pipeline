@@ -93,3 +93,4 @@ test_outputs/
 # Web UI
 web/node_modules/
 web/dist/
+.serve-run.pid
