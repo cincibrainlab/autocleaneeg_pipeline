@@ -121,9 +121,11 @@ function EegBrowser({
   focusedEpoch,
   scaleUv,
   channelHeight,
-  timeZoom,
+  visibleEpochCount,
+  epochStart,
   onFocusEpoch,
   onToggleEpoch,
+  onEpochStartChange,
 }: {
   epochWindow: EpochWindowResponse | null;
   manifest: EpochManifest | null;
@@ -131,13 +133,19 @@ function EegBrowser({
   focusedEpoch: number | null;
   scaleUv: number;
   channelHeight: number;
-  timeZoom: number;
+  visibleEpochCount: number;
+  epochStart: number;
   onFocusEpoch: (epochIndex: number) => void;
   onToggleEpoch: (epochIndex: number) => void;
+  onEpochStartChange: (epochStart: number) => void;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const headerCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const bodyCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const footerCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
+  const horizontalScrollRef = useRef<HTMLDivElement | null>(null);
   const headerHeight = 34;
+  const footerHeight = 26;
   const labelWidth = 88;
   const [frameWidth, setFrameWidth] = useState(1200);
 
@@ -152,66 +160,105 @@ function EegBrowser({
   }, []);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !epochWindow) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const headerCanvas = headerCanvasRef.current;
+    const bodyCanvas = bodyCanvasRef.current;
+    const footerCanvas = footerCanvasRef.current;
+    if (!headerCanvas || !bodyCanvas || !footerCanvas || !epochWindow) return;
+    const headerCtx = headerCanvas.getContext("2d");
+    const bodyCtx = bodyCanvas.getContext("2d");
+    const footerCtx = footerCanvas.getContext("2d");
+    if (!headerCtx || !bodyCtx || !footerCtx) return;
 
     const channels = epochWindow.channel_names;
-    const epochs = epochWindow.epochs;
-    const samplesPerEpoch = epochs[0]?.traces_uv[channels[0] ?? ""]?.length ?? 0;
-    const availableWidth = Math.max(360, frameWidth - 2);
-    const traceWidth = Math.max(220, availableWidth - labelWidth);
-    const epochWidth = traceWidth / Math.max(1, epochs.length);
-    const width = availableWidth;
-    const height = headerHeight + channels.length * channelHeight;
-    canvas.width = width;
-    canvas.height = height;
-    ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = "rgba(255,255,255,0.02)";
-    ctx.fillRect(0, 0, width, height);
+    const startIndex = clamp(epochStart, 0, Math.max(0, epochWindow.epochs.length - visibleEpochCount));
+    const epochs = epochWindow.epochs.slice(startIndex, startIndex + visibleEpochCount);
+    const width = Math.max(360, frameWidth - 2);
+    const traceWidth = Math.max(220, width - labelWidth);
+    const epochWidth = traceWidth / Math.max(1, visibleEpochCount);
+    const traceHeight = channels.length * channelHeight;
+    headerCanvas.width = width;
+    headerCanvas.height = headerHeight;
+    bodyCanvas.width = width;
+    bodyCanvas.height = traceHeight;
+    footerCanvas.width = width;
+    footerCanvas.height = footerHeight;
 
-    ctx.fillStyle = "#0f172a";
-    ctx.fillRect(0, 0, labelWidth, height);
-    ctx.fillStyle = "#111827";
-    ctx.fillRect(labelWidth, 0, width - labelWidth, headerHeight);
+    headerCtx.clearRect(0, 0, width, headerHeight);
+    bodyCtx.clearRect(0, 0, width, traceHeight);
+    footerCtx.clearRect(0, 0, width, footerHeight);
 
-    ctx.font = "12px monospace";
-    ctx.textBaseline = "middle";
+    headerCtx.fillStyle = "#0f172a";
+    headerCtx.fillRect(0, 0, labelWidth, headerHeight);
+    headerCtx.fillStyle = "#111827";
+    headerCtx.fillRect(labelWidth, 0, width - labelWidth, headerHeight);
+
+    bodyCtx.fillStyle = "rgba(255,255,255,0.02)";
+    bodyCtx.fillRect(0, 0, width, traceHeight);
+    bodyCtx.fillStyle = "#0f172a";
+    bodyCtx.fillRect(0, 0, labelWidth, traceHeight);
+
+    footerCtx.fillStyle = "#0f172a";
+    footerCtx.fillRect(0, 0, labelWidth, footerHeight);
+    footerCtx.fillStyle = "#0b1220";
+    footerCtx.fillRect(labelWidth, 0, width - labelWidth, footerHeight);
+
+    headerCtx.font = "12px monospace";
+    bodyCtx.font = "12px monospace";
+    footerCtx.font = "12px monospace";
+    headerCtx.textBaseline = "middle";
+    bodyCtx.textBaseline = "middle";
+    footerCtx.textBaseline = "middle";
 
     epochs.forEach((epoch, epochIdx) => {
       const x0 = labelWidth + epochIdx * epochWidth;
       const isBad = badEpochs.includes(epoch.epoch_index);
       const isFocused = focusedEpoch === epoch.epoch_index;
-      ctx.fillStyle = isBad ? "rgba(248,113,113,0.18)" : isFocused ? "rgba(96,165,250,0.18)" : "rgba(255,255,255,0.02)";
-      ctx.fillRect(x0, 0, epochWidth, headerHeight);
-      ctx.strokeStyle = isFocused ? "#60a5fa" : "rgba(255,255,255,0.08)";
-      ctx.strokeRect(x0 + 0.5, 0.5, epochWidth - 1, headerHeight - 1);
-      ctx.fillStyle = isBad ? "#fca5a5" : isFocused ? "#93c5fd" : "#cbd5e1";
-      ctx.fillText(`Epoch ${epoch.epoch_index + 1}`, x0 + 8, headerHeight / 2);
-      ctx.fillStyle = "#64748b";
-      const suffix = epoch.event_code ? `E${epoch.event_code}` : `${epoch.start_time_seconds.toFixed(2)}s`;
-      ctx.fillText(suffix, x0 + Math.max(78, epochWidth - 68), headerHeight / 2);
+      headerCtx.fillStyle = isBad ? "rgba(248,113,113,0.18)" : isFocused ? "rgba(96,165,250,0.18)" : "rgba(255,255,255,0.02)";
+      headerCtx.fillRect(x0, 0, epochWidth, headerHeight);
+      headerCtx.fillStyle = isBad ? "#fca5a5" : isFocused ? "#93c5fd" : "#cbd5e1";
+      headerCtx.fillText(`Epoch ${epoch.epoch_index + 1}`, x0 + 8, headerHeight / 2);
+
+      if ("setLineDash" in bodyCtx) bodyCtx.setLineDash([4, 4]);
+      bodyCtx.strokeStyle = "rgba(226,232,240,0.5)";
+      bodyCtx.lineWidth = 1.25;
+      bodyCtx.beginPath();
+      bodyCtx.moveTo(x0 + 0.5, 0);
+      bodyCtx.lineTo(x0 + 0.5, traceHeight);
+      bodyCtx.stroke();
+      if ("setLineDash" in bodyCtx) bodyCtx.setLineDash([]);
+      bodyCtx.lineWidth = 1;
+
+      footerCtx.fillStyle = "#94a3b8";
+      footerCtx.fillText(`${epoch.start_time_seconds.toFixed(2)}s`, x0 + 8, footerHeight / 2);
     });
 
+    const endBoundary = labelWidth + epochs.length * epochWidth;
+    if ("setLineDash" in bodyCtx) bodyCtx.setLineDash([4, 4]);
+    bodyCtx.strokeStyle = "rgba(226,232,240,0.5)";
+    bodyCtx.lineWidth = 1.25;
+    bodyCtx.beginPath();
+    bodyCtx.moveTo(endBoundary + 0.5, 0);
+    bodyCtx.lineTo(endBoundary + 0.5, traceHeight);
+    bodyCtx.stroke();
+    if ("setLineDash" in bodyCtx) bodyCtx.setLineDash([]);
+    bodyCtx.lineWidth = 1;
+
     channels.forEach((channel, channelIndex) => {
-      const y0 = headerHeight + channelIndex * channelHeight;
+      const y0 = channelIndex * channelHeight;
       const midY = y0 + channelHeight / 2;
 
-      ctx.fillStyle = focusedEpoch != null && epochWindow.epochs.some((epoch) => epoch.epoch_index === focusedEpoch)
+      bodyCtx.fillStyle = focusedEpoch != null && epochWindow.epochs.some((epoch) => epoch.epoch_index === focusedEpoch)
         ? "rgba(255,255,255,0.01)"
         : "rgba(255,255,255,0)";
-      ctx.fillRect(0, y0, width, channelHeight);
-      ctx.strokeStyle = "rgba(255,255,255,0.06)";
-      ctx.beginPath();
-      ctx.moveTo(0, y0 + 0.5);
-      ctx.lineTo(width, y0 + 0.5);
-      ctx.stroke();
+      bodyCtx.fillRect(0, y0, width, channelHeight);
+      bodyCtx.strokeStyle = "rgba(255,255,255,0.06)";
+      bodyCtx.beginPath();
+      bodyCtx.moveTo(0, y0 + 0.5);
+      bodyCtx.lineTo(width, y0 + 0.5);
+      bodyCtx.stroke();
 
-      ctx.fillStyle = "#cbd5e1";
-      ctx.fillText(channel, 8, midY);
-      ctx.fillStyle = "#64748b";
-      ctx.fillText(`±${scaleUv}uV`, labelWidth - 54, midY);
+      bodyCtx.fillStyle = "#cbd5e1";
+      bodyCtx.fillText(channel, 8, midY);
 
       epochs.forEach((epoch, epochIdx) => {
         const x0 = labelWidth + epochIdx * epochWidth;
@@ -219,64 +266,96 @@ function EegBrowser({
         if (!values.length) return;
         const xStep = epochWidth / Math.max(1, values.length - 1);
         const isBad = badEpochs.includes(epoch.epoch_index);
-        ctx.beginPath();
+        bodyCtx.beginPath();
         values.forEach((value, sampleIdx) => {
           const x = x0 + sampleIdx * xStep;
           const normalized = value / Math.max(scaleUv, 1);
           const y = midY - normalized * (channelHeight * 0.38);
-          if (sampleIdx === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
+          if (sampleIdx === 0) bodyCtx.moveTo(x, y);
+          else bodyCtx.lineTo(x, y);
         });
-        ctx.strokeStyle = isBad ? "#f87171" : focusedEpoch === epoch.epoch_index ? "#e2e8f0" : "#60a5fa";
-        ctx.lineWidth = focusedEpoch === epoch.epoch_index ? 1.35 : 1;
-        ctx.stroke();
+        bodyCtx.strokeStyle = isBad ? "#f87171" : focusedEpoch === epoch.epoch_index ? "#e2e8f0" : "#60a5fa";
+        bodyCtx.lineWidth = focusedEpoch === epoch.epoch_index ? 1.35 : 1;
+        bodyCtx.stroke();
       });
     });
-  }, [badEpochs, channelHeight, epochWindow, focusedEpoch, frameWidth, manifest, onFocusEpoch, scaleUv, timeZoom]);
+  }, [badEpochs, channelHeight, epochStart, epochWindow, focusedEpoch, frameWidth, manifest, scaleUv, visibleEpochCount]);
+
+  const channels = epochWindow?.channel_names ?? [];
+  const startIndex = clamp(epochStart, 0, Math.max(0, (epochWindow?.epochs.length ?? 0) - visibleEpochCount));
+  const visibleEpochs = epochWindow?.epochs.slice(startIndex, startIndex + visibleEpochCount) ?? [];
+  const canvasWidth = Math.max(360, frameWidth - 2);
+  const traceWidth = Math.max(220, canvasWidth - labelWidth);
+  const epochWidth = traceWidth / Math.max(1, visibleEpochCount);
+  const bodyCanvasHeight = channels.length * channelHeight;
+  const maxStart = Math.max(0, (manifest?.n_epochs ?? 0) - visibleEpochCount);
+  const totalTrackWidth = Math.max(traceWidth, (manifest?.n_epochs ?? 0) * epochWidth);
+
+  const getEpochIndexFromPointer = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!epochWindow) return null;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const scaleX = rect.width > 0 ? canvasWidth / rect.width : 1;
+    const localX = (event.clientX - rect.left) * scaleX;
+    if (localX < labelWidth) return null;
+    return Math.max(0, Math.min(visibleEpochs.length - 1, Math.floor((localX - labelWidth) / epochWidth)));
+  };
+
+  useEffect(() => {
+    const scroller = horizontalScrollRef.current;
+    if (!scroller) return;
+    const nextLeft = epochStart * epochWidth;
+    if (Math.abs(scroller.scrollLeft - nextLeft) > 1) {
+      scroller.scrollLeft = nextLeft;
+    }
+  }, [epochStart, epochWidth]);
 
   if (!epochWindow || !manifest) {
     return <div className="py-16 text-center text-sm text-zinc-500">Loading EEG…</div>;
   }
 
-  const channels = epochWindow.channel_names;
-  const traceWidth = Math.max(220, frameWidth - labelWidth - 2);
-  const epochWidth = traceWidth / Math.max(1, epochWindow.epochs.length);
-  const canvasWidth = Math.max(360, frameWidth);
-  const canvasHeight = headerHeight + channels.length * channelHeight;
-
-  const getEpochIndexFromPointer = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const scaleX = rect.width > 0 ? canvasWidth / rect.width : 1;
-    const localX = (event.clientX - rect.left) * scaleX;
-    if (localX < labelWidth) return null;
-    return Math.max(0, Math.min(epochWindow.epochs.length - 1, Math.floor((localX - labelWidth) / epochWidth)));
-  };
-
   return (
     <div className="space-y-3">
-      <div ref={frameRef} className="rounded-lg border border-border bg-surface-50/60 overflow-y-auto overflow-x-hidden max-h-[36rem]">
-        <canvas
-          ref={canvasRef}
-          width={canvasWidth}
-          height={canvasHeight}
-          className="block w-full"
-          onClick={(event) => {
-            const epochIdx = getEpochIndexFromPointer(event);
-            if (epochIdx == null) return;
-            const epoch = epochWindow.epochs[epochIdx];
-            if (epoch) onFocusEpoch(epoch.epoch_index);
-          }}
-          onDoubleClick={(event) => {
-            const epochIdx = getEpochIndexFromPointer(event);
-            if (epochIdx == null) return;
-            const epoch = epochWindow.epochs[epochIdx];
-            if (epoch) onToggleEpoch(epoch.epoch_index);
-          }}
-        />
+      <div ref={frameRef} className="rounded-lg border border-border bg-surface-50/60 overflow-hidden">
+        <div className="sticky top-0 z-10 border-b border-border bg-surface-100/95 backdrop-blur-sm">
+          <canvas ref={headerCanvasRef} width={canvasWidth} height={headerHeight} className="block w-full" />
+        </div>
+        <div className="overflow-y-auto overflow-x-hidden max-h-[28rem]">
+          <canvas
+            ref={bodyCanvasRef}
+            width={canvasWidth}
+            height={bodyCanvasHeight}
+            className="block w-full"
+            onClick={(event) => {
+              const epochIdx = getEpochIndexFromPointer(event);
+              if (epochIdx == null) return;
+              const epoch = visibleEpochs[epochIdx];
+              if (epoch) onFocusEpoch(epoch.epoch_index);
+            }}
+            onDoubleClick={(event) => {
+              const epochIdx = getEpochIndexFromPointer(event);
+              if (epochIdx == null) return;
+              const epoch = visibleEpochs[epochIdx];
+              if (epoch) onToggleEpoch(epoch.epoch_index);
+            }}
+          />
+        </div>
+        <div className="sticky bottom-0 z-10 border-t border-border bg-surface-100/95 backdrop-blur-sm">
+          <canvas ref={footerCanvasRef} width={canvasWidth} height={footerHeight} className="block w-full" />
+        </div>
+      </div>
+      <div
+        ref={horizontalScrollRef}
+        className="overflow-x-auto overflow-y-hidden rounded border border-border bg-surface-100/60"
+        onScroll={(event) => {
+          const nextStart = clamp(Math.round(event.currentTarget.scrollLeft / Math.max(epochWidth, 1)), 0, maxStart);
+          if (nextStart !== epochStart) onEpochStartChange(nextStart);
+        }}
+      >
+        <div style={{ width: totalTrackWidth, height: 14 }} />
       </div>
       <div className="flex items-center justify-between text-[11px] text-zinc-500">
-        <span>Scroll vertically for channels. Click a trace block to focus an epoch. Double-click or press Space to reject or restore it.</span>
-        <span>{manifest.n_channels} channels · {epochWindow.epochs.length} visible epochs</span>
+        <span>Use the bottom scrollbar for file position and scroll vertically for channels. Click a trace block to focus an epoch. Double-click or press Space to reject or restore it.</span>
+        <span>{manifest.n_channels} channels · {visibleEpochs.length} visible epochs</span>
       </div>
     </div>
   );
@@ -365,7 +444,7 @@ export default function ExcludePage() {
   };
 
   const setScaleUvBounded = (value: number) => {
-    setScaleUv(clamp(Math.round(value), 1, 150));
+    setScaleUv(clamp(Math.round(value), 1, 1000));
   };
 
   const setChannelHeightBounded = (value: number) => {
@@ -481,7 +560,7 @@ export default function ExcludePage() {
     if (!selectedKey || !manifest) return;
     let cancelled = false;
     setEpochWindowLoading(true);
-    api.getExcludeEpochWindow(selectedKey, epochStart, visibleEpochCount, manifest.channel_names)
+    api.getExcludeEpochWindow(selectedKey, 0, manifest.n_epochs, manifest.channel_names)
       .then((window) => {
         if (cancelled) return;
         setEpochWindow(window);
@@ -489,7 +568,7 @@ export default function ExcludePage() {
           if (current != null && window.epochs.some((epoch) => epoch.epoch_index === current)) {
             return current;
           }
-          return window.epochs[0]?.epoch_index ?? null;
+          return window.epochs[epochStart]?.epoch_index ?? window.epochs[0]?.epoch_index ?? null;
         });
       })
       .catch((err: unknown) => {
@@ -505,7 +584,7 @@ export default function ExcludePage() {
     return () => {
       cancelled = true;
     };
-  }, [epochStart, manifest, selectedKey, visibleEpochCount]);
+  }, [manifest, selectedKey]);
 
   useEffect(() => {
     return () => {
@@ -747,6 +826,7 @@ export default function ExcludePage() {
     channels_original?: string;
   };
   const artifact = (detail?.artifacts ?? {}) as Record<string, string | null>;
+  const visibleEpochsInView = epochWindow?.epochs.slice(epochStart, epochStart + visibleEpochCount) ?? [];
   const validChannelSet = new Set((detail?.valid_channels ?? []).map((value) => String(value).toUpperCase()));
   const channelOverridesDirty = !arraysEqual(manualBadChannels, loadedManualBadChannelsRef.current);
   const icaOverridesDirty = !arraysEqual(manualRejectedIca, loadedManualRejectedIcaRef.current);
@@ -913,12 +993,14 @@ export default function ExcludePage() {
                         focusedEpoch={focusedEpoch}
                         scaleUv={scaleUv}
                         channelHeight={channelHeight}
-                        timeZoom={1}
+                        visibleEpochCount={visibleEpochCount}
+                        epochStart={epochStart}
                         onFocusEpoch={setFocusedEpoch}
                         onToggleEpoch={(epochIndex) => {
                           setFocusedEpoch(epochIndex);
                           toggleEpoch(epochIndex);
                         }}
+                        onEpochStartChange={setEpochStart}
                       />
                     </div>
                     {epochWindowLoading ? (
@@ -955,8 +1037,9 @@ export default function ExcludePage() {
                         </button>
                       </div>
                       <div className="flex flex-wrap gap-4 text-xs text-zinc-400">
+                        <p>Leftmost epoch: {epochStart + 1}</p>
                         <p>Focused epoch: {focusedEpoch != null ? focusedEpoch + 1 : "None"}</p>
-                        <p>Rejected in view: {epochWindow?.epochs.filter((epoch) => badEpochs.includes(epoch.epoch_index)).length ?? 0}</p>
+                        <p>Rejected in view: {visibleEpochsInView.filter((epoch) => badEpochs.includes(epoch.epoch_index)).length}</p>
                         <p>Total rejected: {badEpochs.length}</p>
                       </div>
                     </div>
@@ -988,7 +1071,7 @@ export default function ExcludePage() {
                         <input
                           type="number"
                           min={1}
-                          max={150}
+                          max={1000}
                           step={1}
                           value={scaleUv}
                           onChange={(event) => setScaleUvBounded(Number(event.target.value) || 1)}
@@ -997,7 +1080,7 @@ export default function ExcludePage() {
                         <input
                           type="range"
                           min={1}
-                          max={150}
+                          max={1000}
                           step={1}
                           value={scaleUv}
                           onChange={(event) => setScaleUvBounded(Number(event.target.value))}
