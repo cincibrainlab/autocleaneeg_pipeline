@@ -428,6 +428,15 @@ export interface ExcludeIcaSummaryResponse {
   structure?: Record<string, unknown>;
 }
 
+export interface ExcludeEpochTopographyResponse {
+  file_key: string;
+  epoch_index: number;
+  sample_index: number;
+  latency_ms: number;
+  image_png_base64: string;
+  channels_used: string[];
+}
+
 export const api = {
   getHealth: () => json<Record<string, any>>("/health"),
   getStatus: () => json<DashboardStatus>("/api/status"),
@@ -513,6 +522,10 @@ export const api = {
     if (channels?.length) params.set("channels", channels.join(","));
     return json<EpochWindowResponse>(`/api/exclude/files/${fileKey}/eeg/epochs?${params.toString()}`);
   },
+  getExcludeEpochTopography: (fileKey: string, epochIndex: number, sampleIndex: number) =>
+    json<ExcludeEpochTopographyResponse>(
+      `/api/exclude/files/${fileKey}/eeg/topography?epoch_index=${epochIndex}&sample_index=${sampleIndex}`,
+    ),
   getExcludeEpochReview: (fileKey: string) => json<Record<string, any>>(`/api/exclude/files/${fileKey}/epoch-review`),
   saveExcludeEpochReview: (fileKey: string, badEpochIndices: number[]) =>
     json<Record<string, any>>(`/api/exclude/files/${fileKey}/epoch-review`, "PUT", { bad_epoch_indices: badEpochIndices }),

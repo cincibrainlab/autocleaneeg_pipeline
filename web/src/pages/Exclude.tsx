@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Activity, Brain, FileText, Loader2, MonitorDown, Search, SlidersHorizontal, StickyNote, Waves } from "lucide-react";
+import { Activity, Brain, FileText, Loader2, MonitorDown, Search, SlidersHorizontal, StickyNote, Waves, X } from "lucide-react";
 import { api } from "../lib/api";
 import type {
   DashboardStatus,
   EpochManifest,
   EpochWindowResponse,
+  ExcludeEpochTopographyResponse,
   ExcludeFileDetail,
   ExcludeFileSummary,
   ExcludeIcaSummaryResponse,
@@ -12,6 +13,11 @@ import type {
 import ErrorBanner from "../components/ErrorBanner";
 
 type TabKey = "eeg" | "psd" | "report" | "ica";
+type TopographyRequest = {
+  epochIndex: number;
+  sampleIndex: number;
+  latencyMs: number;
+};
 
 function TabButton({
   active,
@@ -126,6 +132,7 @@ function EegBrowser({
   onFocusEpoch,
   onToggleEpoch,
   onEpochStartChange,
+  onOpenTopography,
 }: {
   epochWindow: EpochWindowResponse | null;
   manifest: EpochManifest | null;
@@ -138,6 +145,7 @@ function EegBrowser({
   onFocusEpoch: (epochIndex: number) => void;
   onToggleEpoch: (epochIndex: number) => void;
   onEpochStartChange: (epochStart: number) => void;
+  onOpenTopography: (request: TopographyRequest) => void;
 }) {
   const headerCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const bodyCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -300,6 +308,26 @@ function EegBrowser({
     return Math.max(0, Math.min(visibleEpochs.length - 1, Math.floor((localX - labelWidth) / epochWidth)));
   };
 
+  const getTopographyRequestFromPointer = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const epochIdx = getEpochIndexFromPointer(event);
+    if (epochIdx == null || !manifest) return null;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const scaleX = rect.width > 0 ? canvasWidth / rect.width : 1;
+    const localX = (event.clientX - rect.left) * scaleX;
+    const epoch = visibleEpochs[epochIdx];
+    if (!epoch) return null;
+    const relativeX = clamp(localX - labelWidth - epochIdx * epochWidth, 0, Math.max(epochWidth - 1, 1));
+    const fraction = epochWidth > 0 ? relativeX / epochWidth : 0;
+    const maxSampleIndex = Math.max(0, manifest.epoch_length_samples - 1);
+    const sampleIndex = clamp(Math.round(fraction * maxSampleIndex), 0, maxSampleIndex);
+    const latencyMs = sampleIndex / Math.max(manifest.sampling_rate, 1) * 1000;
+    return {
+      epochIndex: epoch.epoch_index,
+      sampleIndex,
+      latencyMs,
+    };
+  };
+
   useEffect(() => {
     const scroller = horizontalScrollRef.current;
     if (!scroller) return;
@@ -337,6 +365,13 @@ function EegBrowser({
               const epoch = visibleEpochs[epochIdx];
               if (epoch) onToggleEpoch(epoch.epoch_index);
             }}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              const request = getTopographyRequestFromPointer(event);
+              if (!request) return;
+              onFocusEpoch(request.epochIndex);
+              onOpenTopography(request);
+            }}
           />
         </div>
         <div className="sticky bottom-0 z-10 border-t border-border bg-surface-100/95 backdrop-blur-sm">
@@ -354,8 +389,86 @@ function EegBrowser({
         <div style={{ width: totalTrackWidth, height: 14 }} />
       </div>
       <div className="flex items-center justify-between text-[11px] text-zinc-500">
-        <span>Use the bottom scrollbar for file position and scroll vertically for channels. Click a trace block to focus an epoch. Double-click or press Space to reject or restore it.</span>
+        <span>Use the bottom scrollbar for file position and scroll vertically for channels. Click to focus, double-click or press Space to reject or restore, and right-click for a scalp map at that latency.</span>
         <span>{manifest.n_channels} channels · {visibleEpochs.length} visible epochs</span>
+      </div>
+    </div>
+  );
+}
+
+function TopographyModal({
+  open,
+  loading,
+  error,
+  data,
+  request,
+  onClose,
+}: {
+  open: boolean;
+  loading: boolean;
+  error: string | null;
+  data: ExcludeEpochTopographyResponse | null;
+  request: TopographyRequest | null;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose, open]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-3xl rounded-xl border border-border bg-surface-200 shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+          <div>
+            <h3 className="text-base font-semibold text-zinc-100">Epoch scalp topography</h3>
+            <p className="mt-1 text-sm text-zinc-400">
+              {data
+                ? `Epoch ${data.epoch_index + 1} at ${data.latency_ms.toFixed(1)} ms`
+                : request
+                ? `Epoch ${request.epochIndex + 1} at ${request.latencyMs.toFixed(1)} ms`
+                : "Loading selected latency"}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-md border border-border p-2 text-zinc-400 hover:bg-surface-100 hover:text-zinc-200"
+            aria-label="Close topography popup"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-4 px-5 py-5">
+          <div className="rounded-xl border border-border bg-[#0b1220] p-4 min-h-[26rem]">
+            {loading ? (
+              <div className="flex h-[24rem] items-center justify-center gap-3 text-sm text-zinc-400">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Rendering topography...
+              </div>
+            ) : error ? (
+              <div className="flex h-[24rem] items-center justify-center text-sm text-red-300">{error}</div>
+            ) : data ? (
+              <img
+                src={`data:image/png;base64,${data.image_png_base64}`}
+                alt={`Epoch ${data.epoch_index + 1} scalp topography at ${data.latency_ms.toFixed(1)} milliseconds`}
+                className="mx-auto max-h-[32rem] w-auto max-w-full rounded-md"
+              />
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500">
+            <p>Right-click any trace location to inspect the scalp map at that exact latency.</p>
+            {data ? <p>{data.channels_used.length} EEG channels used</p> : null}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -396,6 +509,11 @@ export default function ExcludePage() {
   const [reprocessMessage, setReprocessMessage] = useState<string | null>(null);
   const [qaExportMessage, setQaExportMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [topographyRequest, setTopographyRequest] = useState<TopographyRequest | null>(null);
+  const [topographyLoading, setTopographyLoading] = useState(false);
+  const [topographyError, setTopographyError] = useState<string | null>(null);
+  const [topographyData, setTopographyData] = useState<ExcludeEpochTopographyResponse | null>(null);
+  const [showEegHelp, setShowEegHelp] = useState(false);
   const epochSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notesSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastEpochSaveRef = useRef<{ fileKey: string; badEpochs: number[] } | null>(null);
@@ -540,6 +658,9 @@ export default function ExcludePage() {
       .then(([fileDetail, epochManifest, summary]) => {
         if (cancelled) return;
         setActionError(null);
+        setTopographyRequest(null);
+        setTopographyData(null);
+        setTopographyError(null);
         applySelectedFileData(fileDetail, epochManifest, summary, { resetViewport: true });
         setReprocessJobId(null);
         setReprocessStatus(null);
@@ -585,6 +706,29 @@ export default function ExcludePage() {
       cancelled = true;
     };
   }, [manifest, selectedKey]);
+
+  useEffect(() => {
+    if (!selectedKey || !topographyRequest || tab !== "eeg") return;
+    let cancelled = false;
+    setTopographyLoading(true);
+    setTopographyError(null);
+    api.getExcludeEpochTopography(selectedKey, topographyRequest.epochIndex, topographyRequest.sampleIndex)
+      .then((payload) => {
+        if (cancelled) return;
+        setTopographyData(payload);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setTopographyError(err instanceof Error ? err.message : String(err));
+        setTopographyData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setTopographyLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedKey, tab, topographyRequest]);
 
   useEffect(() => {
     return () => {
@@ -832,6 +976,12 @@ export default function ExcludePage() {
   const icaOverridesDirty = !arraysEqual(manualRejectedIca, loadedManualRejectedIcaRef.current);
   const invalidCombinedOverrideChange = channelOverridesDirty && icaOverridesDirty;
 
+  function openTopography(request: TopographyRequest) {
+    setTopographyRequest(request);
+    setTopographyData(null);
+    setTopographyError(null);
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -971,8 +1121,19 @@ export default function ExcludePage() {
             ) : tab === "eeg" ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-4 text-xs text-zinc-500">
-                  <div>
-                    {manifest ? `${manifest.n_epochs} epochs · ${manifest.n_channels} channels · ${manifest.sampling_rate.toFixed(0)} Hz` : "Loading EEG…"}
+                  <div className="flex items-center gap-2">
+                    <span>
+                      {manifest ? `${manifest.n_epochs} epochs · ${manifest.n_channels} channels · ${manifest.sampling_rate.toFixed(0)} Hz` : "Loading EEG…"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowEegHelp((value) => !value)}
+                      className="flex h-5 w-5 items-center justify-center rounded-full border border-border text-[11px] font-semibold text-zinc-300 hover:bg-surface-50 hover:text-zinc-100"
+                      aria-label={showEegHelp ? "Hide EEG help" : "Show EEG help"}
+                      title={showEegHelp ? "Hide EEG help" : "Show EEG help"}
+                    >
+                      ?
+                    </button>
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-2">
                     {artifact.postedit ? (
@@ -982,6 +1143,39 @@ export default function ExcludePage() {
                     ) : null}
                   </div>
                 </div>
+
+                {showEegHelp ? (
+                  <div className="rounded-lg border border-border bg-surface-50/60 p-3">
+                    <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+                      <div className="space-y-2">
+                        <p className="text-[11px] uppercase tracking-wider text-zinc-500">Directions</p>
+                        <div className="grid gap-2 text-xs text-zinc-300 sm:grid-cols-2">
+                          <p>Click a trace to focus an epoch.</p>
+                          <p>Double-click or press Space to reject or restore the focused epoch.</p>
+                          <p>Use the bottom scrollbar to move through the full file.</p>
+                          <p>Right-click a trace to open a scalp map for that exact latency.</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-[11px] uppercase tracking-wider text-zinc-500">Color Key</p>
+                        <div className="grid gap-2 text-xs text-zinc-300">
+                          <div className="flex items-center gap-2">
+                            <span className="h-3 w-3 rounded-full bg-[#60a5fa]" />
+                            <span>Blue trace and header tint: focused epoch</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="h-3 w-3 rounded-full bg-[#f87171]" />
+                            <span>Red trace and header tint: rejected epoch</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="h-3 w-3 rounded-full bg-[#e2e8f0]" />
+                            <span>Light dotted vertical lines: epoch boundaries</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="space-y-3">
                   <div className="relative">
@@ -1001,6 +1195,7 @@ export default function ExcludePage() {
                           toggleEpoch(epochIndex);
                         }}
                         onEpochStartChange={setEpochStart}
+                        onOpenTopography={openTopography}
                       />
                     </div>
                     {epochWindowLoading ? (
@@ -1421,6 +1616,18 @@ export default function ExcludePage() {
           </div>
         </div>
       </section>
+      <TopographyModal
+        open={topographyRequest != null}
+        loading={topographyLoading}
+        error={topographyError}
+        data={topographyData}
+        request={topographyRequest}
+        onClose={() => {
+          setTopographyRequest(null);
+          setTopographyData(null);
+          setTopographyError(null);
+        }}
+      />
     </div>
   );
 }

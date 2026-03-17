@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import base64
 import csv
 import hashlib
 import json
@@ -11,6 +12,7 @@ import subprocess
 import sys
 import uuid
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Optional
 
@@ -913,6 +915,15 @@ class EpochWindowResponse(BaseModel):
     epochs: list[dict[str, Any]]
 
 
+class EpochTopographyResponse(BaseModel):
+    file_key: str
+    epoch_index: int
+    sample_index: int
+    latency_ms: float
+    image_png_base64: str
+    channels_used: list[str]
+
+
 class ReprocessRequest(BaseModel):
     manual_bad_channels: list[str] = Field(default_factory=list)
     manual_rejected_ica: list[int] = Field(default_factory=list)
@@ -1002,6 +1013,86 @@ def _load_epochs(file_path: Path) -> mne.BaseEpochs:
         raise HTTPException(status_code=400, detail=f"Could not load epochs: {exc}")
 
 
+def _render_epoch_topography(
+    *,
+    file_key: str,
+    epochs: mne.BaseEpochs,
+    epoch_index: int,
+    sample_index: int,
+) -> EpochTopographyResponse:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    if epoch_index < 0 or epoch_index >= len(epochs):
+        raise HTTPException(status_code=400, detail="Epoch index out of range")
+
+    eeg_picks = mne.pick_types(epochs.info, eeg=True, exclude=[])
+    if len(eeg_picks) == 0:
+        raise HTTPException(status_code=400, detail="No EEG channels available for topography")
+
+    sample_index = max(0, min(sample_index, len(epochs.times) - 1))
+    epoch_data = epochs.get_data()[epoch_index]
+    values_uv = epoch_data[eeg_picks, sample_index] * 1e6
+    channels_used = [epochs.ch_names[pick] for pick in eeg_picks]
+    topo_info = mne.pick_info(epochs.info, eeg_picks, copy=True)
+
+    fig, ax = plt.subplots(1, 1, figsize=(4.5, 4.2), dpi=140)
+    fig.patch.set_facecolor("#0b1220")
+    ax.set_facecolor("#0b1220")
+    try:
+        vmax = float(np.max(np.abs(values_uv))) if values_uv.size else 1.0
+        if vmax <= 0:
+            vmax = 1.0
+        mne.viz.plot_topomap(
+            values_uv,
+            topo_info,
+            axes=ax,
+            show=False,
+            contours=6,
+            cmap="RdBu_r",
+            vlim=(-vmax, vmax),
+            outlines="head",
+            sensors=True,
+            sphere=None,
+        )
+        latency_ms = float(epochs.times[sample_index] * 1000.0)
+        ax.set_title(
+            f"Epoch {epoch_index + 1} • {latency_ms:.1f} ms",
+            color="#e2e8f0",
+            fontsize=10,
+            pad=10,
+        )
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        buffer = BytesIO()
+        fig.savefig(
+            buffer,
+            format="png",
+            bbox_inches="tight",
+            pad_inches=0.12,
+            facecolor="#0b1220",
+            edgecolor="none",
+        )
+        buffer.seek(0)
+        return EpochTopographyResponse(
+            file_key=file_key,
+            epoch_index=epoch_index,
+            sample_index=sample_index,
+            latency_ms=latency_ms,
+            image_png_base64=base64.b64encode(buffer.read()).decode("utf-8"),
+            channels_used=channels_used,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Could not render topography: {exc}")
+    finally:
+        plt.close(fig)
+
+
 @router.get("/files/{file_key:path}/eeg/manifest", response_model=EpochManifest)
 async def get_eeg_manifest(file_key: str) -> EpochManifest:
     root = _resolve_exports_root()
@@ -1076,6 +1167,23 @@ async def get_eeg_epochs(
         sampling_rate=sfreq,
         epoch_duration_seconds=float(epochs.times[-1] - epochs.times[0]) if len(epochs.times) > 1 else 0.0,
         epochs=payload,
+    )
+
+
+@router.get("/files/{file_key:path}/eeg/topography", response_model=EpochTopographyResponse)
+async def get_eeg_topography(
+    file_key: str,
+    epoch_index: int = Query(..., ge=0),
+    sample_index: int = Query(..., ge=0),
+) -> EpochTopographyResponse:
+    root = _resolve_exports_root()
+    file_path, _relative_path = _resolve_file(root, file_key)
+    epochs = _load_epochs(file_path)
+    return _render_epoch_topography(
+        file_key=file_key,
+        epochs=epochs,
+        epoch_index=epoch_index,
+        sample_index=sample_index,
     )
 
 
