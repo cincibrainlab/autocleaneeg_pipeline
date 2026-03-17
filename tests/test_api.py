@@ -76,6 +76,18 @@ class TestCreateApp:
         assert app is not None
         assert app.title == "AutoClean Automation API"
 
+    def test_create_app_does_not_load_persisted_workspace_by_default(self, monkeypatch) -> None:
+        """Test app factory isolation from persisted local user config."""
+        old_workspace = api_state.workspace_dir
+        monkeypatch.setattr("autoclean.api.server._load_persisted_serve_workspace", lambda: Path("/tmp/persisted"))
+        try:
+            api_state.workspace_dir = None
+            app = create_app()
+            assert app is not None
+            assert api_state.workspace_dir is None
+        finally:
+            api_state.workspace_dir = old_workspace
+
     def test_create_app_with_workspace(self, tmp_path: Path) -> None:
         """Test creating app with workspace."""
         app = create_app(workspace_dir=tmp_path, mode="live")
@@ -294,6 +306,31 @@ class TestServerImport:
         assert create_app is not None
         assert run_server is not None
         assert api_state is not None
+
+    def test_run_server_binds_explicit_workspace_into_factory(self, tmp_path: Path, monkeypatch) -> None:
+        """Test run_server passes the requested workspace into the app factory."""
+        import autoclean.api.server as server_module
+
+        captured: dict[str, Any] = {}
+
+        def fake_uvicorn_run(app_factory, **kwargs):
+            captured["factory"] = app_factory
+            captured["kwargs"] = kwargs
+
+        old_workspace = server_module.api_state.workspace_dir
+        monkeypatch.setattr("uvicorn.run", fake_uvicorn_run)
+        monkeypatch.setattr(server_module, "_load_persisted_serve_workspace", lambda: None)
+        try:
+            server_module.api_state.workspace_dir = None
+            server_module.run_server(workspace_dir=tmp_path, mode="live", port=8123)
+            factory = captured["factory"]
+            app = factory()
+            assert app is not None
+            assert server_module.api_state.workspace_dir == tmp_path
+            assert captured["kwargs"]["factory"] is True
+            assert captured["kwargs"]["port"] == 8123
+        finally:
+            server_module.api_state.workspace_dir = old_workspace
 
 
 class TestAPIIntegration:

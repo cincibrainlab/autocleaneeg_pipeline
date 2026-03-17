@@ -2,10 +2,15 @@
 # Provides convenient commands for local development and code quality checks
 # Uses uv tool for isolated tool management (no dependency conflicts!)
 
-.PHONY: help install-dev install-uv-tool upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-quick test-unit-short test-ingestion test-cov test-integration test-integration-short test-perf test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve deploy plans-serve plans-stop web-ui serve-run app-up app-stop
+.PHONY: help install-dev install-uv-tool upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-quick test-unit-short test-ingestion test-cov test-integration test-integration-short test-perf test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve deploy plans-serve plans-stop ensure-serve-workspace web-ui serve-run app-up app-stop
 
-SERVE_WORKSPACE := /Users/sueo8x/Documents/Autoclean-EEG
+SERVE_WORKSPACE ?= $(HOME)/Documents/Autoclean-EEG
+SERVE_MODE ?= live
+AUTOCLEAN_CLI ?= autocleaneeg-pipeline
+
+ifneq ("$(wildcard .venv/bin/autocleaneeg-pipeline)","")
 AUTOCLEAN_CLI := .venv/bin/autocleaneeg-pipeline
+endif
 
 # Default target
 help: ## Show this help message
@@ -252,20 +257,23 @@ plans-serve: ## Start HTTP server for plans/_site on port 7933
 	@echo "💡 Stop with: make plans-stop"
 
 web-ui: ## Start the web UI/API for the single AutoClean workspace
-	@$(AUTOCLEAN_CLI) serve api --path "$(SERVE_WORKSPACE)" --host 127.0.0.1 --api-port 8000
+	@$(MAKE) ensure-serve-workspace
+	@$(AUTOCLEAN_CLI) serve api --path "$(SERVE_WORKSPACE)" --mode "$(SERVE_MODE)" --host 127.0.0.1 --api-port 8000
 
 serve-run: ## Start the dispatcher for the single AutoClean workspace
-	@$(AUTOCLEAN_CLI) serve run --path "$(SERVE_WORKSPACE)"
+	@$(MAKE) ensure-serve-workspace
+	@$(AUTOCLEAN_CLI) serve run --path "$(SERVE_WORKSPACE)" --mode "$(SERVE_MODE)"
 
 app-up: ## Start dispatcher in background and web UI in foreground
+	@$(MAKE) ensure-serve-workspace
 	@if [ -f .serve-run.pid ] && kill -0 $$(cat .serve-run.pid) 2>/dev/null; then \
 		echo "Dispatcher already running (PID $$(cat .serve-run.pid))"; \
 	else \
-		nohup $(AUTOCLEAN_CLI) serve run --path "$(SERVE_WORKSPACE)" >/tmp/autoclean-serve-run.log 2>&1 & \
+		nohup $(AUTOCLEAN_CLI) serve run --path "$(SERVE_WORKSPACE)" --mode "$(SERVE_MODE)" >/tmp/autoclean-serve-run.log 2>&1 & \
 		echo $$! > .serve-run.pid; \
 		echo "Started dispatcher (PID $$(cat .serve-run.pid))"; \
 	fi
-	@$(AUTOCLEAN_CLI) serve api --path "$(SERVE_WORKSPACE)" --host 127.0.0.1 --api-port 8000
+	@$(AUTOCLEAN_CLI) serve api --path "$(SERVE_WORKSPACE)" --mode "$(SERVE_MODE)" --host 127.0.0.1 --api-port 8000
 
 app-stop: ## Stop the background dispatcher started by app-up
 	@if [ -f .serve-run.pid ]; then \
@@ -274,6 +282,13 @@ app-stop: ## Stop the background dispatcher started by app-up
 		echo "Stopped background dispatcher"; \
 	else \
 		echo "No background dispatcher pid file found"; \
+	fi
+
+ensure-serve-workspace:
+	@if [ ! -d "$(SERVE_WORKSPACE)" ]; then \
+		echo "Serve workspace not found: $(SERVE_WORKSPACE)"; \
+		echo "Set one explicitly, e.g. make web-ui SERVE_WORKSPACE=/absolute/path/to/workspace"; \
+		exit 1; \
 	fi
 
 plans-stop: ## Stop the plans server

@@ -272,9 +272,8 @@ REST API for managing automated EEG file processing pipelines.
         allow_headers=["*"],
     )
 
-    resolved_workspace = workspace_dir or _load_persisted_serve_workspace()
-    if resolved_workspace:
-        api_state.configure(resolved_workspace, mode, redis_url)
+    if workspace_dir:
+        api_state.configure(workspace_dir, mode, redis_url)
 
     # Import routes here to avoid circular imports
     from autoclean.api import events
@@ -648,6 +647,19 @@ automations: []
     return app
 
 
+def _create_bound_app_factory(
+    workspace_dir: Optional[Path],
+    mode: str,
+    redis_url: str,
+):
+    """Bind explicit startup arguments into a Uvicorn-compatible app factory."""
+
+    def _factory() -> FastAPI:
+        return create_app(workspace_dir=workspace_dir, mode=mode, redis_url=redis_url)
+
+    return _factory
+
+
 def run_server(
     workspace_dir: Optional[Path] = None,
     mode: str = "test",
@@ -675,15 +687,16 @@ def run_server(
     # correct loopback address without accepting a caller-supplied port.
     os.environ["AUTOCLEAN_API_PORT"] = str(port)
 
-    # Configure global state only if a workspace was provided.
-    # When workspace_dir is None, api_state.workspace_dir stays None and the
-    # health endpoint returns workspace_configured=false, sending the browser
-    # to the first-run setup wizard.
-    if workspace_dir is not None:
-        api_state.configure(workspace_dir, mode, redis_url)
+    resolved_workspace = workspace_dir or _load_persisted_serve_workspace()
+
+    # Configure global state only if a workspace was provided or previously
+    # persisted by the CLI/web setup flow. This keeps the app factory itself
+    # deterministic for tests while preserving operator-friendly boot behavior.
+    if resolved_workspace is not None:
+        api_state.configure(resolved_workspace, mode, redis_url)
 
     uvicorn.run(
-        "autoclean.api.server:create_app",
+        _create_bound_app_factory(resolved_workspace, mode, redis_url),
         host=host,
         port=port,
         reload=reload,
