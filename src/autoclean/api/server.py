@@ -176,6 +176,20 @@ def _save_recent_workspace(path: str) -> None:
     _RECENT_FILE.write_text(json.dumps(recent[:10]))
 
 
+def _load_persisted_serve_workspace() -> Optional[Path]:
+    """Load the persisted serve workspace from user config, if available."""
+    try:
+        from autoclean.utils.user_config import UserConfigManager
+
+        workspace = UserConfigManager().get_serve_workspace()
+    except Exception:
+        return None
+
+    if not workspace:
+        return None
+    return Path(workspace).expanduser().resolve()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
@@ -258,9 +272,9 @@ REST API for managing automated EEG file processing pipelines.
         allow_headers=["*"],
     )
 
-    # Configure state if workspace provided
-    if workspace_dir:
-        api_state.configure(workspace_dir, mode, redis_url)
+    resolved_workspace = workspace_dir or _load_persisted_serve_workspace()
+    if resolved_workspace:
+        api_state.configure(resolved_workspace, mode, redis_url)
 
     # Import routes here to avoid circular imports
     from autoclean.api import events
