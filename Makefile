@@ -2,7 +2,10 @@
 # Provides convenient commands for local development and code quality checks
 # Uses uv tool for isolated tool management (no dependency conflicts!)
 
-.PHONY: help install-dev install-uv-tool upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-quick test-unit-short test-ingestion test-cov test-integration test-integration-short test-perf test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve deploy plans-serve plans-stop
+.PHONY: help install-dev install-uv-tool upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-quick test-unit-short test-ingestion test-cov test-integration test-integration-short test-perf test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve deploy plans-serve plans-stop web-ui serve-run app-up app-stop
+
+SERVE_WORKSPACE := /Users/sueo8x/Documents/Autoclean-EEG
+AUTOCLEAN_CLI := .venv/bin/autocleaneeg-pipeline
 
 # Default target
 help: ## Show this help message
@@ -44,6 +47,12 @@ help: ## Show this help message
 	@echo "Plans Server:"
 	@echo "  plans-serve    Start HTTP server for plans/_site on port 7933"
 	@echo "  plans-stop     Stop the plans server"
+	@echo ""
+	@echo "AutoClean App:"
+	@echo "  web-ui         Start the web UI/API for the single AutoClean workspace"
+	@echo "  serve-run      Start the dispatcher for the single AutoClean workspace"
+	@echo "  app-up         Start dispatcher in background and web UI in foreground"
+	@echo "  app-stop       Stop the background dispatcher started by app-up"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  clean          Clean temporary files and caches"
@@ -241,6 +250,31 @@ plans-serve: ## Start HTTP server for plans/_site on port 7933
 	@cd $(PLANS_DIR) && python3 -m http.server $(PLANS_PORT) &
 	@echo "✅ Server running in background"
 	@echo "💡 Stop with: make plans-stop"
+
+web-ui: ## Start the web UI/API for the single AutoClean workspace
+	@$(AUTOCLEAN_CLI) serve api --path "$(SERVE_WORKSPACE)" --host 127.0.0.1 --api-port 8000
+
+serve-run: ## Start the dispatcher for the single AutoClean workspace
+	@$(AUTOCLEAN_CLI) serve run --path "$(SERVE_WORKSPACE)"
+
+app-up: ## Start dispatcher in background and web UI in foreground
+	@if [ -f .serve-run.pid ] && kill -0 $$(cat .serve-run.pid) 2>/dev/null; then \
+		echo "Dispatcher already running (PID $$(cat .serve-run.pid))"; \
+	else \
+		nohup $(AUTOCLEAN_CLI) serve run --path "$(SERVE_WORKSPACE)" >/tmp/autoclean-serve-run.log 2>&1 & \
+		echo $$! > .serve-run.pid; \
+		echo "Started dispatcher (PID $$(cat .serve-run.pid))"; \
+	fi
+	@$(AUTOCLEAN_CLI) serve api --path "$(SERVE_WORKSPACE)" --host 127.0.0.1 --api-port 8000
+
+app-stop: ## Stop the background dispatcher started by app-up
+	@if [ -f .serve-run.pid ]; then \
+		kill $$(cat .serve-run.pid) 2>/dev/null || true; \
+		rm -f .serve-run.pid; \
+		echo "Stopped background dispatcher"; \
+	else \
+		echo "No background dispatcher pid file found"; \
+	fi
 
 plans-stop: ## Stop the plans server
 	@echo "🛑 Stopping plans server on port $(PLANS_PORT)..."
