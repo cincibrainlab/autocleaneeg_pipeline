@@ -317,16 +317,7 @@ def _build_manual_fix_payload(
     ica_file_path = task_root / "ica" / f"{stem}-ica.fif"
     ica_file_relative = f"ica/{stem}-ica.fif" if ica_file_path.exists() else None
 
-    has_channel_changes = bool(manual_bad_channels)
-    has_ica_changes = bool(manual_rejected_ica)
-    if has_channel_changes and has_ica_changes:
-        fix_type = "both"
-    elif has_channel_changes:
-        fix_type = "channel"
-    elif has_ica_changes:
-        fix_type = "ica"
-    else:
-        fix_type = "none"
+    fix_type = str((record or {}).get("reprocess_fix_type", "") or "none")
 
     payload = {
         "file_key": file_key,
@@ -387,6 +378,66 @@ def _manual_bad_epoch_indices(record: dict[str, Any]) -> list[int]:
         for v in str(record.get("bad_epoch_indices", "")).split(",")
         if str(v).strip()
     ]
+
+
+def _normalize_manual_bad_channels(values: list[str]) -> list[str]:
+    normalized: set[str] = set()
+    for value in values:
+        text = str(value).strip().upper()
+        if not text:
+            continue
+        if text.isdigit():
+            text = f"E{text}"
+        normalized.add(text)
+    return sorted(normalized)
+
+
+def _resolve_override_fix_type(
+    existing_bad_channels: list[str],
+    existing_rejected_ica: list[int],
+    next_bad_channels: list[str],
+    next_rejected_ica: list[int],
+) -> str:
+    channel_changed = existing_bad_channels != next_bad_channels
+    ica_changed = existing_rejected_ica != next_rejected_ica
+    if channel_changed and ica_changed:
+        raise HTTPException(
+            status_code=400,
+            detail="Channel and ICA overrides cannot both be changed in the same run.",
+        )
+    if channel_changed:
+        return "channel"
+    if ica_changed:
+        return "ica"
+    return ""
+
+
+def _validate_override_values(
+    *,
+    valid_channels: list[str],
+    max_components: int,
+    manual_bad_channels: list[str],
+    manual_rejected_ica: list[int],
+) -> None:
+    valid_channel_set = {str(value).upper() for value in valid_channels}
+    invalid_channels = [channel for channel in manual_bad_channels if channel.upper() not in valid_channel_set]
+    if invalid_channels:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid bad channel override(s): {', '.join(invalid_channels)}",
+        )
+
+    if max_components > 0:
+        invalid_ica = [component for component in manual_rejected_ica if component < 0 or component >= max_components]
+        if invalid_ica:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Invalid ICA override(s): "
+                    + ", ".join(f"IC {component}" for component in invalid_ica)
+                    + f". Valid range is 0-{max_components - 1}."
+                ),
+            )
 
 
 def _drop_bad_epochs(epochs: mne.BaseEpochs, bad_indices: list[int]) -> None:
@@ -897,7 +948,7 @@ async def get_eeg_manifest(file_key: str) -> EpochManifest:
 async def get_eeg_epochs(
     file_key: str,
     start: int = Query(default=0, ge=0),
-    count: int = Query(default=10, ge=1, le=20),
+    count: int = Query(default=10, ge=1),
     channels: Optional[str] = None,
 ) -> EpochWindowResponse:
     root = _resolve_exports_root()
@@ -1085,21 +1136,29 @@ async def save_overrides(file_key: str, body: OverridesUpdate) -> dict[str, Any]
     from datetime import datetime
 
     root = _resolve_exports_root()
-    _, relative_path = _resolve_file(root, file_key)
+    file_path, relative_path = _resolve_file(root, file_key)
     decisions = _load_decisions(root)
     record = _record_for(decisions, file_key, relative_path)
-    record["manual_bad_channels"] = sorted({str(v).strip().upper() for v in body.manual_bad_channels if str(v).strip()})
-    record["manual_rejected_ica"] = sorted({int(v) for v in body.manual_rejected_ica})
-    has_channel_changes = bool(record["manual_bad_channels"])
-    has_ica_changes = bool(record["manual_rejected_ica"])
-    if has_channel_changes and has_ica_changes:
-        fix_type = "both"
-    elif has_channel_changes:
-        fix_type = "channel"
-    elif has_ica_changes:
-        fix_type = "ica"
-    else:
-        fix_type = ""
+    related = _related_paths(root, file_path)
+    metadata = _parse_metadata(related["metadata"])
+    existing_bad_channels = [str(v) for v in record.get("manual_bad_channels", [])]
+    existing_rejected_ica = [int(v) for v in record.get("manual_rejected_ica", [])]
+    next_bad_channels = _normalize_manual_bad_channels(body.manual_bad_channels)
+    next_rejected_ica = sorted({int(v) for v in body.manual_rejected_ica})
+    _validate_override_values(
+        valid_channels=[str(v) for v in metadata.get("valid_channels", [])],
+        max_components=int(metadata.get("max_components", 0) or 0),
+        manual_bad_channels=next_bad_channels,
+        manual_rejected_ica=next_rejected_ica,
+    )
+    fix_type = _resolve_override_fix_type(
+        existing_bad_channels,
+        existing_rejected_ica,
+        next_bad_channels,
+        next_rejected_ica,
+    )
+    record["manual_bad_channels"] = next_bad_channels
+    record["manual_rejected_ica"] = next_rejected_ica
     record["reprocess_modified"] = bool(fix_type)
     record["reprocess_fix_type"] = fix_type
     record["reprocess_timestamp"] = _human_timestamp() if fix_type else ""
@@ -1141,19 +1200,28 @@ async def start_reprocess(file_key: str, body: ReprocessRequest) -> ReprocessRes
     if task_file is None or not task_file.exists():
         raise HTTPException(status_code=404, detail="Original task file not found in status/")
 
-    manual_bad_channels = sorted({str(v).strip().upper() for v in body.manual_bad_channels if str(v).strip()})
+    manual_bad_channels = _normalize_manual_bad_channels(body.manual_bad_channels)
     manual_rejected_ica = sorted({int(v) for v in body.manual_rejected_ica})
+    _validate_override_values(
+        valid_channels=[str(v) for v in metadata.get("valid_channels", [])],
+        max_components=int(metadata.get("max_components", 0) or 0),
+        manual_bad_channels=manual_bad_channels,
+        manual_rejected_ica=manual_rejected_ica,
+    )
     decisions = _load_decisions(root)
     record = _record_for(decisions, file_key, relative_path)
+    existing_bad_channels = [str(v) for v in record.get("manual_bad_channels", [])]
+    existing_rejected_ica = [int(v) for v in record.get("manual_rejected_ica", [])]
+    payload_fix_type = _resolve_override_fix_type(
+        existing_bad_channels,
+        existing_rejected_ica,
+        manual_bad_channels,
+        manual_rejected_ica,
+    )
     record["manual_bad_channels"] = manual_bad_channels
     record["manual_rejected_ica"] = manual_rejected_ica
     record["reprocess_modified"] = True
-    record["reprocess_fix_type"] = payload_fix_type = (
-        "both" if manual_bad_channels and manual_rejected_ica else
-        "channel" if manual_bad_channels else
-        "ica" if manual_rejected_ica else
-        ""
-    )
+    record["reprocess_fix_type"] = payload_fix_type
     record["reprocess_timestamp"] = _human_timestamp() if payload_fix_type else ""
     record["modified_source"] = "web"
     payload = _build_manual_fix_payload(

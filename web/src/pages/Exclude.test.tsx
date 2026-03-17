@@ -60,8 +60,8 @@ function detail(fileKey: string) {
     metrics: { data_retained: "100.0s", channels_retained: "62", channels_original: "64" },
     baseline_bad_channels: ["FP1"],
     baseline_rejected_ica: [1],
-    valid_channels: ["FP1", "FP2"],
-    max_components: 12,
+    valid_channels: ["FP1", "FP2", "E8"],
+    max_components: 100,
     manual_bad_channels: ["FP1"],
     manual_rejected_ica: [1, 3],
     epoch_review: {
@@ -74,7 +74,7 @@ function detail(fileKey: string) {
       epoch_rejection_rate: 16.7,
     },
     qa_export: { hash: "", timestamp: "", path: "" },
-    reprocess: { modified: true, fix_type: "both", timestamp: "2026-03-16 10:00:00" },
+    reprocess: { modified: true, fix_type: "channel", timestamp: "2026-03-16 10:00:00" },
     artifacts: { run_report: null, ica_report: null, psd: null, metadata: null, postedit: null },
   };
 }
@@ -97,8 +97,8 @@ beforeEach(() => {
     epoch_length_samples: 100,
     epoch_duration_seconds: 1,
     existing_bad_epoch_indices: [0],
-    default_scaling_uv: 25,
-    visible_epoch_count: 6,
+    default_scaling_uv: 50,
+    visible_epoch_count: 10,
   });
   api.getExcludeEpochWindow.mockResolvedValue({
     file_key: "subject01_comp_epo",
@@ -133,7 +133,6 @@ describe("ExcludePage", () => {
     await screen.findAllByText("subject01_comp_epo.set");
     expect(screen.getByText("/workspace")).toBeInTheDocument();
     expect(screen.getByText("/workspace/task/exports")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Show Files" }));
     expect(screen.getByText("note")).toBeInTheDocument();
   });
 
@@ -141,7 +140,6 @@ describe("ExcludePage", () => {
     render(<ExcludePage />);
 
     await screen.findAllByText("subject01_comp_epo.set");
-    fireEvent.click(screen.getByRole("button", { name: "Show Files" }));
     fireEvent.click(screen.getAllByText("subject02_comp_epo.set")[0]!);
 
     await waitFor(() => {
@@ -152,7 +150,7 @@ describe("ExcludePage", () => {
   it("toggles an epoch with Space and autosaves it", async () => {
     render(<ExcludePage />);
 
-    await screen.findByText("Epoch 1");
+    await screen.findByText("Focused epoch: 1");
     fireEvent.keyDown(document, { key: " " });
 
     await waitFor(() => {
@@ -175,7 +173,7 @@ describe("ExcludePage", () => {
     render(<ExcludePage />);
 
     await screen.findByRole("button", { name: /FP1 ×/ });
-    const channelInput = await screen.findByPlaceholderText("e.g. Fp1");
+    const channelInput = await screen.findByPlaceholderText("e.g. E8 or 8");
     fireEvent.change(channelInput, { target: { value: "Fp2" } });
     fireEvent.click(screen.getAllByText("Add")[0]!);
     await waitFor(() => {
@@ -193,6 +191,60 @@ describe("ExcludePage", () => {
     await waitFor(() => {
       expect(api.saveExcludeOverrides).toHaveBeenCalledWith("subject01_comp_epo", ["FP1"], [1, 3, 5]);
     });
+  });
+
+  it("normalizes numeric channel entries to E-prefixed labels", async () => {
+    render(<ExcludePage />);
+
+    await screen.findByRole("button", { name: /FP1 ×/ });
+    const channelInput = await screen.findByPlaceholderText("e.g. E8 or 8");
+    fireEvent.change(channelInput, { target: { value: "8" } });
+    fireEvent.click(screen.getAllByText("Add")[0]!);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /E8 ×/ })).toBeInTheDocument();
+    });
+  });
+
+  it("rejects invalid bad channel overrides", async () => {
+    render(<ExcludePage />);
+
+    await screen.findByRole("button", { name: /FP1 ×/ });
+    const channelInput = await screen.findByPlaceholderText("e.g. E8 or 8");
+    fireEvent.change(channelInput, { target: { value: "45678" } });
+    fireEvent.click(screen.getAllByText("Add")[0]!);
+
+    expect(screen.getByText("Invalid bad channel override: E45678")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /E45678 ×/ })).not.toBeInTheDocument();
+  });
+
+  it("rejects invalid ICA overrides", async () => {
+    render(<ExcludePage />);
+
+    await screen.findByRole("button", { name: /FP1 ×/ });
+    const icaInput = await screen.findByPlaceholderText("e.g. 3");
+    fireEvent.change(icaInput, { target: { value: "76543" } });
+    fireEvent.click(screen.getAllByText("Add")[1]!);
+
+    expect(screen.getByText("Invalid ICA override: IC 76543. Valid range is 0-99.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /IC 76543 ×/ })).not.toBeInTheDocument();
+  });
+
+  it("blocks changing channels and ICA in the same run", async () => {
+    render(<ExcludePage />);
+
+    await screen.findByRole("button", { name: /FP1 ×/ });
+    const channelInput = await screen.findByPlaceholderText("e.g. E8 or 8");
+    fireEvent.change(channelInput, { target: { value: "8" } });
+    fireEvent.click(screen.getAllByText("Add")[0]!);
+
+    const icaInput = screen.getByPlaceholderText("e.g. 3");
+    fireEvent.change(icaInput, { target: { value: "5" } });
+    fireEvent.click(screen.getAllByText("Add")[1]!);
+
+    expect(screen.getByText(/Change either bad channels or ICA in this run/i)).toBeInTheDocument();
+    expect(screen.getByText("Save Overrides")).toBeDisabled();
+    expect(screen.getByText("Reprocess with Overrides")).toBeDisabled();
   });
 
   it("shows reprocess status updates", async () => {

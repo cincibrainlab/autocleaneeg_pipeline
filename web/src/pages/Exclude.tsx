@@ -47,6 +47,27 @@ function MetricRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeBadChannelInput(value: string) {
+  const text = value.trim().toUpperCase();
+  if (!text) return "";
+  if (/^\d+$/.test(text)) return `E${text}`;
+  return text;
+}
+
+function arraysEqual<T>(left: T[], right: T[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function isValidIcaComponent(value: number, maxComponents: number) {
+  if (!Number.isInteger(value) || value < 0) return false;
+  if (maxComponents <= 0) return true;
+  return value < maxComponents;
+}
+
 function DiffChips({
   label,
   baseline,
@@ -223,28 +244,16 @@ function EegBrowser({
   const canvasWidth = Math.max(360, frameWidth);
   const canvasHeight = headerHeight + channels.length * channelHeight;
 
+  const getEpochIndexFromPointer = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const scaleX = rect.width > 0 ? canvasWidth / rect.width : 1;
+    const localX = (event.clientX - rect.left) * scaleX;
+    if (localX < labelWidth) return null;
+    return Math.max(0, Math.min(epochWindow.epochs.length - 1, Math.floor((localX - labelWidth) / epochWidth)));
+  };
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        {epochWindow.epochs.map((epoch) => {
-          const isFocused = focusedEpoch === epoch.epoch_index;
-          const isBad = badEpochs.includes(epoch.epoch_index);
-          return (
-            <button
-              key={epoch.epoch_index}
-              onClick={() => onFocusEpoch(epoch.epoch_index)}
-              onDoubleClick={() => onToggleEpoch(epoch.epoch_index)}
-              className={[
-                "rounded-md border px-2.5 py-1.5 text-xs transition-colors",
-                isBad ? "border-red-500/40 bg-red-500/10 text-red-300" : isFocused ? "border-brand bg-brand/10 text-brand" : "border-border bg-surface-50 text-zinc-300",
-              ].join(" ")}
-              title="Click to focus, double-click to toggle rejected/kept"
-            >
-              Epoch {epoch.epoch_index + 1}
-            </button>
-          );
-        })}
-      </div>
       <div ref={frameRef} className="rounded-lg border border-border bg-surface-50/60 overflow-y-auto overflow-x-hidden max-h-[36rem]">
         <canvas
           ref={canvasRef}
@@ -252,18 +261,14 @@ function EegBrowser({
           height={canvasHeight}
           className="block w-full"
           onClick={(event) => {
-            const rect = event.currentTarget.getBoundingClientRect();
-            const x = event.clientX - rect.left;
-            if (x < labelWidth) return;
-            const epochIdx = Math.max(0, Math.min(epochWindow.epochs.length - 1, Math.floor((x - labelWidth) / epochWidth)));
+            const epochIdx = getEpochIndexFromPointer(event);
+            if (epochIdx == null) return;
             const epoch = epochWindow.epochs[epochIdx];
             if (epoch) onFocusEpoch(epoch.epoch_index);
           }}
           onDoubleClick={(event) => {
-            const rect = event.currentTarget.getBoundingClientRect();
-            const x = event.clientX - rect.left;
-            if (x < labelWidth) return;
-            const epochIdx = Math.max(0, Math.min(epochWindow.epochs.length - 1, Math.floor((x - labelWidth) / epochWidth)));
+            const epochIdx = getEpochIndexFromPointer(event);
+            if (epochIdx == null) return;
             const epoch = epochWindow.epochs[epochIdx];
             if (epoch) onToggleEpoch(epoch.epoch_index);
           }}
@@ -291,6 +296,7 @@ export default function ExcludePage() {
   const [tab, setTab] = useState<TabKey>("eeg");
   const [manifest, setManifest] = useState<EpochManifest | null>(null);
   const [epochWindow, setEpochWindow] = useState<EpochWindowResponse | null>(null);
+  const [epochWindowLoading, setEpochWindowLoading] = useState(false);
   const [epochStart, setEpochStart] = useState(0);
   const [focusedEpoch, setFocusedEpoch] = useState<number | null>(null);
   const [badEpochs, setBadEpochs] = useState<number[]>([]);
@@ -302,10 +308,10 @@ export default function ExcludePage() {
   const [channelDraft, setChannelDraft] = useState("");
   const [icaDraft, setIcaDraft] = useState("");
   const [icaSummary, setIcaSummary] = useState<ExcludeIcaSummaryResponse | null>(null);
-  const [visibleEpochCount, setVisibleEpochCount] = useState(6);
-  const [scaleUv, setScaleUv] = useState(25);
-  const [channelHeight, setChannelHeight] = useState(32);
-  const [showFileList, setShowFileList] = useState(false);
+  const [visibleEpochCount, setVisibleEpochCount] = useState(10);
+  const [scaleUv, setScaleUv] = useState(50);
+  const [channelHeight, setChannelHeight] = useState(8);
+  const [showFileList, setShowFileList] = useState(true);
   const [reprocessJobId, setReprocessJobId] = useState<string | null>(null);
   const [reprocessStatus, setReprocessStatus] = useState<string | null>(null);
   const [reprocessMessage, setReprocessMessage] = useState<string | null>(null);
@@ -315,6 +321,26 @@ export default function ExcludePage() {
   const notesSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastEpochSaveRef = useRef<{ fileKey: string; badEpochs: number[] } | null>(null);
   const lastNotesSaveRef = useRef<{ fileKey: string; notes: string; status: string } | null>(null);
+  const loadedManualBadChannelsRef = useRef<string[]>([]);
+  const loadedManualRejectedIcaRef = useRef<number[]>([]);
+
+  const setVisibleEpochCountBounded = (value: number) => {
+    const maxEpochs = Math.max(1, manifest?.n_epochs ?? 1);
+    const next = clamp(Math.round(value), 1, maxEpochs);
+    setVisibleEpochCount(next);
+    setEpochStart((current) => {
+      if (!manifest) return current;
+      return Math.min(current, Math.max(0, manifest.n_epochs - next));
+    });
+  };
+
+  const setScaleUvBounded = (value: number) => {
+    setScaleUv(clamp(Math.round(value), 1, 150));
+  };
+
+  const setChannelHeightBounded = (value: number) => {
+    setChannelHeight(clamp(Math.round(value), 4, 56));
+  };
 
   async function loadFiles(preserveSelection = true) {
     const [data, statusData] = await Promise.all([
@@ -410,7 +436,12 @@ export default function ExcludePage() {
         setStatus(fileDetail.status);
         setManualBadChannels(fileDetail.manual_bad_channels);
         setManualRejectedIca(fileDetail.manual_rejected_ica);
+        loadedManualBadChannelsRef.current = fileDetail.manual_bad_channels;
+        loadedManualRejectedIcaRef.current = fileDetail.manual_rejected_ica;
         setManifest(epochManifest);
+        setVisibleEpochCount(Math.min(10, Math.max(1, epochManifest.n_epochs)));
+        setScaleUv(50);
+        setChannelHeight(8);
         setEpochStart(0);
         setBadEpochs(fileDetail.epoch_review.bad_epoch_indices);
         setFocusedEpoch(fileDetail.epoch_review.bad_epoch_indices[0] ?? 0);
@@ -433,6 +464,7 @@ export default function ExcludePage() {
   useEffect(() => {
     if (!selectedKey || !manifest) return;
     let cancelled = false;
+    setEpochWindowLoading(true);
     api.getExcludeEpochWindow(selectedKey, epochStart, visibleEpochCount, manifest.channel_names)
       .then((window) => {
         if (cancelled) return;
@@ -447,6 +479,11 @@ export default function ExcludePage() {
       .catch((err: unknown) => {
         if (!cancelled) {
           setActionError(err instanceof Error ? err.message : String(err));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setEpochWindowLoading(false);
         }
       });
     return () => {
@@ -497,6 +534,8 @@ export default function ExcludePage() {
                   setStatus(fileDetail.status);
                   setManualBadChannels(fileDetail.manual_bad_channels);
                   setManualRejectedIca(fileDetail.manual_rejected_ica);
+                  loadedManualBadChannelsRef.current = fileDetail.manual_bad_channels;
+                  loadedManualRejectedIcaRef.current = fileDetail.manual_rejected_ica;
                   setBadEpochs(fileDetail.epoch_review.bad_epoch_indices);
                 })
                 .catch(() => {});
@@ -605,10 +644,16 @@ export default function ExcludePage() {
 
   async function saveOverrides() {
     if (!selectedKey) return;
+    if (invalidCombinedOverrideChange) {
+      setActionError("Change either bad channels or ICA in this run, not both. Epoch edits can still be combined with channel edits.");
+      return;
+    }
     setActionError(null);
     setSaveState("saving");
     try {
       await api.saveExcludeOverrides(selectedKey, manualBadChannels, manualRejectedIca);
+      loadedManualBadChannelsRef.current = manualBadChannels;
+      loadedManualRejectedIcaRef.current = manualRejectedIca;
       setSaveState("saved");
     } catch {
       setSaveState("error");
@@ -618,6 +663,10 @@ export default function ExcludePage() {
 
   async function startReprocess() {
     if (!selectedKey) return;
+    if (invalidCombinedOverrideChange) {
+      setActionError("Change either bad channels or ICA in this run, not both. Epoch edits can still be combined with channel edits.");
+      return;
+    }
     const confirmed = window.confirm(
       `Reprocess ${detail?.name ?? selectedKey}?\n\n` +
       `Bad channels: ${manualBadChannels.length}\n` +
@@ -684,6 +733,10 @@ export default function ExcludePage() {
     channels_original?: string;
   };
   const artifact = (detail?.artifacts ?? {}) as Record<string, string | null>;
+  const validChannelSet = new Set((detail?.valid_channels ?? []).map((value) => String(value).toUpperCase()));
+  const channelOverridesDirty = !arraysEqual(manualBadChannels, loadedManualBadChannelsRef.current);
+  const icaOverridesDirty = !arraysEqual(manualRejectedIca, loadedManualRejectedIcaRef.current);
+  const invalidCombinedOverrideChange = channelOverridesDirty && icaOverridesDirty;
 
   return (
     <div className="space-y-5">
@@ -722,9 +775,9 @@ export default function ExcludePage() {
         </div>
       </div>
 
-      <div className="space-y-5">
+      <div className="flex flex-col gap-5 xl:flex-row">
         {showFileList ? (
-          <section className="rounded-lg border border-border bg-surface-100 overflow-hidden">
+          <aside className="w-full shrink-0 rounded-lg border border-border bg-surface-100 overflow-hidden xl:w-[18rem]">
           <div className="p-3 border-b border-border">
             <div className="flex items-center gap-2 rounded-md border border-border bg-surface-50 px-2.5 py-2">
               <Search className="w-4 h-4 text-zinc-500" />
@@ -779,7 +832,7 @@ export default function ExcludePage() {
               ))
             )}
           </div>
-          </section>
+          </aside>
         ) : null}
 
         <section className="min-w-0 flex-1 rounded-lg border border-border bg-surface-100 overflow-hidden">
@@ -837,20 +890,32 @@ export default function ExcludePage() {
                 </div>
 
                 <div className="space-y-3">
-                  <EegBrowser
-                    epochWindow={epochWindow}
-                    manifest={manifest}
-                    badEpochs={badEpochs}
-                    focusedEpoch={focusedEpoch}
-                    scaleUv={scaleUv}
-                    channelHeight={channelHeight}
-                    timeZoom={1}
-                    onFocusEpoch={setFocusedEpoch}
-                    onToggleEpoch={(epochIndex) => {
-                      setFocusedEpoch(epochIndex);
-                      toggleEpoch(epochIndex);
-                    }}
-                  />
+                  <div className="relative">
+                    <div className={epochWindowLoading ? "pointer-events-none opacity-40 blur-[1px]" : ""}>
+                      <EegBrowser
+                        epochWindow={epochWindow}
+                        manifest={manifest}
+                        badEpochs={badEpochs}
+                        focusedEpoch={focusedEpoch}
+                        scaleUv={scaleUv}
+                        channelHeight={channelHeight}
+                        timeZoom={1}
+                        onFocusEpoch={setFocusedEpoch}
+                        onToggleEpoch={(epochIndex) => {
+                          setFocusedEpoch(epochIndex);
+                          toggleEpoch(epochIndex);
+                        }}
+                      />
+                    </div>
+                    {epochWindowLoading ? (
+                      <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-surface-200/35 backdrop-blur-[1px]">
+                        <div className="flex items-center gap-2 rounded-full border border-border bg-surface-100/90 px-4 py-2 text-sm text-zinc-200 shadow-lg">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading EEG window...
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                   <div className="rounded-lg border border-border bg-surface-50/50 p-3">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="flex items-center gap-2">
@@ -885,19 +950,21 @@ export default function ExcludePage() {
                       <label className="block text-[11px] uppercase tracking-wider text-zinc-600">
                         Visible Epochs
                         <input
-                          type="range"
-                          min={2}
-                          max={12}
+                          type="number"
+                          min={1}
+                          max={Math.max(1, manifest?.n_epochs ?? 1)}
                           step={1}
                           value={visibleEpochCount}
-                          onChange={(event) => {
-                            const next = Number(event.target.value);
-                            setVisibleEpochCount(next);
-                            setEpochStart((current) => {
-                              if (!manifest) return current;
-                              return Math.min(current, Math.max(0, manifest.n_epochs - next));
-                            });
-                          }}
+                          onChange={(event) => setVisibleEpochCountBounded(Number(event.target.value) || 1)}
+                          className="mt-2 w-full rounded border border-border bg-surface-100 px-2 py-1.5 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-brand/50"
+                        />
+                        <input
+                          type="range"
+                          min={1}
+                          max={Math.max(1, manifest?.n_epochs ?? 1)}
+                          step={1}
+                          value={visibleEpochCount}
+                          onChange={(event) => setVisibleEpochCountBounded(Number(event.target.value))}
                           className="mt-2 w-full"
                         />
                         <div className="mt-1 text-xs text-zinc-400">{visibleEpochCount} epochs per page</div>
@@ -905,12 +972,21 @@ export default function ExcludePage() {
                       <label className="block text-[11px] uppercase tracking-wider text-zinc-600">
                         Scale
                         <input
+                          type="number"
+                          min={1}
+                          max={150}
+                          step={1}
+                          value={scaleUv}
+                          onChange={(event) => setScaleUvBounded(Number(event.target.value) || 1)}
+                          className="mt-2 w-full rounded border border-border bg-surface-100 px-2 py-1.5 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-brand/50"
+                        />
+                        <input
                           type="range"
                           min={1}
                           max={150}
                           step={1}
                           value={scaleUv}
-                          onChange={(event) => setScaleUv(Number(event.target.value))}
+                          onChange={(event) => setScaleUvBounded(Number(event.target.value))}
                           className="mt-2 w-full"
                         />
                         <div className="mt-1 text-xs text-zinc-400">±{scaleUv} uV</div>
@@ -918,12 +994,21 @@ export default function ExcludePage() {
                       <label className="block text-[11px] uppercase tracking-wider text-zinc-600">
                         Channel Height
                         <input
-                          type="range"
-                          min={18}
+                          type="number"
+                          min={4}
                           max={56}
-                          step={2}
+                          step={1}
                           value={channelHeight}
-                          onChange={(event) => setChannelHeight(Number(event.target.value))}
+                          onChange={(event) => setChannelHeightBounded(Number(event.target.value) || 4)}
+                          className="mt-2 w-full rounded border border-border bg-surface-100 px-2 py-1.5 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-brand/50"
+                        />
+                        <input
+                          type="range"
+                          min={4}
+                          max={56}
+                          step={1}
+                          value={channelHeight}
+                          onChange={(event) => setChannelHeightBounded(Number(event.target.value))}
                           className="mt-2 w-full"
                         />
                         <div className="mt-1 text-xs text-zinc-400">{channelHeight}px rows</div>
@@ -1100,13 +1185,18 @@ export default function ExcludePage() {
                 <input
                   value={channelDraft}
                   onChange={(e) => setChannelDraft(e.target.value)}
-                  placeholder="e.g. Fp1"
+                  placeholder="e.g. E8 or 8"
                   className="flex-1 rounded-md border border-border bg-surface-50 px-3 py-2 text-sm text-zinc-100 outline-none"
                 />
                 <button
                   onClick={() => {
-                    const next = channelDraft.trim().toUpperCase();
+                    const next = normalizeBadChannelInput(channelDraft);
                     if (!next) return;
+                    if (!validChannelSet.has(next)) {
+                      setActionError(`Invalid bad channel override: ${next}`);
+                      return;
+                    }
+                    setActionError(null);
                     if (!manualBadChannels.includes(next)) setManualBadChannels([...manualBadChannels, next].sort());
                     setChannelDraft("");
                   }}
@@ -1141,6 +1231,12 @@ export default function ExcludePage() {
                   onClick={() => {
                     const parsed = Number.parseInt(icaDraft, 10);
                     if (Number.isNaN(parsed)) return;
+                    if (!isValidIcaComponent(parsed, detail?.max_components ?? 0)) {
+                      const maxText = (detail?.max_components ?? 0) > 0 ? `0-${(detail?.max_components ?? 1) - 1}` : "available range";
+                      setActionError(`Invalid ICA override: IC ${parsed}. Valid range is ${maxText}.`);
+                      return;
+                    }
+                    setActionError(null);
                     if (!manualRejectedIca.includes(parsed)) {
                       setManualRejectedIca([...manualRejectedIca, parsed].sort((a, b) => a - b));
                     }
@@ -1166,17 +1262,25 @@ export default function ExcludePage() {
 
             <button
               onClick={saveOverrides}
-              className="w-full rounded-md border border-brand/40 bg-brand/10 px-3 py-2 text-sm font-medium text-brand hover:bg-brand/20"
+              disabled={invalidCombinedOverrideChange}
+              className="w-full rounded-md border border-brand/40 bg-brand/10 px-3 py-2 text-sm font-medium text-brand hover:bg-brand/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Save Overrides
             </button>
 
             <button
               onClick={startReprocess}
-              className="w-full rounded-md bg-brand px-3 py-2 text-sm font-semibold text-surface-500 hover:bg-brand-500"
+              disabled={invalidCombinedOverrideChange}
+              className="w-full rounded-md bg-brand px-3 py-2 text-sm font-semibold text-surface-500 hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Reprocess with Overrides
             </button>
+
+            {invalidCombinedOverrideChange ? (
+              <p className="text-[11px] text-amber-400">
+                Change either bad channels or ICA in this run, not both. Channel overrides can carry forward into a later ICA run.
+              </p>
+            ) : null}
 
             <button
               onClick={exportQa}
