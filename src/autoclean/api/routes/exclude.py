@@ -842,60 +842,6 @@ async def list_exclude_files() -> ExcludeFilesResponse:
     return ExcludeFilesResponse(exports_root=str(root), files=files)
 
 
-@router.get("/files/{file_key:path}", response_model=ExcludeFileDetail)
-async def get_exclude_file_detail(file_key: str) -> ExcludeFileDetail:
-    root = _resolve_exports_root()
-    file_path, relative_path = _resolve_file(root, file_key)
-    decisions = _load_decisions(root)
-    record = _record_for(decisions, file_key, relative_path)
-    related = _related_paths(root, file_path)
-    metadata = _parse_metadata(related["metadata"])
-    metrics = _read_processing_metrics(related["processing_log"])
-    return ExcludeFileDetail(
-        file_key=file_key,
-        relative_path=relative_path,
-        name=file_path.name,
-        exports_root=str(root),
-        status=str(record.get("status", "UNSET")),
-        notes=str(record.get("notes", "")),
-        metrics=metrics,
-        baseline_bad_channels=[str(v) for v in metadata.get("bad_channels", [])],
-        baseline_rejected_ica=[int(v) for v in metadata.get("rejected_ica", [])],
-        valid_channels=[str(v) for v in metadata.get("valid_channels", [])],
-        max_components=int(metadata.get("max_components", 0) or 0),
-        manual_bad_channels=[str(v) for v in record.get("manual_bad_channels", [])],
-        manual_rejected_ica=[int(v) for v in record.get("manual_rejected_ica", [])],
-        epoch_review={
-            "epochs_reviewed": bool(record.get("epochs_reviewed")),
-            "bad_epochs_count": int(record.get("bad_epochs_count", 0) or 0),
-            "bad_epoch_indices": [
-                int(v) for v in str(record.get("bad_epoch_indices", "")).split(",") if v.strip()
-            ],
-            "bad_epoch_times": [v for v in str(record.get("bad_epoch_times", "")).split(",") if v],
-            "bad_epoch_events": [v for v in str(record.get("bad_epoch_events", "")).split(",") if v],
-            "total_epochs": int(record.get("total_epochs", 0) or 0),
-            "epoch_rejection_rate": float(record.get("epoch_rejection_rate", 0.0) or 0.0),
-        },
-        qa_export={
-            "hash": str(record.get("qa_export_hash", "")),
-            "timestamp": str(record.get("qa_export_timestamp", "")),
-            "path": str(record.get("qa_export_path", "")),
-        },
-        reprocess={
-            "modified": bool(record.get("reprocess_modified", False)),
-            "fix_type": str(record.get("reprocess_fix_type", "")),
-            "timestamp": str(record.get("reprocess_timestamp", "")),
-        },
-        artifacts={
-            "run_report": f"/api/exclude/files/{file_key}/artifacts/run_report" if related["run_report"] else None,
-            "ica_report": f"/api/exclude/files/{file_key}/artifacts/ica_report" if related["ica_report"] else None,
-            "psd": f"/api/exclude/files/{file_key}/artifacts/psd" if related["psd"] else None,
-            "metadata": f"/api/exclude/files/{file_key}/artifacts/metadata" if related["metadata"] else None,
-            "postedit": f"/api/exclude/files/{file_key}/artifacts/postedit" if related["postedit"] else None,
-        },
-    )
-
-
 @router.get("/files/{file_key:path}/artifacts/{asset_name}")
 async def get_exclude_artifact(file_key: str, asset_name: str):
     root = _resolve_exports_root()
@@ -965,9 +911,6 @@ async def get_eeg_epochs(
         selected_channels = [c for c in requested if c in epochs.ch_names]
         if not selected_channels:
             selected_channels = list(epochs.ch_names[: min(8, len(epochs.ch_names))])
-    if len(selected_channels) > 12:
-        selected_channels = selected_channels[:12]
-
     bad_epoch_indices = {
         int(v) for v in str(record.get("bad_epoch_indices", "")).split(",") if v.strip()
     }
@@ -1065,6 +1008,60 @@ async def save_epoch_review(file_key: str, body: EpochReviewUpdate) -> dict[str,
         "server_revision": record["revision"],
         "warning": warning,
     }
+
+
+@router.get("/files/{file_key:path}", response_model=ExcludeFileDetail)
+async def get_exclude_file_detail(file_key: str) -> ExcludeFileDetail:
+    root = _resolve_exports_root()
+    file_path, relative_path = _resolve_file(root, file_key)
+    decisions = _load_decisions(root)
+    record = _record_for(decisions, file_key, relative_path)
+    related = _related_paths(root, file_path)
+    metadata = _parse_metadata(related["metadata"])
+    metrics = _read_processing_metrics(related["processing_log"])
+    return ExcludeFileDetail(
+        file_key=file_key,
+        relative_path=relative_path,
+        name=file_path.name,
+        exports_root=str(root),
+        status=str(record.get("status", "UNSET")),
+        notes=str(record.get("notes", "")),
+        metrics=metrics,
+        baseline_bad_channels=[str(v) for v in metadata.get("bad_channels", [])],
+        baseline_rejected_ica=[int(v) for v in metadata.get("rejected_ica", [])],
+        valid_channels=[str(v) for v in metadata.get("valid_channels", [])],
+        max_components=int(metadata.get("max_components", 0) or 0),
+        manual_bad_channels=[str(v) for v in record.get("manual_bad_channels", [])],
+        manual_rejected_ica=[int(v) for v in record.get("manual_rejected_ica", [])],
+        epoch_review={
+            "epochs_reviewed": bool(record.get("epochs_reviewed")),
+            "bad_epochs_count": int(record.get("bad_epochs_count", 0) or 0),
+            "bad_epoch_indices": [
+                int(v) for v in str(record.get("bad_epoch_indices", "")).split(",") if v.strip()
+            ],
+            "bad_epoch_times": [v for v in str(record.get("bad_epoch_times", "")).split(",") if v],
+            "bad_epoch_events": [v for v in str(record.get("bad_epoch_events", "")).split(",") if v],
+            "total_epochs": int(record.get("total_epochs", 0) or 0),
+            "epoch_rejection_rate": float(record.get("epoch_rejection_rate", 0.0) or 0.0),
+        },
+        qa_export={
+            "hash": str(record.get("qa_export_hash", "")),
+            "timestamp": str(record.get("qa_export_timestamp", "")),
+            "path": str(record.get("qa_export_path", "")),
+        },
+        reprocess={
+            "modified": bool(record.get("reprocess_modified", False)),
+            "fix_type": str(record.get("reprocess_fix_type", "")),
+            "timestamp": str(record.get("reprocess_timestamp", "")),
+        },
+        artifacts={
+            "run_report": f"/api/exclude/files/{file_key}/artifacts/run_report" if related["run_report"] else None,
+            "ica_report": f"/api/exclude/files/{file_key}/artifacts/ica_report" if related["ica_report"] else None,
+            "psd": f"/api/exclude/files/{file_key}/artifacts/psd" if related["psd"] else None,
+            "metadata": f"/api/exclude/files/{file_key}/artifacts/metadata" if related["metadata"] else None,
+            "postedit": f"/api/exclude/files/{file_key}/artifacts/postedit" if related["postedit"] else None,
+        },
+    )
 
 
 @router.put("/files/{file_key:path}/notes")
