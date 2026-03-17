@@ -133,6 +133,7 @@ describe("ExcludePage", () => {
     await screen.findAllByText("subject01_comp_epo.set");
     expect(screen.getByText("/workspace")).toBeInTheDocument();
     expect(screen.getByText("/workspace/task/exports")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show Files" }));
     expect(screen.getByText("note")).toBeInTheDocument();
   });
 
@@ -140,6 +141,7 @@ describe("ExcludePage", () => {
     render(<ExcludePage />);
 
     await screen.findAllByText("subject01_comp_epo.set");
+    fireEvent.click(screen.getByRole("button", { name: "Show Files" }));
     fireEvent.click(screen.getAllByText("subject02_comp_epo.set")[0]!);
 
     await waitFor(() => {

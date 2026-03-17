@@ -8,7 +8,11 @@ HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
   moveTo: () => {},
   lineTo: () => {},
   stroke: () => {},
+  strokeRect: () => {},
+  fillText: () => {},
   fillStyle: "",
   strokeStyle: "",
   lineWidth: 1,
+  font: "",
+  textBaseline: "alphabetic",
 })) as unknown as typeof HTMLCanvasElement.prototype.getContext;

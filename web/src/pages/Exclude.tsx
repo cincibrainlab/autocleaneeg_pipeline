@@ -1,15 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Activity,
-  Brain,
-  FileText,
-  Loader2,
-  MonitorDown,
-  Search,
-  SlidersHorizontal,
-  StickyNote,
-  Waves,
-} from "lucide-react";
+import { Activity, Brain, FileText, Loader2, MonitorDown, Search, SlidersHorizontal, StickyNote, Waves } from "lucide-react";
 import { api } from "../lib/api";
 import type {
   DashboardStatus,
@@ -103,67 +93,187 @@ function DiffChips({
   );
 }
 
-function EpochCanvas({
-  traces,
-  isBad,
-  focused,
-  onToggle,
+function EegBrowser({
+  epochWindow,
+  manifest,
+  badEpochs,
+  focusedEpoch,
+  scaleUv,
+  channelHeight,
+  timeZoom,
+  onFocusEpoch,
+  onToggleEpoch,
 }: {
-  traces: Record<string, number[]>;
-  isBad: boolean;
-  focused: boolean;
-  onToggle: () => void;
+  epochWindow: EpochWindowResponse | null;
+  manifest: EpochManifest | null;
+  badEpochs: number[];
+  focusedEpoch: number | null;
+  scaleUv: number;
+  channelHeight: number;
+  timeZoom: number;
+  onFocusEpoch: (epochIndex: number) => void;
+  onToggleEpoch: (epochIndex: number) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const headerHeight = 34;
+  const labelWidth = 88;
+  const [frameWidth, setFrameWidth] = useState(1200);
+
+  useEffect(() => {
+    const updateWidth = () => {
+      const nextWidth = frameRef.current?.clientWidth ?? 0;
+      if (nextWidth > 0) setFrameWidth(nextWidth);
+    };
+    updateWidth();
+    window.addEventListener("resize", updateWidth);
+    return () => window.removeEventListener("resize", updateWidth);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !epochWindow) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const width = canvas.width;
-    const height = canvas.height;
+    const channels = epochWindow.channel_names;
+    const epochs = epochWindow.epochs;
+    const samplesPerEpoch = epochs[0]?.traces_uv[channels[0] ?? ""]?.length ?? 0;
+    const availableWidth = Math.max(360, frameWidth - 2);
+    const traceWidth = Math.max(220, availableWidth - labelWidth);
+    const epochWidth = traceWidth / Math.max(1, epochs.length);
+    const width = availableWidth;
+    const height = headerHeight + channels.length * channelHeight;
+    canvas.width = width;
+    canvas.height = height;
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = focused ? "rgba(24, 160, 251, 0.08)" : "rgba(255,255,255,0.02)";
+    ctx.fillStyle = "rgba(255,255,255,0.02)";
     ctx.fillRect(0, 0, width, height);
 
-    const channels = Object.entries(traces);
-    if (!channels.length) return;
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(0, 0, labelWidth, height);
+    ctx.fillStyle = "#111827";
+    ctx.fillRect(labelWidth, 0, width - labelWidth, headerHeight);
 
-    const bandHeight = height / channels.length;
-    channels.forEach(([_, values], channelIndex) => {
-      const midY = channelIndex * bandHeight + bandHeight / 2;
-      const maxAbs = Math.max(1, ...values.map((v) => Math.abs(v)));
-      ctx.beginPath();
-      values.forEach((value, idx) => {
-        const x = (idx / Math.max(1, values.length - 1)) * width;
-        const y = midY - (value / maxAbs) * (bandHeight * 0.35);
-        if (idx === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.strokeStyle = isBad ? "#f87171" : "#60a5fa";
-      ctx.lineWidth = 1;
-      ctx.stroke();
+    ctx.font = "12px monospace";
+    ctx.textBaseline = "middle";
+
+    epochs.forEach((epoch, epochIdx) => {
+      const x0 = labelWidth + epochIdx * epochWidth;
+      const isBad = badEpochs.includes(epoch.epoch_index);
+      const isFocused = focusedEpoch === epoch.epoch_index;
+      ctx.fillStyle = isBad ? "rgba(248,113,113,0.18)" : isFocused ? "rgba(96,165,250,0.18)" : "rgba(255,255,255,0.02)";
+      ctx.fillRect(x0, 0, epochWidth, headerHeight);
+      ctx.strokeStyle = isFocused ? "#60a5fa" : "rgba(255,255,255,0.08)";
+      ctx.strokeRect(x0 + 0.5, 0.5, epochWidth - 1, headerHeight - 1);
+      ctx.fillStyle = isBad ? "#fca5a5" : isFocused ? "#93c5fd" : "#cbd5e1";
+      ctx.fillText(`Epoch ${epoch.epoch_index + 1}`, x0 + 8, headerHeight / 2);
+      ctx.fillStyle = "#64748b";
+      const suffix = epoch.event_code ? `E${epoch.event_code}` : `${epoch.start_time_seconds.toFixed(2)}s`;
+      ctx.fillText(suffix, x0 + Math.max(78, epochWidth - 68), headerHeight / 2);
     });
-  }, [traces, isBad, focused]);
+
+    channels.forEach((channel, channelIndex) => {
+      const y0 = headerHeight + channelIndex * channelHeight;
+      const midY = y0 + channelHeight / 2;
+
+      ctx.fillStyle = focusedEpoch != null && epochWindow.epochs.some((epoch) => epoch.epoch_index === focusedEpoch)
+        ? "rgba(255,255,255,0.01)"
+        : "rgba(255,255,255,0)";
+      ctx.fillRect(0, y0, width, channelHeight);
+      ctx.strokeStyle = "rgba(255,255,255,0.06)";
+      ctx.beginPath();
+      ctx.moveTo(0, y0 + 0.5);
+      ctx.lineTo(width, y0 + 0.5);
+      ctx.stroke();
+
+      ctx.fillStyle = "#cbd5e1";
+      ctx.fillText(channel, 8, midY);
+      ctx.fillStyle = "#64748b";
+      ctx.fillText(`±${scaleUv}uV`, labelWidth - 54, midY);
+
+      epochs.forEach((epoch, epochIdx) => {
+        const x0 = labelWidth + epochIdx * epochWidth;
+        const values = epoch.traces_uv[channel] ?? [];
+        if (!values.length) return;
+        const xStep = epochWidth / Math.max(1, values.length - 1);
+        const isBad = badEpochs.includes(epoch.epoch_index);
+        ctx.beginPath();
+        values.forEach((value, sampleIdx) => {
+          const x = x0 + sampleIdx * xStep;
+          const normalized = value / Math.max(scaleUv, 1);
+          const y = midY - normalized * (channelHeight * 0.38);
+          if (sampleIdx === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = isBad ? "#f87171" : focusedEpoch === epoch.epoch_index ? "#e2e8f0" : "#60a5fa";
+        ctx.lineWidth = focusedEpoch === epoch.epoch_index ? 1.35 : 1;
+        ctx.stroke();
+      });
+    });
+  }, [badEpochs, channelHeight, epochWindow, focusedEpoch, frameWidth, manifest, onFocusEpoch, scaleUv, timeZoom]);
+
+  if (!epochWindow || !manifest) {
+    return <div className="py-16 text-center text-sm text-zinc-500">Loading EEG…</div>;
+  }
+
+  const channels = epochWindow.channel_names;
+  const traceWidth = Math.max(220, frameWidth - labelWidth - 2);
+  const epochWidth = traceWidth / Math.max(1, epochWindow.epochs.length);
+  const canvasWidth = Math.max(360, frameWidth);
+  const canvasHeight = headerHeight + channels.length * channelHeight;
 
   return (
-    <button
-      onClick={onToggle}
-      className={[
-        "rounded-md border p-2 transition-colors text-left",
-        focused ? "border-brand bg-brand/5" : "border-border bg-surface-50/50 hover:bg-surface-50",
-      ].join(" ")}
-    >
-      <canvas ref={canvasRef} width={760} height={160} className="w-full h-40 rounded" />
-      <div className="mt-2 flex items-center justify-between text-[11px]">
-        <span className="text-zinc-500">Click or press Space to toggle bad epoch</span>
-        <span className={isBad ? "text-red-400 font-semibold" : "text-emerald-400 font-semibold"}>
-          {isBad ? "Rejected" : "Kept"}
-        </span>
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        {epochWindow.epochs.map((epoch) => {
+          const isFocused = focusedEpoch === epoch.epoch_index;
+          const isBad = badEpochs.includes(epoch.epoch_index);
+          return (
+            <button
+              key={epoch.epoch_index}
+              onClick={() => onFocusEpoch(epoch.epoch_index)}
+              onDoubleClick={() => onToggleEpoch(epoch.epoch_index)}
+              className={[
+                "rounded-md border px-2.5 py-1.5 text-xs transition-colors",
+                isBad ? "border-red-500/40 bg-red-500/10 text-red-300" : isFocused ? "border-brand bg-brand/10 text-brand" : "border-border bg-surface-50 text-zinc-300",
+              ].join(" ")}
+              title="Click to focus, double-click to toggle rejected/kept"
+            >
+              Epoch {epoch.epoch_index + 1}
+            </button>
+          );
+        })}
       </div>
-    </button>
+      <div ref={frameRef} className="rounded-lg border border-border bg-surface-50/60 overflow-y-auto overflow-x-hidden max-h-[36rem]">
+        <canvas
+          ref={canvasRef}
+          width={canvasWidth}
+          height={canvasHeight}
+          className="block w-full"
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            if (x < labelWidth) return;
+            const epochIdx = Math.max(0, Math.min(epochWindow.epochs.length - 1, Math.floor((x - labelWidth) / epochWidth)));
+            const epoch = epochWindow.epochs[epochIdx];
+            if (epoch) onFocusEpoch(epoch.epoch_index);
+          }}
+          onDoubleClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            if (x < labelWidth) return;
+            const epochIdx = Math.max(0, Math.min(epochWindow.epochs.length - 1, Math.floor((x - labelWidth) / epochWidth)));
+            const epoch = epochWindow.epochs[epochIdx];
+            if (epoch) onToggleEpoch(epoch.epoch_index);
+          }}
+        />
+      </div>
+      <div className="flex items-center justify-between text-[11px] text-zinc-500">
+        <span>Scroll vertically for channels. Click a trace block to focus an epoch. Double-click or press Space to reject or restore it.</span>
+        <span>{manifest.n_channels} channels · {epochWindow.epochs.length} visible epochs</span>
+      </div>
+    </div>
   );
 }
 
@@ -192,6 +302,10 @@ export default function ExcludePage() {
   const [channelDraft, setChannelDraft] = useState("");
   const [icaDraft, setIcaDraft] = useState("");
   const [icaSummary, setIcaSummary] = useState<ExcludeIcaSummaryResponse | null>(null);
+  const [visibleEpochCount, setVisibleEpochCount] = useState(6);
+  const [scaleUv, setScaleUv] = useState(25);
+  const [channelHeight, setChannelHeight] = useState(32);
+  const [showFileList, setShowFileList] = useState(false);
   const [reprocessJobId, setReprocessJobId] = useState<string | null>(null);
   const [reprocessStatus, setReprocessStatus] = useState<string | null>(null);
   const [reprocessMessage, setReprocessMessage] = useState<string | null>(null);
@@ -286,10 +400,9 @@ export default function ExcludePage() {
     Promise.all([
       api.getExcludeFile(selectedKey),
       api.getExcludeEpochManifest(selectedKey),
-      api.getExcludeEpochWindow(selectedKey, 0, 6),
       api.getExcludeIcaSummary(selectedKey).catch(() => null),
     ])
-      .then(([fileDetail, epochManifest, window, summary]) => {
+      .then(([fileDetail, epochManifest, summary]) => {
         if (cancelled) return;
         setActionError(null);
         setDetail(fileDetail);
@@ -298,10 +411,9 @@ export default function ExcludePage() {
         setManualBadChannels(fileDetail.manual_bad_channels);
         setManualRejectedIca(fileDetail.manual_rejected_ica);
         setManifest(epochManifest);
-        setEpochWindow(window);
         setEpochStart(0);
         setBadEpochs(fileDetail.epoch_review.bad_epoch_indices);
-        setFocusedEpoch(window.epochs[0]?.epoch_index ?? null);
+        setFocusedEpoch(fileDetail.epoch_review.bad_epoch_indices[0] ?? 0);
         setIcaSummary(summary);
         setReprocessJobId(null);
         setReprocessStatus(null);
@@ -317,6 +429,30 @@ export default function ExcludePage() {
       cancelled = true;
     };
   }, [selectedKey]);
+
+  useEffect(() => {
+    if (!selectedKey || !manifest) return;
+    let cancelled = false;
+    api.getExcludeEpochWindow(selectedKey, epochStart, visibleEpochCount, manifest.channel_names)
+      .then((window) => {
+        if (cancelled) return;
+        setEpochWindow(window);
+        setFocusedEpoch((current) => {
+          if (current != null && window.epochs.some((epoch) => epoch.epoch_index === current)) {
+            return current;
+          }
+          return window.epochs[0]?.epoch_index ?? null;
+        });
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setActionError(err instanceof Error ? err.message : String(err));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [epochStart, manifest, selectedKey, visibleEpochCount]);
 
   useEffect(() => {
     return () => {
@@ -387,27 +523,25 @@ export default function ExcludePage() {
       if (event.key === "ArrowRight") {
         event.preventDefault();
         if (!epochWindow) return;
-        const maxStart = Math.max(0, manifest.n_epochs - epochWindow.count);
-        const nextStart = Math.min(maxStart, epochStart + epochWindow.count);
-        if (nextStart !== epochStart) {
-          api.getExcludeEpochWindow(selectedKey!, nextStart, epochWindow.count).then((window) => {
-            setEpochWindow(window);
-            setEpochStart(nextStart);
-            setFocusedEpoch(window.epochs[0]?.epoch_index ?? null);
-          }).catch(() => {});
+        const focusIndex = epochWindow.epochs.findIndex((epoch) => epoch.epoch_index === focusedEpoch);
+        if (focusIndex >= 0 && focusIndex < epochWindow.epochs.length - 1) {
+          setFocusedEpoch(epochWindow.epochs[focusIndex + 1]?.epoch_index ?? focusedEpoch);
+          return;
         }
+        const maxStart = Math.max(0, manifest.n_epochs - visibleEpochCount);
+        const nextStart = Math.min(maxStart, epochStart + visibleEpochCount);
+        if (nextStart !== epochStart) setEpochStart(nextStart);
       }
       if (event.key === "ArrowLeft") {
         event.preventDefault();
         if (!epochWindow) return;
-        const prevStart = Math.max(0, epochStart - epochWindow.count);
-        if (prevStart !== epochStart) {
-          api.getExcludeEpochWindow(selectedKey!, prevStart, epochWindow.count).then((window) => {
-            setEpochWindow(window);
-            setEpochStart(prevStart);
-            setFocusedEpoch(window.epochs[window.epochs.length - 1]?.epoch_index ?? null);
-          }).catch(() => {});
+        const focusIndex = epochWindow.epochs.findIndex((epoch) => epoch.epoch_index === focusedEpoch);
+        if (focusIndex > 0) {
+          setFocusedEpoch(epochWindow.epochs[focusIndex - 1]?.epoch_index ?? focusedEpoch);
+          return;
         }
+        const prevStart = Math.max(0, epochStart - visibleEpochCount);
+        if (prevStart !== epochStart) setEpochStart(prevStart);
       }
       if (event.key === " ") {
         event.preventDefault();
@@ -416,7 +550,7 @@ export default function ExcludePage() {
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [tab, manifest, focusedEpoch, epochWindow, epochStart, selectedKey, badEpochs]);
+  }, [tab, manifest, focusedEpoch, epochWindow, epochStart, visibleEpochCount]);
 
   const filteredFiles = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -575,8 +709,22 @@ export default function ExcludePage() {
       {listError && <ErrorBanner message={listError} />}
       {actionError && <ErrorBanner message={actionError} />}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[18rem_minmax(0,1fr)] 2xl:grid-cols-[18rem_minmax(0,1fr)_22rem] gap-5">
-        <aside className="rounded-lg border border-border bg-surface-100 overflow-hidden">
+      <div className="flex items-center justify-between gap-3">
+        <button
+          onClick={() => setShowFileList((value) => !value)}
+          className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-100 px-3 py-2 text-sm text-zinc-200 hover:bg-surface-50"
+        >
+          <Search className="h-4 w-4 text-zinc-500" />
+          {showFileList ? "Hide Files" : "Show Files"}
+        </button>
+        <div className="text-xs text-zinc-500">
+          {files.length} file{files.length === 1 ? "" : "s"} in Exclude workspace
+        </div>
+      </div>
+
+      <div className="space-y-5">
+        {showFileList ? (
+          <section className="rounded-lg border border-border bg-surface-100 overflow-hidden">
           <div className="p-3 border-b border-border">
             <div className="flex items-center gap-2 rounded-md border border-border bg-surface-50 px-2.5 py-2">
               <Search className="w-4 h-4 text-zinc-500" />
@@ -631,9 +779,10 @@ export default function ExcludePage() {
               ))
             )}
           </div>
-        </aside>
+          </section>
+        ) : null}
 
-        <section className="rounded-lg border border-border bg-surface-100 overflow-hidden min-w-0">
+        <section className="min-w-0 flex-1 rounded-lg border border-border bg-surface-100 overflow-hidden">
           <div className="px-4 py-3 border-b border-border">
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
@@ -684,61 +833,103 @@ export default function ExcludePage() {
                         Open postedit export
                       </a>
                     ) : null}
-                    <button
-                      onClick={() => {
-                        if (!epochWindow || !selectedKey) return;
-                        const prevStart = Math.max(0, epochStart - epochWindow.count);
-                        api.getExcludeEpochWindow(selectedKey, prevStart, epochWindow.count).then((window) => {
-                          setEpochWindow(window);
-                          setEpochStart(prevStart);
-                        }).catch(() => {});
-                      }}
-                      className="rounded border border-border px-2 py-1 text-zinc-300 hover:bg-surface-50"
-                    >
-                      Prev
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (!epochWindow || !manifest || !selectedKey) return;
-                        const maxStart = Math.max(0, manifest.n_epochs - epochWindow.count);
-                        const nextStart = Math.min(maxStart, epochStart + epochWindow.count);
-                        api.getExcludeEpochWindow(selectedKey, nextStart, epochWindow.count).then((window) => {
-                          setEpochWindow(window);
-                          setEpochStart(nextStart);
-                        }).catch(() => {});
-                      }}
-                      className="rounded border border-border px-2 py-1 text-zinc-300 hover:bg-surface-50"
-                    >
-                      Next
-                    </button>
                   </div>
                 </div>
 
                 <div className="space-y-3">
-                  {epochWindow?.epochs.map((epoch) => (
-                    <div key={epoch.epoch_index} className="space-y-2">
-                      <div className="flex items-center justify-between text-xs">
+                  <EegBrowser
+                    epochWindow={epochWindow}
+                    manifest={manifest}
+                    badEpochs={badEpochs}
+                    focusedEpoch={focusedEpoch}
+                    scaleUv={scaleUv}
+                    channelHeight={channelHeight}
+                    timeZoom={1}
+                    onFocusEpoch={setFocusedEpoch}
+                    onToggleEpoch={(epochIndex) => {
+                      setFocusedEpoch(epochIndex);
+                      toggleEpoch(epochIndex);
+                    }}
+                  />
+                  <div className="rounded-lg border border-border bg-surface-50/50 p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex items-center gap-2">
                         <button
-                          onClick={() => setFocusedEpoch(epoch.epoch_index)}
-                          className={focusedEpoch === epoch.epoch_index ? "text-brand font-semibold" : "text-zinc-300"}
+                          onClick={() => {
+                            const prevStart = Math.max(0, epochStart - visibleEpochCount);
+                            setEpochStart(prevStart);
+                          }}
+                          className="rounded border border-border px-2 py-1 text-zinc-300 hover:bg-surface-50"
                         >
-                          Epoch {epoch.epoch_index + 1}
+                          Previous
                         </button>
-                        <span className="text-zinc-500">
-                          {epoch.event_code ? `Event ${epoch.event_code}` : "No event"} · {epoch.start_time_seconds.toFixed(2)}s
-                        </span>
+                        <button
+                          onClick={() => {
+                            if (!manifest) return;
+                            const maxStart = Math.max(0, manifest.n_epochs - visibleEpochCount);
+                            const nextStart = Math.min(maxStart, epochStart + visibleEpochCount);
+                            setEpochStart(nextStart);
+                          }}
+                          className="rounded border border-border px-2 py-1 text-zinc-300 hover:bg-surface-50"
+                        >
+                          Next
+                        </button>
                       </div>
-                      <EpochCanvas
-                        traces={epoch.traces_uv}
-                        isBad={badEpochs.includes(epoch.epoch_index)}
-                        focused={focusedEpoch === epoch.epoch_index}
-                        onToggle={() => {
-                          setFocusedEpoch(epoch.epoch_index);
-                          toggleEpoch(epoch.epoch_index);
-                        }}
-                      />
+                      <div className="flex flex-wrap gap-4 text-xs text-zinc-400">
+                        <p>Focused epoch: {focusedEpoch != null ? focusedEpoch + 1 : "None"}</p>
+                        <p>Rejected in view: {epochWindow?.epochs.filter((epoch) => badEpochs.includes(epoch.epoch_index)).length ?? 0}</p>
+                        <p>Total rejected: {badEpochs.length}</p>
+                      </div>
                     </div>
-                  ))}
+                    <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+                      <label className="block text-[11px] uppercase tracking-wider text-zinc-600">
+                        Visible Epochs
+                        <input
+                          type="range"
+                          min={2}
+                          max={12}
+                          step={1}
+                          value={visibleEpochCount}
+                          onChange={(event) => {
+                            const next = Number(event.target.value);
+                            setVisibleEpochCount(next);
+                            setEpochStart((current) => {
+                              if (!manifest) return current;
+                              return Math.min(current, Math.max(0, manifest.n_epochs - next));
+                            });
+                          }}
+                          className="mt-2 w-full"
+                        />
+                        <div className="mt-1 text-xs text-zinc-400">{visibleEpochCount} epochs per page</div>
+                      </label>
+                      <label className="block text-[11px] uppercase tracking-wider text-zinc-600">
+                        Scale
+                        <input
+                          type="range"
+                          min={1}
+                          max={150}
+                          step={1}
+                          value={scaleUv}
+                          onChange={(event) => setScaleUv(Number(event.target.value))}
+                          className="mt-2 w-full"
+                        />
+                        <div className="mt-1 text-xs text-zinc-400">±{scaleUv} uV</div>
+                      </label>
+                      <label className="block text-[11px] uppercase tracking-wider text-zinc-600">
+                        Channel Height
+                        <input
+                          type="range"
+                          min={18}
+                          max={56}
+                          step={2}
+                          value={channelHeight}
+                          onChange={(event) => setChannelHeight(Number(event.target.value))}
+                          className="mt-2 w-full"
+                        />
+                        <div className="mt-1 text-xs text-zinc-400">{channelHeight}px rows</div>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : tab === "psd" ? (
@@ -839,8 +1030,11 @@ export default function ExcludePage() {
             )}
           </div>
         </section>
+      </div>
 
-        <aside className="rounded-lg border border-border bg-surface-100 p-4 space-y-5 xl:col-span-2 2xl:col-span-1">
+      <section className="rounded-lg border border-border bg-surface-100 p-4 space-y-5">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+          <div className="space-y-5">
           <section className="space-y-3">
             <div className="flex items-center gap-2">
               <StickyNote className="w-4 h-4 text-zinc-500" />
@@ -874,7 +1068,9 @@ export default function ExcludePage() {
               />
             </div>
           </section>
+          </div>
 
+          <div className="space-y-5">
           <section className="space-y-3">
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-zinc-500" />
@@ -889,7 +1085,9 @@ export default function ExcludePage() {
               <MetricRow label="QA export" value={detail?.qa_export.timestamp || "Not exported"} />
             </div>
           </section>
+          </div>
 
+          <div className="space-y-5">
           <section className="space-y-3">
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="w-4 h-4 text-zinc-500" />
@@ -1019,8 +1217,9 @@ export default function ExcludePage() {
               Baseline bad channels: {detail?.baseline_bad_channels.length ? detail.baseline_bad_channels.join(", ") : "None"}
             </p>
           </section>
-        </aside>
-      </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
