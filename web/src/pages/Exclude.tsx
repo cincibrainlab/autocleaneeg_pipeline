@@ -324,6 +324,36 @@ export default function ExcludePage() {
   const loadedManualBadChannelsRef = useRef<string[]>([]);
   const loadedManualRejectedIcaRef = useRef<number[]>([]);
 
+  function applySelectedFileData(
+    fileDetail: ExcludeFileDetail,
+    epochManifest: EpochManifest,
+    summary: ExcludeIcaSummaryResponse | null,
+    options?: { resetViewport?: boolean },
+  ) {
+    const resetViewport = options?.resetViewport ?? true;
+    setDetail(fileDetail);
+    setNotes(fileDetail.notes);
+    setStatus(fileDetail.status);
+    setManualBadChannels(fileDetail.manual_bad_channels);
+    setManualRejectedIca(fileDetail.manual_rejected_ica);
+    loadedManualBadChannelsRef.current = fileDetail.manual_bad_channels;
+    loadedManualRejectedIcaRef.current = fileDetail.manual_rejected_ica;
+    setManifest(epochManifest);
+    if (resetViewport) {
+      setVisibleEpochCount(Math.min(10, Math.max(1, epochManifest.n_epochs)));
+      setScaleUv(50);
+      setChannelHeight(8);
+      setEpochStart(0);
+      setEpochWindow(null);
+    } else {
+      setVisibleEpochCount((current) => clamp(current, 1, Math.max(1, epochManifest.n_epochs)));
+      setEpochStart((current) => Math.min(current, Math.max(0, epochManifest.n_epochs - visibleEpochCount)));
+    }
+    setBadEpochs(fileDetail.epoch_review.bad_epoch_indices);
+    setFocusedEpoch(fileDetail.epoch_review.bad_epoch_indices[0] ?? 0);
+    setIcaSummary(summary);
+  }
+
   const setVisibleEpochCountBounded = (value: number) => {
     const maxEpochs = Math.max(1, manifest?.n_epochs ?? 1);
     const next = clamp(Math.round(value), 1, maxEpochs);
@@ -431,21 +461,7 @@ export default function ExcludePage() {
       .then(([fileDetail, epochManifest, summary]) => {
         if (cancelled) return;
         setActionError(null);
-        setDetail(fileDetail);
-        setNotes(fileDetail.notes);
-        setStatus(fileDetail.status);
-        setManualBadChannels(fileDetail.manual_bad_channels);
-        setManualRejectedIca(fileDetail.manual_rejected_ica);
-        loadedManualBadChannelsRef.current = fileDetail.manual_bad_channels;
-        loadedManualRejectedIcaRef.current = fileDetail.manual_rejected_ica;
-        setManifest(epochManifest);
-        setVisibleEpochCount(Math.min(10, Math.max(1, epochManifest.n_epochs)));
-        setScaleUv(50);
-        setChannelHeight(8);
-        setEpochStart(0);
-        setBadEpochs(fileDetail.epoch_review.bad_epoch_indices);
-        setFocusedEpoch(fileDetail.epoch_review.bad_epoch_indices[0] ?? 0);
-        setIcaSummary(summary);
+        applySelectedFileData(fileDetail, epochManifest, summary, { resetViewport: true });
         setReprocessJobId(null);
         setReprocessStatus(null);
         setReprocessMessage(null);
@@ -524,19 +540,17 @@ export default function ExcludePage() {
           if (statusData.running === false) {
             clearInterval(id);
             if (selectedKey) {
-              Promise.all([api.getExcludeFiles(), api.getExcludeFile(selectedKey)])
-                .then(([fileList, fileDetail]) => {
+              Promise.all([
+                api.getExcludeFiles(),
+                api.getExcludeFile(selectedKey),
+                api.getExcludeEpochManifest(selectedKey),
+                api.getExcludeIcaSummary(selectedKey).catch(() => null),
+              ])
+                .then(([fileList, fileDetail, epochManifest, summary]) => {
                   if (cancelled) return;
                   setFiles(fileList.files);
                   setExportsRoot(fileList.exports_root);
-                  setDetail(fileDetail);
-                  setNotes(fileDetail.notes);
-                  setStatus(fileDetail.status);
-                  setManualBadChannels(fileDetail.manual_bad_channels);
-                  setManualRejectedIca(fileDetail.manual_rejected_ica);
-                  loadedManualBadChannelsRef.current = fileDetail.manual_bad_channels;
-                  loadedManualRejectedIcaRef.current = fileDetail.manual_rejected_ica;
-                  setBadEpochs(fileDetail.epoch_review.bad_epoch_indices);
+                  applySelectedFileData(fileDetail, epochManifest, summary, { resetViewport: true });
                 })
                 .catch(() => {});
             }

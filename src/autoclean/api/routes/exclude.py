@@ -8,6 +8,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -245,6 +246,35 @@ def _parse_metadata(path: Optional[Path]) -> dict[str, Any]:
     return result
 
 
+def _resolve_override_validation_context(
+    *,
+    file_path: Path,
+    related: dict[str, Optional[Path]],
+    metadata: dict[str, Any],
+) -> tuple[list[str], int]:
+    valid_channels = [str(v) for v in metadata.get("valid_channels", []) if str(v).strip()]
+    max_components = int(metadata.get("max_components", 0) or 0)
+
+    if not valid_channels:
+        try:
+            valid_channels = list(_load_epochs(file_path).ch_names)
+        except Exception:
+            valid_channels = []
+
+    if max_components <= 0:
+        ica_path = related.get("ica_report")
+        if ica_path is not None and ica_path.exists():
+            try:
+                extracted = extract_ica_full(ica_path)
+                components = extracted.get("components", [])
+                if isinstance(components, list) and components:
+                    max_components = len(components)
+            except Exception:
+                max_components = 0
+
+    return valid_channels, max_components
+
+
 def _read_processing_metrics(path: Optional[Path]) -> dict[str, Any]:
     import csv
 
@@ -440,6 +470,54 @@ def _validate_override_values(
             )
 
 
+def _backup_existing_file(path: Path, backups_dir: Path) -> None:
+    if not path.exists() or not path.is_file():
+        return
+    backups_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(path, backups_dir / path.name)
+
+
+def _backup_and_remove_matching_files(base_dir: Path, patterns: list[str], backups_dir: Path) -> None:
+    if not base_dir.exists():
+        return
+    seen: set[Path] = set()
+    for pattern in patterns:
+        for path in base_dir.glob(pattern):
+            if path in seen or not path.is_file():
+                continue
+            seen.add(path)
+            _backup_existing_file(path, backups_dir)
+            path.unlink(missing_ok=True)
+
+
+def _replace_existing_reprocess_artifacts(task_root: Path, stem: str, backups_dir: Path) -> None:
+    _backup_and_remove_matching_files(
+        task_root / "exports",
+        [f"{stem}*.set", f"{stem}*.fdt", f"{stem}*_processing_log.csv"],
+        backups_dir,
+    )
+    _backup_and_remove_matching_files(
+        task_root / "reports" / "run_reports",
+        [f"{stem}_autoclean_report.pdf", f"{stem}_autoclean_metadata.json"],
+        backups_dir,
+    )
+    _backup_and_remove_matching_files(
+        task_root / "reports" / "ica_components",
+        [f"{stem}_ica_components_all.pdf"],
+        backups_dir,
+    )
+    _backup_and_remove_matching_files(
+        task_root / "reports" / "psd_topo",
+        [f"{stem}_psd_topo_figure.png"],
+        backups_dir,
+    )
+    _backup_and_remove_matching_files(
+        task_root / "ica",
+        [f"{stem}*"],
+        backups_dir,
+    )
+
+
 def _drop_bad_epochs(epochs: mne.BaseEpochs, bad_indices: list[int]) -> None:
     if not bad_indices:
         return
@@ -630,7 +708,7 @@ def _generate_reprocess_task_from_original(
     bad_channels = payload["modifications"]["bad_channels"]["modified"]
     rejected_ica = payload["modifications"]["rejected_ica"]["modified"]
     file_stem = payload.get("file_stem", "unknown")
-    dataset_name = f"{file_stem}_{timestamp}"
+    dataset_name = _reprocess_dataset_name(file_stem, timestamp)
 
     class ConfigModifier(ast.NodeTransformer):
         def visit_Assign(self, node: ast.Assign):  # type: ignore[override]
@@ -693,6 +771,10 @@ def _generate_reprocess_task_from_original(
     return ast.unparse(tree) + "\n"
 
 
+def _reprocess_dataset_name(file_stem: str, timestamp: str) -> str:
+    return f"{file_stem}_{timestamp}"
+
+
 def _finalize_reprocess_job(job_id: str) -> None:
     job = _REPROCESS_JOBS.get(job_id)
     if not job or job.get("finalized"):
@@ -717,14 +799,13 @@ def _finalize_reprocess_job(job_id: str) -> None:
         ica_dir = task_root / "ica"
         backups_dir = exports_dir / "backups" / f"{job['stem']}_{job['timestamp']}"
         backups_dir.mkdir(parents=True, exist_ok=True)
+        _replace_existing_reprocess_artifacts(task_root, str(job["stem"]), backups_dir)
 
         reprocess_exports = reprocess_folder / "exports"
         if reprocess_exports.exists():
             for file_path in reprocess_exports.glob("*"):
                 if file_path.is_file():
                     dest = exports_dir / file_path.name
-                    if dest.exists():
-                        shutil.copy2(dest, backups_dir / file_path.name)
                     shutil.copy2(file_path, dest)
 
         reprocess_reports = reprocess_folder / "reports"
@@ -742,8 +823,6 @@ def _finalize_reprocess_job(job_id: str) -> None:
             for item in reprocess_ica.glob("*"):
                 if item.is_file():
                     dest = ica_dir / item.name
-                    if dest.exists():
-                        shutil.copy2(dest, backups_dir / item.name)
                     shutil.copy2(item, dest)
 
         decisions = _load_decisions(root)
@@ -1141,13 +1220,18 @@ async def save_overrides(file_key: str, body: OverridesUpdate) -> dict[str, Any]
     record = _record_for(decisions, file_key, relative_path)
     related = _related_paths(root, file_path)
     metadata = _parse_metadata(related["metadata"])
+    valid_channels, max_components = _resolve_override_validation_context(
+        file_path=file_path,
+        related=related,
+        metadata=metadata,
+    )
     existing_bad_channels = [str(v) for v in record.get("manual_bad_channels", [])]
     existing_rejected_ica = [int(v) for v in record.get("manual_rejected_ica", [])]
     next_bad_channels = _normalize_manual_bad_channels(body.manual_bad_channels)
     next_rejected_ica = sorted({int(v) for v in body.manual_rejected_ica})
     _validate_override_values(
-        valid_channels=[str(v) for v in metadata.get("valid_channels", [])],
-        max_components=int(metadata.get("max_components", 0) or 0),
+        valid_channels=valid_channels,
+        max_components=max_components,
         manual_bad_channels=next_bad_channels,
         manual_rejected_ica=next_rejected_ica,
     )
@@ -1188,8 +1272,8 @@ async def start_reprocess(file_key: str, body: ReprocessRequest) -> ReprocessRes
     if metadata_path is None or not metadata_path.exists():
         raise HTTPException(status_code=404, detail="Metadata file not found for selected export")
 
-    metadata = json.loads(metadata_path.read_text())
-    raw_file = metadata.get("unprocessed_file")
+    metadata_json = json.loads(metadata_path.read_text())
+    raw_file = metadata_json.get("unprocessed_file")
     if not raw_file:
         raise HTTPException(status_code=400, detail="Original raw file path missing from metadata")
     raw_path = Path(raw_file)
@@ -1200,11 +1284,17 @@ async def start_reprocess(file_key: str, body: ReprocessRequest) -> ReprocessRes
     if task_file is None or not task_file.exists():
         raise HTTPException(status_code=404, detail="Original task file not found in status/")
 
+    metadata = _parse_metadata(metadata_path)
+    valid_channels, max_components = _resolve_override_validation_context(
+        file_path=file_path,
+        related=related,
+        metadata=metadata,
+    )
     manual_bad_channels = _normalize_manual_bad_channels(body.manual_bad_channels)
     manual_rejected_ica = sorted({int(v) for v in body.manual_rejected_ica})
     _validate_override_values(
-        valid_channels=[str(v) for v in metadata.get("valid_channels", [])],
-        max_components=int(metadata.get("max_components", 0) or 0),
+        valid_channels=valid_channels,
+        max_components=max_components,
         manual_bad_channels=manual_bad_channels,
         manual_rejected_ica=manual_rejected_ica,
     )
@@ -1248,9 +1338,11 @@ async def start_reprocess(file_key: str, body: ReprocessRequest) -> ReprocessRes
 
     reprocess_dir = task_root / "reprocess"
     reprocess_dir.mkdir(exist_ok=True)
-    reprocess_folder = reprocess_dir / f"{task_root.name}_{timestamp}"
+    reprocess_folder = reprocess_dir / _reprocess_dataset_name(stem, timestamp)
     cmd = [
-        "autocleaneeg-pipeline",
+        sys.executable,
+        "-m",
+        "autoclean",
         "process",
         "--task-file",
         str(task_output_path),

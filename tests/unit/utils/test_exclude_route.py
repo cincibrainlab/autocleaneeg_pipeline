@@ -4,6 +4,7 @@ import csv
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 from fastapi import HTTPException
 
@@ -110,23 +111,24 @@ def test_create_qa_preprocessing_log_merges_manual_review_data(tmp_path: Path):
 
 
 @pytest.mark.asyncio
-async def test_save_overrides_sets_reprocess_metadata(workspace):
+async def test_save_overrides_sets_reprocess_metadata(workspace, monkeypatch):
     _workspace_dir, exports_dir = workspace
     set_file = exports_dir / "subject01_comp_epo.set"
     set_file.write_text("", encoding="utf-8")
+    monkeypatch.setattr(exclude, "_load_epochs", lambda _path: _FakeEpochs())
 
     result = await save_overrides(
         "subject01_comp_epo",
-        OverridesUpdate(manual_bad_channels=["Fp1"], manual_rejected_ica=[3, 1]),
+        OverridesUpdate(manual_bad_channels=["Fp1"], manual_rejected_ica=[]),
     )
 
     assert result["saved"] is True
     decisions = _load_decisions(exports_dir)
     record = decisions["subject01_comp_epo"]
     assert record["manual_bad_channels"] == ["FP1"]
-    assert record["manual_rejected_ica"] == [1, 3]
+    assert record["manual_rejected_ica"] == []
     assert record["reprocess_modified"] is True
-    assert record["reprocess_fix_type"] == "both"
+    assert record["reprocess_fix_type"] == "channel"
     assert record["reprocess_timestamp"]
 
 
@@ -136,13 +138,13 @@ class _FakeEpochs:
         self.dropped: list[int] = []
         self.ch_names = ["FP1", "FP2"]
         self.info = {"sfreq": 250.0}
-        self.times = [0.0, 0.5, 1.0]
-        self.events = [
+        self.times = np.array([0.0, 0.5, 1.0])
+        self.events = np.array([
             [0, 0, 101],
             [250, 0, 102],
             [500, 0, 103],
             [750, 0, 104],
-        ]
+        ])
 
     def drop(self, indices, reason="USER", verbose=False):
         self.dropped.extend(indices)
@@ -157,7 +159,7 @@ class _FakeEpochs:
         if picks is None:
             picks = self.ch_names
         n_channels = len(picks)
-        return [[[0.0, 0.000001, 0.0] for _ in range(n_channels)] for _ in range(4)]
+        return np.array([[[0.0, 0.000001, 0.0] for _ in range(n_channels)] for _ in range(4)], dtype=float)
 
 
 @pytest.mark.asyncio
@@ -275,6 +277,18 @@ class _FakeProcess:
         return 0
 
 
+class _FakeSubprocessModule:
+    PIPE = None
+    STDOUT = None
+
+    def __init__(self):
+        self.calls: list[list[str]] = []
+
+    def Popen(self, cmd, **_kwargs):
+        self.calls.append(list(cmd))
+        return _FakeProcess()
+
+
 @pytest.mark.asyncio
 async def test_reprocess_start_and_status(workspace, monkeypatch):
     _workspace_dir, exports_dir = workspace
@@ -286,14 +300,25 @@ async def test_reprocess_start_and_status(workspace, monkeypatch):
     metadata_path = reports_dir / "subject01_autoclean_metadata.json"
     raw_file = task_root / "subject01_raw.set"
     raw_file.write_text("", encoding="utf-8")
-    metadata_path.write_text(json.dumps({"unprocessed_file": str(raw_file)}), encoding="utf-8")
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "unprocessed_file": str(raw_file),
+                "metadata": {
+                    "import_eeg": {"originalChannelNames": ["FP1", "FP2"]},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     status_dir = task_root / "status"
     status_dir.mkdir()
     task_file = status_dir / "ExampleTask.py"
     task_file.write_text("class ExampleTask:\n    config = {}\n    def run(self):\n        self.clean_bad_channels()\n", encoding="utf-8")
 
     monkeypatch.setattr(exclude, "extract_ica_full", lambda _path: {})
-    monkeypatch.setattr(exclude, "subprocess", type("S", (), {"PIPE": None, "STDOUT": None, "Popen": lambda *a, **k: _FakeProcess()}))
+    fake_subprocess = _FakeSubprocessModule()
+    monkeypatch.setattr(exclude, "subprocess", fake_subprocess)
 
     decisions = {
         "subject01_comp_epo": {
@@ -314,6 +339,10 @@ async def test_reprocess_start_and_status(workspace, monkeypatch):
     assert status["job_id"] == response.job_id
     assert payload["modifications"]["epoch_review"]["indices"] == [1, 3]
     assert payload["modifications"]["epoch_review"]["count"] == 2
+    assert fake_subprocess.calls[0][:3] == [exclude.sys.executable, "-m", "autoclean"]
+    reprocess_folder_name = Path(exclude._REPROCESS_JOBS[response.job_id]["reprocess_folder"]).name
+    assert reprocess_folder_name.startswith("subject01_")
+    assert not reprocess_folder_name.startswith(f"{task_root.name}_")
 
 
 @pytest.mark.asyncio
