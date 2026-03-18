@@ -11,6 +11,11 @@ AutoClean EEG is a sophisticated modular framework for automated EEG data proces
 
 **Version 2.0.0+ introduces Python-based task files with embedded configuration, replacing YAML pipelines.**
 
+**Stack:** MNE-Python + FastAPI + React 19 + Textual TUI + SQLite + Cloudflare Tunnels
+**Structure:** Mixin-composed Task engine + 14-route REST API + 10-page web dashboard + file-watching automation
+
+For detailed architecture, module guide, data flow diagrams, and navigation guide, see [docs/CODEBASE_MAP.md](../CODEBASE_MAP.md).
+
 ## Core Architecture
 
 ### Dynamic Mixin System

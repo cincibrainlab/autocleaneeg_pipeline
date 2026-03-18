@@ -85,15 +85,16 @@ class OutlierDetectionMixin:
 
         """
         # Check if this step is enabled in the configuration
-        # is_enabled, config_value = self._check_step_enabled("prepare_epochs_ica")
+        is_enabled, config_value = self._check_step_enabled("detect_outlier_epochs")
 
-        # if not is_enabled:
-        #     message("info", "Prepare epochs for ICA step is disabled in configuration")
-        #     return None
+        if not is_enabled:
+            from autoclean.utils.logging import message
+            message("info", "Outlier epoch detection step is disabled in configuration")
+            return None
 
-        # # Get parameters from config if available
-        # if config_value and isinstance(config_value, dict):
-        #     threshold = config_value.get("threshold", threshold)
+        # Get parameters from config if available
+        if config_value and isinstance(config_value, dict):
+            threshold = config_value.get("threshold", threshold)
 
         # Determine which data to use
         epochs = self._get_data_object(epochs, use_epochs=True)

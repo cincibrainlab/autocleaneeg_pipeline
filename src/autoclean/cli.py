@@ -2418,6 +2418,23 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="Optional serve workspace path",
     )
 
+    serve_route_delete = serve_route_subparsers.add_parser(
+        "delete", help="Permanently delete an archived route spec", add_help=False
+    )
+    attach_rich_help(serve_route_delete)
+    serve_route_delete.add_argument("route_id", help="Stable route id")
+    serve_route_delete.add_argument(
+        "-w",
+        "--workspace",
+        dest="path",
+        type=Path,
+        default=None,
+        help="Optional serve workspace path",
+    )
+    serve_route_delete.add_argument(
+        "--force", action="store_true", help="Skip confirmation prompt"
+    )
+
     serve_route_sync = serve_route_subparsers.add_parser(
         "sync", help="Compile route specs into serve YAML", add_help=False
     )
@@ -2613,6 +2630,41 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "--burst",
         action="store_true",
         help="Run in burst mode (exit when queue is empty)",
+    )
+
+    # Serve daemon management
+    serve_up = serve_subparsers.add_parser(
+        "up", help="Start serve as a background daemon", add_help=False
+    )
+    attach_rich_help(serve_up)
+    serve_up.add_argument("--host", default="0.0.0.0", help="Bind address")
+    serve_up.add_argument("--force", action="store_true", help="Allow second instance")
+
+    serve_down = serve_subparsers.add_parser(
+        "down", help="Stop the running serve daemon", add_help=False
+    )
+    attach_rich_help(serve_down)
+
+    serve_restart = serve_subparsers.add_parser(
+        "restart", help="Restart the serve daemon", add_help=False
+    )
+    attach_rich_help(serve_restart)
+    serve_restart.add_argument("--host", default="0.0.0.0", help="Bind address")
+    serve_restart.add_argument("--force", action="store_true", help="Allow second instance")
+
+    serve_status = serve_subparsers.add_parser(
+        "status", help="Show serve daemon status", add_help=False
+    )
+    attach_rich_help(serve_status)
+
+    serve_share = serve_subparsers.add_parser(
+        "share", help="Manage public tunnel sharing", add_help=False
+    )
+    attach_rich_help(serve_share)
+    serve_share.add_argument(
+        "share_action", nargs="?", default="start",
+        choices=["start", "stop", "status", "setup", "clear"],
+        help="start (default), stop, status, setup (configure named tunnel), clear",
     )
 
     # Version command
@@ -9351,7 +9403,41 @@ def cmd_view(args) -> int:
 def cmd_serve(args) -> int:
     """Serve command dispatcher."""
     action = getattr(args, "serve_action", None)
-    if action in (None, "docs"):
+    if action is None:
+        # Check if server is already running — show status
+        from autoclean.serve_launcher import _check_existing_server
+        existing = _check_existing_server(getattr(args, "port", 8000) or 8000)
+
+        from autoclean.utils.console import get_console
+        c = get_console()
+
+        c.print()
+        c.print("[bold green]AutoCleanEEG Serve[/bold green]")
+        c.print()
+
+        if existing:
+            pid, port, _health = existing
+            c.print(f"  [green]● Running[/green]  pid {pid}, port {port}")
+            c.print(f"  [dim]http://127.0.0.1:{port}[/dim]")
+        else:
+            c.print("  [dim]● Stopped[/dim]")
+
+        c.print()
+        c.print("[bold]Commands:[/bold]")
+        c.print("  [white]serve up[/white]        Start the dashboard server")
+        c.print("  [white]serve down[/white]      Stop the server")
+        c.print("  [white]serve restart[/white]   Restart the server")
+        c.print("  [white]serve status[/white]    Show server details")
+        c.print("  [white]serve share[/white]     Start public tunnel + print URL")
+        c.print()
+        c.print("[dim]Advanced:[/dim]")
+        c.print("  [dim]serve run         Start processing dispatcher only[/dim]")
+        c.print("  [dim]serve tui         Terminal UI (alternative to web)[/dim]")
+        c.print("  [dim]serve route       Manage routes from CLI[/dim]")
+        c.print("  [dim]serve api         Start API in foreground[/dim]")
+        c.print()
+        return 0
+    if action == "docs":
         return cmd_serve_docs(args)
     if action == "workspace":
         return cmd_serve_workspace(args)
@@ -9371,6 +9457,8 @@ def cmd_serve(args) -> int:
         return cmd_serve_api(args)
     if action == "worker":
         return cmd_serve_worker(args)
+    if action in ("up", "down", "restart", "status", "share"):
+        return cmd_serve_daemon(args, action)
     message("error", f"Unknown serve action: {action}")
     return 1
 
@@ -10484,6 +10572,8 @@ def cmd_serve_route(args) -> int:
         return cmd_serve_route_archive(args)
     if action == "unarchive":
         return cmd_serve_route_unarchive(args)
+    if action == "delete":
+        return cmd_serve_route_delete(args)
     if action == "sync":
         return cmd_serve_route_sync(args)
     message("error", f"Unknown serve route action: {action}")
@@ -10618,6 +10708,46 @@ def cmd_serve_route_unarchive(args) -> int:
 
     message("success", f"✓ Route {status}: {spec['id']} restored -> {route_path}")
     _print_route_sync(sync_results)
+    return 0
+
+
+def cmd_serve_route_delete(args) -> int:
+    """Permanently delete an archived route spec from disk."""
+    workspace_dir = _resolve_serve_workspace_dir(args.path)
+    if workspace_dir is None:
+        message("error", "No serve workspace configured")
+        return 1
+
+    if not args.force:
+        try:
+            from rich.prompt import Confirm
+
+            confirmed = Confirm.ask(
+                f"Are you sure you want to permanently delete route '{args.route_id}'? This cannot be undone.",
+                default=False,
+            )
+        except Exception:
+            response = input(
+                f"Are you sure you want to permanently delete route '{args.route_id}'? This cannot be undone. [y/N] "
+            ).strip()
+            confirmed = response.lower() in {"y", "yes"}
+        if not confirmed:
+            message("info", "Aborted. No changes made.")
+            return 0
+
+    try:
+        from autoclean.utils.serve_routes import delete_route_spec
+
+        success, error = delete_route_spec(workspace_dir, args.route_id)
+    except Exception as exc:
+        message("error", f"Failed to delete route: {exc}")
+        return 1
+
+    if not success:
+        message("error", f"Failed to delete route: {error}")
+        return 1
+
+    message("success", f"✓ Route '{args.route_id}' permanently deleted")
     return 0
 
 
@@ -10891,6 +11021,38 @@ def cmd_serve_worker(args) -> int:
     except Exception as exc:
         message("error", f"Worker error: {exc}")
         return 1
+
+
+def cmd_serve_daemon(args, action: str) -> int:
+    """Delegate to serve_launcher daemon commands."""
+    from types import SimpleNamespace
+    from autoclean.serve_launcher import (
+        _cmd_up, _cmd_down, _cmd_restart, _cmd_status, _cmd_share,
+    )
+
+    # Build a clean namespace with defaults for missing attributes
+    launcher_args = SimpleNamespace(
+        port=getattr(args, "port", 8000) or 8000,
+        host=getattr(args, "host", "0.0.0.0"),
+        path=str(args.path) if getattr(args, "path", None) else None,
+        mode=getattr(args, "mode", "test") or "test",
+        no_browser=True,
+        force=getattr(args, "force", False),
+    )
+
+    rc = 0
+    if action == "up":
+        rc = _cmd_up(launcher_args)
+    elif action == "down":
+        rc = _cmd_down()
+    elif action == "restart":
+        rc = _cmd_restart(launcher_args)
+    elif action == "status":
+        rc = _cmd_status(launcher_args.port)
+    elif action == "share":
+        share_sub = getattr(args, "share_action", None) or "start"
+        rc = _cmd_share(launcher_args.port, action=share_sub)
+    return rc
 
 
 def cmd_serve_docs(args) -> int:
