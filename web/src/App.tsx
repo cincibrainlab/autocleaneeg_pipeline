@@ -11,6 +11,7 @@ import MontagesPage from "./pages/Montages";
 import ResultsPage from "./pages/Results";
 import EventAnalyzerPage from "./pages/EventAnalyzer";
 import Setup from "./pages/Setup";
+import ExcludePage from "./pages/Exclude";
 import { TutorialProvider } from "./contexts/TutorialContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import TutorialOverlay from "./components/tutorial/TutorialOverlay";
@@ -65,6 +66,7 @@ export default function App() {
               <Route path="/tasks" element={<TasksPage />} />
               <Route path="/montages" element={<MontagesPage />} />
               <Route path="/results" element={<ResultsPage />} />
+              <Route path="/exclude" element={<ExcludePage />} />
               <Route path="/events" element={<EventAnalyzerPage />} />
               <Route
                 path="*"

@@ -330,11 +330,11 @@ function SummaryTab({ detail }: { detail: RunDetail }) {
               <span className="text-zinc-200 font-mono">{m.filter_low} Hz</span>
             </>
           )}
-          {m.notch_freqs.length > 0 && (
+          {(m.notch_freqs ?? []).length > 0 && (
             <>
               <span className="text-zinc-500">Notch filters</span>
               <span className="text-zinc-200 font-mono">
-                {m.notch_freqs.join(", ")} Hz
+                {(m.notch_freqs ?? []).join(", ")} Hz
               </span>
             </>
           )}
@@ -1025,7 +1025,7 @@ function RunDetailPanel({
             {activeTab === "ica" && (
               <IcaTab
                 runId={run.run_id}
-                available={detail.assets.ica_report}
+                available={Boolean(detail.assets.ica_report)}
               />
             )}
 
@@ -1347,18 +1347,22 @@ export default function ResultsPage() {
                           </span>
                         </td>
                         <td className="px-3 py-2.5 w-8">
-                          {decisions[run.run_id] && (
+                          {(() => {
+                            const decision = decisions[run.run_id];
+                            if (!decision) return null;
+                            return (
                             <span
                               className={`inline-block w-2 h-2 rounded-full ${
-                                decisions[run.run_id].decision === "pass"
+                                decision.decision === "pass"
                                   ? "bg-emerald-400"
-                                  : decisions[run.run_id].decision === "fail"
+                                  : decision.decision === "fail"
                                   ? "bg-red-400"
                                   : "bg-amber-400"
                               }`}
-                              title={decisions[run.run_id].decision}
+                              title={decision.decision}
                             />
-                          )}
+                            );
+                          })()}
                         </td>
                       </tr>
                     ))}

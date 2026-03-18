@@ -176,6 +176,20 @@ def _save_recent_workspace(path: str) -> None:
     _RECENT_FILE.write_text(json.dumps(recent[:10]), encoding="utf-8")
 
 
+def _load_persisted_serve_workspace() -> Optional[Path]:
+    """Load the persisted serve workspace from user config, if available."""
+    try:
+        from autoclean.utils.user_config import UserConfigManager
+
+        workspace = UserConfigManager().get_serve_workspace()
+    except Exception:
+        return None
+
+    if not workspace:
+        return None
+    return Path(workspace).expanduser().resolve()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
@@ -258,17 +272,12 @@ REST API for managing automated EEG file processing pipelines.
         allow_headers=["*"],
     )
 
-    # Configure state if workspace provided
     if workspace_dir:
         api_state.configure(workspace_dir, mode, redis_url)
 
     # Import routes here to avoid circular imports
     from autoclean.api import events
-    from autoclean.api.routes import (
-        config, event_analyzer, filesystem, montage_browser, queue,
-        results, serve_routes, service, task_browser, task_manager,
-        tunnel, tutorial, worker,
-    )
+    from autoclean.api.routes import config, event_analyzer, exclude, filesystem, montage_browser, queue, results, serve_routes, service, task_browser, task_manager, tunnel, tutorial, worker
 
     # Include routers
     app.include_router(queue.router, prefix="/api/queue", tags=["Queue"])
@@ -283,6 +292,7 @@ REST API for managing automated EEG file processing pipelines.
     app.include_router(task_manager.router, prefix="/api/task-manager", tags=["Task Manager"])
     app.include_router(montage_browser.router, prefix="/api/montages", tags=["Montages"])
     app.include_router(results.router, prefix="/api/results", tags=["Results"])
+    app.include_router(exclude.router, prefix="/api/exclude", tags=["Exclude"])
     app.include_router(event_analyzer.router, prefix="/api/events", tags=["Events"])
     app.include_router(events.router, prefix="/ws", tags=["WebSocket"])
 
@@ -346,8 +356,8 @@ REST API for managing automated EEG file processing pipelines.
         Stops the running service if any, switches api_state.mode,
         and returns the new mode.
         """
-        from fastapi import HTTPException as _HTTPExc  # noqa: PLC0415
-        from autoclean.api.routes.service import get_service_status, stop_service  # noqa: PLC0415
+        from fastapi import HTTPException as _HTTPExc
+        from autoclean.api.routes.service import get_service_status, stop_service
 
         new_mode = body.get("mode", "").lower()
         if new_mode not in ("test", "live"):
@@ -637,6 +647,19 @@ automations: []
     return app
 
 
+def _create_bound_app_factory(
+    workspace_dir: Optional[Path],
+    mode: str,
+    redis_url: str,
+):
+    """Bind explicit startup arguments into a Uvicorn-compatible app factory."""
+
+    def _factory() -> FastAPI:
+        return create_app(workspace_dir=workspace_dir, mode=mode, redis_url=redis_url)
+
+    return _factory
+
+
 def run_server(
     workspace_dir: Optional[Path] = None,
     mode: str = "test",
@@ -664,15 +687,16 @@ def run_server(
     # correct loopback address without accepting a caller-supplied port.
     os.environ["AUTOCLEAN_API_PORT"] = str(port)
 
-    # Configure global state only if a workspace was provided.
-    # When workspace_dir is None, api_state.workspace_dir stays None and the
-    # health endpoint returns workspace_configured=false, sending the browser
-    # to the first-run setup wizard.
-    if workspace_dir is not None:
-        api_state.configure(workspace_dir, mode, redis_url)
+    resolved_workspace = workspace_dir or _load_persisted_serve_workspace()
+
+    # Configure global state only if a workspace was provided or previously
+    # persisted by the CLI/web setup flow. This keeps the app factory itself
+    # deterministic for tests while preserving operator-friendly boot behavior.
+    if resolved_workspace is not None:
+        api_state.configure(resolved_workspace, mode, redis_url)
 
     uvicorn.run(
-        "autoclean.api.server:create_app",
+        _create_bound_app_factory(resolved_workspace, mode, redis_url),
         host=host,
         port=port,
         reload=reload,

@@ -5,6 +5,11 @@ import path from "path";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: "./src/test/setup.ts",
+  },
   build: {
     outDir: path.resolve(__dirname, "../src/autoclean/api/static"),
     emptyOutDir: true,

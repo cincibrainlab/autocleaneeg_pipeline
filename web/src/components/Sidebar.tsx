@@ -13,6 +13,7 @@ import {
   GraduationCap,
   Cpu,
   FileCheck,
+  Scissors,
   FolderOpen,
   Zap,
 } from "lucide-react";
@@ -28,6 +29,7 @@ const navItems = [
   { to: "/tasks", label: "Tasks", icon: Cpu },
   { to: "/montages", label: "Montages", icon: MapPin },
   { to: "/results", label: "Results", icon: FileCheck },
+  { to: "/exclude", label: "Exclude", icon: Scissors },
   { to: "/events", label: "Events", icon: Zap },
   { to: "/settings", label: "Settings", icon: Settings },
 ];

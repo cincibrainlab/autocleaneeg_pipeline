@@ -47,7 +47,7 @@ export default function FolderBrowser({ onSelect, onClose }: FolderBrowserProps)
       .then((res) => {
         setCurrentPath(res.path);
         setDisplayPath(res.path);
-        setParentPath(res.parent);
+        setParentPath(res.parent ?? null);
         setEntries(res.entries);
       })
       .catch((err: unknown) => {
