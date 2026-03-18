@@ -139,17 +139,6 @@ function ActionMenu({
           Restore
         </button>
       )}
-      {route.archived && (
-        <>
-          <div className="my-1 border-t border-border-subtle" />
-          <button
-            onClick={() => onAction("delete", route.id)}
-            className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
-          >
-            Delete
-          </button>
-        </>
-      )}
     </div>,
     document.body
   );
@@ -287,24 +276,11 @@ export default function RoutesPage() {
   };
 
   const requestAction = (
-    action: "promote" | "archive" | "unarchive" | "enable" | "disable" | "delete",
+    action: "promote" | "archive" | "unarchive" | "enable" | "disable",
     id: string
   ) => {
     setActionMenu(null);
     switch (action) {
-      case "delete":
-        setConfirmAction({
-          type: "delete",
-          id,
-          title: `Delete route '${id}'?`,
-          message: (
-            <span>
-              This will permanently delete route <strong className="text-zinc-200">'{id}'</strong> and
-              its configuration file. This cannot be undone. Files already processed are not affected.
-            </span>
-          ),
-        });
-        break;
       case "archive":
         setConfirmAction({
           type: "archive",
@@ -360,9 +336,6 @@ export default function RoutesPage() {
         case "disable":
           await api.disableRoute(id);
           break;
-        case "delete":
-          await api.deleteRoute(id);
-          break;
       }
       await api.syncRoutes();
       const labels: Record<string, string> = {
@@ -371,7 +344,6 @@ export default function RoutesPage() {
         unarchive: "restored",
         enable: "enabled",
         disable: "disabled",
-        delete: "deleted",
       };
       showNotice(`Route '${id}' ${labels[action] || action}`);
       refresh();
@@ -497,7 +469,7 @@ export default function RoutesPage() {
             <ActionMenu
               route={r}
               triggerRef={actionMenu.trigger}
-              onAction={(action, id) => requestAction(action as "promote" | "archive" | "unarchive" | "enable" | "disable" | "delete", id)}
+              onAction={(action, id) => requestAction(action as "promote" | "archive" | "unarchive" | "enable" | "disable", id)}
               onEdit={openEditModal}
               onClose={() => setActionMenu(null)}
             />
@@ -662,17 +634,14 @@ export default function RoutesPage() {
         title={confirmAction?.title ?? ""}
         message={confirmAction?.message ?? ""}
         confirmLabel={
-          confirmAction?.type === "delete"
-            ? "Delete"
-            : confirmAction?.type === "archive"
+          confirmAction?.type === "archive"
               ? "Archive"
               : confirmAction?.type === "promote"
                 ? "Enable Live"
                 : "Confirm"
         }
         confirmVariant={
-          confirmAction?.type === "delete" ? "danger"
-            : confirmAction?.type === "promote" ? "danger"
+          confirmAction?.type === "promote" ? "danger"
               : "primary"
         }
         onConfirm={handleConfirm}

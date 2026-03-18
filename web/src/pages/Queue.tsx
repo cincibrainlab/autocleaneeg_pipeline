@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { RotateCcw, Trash2, RefreshCw, X, Inbox, FileWarning, Clock, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { usePolling } from "../hooks/usePolling";
 import { api } from "../lib/api";
-import type { QueueEntry, QueueStats } from "../lib/api";
+import type { QueueEntry, QueueStats, RouteSpec } from "../lib/api";
 import StatusBadge from "../components/StatusBadge";
 import ErrorBanner from "../components/ErrorBanner";
 import { useTutorial } from "../contexts/TutorialContext";
@@ -55,16 +56,21 @@ function StatCard({
 // ── Page ─────────────────────────────────────────────────────────
 
 export default function Queue() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedRoute = searchParams.get("route") || "";
+  const taskFilter = searchParams.get("task") || "";
+  const montageFilter = searchParams.get("montage") || "";
   const {
     data: entriesData,
     error: entriesError,
     loading,
     refresh,
-  } = usePolling(api.getQueueEntries, 5000);
+  } = usePolling(() => api.getQueueEntries(selectedRoute || undefined), 5000);
   const { data: stats, error: statsError, refresh: refreshStats } = usePolling(
     api.getQueueStats,
     5000
   );
+  const { data: routes } = usePolling<RouteSpec[]>(api.getRoutes, 30000);
   const [acting, setActing] = useState(false);
   const [notice, setNotice] = useState<{
     type: "success" | "error";
@@ -99,6 +105,23 @@ export default function Queue() {
   const filtered = statusFilter === "all"
     ? entries
     : entries.filter((e) => e.status === statusFilter);
+  const routeOptions = (routes ?? []).filter((route) => {
+    const taskName = route.taskfile.split("/").pop()?.replace(".py", "") || route.taskfile;
+    if (taskFilter && taskName !== taskFilter) return false;
+    if (montageFilter && route.montage !== montageFilter) return false;
+    return true;
+  });
+  const availableTasks = [...new Set((routes ?? []).map((route) => route.taskfile.split("/").pop()?.replace(".py", "") || route.taskfile))].sort();
+  const availableMontages = [...new Set((routes ?? []).map((route) => route.montage))].sort();
+
+  const updateContextParam = (key: "route" | "task" | "montage", value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    if (key !== "route") next.delete("route");
+    setSearchParams(next, { replace: true });
+    setSelectedEntry(null);
+  };
 
   const showNotice = (type: "success" | "error", text: string) => {
     if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
@@ -160,7 +183,12 @@ export default function Queue() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h2 className="text-xl font-semibold text-zinc-100">Queue</h2>
+        <div>
+          <h2 className="text-xl font-semibold text-zinc-100">Queue</h2>
+          <p className="mt-0.5 text-xs text-zinc-500">
+            Global processing view with optional route focus
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => { refresh(); refreshStats(); }}
@@ -189,6 +217,60 @@ export default function Queue() {
       </div>
 
       {(entriesError || statsError) && <ErrorBanner message={entriesError || statsError!} />}
+
+      <div className="grid gap-3 rounded-lg border border-border bg-surface-100 p-4 xl:grid-cols-[minmax(0,1fr)_14rem_14rem_18rem]">
+        <div>
+          <p className="text-xs font-medium text-zinc-300">
+            {selectedRoute
+              ? `Showing queue entries for route '${selectedRoute}'`
+              : "Showing queue entries across all routes"}
+          </p>
+          <p className="mt-1 text-xs text-zinc-500">
+            Queue stays global. Use the route filter when you want to inspect one route's processing flow.
+          </p>
+        </div>
+        <label className="block text-[11px] uppercase tracking-wider text-zinc-500">
+          Task Filter
+          <select
+            value={taskFilter}
+            onChange={(event) => updateContextParam("task", event.target.value)}
+            className="mt-2 w-full rounded-md border border-border bg-surface-50 px-3 py-2 text-sm text-zinc-100 outline-none"
+          >
+            <option value="">All tasks</option>
+            {availableTasks.map((task) => (
+              <option key={task} value={task}>{task}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-[11px] uppercase tracking-wider text-zinc-500">
+          Montage Filter
+          <select
+            value={montageFilter}
+            onChange={(event) => updateContextParam("montage", event.target.value)}
+            className="mt-2 w-full rounded-md border border-border bg-surface-50 px-3 py-2 text-sm text-zinc-100 outline-none"
+          >
+            <option value="">All montages</option>
+            {availableMontages.map((montage) => (
+              <option key={montage} value={montage}>{montage}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-[11px] uppercase tracking-wider text-zinc-500">
+          Route Filter
+          <select
+            value={selectedRoute}
+            onChange={(event) => updateContextParam("route", event.target.value)}
+            className="mt-2 w-full rounded-md border border-border bg-surface-50 px-3 py-2 text-sm text-zinc-100 outline-none"
+          >
+            <option value="">All routes</option>
+            {routeOptions.map((route) => (
+              <option key={route.id} value={route.id}>
+                {route.id} · {route.taskfile.split("/").pop()?.replace(".py", "") || route.taskfile} · {route.montage}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       {/* Notice */}
       {notice && (
@@ -285,7 +367,9 @@ export default function Queue() {
                           <Inbox className="w-8 h-8 text-zinc-700" />
                           <p className="text-sm">Queue is empty</p>
                           <p className="text-xs text-zinc-600">
-                            Files will appear here when the service starts processing
+                            {selectedRoute
+                              ? "No files are currently queued for the selected route"
+                              : "Files will appear here when the service starts processing"}
                           </p>
                         </>
                       ) : (

@@ -244,6 +244,7 @@ export interface RunSummary {
   output_dir?: string;
   decision?: string | null;
   notes?: string | null;
+  route_id?: string | null;
 }
 
 export interface RunDetail {
@@ -253,6 +254,7 @@ export interface RunDetail {
   status?: string;
   success?: boolean;
   created_at?: string;
+  route_id?: string | null;
   metrics: {
     channels_original: number;
     channels_retained: number;
@@ -443,7 +445,8 @@ export const api = {
   switchMode: (mode: "test" | "live") => json<Record<string, any>>("/api/mode/switch", "POST", { mode }),
 
   getQueueStats: () => json<QueueStats>("/api/queue/stats"),
-  getQueueEntries: () => json<QueueEntriesResponse>("/api/queue/entries"),
+  getQueueEntries: (routeId?: string) =>
+    json<QueueEntriesResponse>(`/api/queue/entries${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`),
   retryFailed: () => json<{ retried: number }>("/api/queue/retry", "POST", {}),
   clearProcessed: () => json<{ cleared: number }>("/api/queue/processed", "DELETE"),
   removeEntry: (path: string) => json<{ cleared?: number }>(`/api/queue/entry/${encodeURIComponent(path)}`, "DELETE"),
@@ -491,7 +494,8 @@ export const api = {
 
   getMontages: () => json<MontageListResponse>("/api/montages"),
   getMontageDetail: (name: string) => json<MontageDetail>(`/api/montages/${encodeURIComponent(name)}`),
-  getResults: () => json<ResultsListResponse>("/api/results"),
+  getResults: (routeId?: string) =>
+    json<ResultsListResponse>(`/api/results${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`),
   getRun: (runId: string) => json<RunDetail>(`/api/results/${encodeURIComponent(runId)}`),
   getRunDetail: (runId: string) => json<RunDetail>(`/api/results/${encodeURIComponent(runId)}`),
   getRunReportUrl: (runId: string) => `/api/results/${encodeURIComponent(runId)}/report`,
@@ -512,32 +516,39 @@ export const api = {
   tutorialSetup: () => json<{ success?: boolean; sample_file?: string; suggested_route?: TutorialSuggestedRoute }>("/api/tutorial/setup", "POST", {}),
   tutorialCleanup: () => json<Record<string, any>>("/api/tutorial/cleanup", "POST", {}),
 
-  getExcludeRoot: () => json<{ exports_root: string }>("/api/exclude/root"),
-  getExcludeFiles: () => json<ExcludeFilesResponse>("/api/exclude/files"),
-  getExcludeFile: (fileKey: string) => json<ExcludeFileDetail>(`/api/exclude/files/${fileKey}`),
-  getExcludeIcaSummary: (fileKey: string) => json<ExcludeIcaSummaryResponse>(`/api/exclude/files/${fileKey}/ica-summary`),
-  getExcludeEpochManifest: (fileKey: string) => json<EpochManifest>(`/api/exclude/files/${fileKey}/eeg/manifest`),
-  getExcludeEpochWindow: (fileKey: string, start = 0, count = 10, channels?: string[]) => {
+  getExcludeRoot: (routeId?: string) =>
+    json<{ exports_root: string }>(`/api/exclude/root${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`),
+  getExcludeFiles: (routeId?: string) =>
+    json<ExcludeFilesResponse>(`/api/exclude/files${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`),
+  getExcludeFile: (fileKey: string, routeId?: string) =>
+    json<ExcludeFileDetail>(`/api/exclude/files/${fileKey}${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`),
+  getExcludeIcaSummary: (fileKey: string, routeId?: string) =>
+    json<ExcludeIcaSummaryResponse>(`/api/exclude/files/${fileKey}/ica-summary${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`),
+  getExcludeEpochManifest: (fileKey: string, routeId?: string) =>
+    json<EpochManifest>(`/api/exclude/files/${fileKey}/eeg/manifest${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`),
+  getExcludeEpochWindow: (fileKey: string, start = 0, count = 10, channels?: string[], routeId?: string) => {
     const params = new URLSearchParams({ start: String(start), count: String(count) });
     if (channels?.length) params.set("channels", channels.join(","));
+    if (routeId) params.set("route_id", routeId);
     return json<EpochWindowResponse>(`/api/exclude/files/${fileKey}/eeg/epochs?${params.toString()}`);
   },
-  getExcludeEpochTopography: (fileKey: string, epochIndex: number, sampleIndex: number) =>
+  getExcludeEpochTopography: (fileKey: string, epochIndex: number, sampleIndex: number, routeId?: string) =>
     json<ExcludeEpochTopographyResponse>(
-      `/api/exclude/files/${fileKey}/eeg/topography?epoch_index=${epochIndex}&sample_index=${sampleIndex}`,
+      `/api/exclude/files/${fileKey}/eeg/topography?epoch_index=${epochIndex}&sample_index=${sampleIndex}${routeId ? `&route_id=${encodeURIComponent(routeId)}` : ""}`,
     ),
-  getExcludeEpochReview: (fileKey: string) => json<Record<string, any>>(`/api/exclude/files/${fileKey}/epoch-review`),
-  saveExcludeEpochReview: (fileKey: string, badEpochIndices: number[]) =>
-    json<Record<string, any>>(`/api/exclude/files/${fileKey}/epoch-review`, "PUT", { bad_epoch_indices: badEpochIndices }),
-  saveExcludeNotes: (fileKey: string, notes: string, status?: string) =>
-    json<Record<string, any>>(`/api/exclude/files/${fileKey}/notes`, "PUT", { notes, status }),
-  saveExcludeOverrides: (fileKey: string, manualBadChannels: string[], manualRejectedIca: number[]) =>
-    json<Record<string, any>>(`/api/exclude/files/${fileKey}/overrides`, "PUT", {
+  getExcludeEpochReview: (fileKey: string, routeId?: string) =>
+    json<Record<string, any>>(`/api/exclude/files/${fileKey}/epoch-review${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`),
+  saveExcludeEpochReview: (fileKey: string, badEpochIndices: number[], routeId?: string) =>
+    json<Record<string, any>>(`/api/exclude/files/${fileKey}/epoch-review${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`, "PUT", { bad_epoch_indices: badEpochIndices }),
+  saveExcludeNotes: (fileKey: string, notes: string, status?: string, routeId?: string) =>
+    json<Record<string, any>>(`/api/exclude/files/${fileKey}/notes${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`, "PUT", { notes, status }),
+  saveExcludeOverrides: (fileKey: string, manualBadChannels: string[], manualRejectedIca: number[], routeId?: string) =>
+    json<Record<string, any>>(`/api/exclude/files/${fileKey}/overrides${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`, "PUT", {
       manual_bad_channels: manualBadChannels,
       manual_rejected_ica: manualRejectedIca,
     }),
-  startExcludeReprocess: (fileKey: string, manualBadChannels: string[], manualRejectedIca: number[]) =>
-    json<{ job_id: string; status: string; message: string }>(`/api/exclude/files/${fileKey}/reprocess`, "POST", {
+  startExcludeReprocess: (fileKey: string, manualBadChannels: string[], manualRejectedIca: number[], routeId?: string) =>
+    json<{ job_id: string; status: string; message: string }>(`/api/exclude/files/${fileKey}/reprocess${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`, "POST", {
       manual_bad_channels: manualBadChannels,
       manual_rejected_ica: manualRejectedIca,
     }),

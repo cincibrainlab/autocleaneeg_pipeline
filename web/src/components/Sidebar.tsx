@@ -21,15 +21,18 @@ import { usePolling } from "../hooks/usePolling";
 import { api } from "../lib/api";
 import { useTutorial } from "../contexts/TutorialContext";
 
-const navItems = [
+const primaryNavItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/service", label: "Service", icon: Play },
   { to: "/routes", label: "Routes", icon: GitBranch },
   { to: "/queue", label: "Queue", icon: ListOrdered },
-  { to: "/service", label: "Service", icon: Play },
-  { to: "/tasks", label: "Tasks", icon: Cpu },
-  { to: "/montages", label: "Montages", icon: MapPin },
   { to: "/results", label: "Results", icon: FileCheck },
   { to: "/exclude", label: "Exclude", icon: Scissors },
+];
+
+const utilityNavItems = [
+  { to: "/tasks", label: "Tasks", icon: Cpu },
+  { to: "/montages", label: "Montages", icon: MapPin },
   { to: "/events", label: "Events", icon: Zap },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
@@ -78,50 +81,77 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         </div>
       </div>
 
-      {/* Workspace switcher */}
-      {workspaceConfigured && workspaceName ? (
+      <div className="border-b border-border px-4 py-3">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-600">
+          Workspace
+        </p>
         <button
           onClick={() => navigate("/setup")}
-          className="w-full px-5 py-2 text-left border-b border-border hover:bg-surface-50/30 transition-colors"
-          title={workspacePath}
+          className="w-full rounded-lg border border-border bg-surface-100/70 px-3 py-2 text-left hover:bg-surface-50/30 transition-colors"
+          title={workspacePath || "Choose workspace"}
         >
-          <div className="flex items-center gap-1.5">
-            <FolderOpen className="w-3 h-3 text-zinc-600 flex-shrink-0" />
-            <p className="text-xs font-medium text-zinc-300 truncate">{workspaceName}</p>
+          <div className="flex items-center gap-2">
+            <FolderOpen className="w-3.5 h-3.5 text-zinc-500 flex-shrink-0" />
+            <p className="text-xs font-medium text-zinc-200 truncate">
+              {workspaceConfigured && workspaceName ? workspaceName : "No workspace selected"}
+            </p>
           </div>
-          <p className="text-[10px] text-zinc-600 truncate pl-4.5 mt-0.5">{workspacePath}</p>
+          <p className="mt-1 text-[10px] text-zinc-500 truncate pl-5.5">
+            {workspaceConfigured && workspacePath ? workspacePath : "Choose or create a workspace"}
+          </p>
         </button>
-      ) : (
-        <button
-          onClick={() => navigate("/setup")}
-          className="w-full px-5 py-2 text-left border-b border-border hover:bg-surface-50/30 transition-colors"
-        >
-          <p className="text-xs font-medium text-zinc-500">No workspace</p>
-          <p className="text-[10px] text-zinc-700 mt-0.5">Click to choose</p>
-        </button>
-      )}
+      </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 py-3 px-3 space-y-0.5">
-        {navItems.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === "/"}
-            onClick={onClose}
-            className={({ isActive }) =>
-              [
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150",
-                isActive
-                  ? "text-brand bg-brand/10 border-l-2 border-brand -ml-px"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-surface-50/50 border-l-2 border-transparent -ml-px",
-              ].join(" ")
-            }
-          >
-            <Icon className="w-4 h-4" />
-            {label}
-          </NavLink>
-        ))}
+      <nav className="flex-1 overflow-y-auto px-3 py-3">
+        <div className="space-y-0.5">
+          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-600">
+            Workflow
+          </p>
+          {primaryNavItems.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === "/"}
+              onClick={onClose}
+              className={({ isActive }) =>
+                [
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150",
+                  isActive
+                    ? "text-brand bg-brand/10 border-l-2 border-brand -ml-px"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-surface-50/50 border-l-2 border-transparent -ml-px",
+                ].join(" ")
+              }
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </NavLink>
+          ))}
+        </div>
+
+        <div className="mt-4 space-y-0.5">
+          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-600">
+            Utilities
+          </p>
+          {utilityNavItems.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === "/"}
+              onClick={onClose}
+              className={({ isActive }) =>
+                [
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150",
+                  isActive
+                    ? "text-brand bg-brand/10 border-l-2 border-brand -ml-px"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-surface-50/50 border-l-2 border-transparent -ml-px",
+                ].join(" ")
+              }
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </NavLink>
+          ))}
+        </div>
       </nav>
 
       {/* External links + Tutorial */}

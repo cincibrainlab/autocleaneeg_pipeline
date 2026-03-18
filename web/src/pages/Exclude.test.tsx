@@ -1,8 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { api } = vi.hoisted(() => ({
   api: {
+  getRoutes: vi.fn(),
   getExcludeFiles: vi.fn(),
   getStatus: vi.fn(),
   getExcludeFile: vi.fn(),
@@ -83,6 +85,19 @@ beforeEach(() => {
   vi.useRealTimers();
   vi.clearAllMocks();
   vi.spyOn(window, "confirm").mockReturnValue(true);
+  api.getRoutes.mockResolvedValue([
+    {
+      id: "route-1",
+      enabled: true,
+      archived: false,
+      modes: ["live"],
+      taskfile: "RestingState_Basic.py",
+      montage: "GSN-HydroCel-129",
+      ingestion_folders: [],
+      file_globs: ["*.set"],
+      recursive: true,
+    },
+  ]);
   api.getExcludeFiles.mockResolvedValue(files);
   api.getStatus.mockResolvedValue({ workspace_dir: "/workspace" });
   api.getExcludeFile.mockImplementation(async (fileKey: string) => detail(fileKey));
@@ -126,9 +141,17 @@ beforeEach(() => {
   api.exportExcludeQa.mockResolvedValue({ exported: 1, skipped: 0, errors: [], qa_log_path: "/workspace/task/qa/qa_preprocessing_log.csv" });
 });
 
+function renderPage() {
+  return render(
+    <MemoryRouter initialEntries={["/exclude?route=route-1"]}>
+      <ExcludePage />
+    </MemoryRouter>,
+  );
+}
+
 describe("ExcludePage", () => {
   it("renders workspace, exports root, and file list", async () => {
-    render(<ExcludePage />);
+    renderPage();
 
     await screen.findAllByText("subject01_comp_epo.set");
     expect(screen.getByText("/workspace")).toBeInTheDocument();
@@ -137,18 +160,18 @@ describe("ExcludePage", () => {
   });
 
   it("loads detail for a newly selected file", async () => {
-    render(<ExcludePage />);
+    renderPage();
 
     await screen.findAllByText("subject01_comp_epo.set");
     fireEvent.click(screen.getAllByText("subject02_comp_epo.set")[0]!);
 
     await waitFor(() => {
-      expect(api.getExcludeFile).toHaveBeenCalledWith("subject02_comp_epo");
+      expect(api.getExcludeFile).toHaveBeenLastCalledWith("subject02_comp_epo", "route-1");
     });
   });
 
   it("toggles an epoch with Space and autosaves it", async () => {
-    render(<ExcludePage />);
+    renderPage();
 
     await screen.findByText("Focused epoch: 1");
     fireEvent.keyDown(document, { key: " " });
@@ -159,18 +182,18 @@ describe("ExcludePage", () => {
   });
 
   it("persists notes edits", async () => {
-    render(<ExcludePage />);
+    renderPage();
 
     const textarea = await screen.findByPlaceholderText("Add reviewer notes...");
     fireEvent.change(textarea, { target: { value: "updated note" } });
 
     await waitFor(() => {
-      expect(api.saveExcludeNotes).toHaveBeenCalledWith("subject01_comp_epo", "updated note", "UNSET");
+      expect(api.saveExcludeNotes).toHaveBeenCalledWith("subject01_comp_epo", "updated note", "UNSET", "route-1");
     }, { timeout: 1500 });
   });
 
   it("adds and removes manual overrides, then saves them", async () => {
-    render(<ExcludePage />);
+    renderPage();
 
     await screen.findByRole("button", { name: /FP1 ×/ });
     const channelInput = await screen.findByPlaceholderText("e.g. E8 or 8");
@@ -189,12 +212,12 @@ describe("ExcludePage", () => {
     fireEvent.click(screen.getByText("Save Overrides"));
 
     await waitFor(() => {
-      expect(api.saveExcludeOverrides).toHaveBeenCalledWith("subject01_comp_epo", ["FP1"], [1, 3, 5]);
+      expect(api.saveExcludeOverrides).toHaveBeenCalledWith("subject01_comp_epo", ["FP1"], [1, 3, 5], "route-1");
     });
   });
 
   it("normalizes numeric channel entries to E-prefixed labels", async () => {
-    render(<ExcludePage />);
+    renderPage();
 
     await screen.findByRole("button", { name: /FP1 ×/ });
     const channelInput = await screen.findByPlaceholderText("e.g. E8 or 8");
@@ -207,7 +230,7 @@ describe("ExcludePage", () => {
   });
 
   it("rejects invalid bad channel overrides", async () => {
-    render(<ExcludePage />);
+    renderPage();
 
     await screen.findByRole("button", { name: /FP1 ×/ });
     const channelInput = await screen.findByPlaceholderText("e.g. E8 or 8");
@@ -219,7 +242,7 @@ describe("ExcludePage", () => {
   });
 
   it("rejects invalid ICA overrides", async () => {
-    render(<ExcludePage />);
+    renderPage();
 
     await screen.findByRole("button", { name: /FP1 ×/ });
     const icaInput = await screen.findByPlaceholderText("e.g. 3");
@@ -231,7 +254,7 @@ describe("ExcludePage", () => {
   });
 
   it("blocks changing channels and ICA in the same run", async () => {
-    render(<ExcludePage />);
+    renderPage();
 
     await screen.findByRole("button", { name: /FP1 ×/ });
     const channelInput = await screen.findByPlaceholderText("e.g. E8 or 8");
@@ -250,13 +273,13 @@ describe("ExcludePage", () => {
   it("shows reprocess status updates", async () => {
     api.getExcludeReprocessStatus.mockResolvedValue({ status: "completed", message: "done", running: false });
 
-    render(<ExcludePage />);
+    renderPage();
 
     await screen.findByRole("button", { name: /FP1 ×/ });
     fireEvent.click(screen.getByText("Reprocess with Overrides"));
 
     await waitFor(() => {
-      expect(api.startExcludeReprocess).toHaveBeenCalledWith("subject01_comp_epo", ["FP1"], [1, 3]);
+      expect(api.startExcludeReprocess).toHaveBeenCalledWith("subject01_comp_epo", ["FP1"], [1, 3], "route-1");
     });
 
     await waitFor(() => {
@@ -266,9 +289,10 @@ describe("ExcludePage", () => {
   });
 
   it("runs the main review workflow in one page session", async () => {
-    render(<ExcludePage />);
+    renderPage();
 
     await screen.findByRole("button", { name: /FP1 ×/ });
+    await screen.findByText("Focused epoch: 1");
 
     fireEvent.keyDown(document, { key: " " });
     await waitFor(() => {
@@ -278,12 +302,12 @@ describe("ExcludePage", () => {
     const textarea = screen.getByPlaceholderText("Add reviewer notes...");
     fireEvent.change(textarea, { target: { value: "workflow note" } });
     await waitFor(() => {
-      expect(api.saveExcludeNotes).toHaveBeenCalledWith("subject01_comp_epo", "workflow note", "REVIEW");
+      expect(api.saveExcludeNotes).toHaveBeenCalledWith("subject01_comp_epo", "workflow note", "REVIEW", "route-1");
     }, { timeout: 1500 });
 
     fireEvent.click(screen.getByText("Save Overrides"));
     await waitFor(() => {
-      expect(api.saveExcludeOverrides).toHaveBeenCalledWith("subject01_comp_epo", ["FP1"], [1, 3]);
+      expect(api.saveExcludeOverrides).toHaveBeenCalledWith("subject01_comp_epo", ["FP1"], [1, 3], "route-1");
     });
 
     fireEvent.click(screen.getByText("Export QA File"));

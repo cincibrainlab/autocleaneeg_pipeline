@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   FileCheck,
   Search,
@@ -18,7 +19,7 @@ import {
   Download,
 } from "lucide-react";
 import { api } from "../lib/api";
-import type { RunSummary, RunDetail, IcaComponent, IcaSummaryResponse, EventsResponse } from "../lib/api";
+import type { RunSummary, RunDetail, IcaComponent, IcaSummaryResponse, EventsResponse, RouteSpec } from "../lib/api";
 import ErrorBanner from "../components/ErrorBanner";
 import CodeViewer from "../components/CodeViewer";
 import EventsDisplay from "../components/EventsDisplay";
@@ -1072,11 +1073,19 @@ function sortRuns(runs: RunSummary[], key: SortKey, dir: SortDir): RunSummary[] 
 // ── Main page ──────────────────────────────────────────────────────
 
 export default function ResultsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedRoute = searchParams.get("route") || "";
+  const taskFilter = searchParams.get("task") || "";
+  const montageFilter = searchParams.get("montage") || "";
   const {
     data: resultsData,
     error,
     loading,
-  } = usePolling<{ runs: RunSummary[]; total: number }>(api.getResults, 30000);
+  } = usePolling<{ runs: RunSummary[]; total: number }>(
+    () => (selectedRoute ? api.getResults(selectedRoute) : Promise.resolve({ runs: [], total: 0 })),
+    30000,
+  );
+  const { data: routes } = usePolling<RouteSpec[]>(api.getRoutes, 30000);
 
   const runs = resultsData?.runs ?? null;
 
@@ -1086,6 +1095,46 @@ export default function ResultsPage() {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selected, setSelected] = useState<RunSummary | null>(null);
   const [decisions, setDecisions] = useState<Record<string, { decision: string; notes: string }>>({});
+  const routeOptions = useMemo(() => {
+    const allRoutes = routes ?? [];
+    return allRoutes.filter((route) => {
+      if (taskFilter) {
+        const taskName = route.taskfile.split("/").pop()?.replace(".py", "") || route.taskfile;
+        if (taskName !== taskFilter) return false;
+      }
+      if (montageFilter && route.montage !== montageFilter) return false;
+      return true;
+    });
+  }, [routes, taskFilter, montageFilter]);
+  const availableTasks = useMemo(
+    () => [...new Set((routes ?? []).map((route) => route.taskfile.split("/").pop()?.replace(".py", "") || route.taskfile))].sort(),
+    [routes],
+  );
+  const availableMontages = useMemo(
+    () => [...new Set((routes ?? []).map((route) => route.montage))].sort(),
+    [routes],
+  );
+
+  useEffect(() => {
+    if (selectedRoute || routeOptions.length !== 1) return;
+    const onlyRoute = routeOptions[0];
+    if (!onlyRoute) return;
+    const next = new URLSearchParams(searchParams);
+    next.set("route", onlyRoute.id);
+    setSearchParams(next, { replace: true });
+  }, [routeOptions, searchParams, selectedRoute, setSearchParams]);
+
+  const updateContextParam = (key: "route" | "task" | "montage", value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    if (key !== "route" && selectedRoute) {
+      const stillValid = routeOptions.some((route) => route.id === selectedRoute);
+      if (!stillValid) next.delete("route");
+    }
+    setSearchParams(next, { replace: true });
+    setSelected(null);
+  };
 
   // Load decisions on mount
   useEffect(() => {
@@ -1112,6 +1161,7 @@ export default function ResultsPage() {
 
   const filtered = useMemo(() => {
     if (!runs) return [];
+    if (!selectedRoute) return [];
     let list = runs;
     if (statusFilter === "completed") {
       list = list.filter((r) => r.success);
@@ -1159,11 +1209,13 @@ export default function ResultsPage() {
         <div>
           <h2 className="text-xl font-semibold text-zinc-100">Results</h2>
           <p className="text-xs text-zinc-500 mt-0.5">
-            Processed EEG runs with reports and metrics
+            Route-scoped run review with reports and metrics
           </p>
           {resultsData && (
             <p className="text-xs text-zinc-600 mt-1">
-              {resultsData.total} run{resultsData.total !== 1 ? "s" : ""}
+            {selectedRoute
+              ? `${resultsData.total} run${resultsData.total !== 1 ? "s" : ""}`
+              : "Select a route to view results"}
             </p>
           )}
         </div>
@@ -1180,6 +1232,58 @@ export default function ResultsPage() {
       </div>
 
       {error && <ErrorBanner message={error} />}
+
+      <div className="grid gap-3 rounded-lg border border-border bg-surface-100 p-4 xl:grid-cols-[minmax(0,1fr)_14rem_14rem_18rem]">
+        <div>
+          <p className="text-xs font-medium text-zinc-300">
+            {selectedRoute ? `Showing results for route '${selectedRoute}'` : "Select a route to focus review results"}
+          </p>
+          <p className="mt-1 text-xs text-zinc-500">
+            Results are reviewed in route context. Use task and montage filters to narrow the route list when the workspace grows.
+          </p>
+        </div>
+        <label className="block text-[11px] uppercase tracking-wider text-zinc-500">
+          Task Filter
+          <select
+            value={taskFilter}
+            onChange={(event) => updateContextParam("task", event.target.value)}
+            className="mt-2 w-full rounded-md border border-border bg-surface-50 px-3 py-2 text-sm text-zinc-100 outline-none"
+          >
+            <option value="">All tasks</option>
+            {availableTasks.map((task) => (
+              <option key={task} value={task}>{task}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-[11px] uppercase tracking-wider text-zinc-500">
+          Montage Filter
+          <select
+            value={montageFilter}
+            onChange={(event) => updateContextParam("montage", event.target.value)}
+            className="mt-2 w-full rounded-md border border-border bg-surface-50 px-3 py-2 text-sm text-zinc-100 outline-none"
+          >
+            <option value="">All montages</option>
+            {availableMontages.map((montage) => (
+              <option key={montage} value={montage}>{montage}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-[11px] uppercase tracking-wider text-zinc-500">
+          Route
+          <select
+            value={selectedRoute}
+            onChange={(event) => updateContextParam("route", event.target.value)}
+            className="mt-2 w-full rounded-md border border-border bg-surface-50 px-3 py-2 text-sm text-zinc-100 outline-none"
+          >
+            <option value="">Select route</option>
+            {routeOptions.map((route) => (
+              <option key={route.id} value={route.id}>
+                {route.id} · {route.taskfile.split("/").pop()?.replace(".py", "") || route.taskfile} · {route.montage}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-2 flex-wrap flex-shrink-0">
@@ -1289,7 +1393,9 @@ export default function ResultsPage() {
                       <td colSpan={4} className="px-4 py-12 text-center">
                         <FileCheck className="w-7 h-7 text-zinc-700 mx-auto mb-2" />
                         <p className="text-sm text-zinc-500">
-                          {searchQuery || statusFilter !== "all"
+                          {!selectedRoute
+                            ? "Select a route to load results."
+                            : searchQuery || statusFilter !== "all"
                             ? "No runs match your filters."
                             : "No processed runs found."}
                         </p>

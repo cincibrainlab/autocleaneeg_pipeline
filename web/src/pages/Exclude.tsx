@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Activity, Brain, FileText, Loader2, MonitorDown, Search, SlidersHorizontal, StickyNote, Waves, X } from "lucide-react";
 import { api } from "../lib/api";
 import type {
@@ -9,8 +10,10 @@ import type {
   ExcludeFileDetail,
   ExcludeFileSummary,
   ExcludeIcaSummaryResponse,
+  RouteSpec,
 } from "../lib/api";
 import ErrorBanner from "../components/ErrorBanner";
+import { usePolling } from "../hooks/usePolling";
 
 type TabKey = "eeg" | "psd" | "report" | "ica";
 type TopographyRequest = {
@@ -473,6 +476,10 @@ function TopographyModal({
 }
 
 export default function ExcludePage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedRoute = searchParams.get("route") || "";
+  const taskFilter = searchParams.get("task") || "";
+  const montageFilter = searchParams.get("montage") || "";
   const [files, setFiles] = useState<ExcludeFileSummary[]>([]);
   const [exportsRoot, setExportsRoot] = useState("");
   const [workspaceDir, setWorkspaceDir] = useState("");
@@ -511,12 +518,50 @@ export default function ExcludePage() {
   const [topographyError, setTopographyError] = useState<string | null>(null);
   const [topographyData, setTopographyData] = useState<ExcludeEpochTopographyResponse | null>(null);
   const [showEegHelp, setShowEegHelp] = useState(false);
+  const { data: routes } = usePolling<RouteSpec[]>(api.getRoutes, 30000);
   const epochSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notesSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastEpochSaveRef = useRef<{ fileKey: string; badEpochs: number[] } | null>(null);
   const lastNotesSaveRef = useRef<{ fileKey: string; notes: string; status: string } | null>(null);
   const loadedManualBadChannelsRef = useRef<string[]>([]);
   const loadedManualRejectedIcaRef = useRef<number[]>([]);
+  const routeOptions = useMemo(() => {
+    const allRoutes = routes ?? [];
+    return allRoutes.filter((route) => {
+      if (taskFilter) {
+        const taskName = route.taskfile.split("/").pop()?.replace(".py", "") || route.taskfile;
+        if (taskName !== taskFilter) return false;
+      }
+      if (montageFilter && route.montage !== montageFilter) return false;
+      return true;
+    });
+  }, [routes, taskFilter, montageFilter]);
+  const availableTasks = useMemo(
+    () => [...new Set((routes ?? []).map((route) => route.taskfile.split("/").pop()?.replace(".py", "") || route.taskfile))].sort(),
+    [routes],
+  );
+  const availableMontages = useMemo(
+    () => [...new Set((routes ?? []).map((route) => route.montage))].sort(),
+    [routes],
+  );
+
+  useEffect(() => {
+    if (selectedRoute || routeOptions.length !== 1) return;
+    const onlyRoute = routeOptions[0];
+    if (!onlyRoute) return;
+    const next = new URLSearchParams(searchParams);
+    next.set("route", onlyRoute.id);
+    setSearchParams(next, { replace: true });
+  }, [routeOptions, searchParams, selectedRoute, setSearchParams]);
+
+  const updateContextParam = (key: "route" | "task" | "montage", value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    if (key !== "route") next.delete("route");
+    setSearchParams(next, { replace: true });
+    setSelectedKey(null);
+  };
 
   function applySelectedFileData(
     fileDetail: ExcludeFileDetail,
@@ -567,8 +612,20 @@ export default function ExcludePage() {
   };
 
   async function loadFiles(preserveSelection = true) {
+    if (!selectedRoute) {
+      setFiles([]);
+      setExportsRoot("");
+      setDetail(null);
+      setManifest(null);
+      setEpochWindow(null);
+      setIcaSummary(null);
+      setSelectedKey(null);
+      const statusData = await api.getStatus().catch(() => null as DashboardStatus | null);
+      setWorkspaceDir(statusData?.workspace_dir ?? "");
+      return;
+    }
     const [data, statusData] = await Promise.all([
-      api.getExcludeFiles(),
+      api.getExcludeFiles(selectedRoute || undefined),
       api.getStatus().catch(() => null as DashboardStatus | null),
     ]);
     setFiles(data.files);
@@ -588,7 +645,7 @@ export default function ExcludePage() {
     }
     setSaveState("saving");
     try {
-      const result = await api.saveExcludeEpochReview(pending.fileKey, pending.badEpochs);
+      const result = await api.saveExcludeEpochReview(pending.fileKey, pending.badEpochs, selectedRoute || undefined);
       setActionError(typeof result.warning === "string" && result.warning ? result.warning : null);
       setSaveState("saved");
       lastEpochSaveRef.current = null;
@@ -607,7 +664,7 @@ export default function ExcludePage() {
     }
     setSaveState("saving");
     try {
-      await api.saveExcludeNotes(pending.fileKey, pending.notes, pending.status);
+      await api.saveExcludeNotes(pending.fileKey, pending.notes, pending.status, selectedRoute || undefined);
       setSaveState("saved");
       lastNotesSaveRef.current = null;
     } catch {
@@ -617,6 +674,11 @@ export default function ExcludePage() {
   }
 
   useEffect(() => {
+    if (!selectedRoute) {
+      setListLoading(false);
+      setListError(null);
+      return;
+    }
     let cancelled = false;
     setListLoading(true);
     loadFiles()
@@ -633,24 +695,25 @@ export default function ExcludePage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedKey]);
+  }, [selectedKey, selectedRoute]);
 
   useEffect(() => {
+    if (!selectedRoute) return;
     const id = setInterval(() => {
       loadFiles(true).catch(() => {});
     }, 15000);
     return () => clearInterval(id);
-  }, [selectedKey]);
+  }, [selectedKey, selectedRoute]);
 
   useEffect(() => {
-    if (!selectedKey) return;
+    if (!selectedKey || !selectedRoute) return;
     let cancelled = false;
     setDetailLoading(true);
     setDetailError(null);
     Promise.all([
-      api.getExcludeFile(selectedKey),
-      api.getExcludeEpochManifest(selectedKey),
-      api.getExcludeIcaSummary(selectedKey).catch(() => null),
+      api.getExcludeFile(selectedKey, selectedRoute || undefined),
+      api.getExcludeEpochManifest(selectedKey, selectedRoute || undefined),
+      api.getExcludeIcaSummary(selectedKey, selectedRoute || undefined).catch(() => null),
     ])
       .then(([fileDetail, epochManifest, summary]) => {
         if (cancelled) return;
@@ -672,13 +735,13 @@ export default function ExcludePage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedKey]);
+  }, [selectedKey, selectedRoute]);
 
   useEffect(() => {
     if (!selectedKey || !manifest) return;
     let cancelled = false;
     setEpochWindowLoading(true);
-    api.getExcludeEpochWindow(selectedKey, 0, manifest.n_epochs, manifest.channel_names)
+    api.getExcludeEpochWindow(selectedKey, 0, manifest.n_epochs, manifest.channel_names, selectedRoute || undefined)
       .then((window) => {
         if (cancelled) return;
         setEpochWindow(window);
@@ -702,14 +765,14 @@ export default function ExcludePage() {
     return () => {
       cancelled = true;
     };
-  }, [manifest, selectedKey]);
+  }, [manifest, selectedKey, selectedRoute]);
 
   useEffect(() => {
     if (!selectedKey || !topographyRequest || tab !== "eeg") return;
     let cancelled = false;
     setTopographyLoading(true);
     setTopographyError(null);
-    api.getExcludeEpochTopography(selectedKey, topographyRequest.epochIndex, topographyRequest.sampleIndex)
+    api.getExcludeEpochTopography(selectedKey, topographyRequest.epochIndex, topographyRequest.sampleIndex, selectedRoute || undefined)
       .then((payload) => {
         if (cancelled) return;
         setTopographyData(payload);
@@ -725,7 +788,7 @@ export default function ExcludePage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedKey, tab, topographyRequest]);
+  }, [selectedKey, tab, topographyRequest, selectedRoute]);
 
   useEffect(() => {
     return () => {
@@ -761,16 +824,16 @@ export default function ExcludePage() {
             clearInterval(id);
             if (selectedKey) {
               Promise.all([
-                api.getExcludeFiles(),
-                api.getExcludeFile(selectedKey),
-                api.getExcludeEpochManifest(selectedKey),
-                api.getExcludeIcaSummary(selectedKey).catch(() => null),
+                api.getExcludeFiles(selectedRoute || undefined),
+                api.getExcludeFile(selectedKey, selectedRoute || undefined),
+                api.getExcludeEpochManifest(selectedKey, selectedRoute || undefined),
+                api.getExcludeIcaSummary(selectedKey, selectedRoute || undefined).catch(() => null),
               ])
                 .then(([fileList, fileDetail, epochManifest, summary]) => {
                   if (cancelled) return;
-                  setFiles(fileList.files);
-                  setExportsRoot(fileList.exports_root);
-                  applySelectedFileData(fileDetail, epochManifest, summary, { resetViewport: true });
+                setFiles(fileList.files);
+                setExportsRoot(fileList.exports_root);
+                applySelectedFileData(fileDetail, epochManifest, summary, { resetViewport: true });
                 })
                 .catch(() => {});
             }
@@ -788,7 +851,7 @@ export default function ExcludePage() {
       cancelled = true;
       clearInterval(id);
     };
-  }, [reprocessJobId]);
+  }, [reprocessJobId, selectedKey, selectedRoute]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -837,7 +900,7 @@ export default function ExcludePage() {
     lastEpochSaveRef.current = { fileKey: selectedKey, badEpochs: nextBadEpochs };
     if (epochSaveTimer.current) clearTimeout(epochSaveTimer.current);
     epochSaveTimer.current = setTimeout(() => {
-      api.saveExcludeEpochReview(selectedKey, nextBadEpochs)
+      api.saveExcludeEpochReview(selectedKey, nextBadEpochs, selectedRoute || undefined)
         .then((result) => {
           setActionError(typeof result.warning === "string" && result.warning ? result.warning : null);
           setSaveState("saved");
@@ -864,7 +927,7 @@ export default function ExcludePage() {
     lastNotesSaveRef.current = { fileKey: selectedKey, notes: nextNotes, status: nextStatus };
     if (notesSaveTimer.current) clearTimeout(notesSaveTimer.current);
     notesSaveTimer.current = setTimeout(() => {
-      api.saveExcludeNotes(selectedKey, nextNotes, nextStatus)
+      api.saveExcludeNotes(selectedKey, nextNotes, nextStatus, selectedRoute || undefined)
         .then(() => {
           setSaveState("saved");
           lastNotesSaveRef.current = null;
@@ -885,7 +948,7 @@ export default function ExcludePage() {
     setActionError(null);
     setSaveState("saving");
     try {
-      await api.saveExcludeOverrides(selectedKey, manualBadChannels, manualRejectedIca);
+      await api.saveExcludeOverrides(selectedKey, manualBadChannels, manualRejectedIca, selectedRoute || undefined);
       loadedManualBadChannelsRef.current = manualBadChannels;
       loadedManualRejectedIcaRef.current = manualRejectedIca;
       setSaveState("saved");
@@ -914,7 +977,7 @@ export default function ExcludePage() {
     await flushNotesSave();
     setSaveState("saving");
     try {
-      const result = await api.startExcludeReprocess(selectedKey, manualBadChannels, manualRejectedIca);
+      const result = await api.startExcludeReprocess(selectedKey, manualBadChannels, manualRejectedIca, selectedRoute || undefined);
       setReprocessJobId(result.job_id);
       setReprocessStatus(result.status);
       setReprocessMessage(result.message);
@@ -950,7 +1013,7 @@ export default function ExcludePage() {
           : "QA export unchanged."
       );
       if (selectedKey) {
-        const refreshed = await api.getExcludeFile(selectedKey);
+        const refreshed = await api.getExcludeFile(selectedKey, selectedRoute || undefined);
         setDetail(refreshed);
       }
       setSaveState("saved");
@@ -985,7 +1048,7 @@ export default function ExcludePage() {
         <div className="max-w-3xl">
           <h2 className="text-xl font-semibold text-zinc-100">Exclude</h2>
           <p className="mt-1 text-sm text-zinc-400">
-            Review files, reject epochs, add notes, inspect reports, and run manual cleanup actions.
+            Route-scoped review for manual epoch cleanup, notes, and reruns.
           </p>
         </div>
         <div className="flex flex-col gap-2 text-xs text-zinc-400 sm:flex-row sm:flex-wrap sm:items-center sm:justify-start lg:justify-end">
@@ -1004,11 +1067,65 @@ export default function ExcludePage() {
         </div>
       </div>
 
+      <div className="grid gap-3 rounded-lg border border-border bg-surface-100 p-4 xl:grid-cols-[minmax(0,1fr)_14rem_14rem_18rem]">
+        <div>
+          <p className="text-xs font-medium text-zinc-300">
+            {selectedRoute ? `Showing Exclude files for route '${selectedRoute}'` : "Choose a route to scope the Exclude workspace"}
+          </p>
+          <p className="mt-1 text-xs text-zinc-500">
+            Exclude should follow route ownership. Use task and montage filters to narrow the route list when many routes are present.
+          </p>
+        </div>
+        <label className="block text-[11px] uppercase tracking-wider text-zinc-500">
+          Task Filter
+          <select
+            value={taskFilter}
+            onChange={(event) => updateContextParam("task", event.target.value)}
+            className="mt-2 w-full rounded-md border border-border bg-surface-50 px-3 py-2 text-sm text-zinc-100 outline-none"
+          >
+            <option value="">All tasks</option>
+            {availableTasks.map((task) => (
+              <option key={task} value={task}>{task}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-[11px] uppercase tracking-wider text-zinc-500">
+          Montage Filter
+          <select
+            value={montageFilter}
+            onChange={(event) => updateContextParam("montage", event.target.value)}
+            className="mt-2 w-full rounded-md border border-border bg-surface-50 px-3 py-2 text-sm text-zinc-100 outline-none"
+          >
+            <option value="">All montages</option>
+            {availableMontages.map((montage) => (
+              <option key={montage} value={montage}>{montage}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-[11px] uppercase tracking-wider text-zinc-500">
+          Route
+          <select
+            value={selectedRoute}
+            onChange={(event) => updateContextParam("route", event.target.value)}
+            className="mt-2 w-full rounded-md border border-border bg-surface-50 px-3 py-2 text-sm text-zinc-100 outline-none"
+          >
+            <option value="">Select route</option>
+            {routeOptions.map((route) => (
+              <option key={route.id} value={route.id}>
+                {route.id} · {route.taskfile.split("/").pop()?.replace(".py", "") || route.taskfile} · {route.montage}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
       {listError && <ErrorBanner message={listError} />}
       {actionError && <ErrorBanner message={actionError} />}
 
       <div className="text-xs text-zinc-400">
-        {files.length} file{files.length === 1 ? "" : "s"} in Exclude workspace
+        {selectedRoute
+          ? `${files.length} file${files.length === 1 ? "" : "s"} in the selected route`
+          : "Select a route to load Exclude files"}
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[clamp(15rem,20vw,18rem)_minmax(0,1fr)] xl:items-stretch">
@@ -1029,6 +1146,10 @@ export default function ExcludePage() {
               <div className="flex items-center justify-center gap-2 py-10 text-zinc-500 text-sm">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Loading files...
+              </div>
+            ) : !selectedRoute ? (
+              <div className="py-10 text-center text-sm text-zinc-600">
+                Select a route to load Exclude files
               </div>
             ) : filteredFiles.length === 0 ? (
               <div className="py-10 text-center text-sm text-zinc-600">
