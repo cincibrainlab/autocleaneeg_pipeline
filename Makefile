@@ -38,6 +38,10 @@ help: ## Show this help message
 	@echo "  ci-check       Run the same checks as CI (format + lint + tests)"
 	@echo "  pre-commit     Run pre-commit hooks manually"
 	@echo ""
+	@echo "Serve:"
+	@echo "  serve          Build frontend + start local server"
+	@echo "  serve-data1    Publish, deploy to data1, start remote server"
+	@echo ""
 	@echo "Deployment:"
 	@echo "  deploy         Build and publish package to PyPI"
 	@echo ""
@@ -220,6 +224,23 @@ docs-build: ## Build documentation
 docs-serve: ## Serve documentation locally
 	@echo "📚 Serving documentation at http://localhost:8000"
 	@cd docs/_build/html && python3 -m http.server 8000
+
+# Development Server
+serve: ## Build frontend + start serve (editable mode, live code changes)
+	@cd web && npx vite build --silent
+	@autocleaneeg-serve
+
+serve-data1: ## Deploy to data1 and start serve remotely
+	@echo "📦 Building + publishing..."
+	@uv build --wheel --quiet
+	@uvx twine upload dist/* 2>/dev/null || true
+	@echo "🚀 Upgrading on data1..."
+	@ssh data1 'bash -lc "uv tool install autocleaneeg-pipeline --force --upgrade"'
+	@ssh data1 "pkill -9 -f autoclean-serve 2>/dev/null; pkill -9 -f uvicorn 2>/dev/null" || true
+	@sleep 2
+	@ssh data1 "nohup /Users/ernie/.local/bin/autocleaneeg-serve --no-browser > /tmp/autoclean-serve.log 2>&1 &"
+	@sleep 4
+	@echo "✅ Running at http://10.241.38.116:8000"
 
 # Deployment
 deploy: clean ## Build and publish package to PyPI

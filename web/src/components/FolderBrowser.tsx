@@ -113,25 +113,29 @@ export default function FolderBrowser({ onSelect, onClose }: FolderBrowserProps)
         <div className="px-4 py-2 border-b border-border-subtle bg-surface-100/50 flex-shrink-0 overflow-x-auto">
           {currentPath ? (
             <div className="flex items-center gap-0.5 min-w-0 font-mono text-xs text-zinc-400 whitespace-nowrap">
-              {segments.map((seg, idx) => (
-                <span key={seg.path} className="flex items-center gap-0.5">
-                  {idx > 0 && (
-                    <ChevronRight className="w-3 h-3 text-zinc-600 flex-shrink-0" />
-                  )}
-                  <button
-                    onClick={() => navigate(seg.path)}
-                    className={[
-                      "px-1 py-0.5 rounded transition-colors",
-                      idx === segments.length - 1
-                        ? "text-zinc-200 font-medium cursor-default"
-                        : "hover:text-zinc-200 hover:bg-surface-50/50 cursor-pointer",
-                    ].join(" ")}
-                    disabled={idx === segments.length - 1}
-                  >
-                    {seg.label}
-                  </button>
-                </span>
-              ))}
+              {segments.map((seg, idx) => {
+                const isLast = idx === segments.length - 1;
+                const isRoot = seg.path === "/";
+                return (
+                  <span key={seg.path} className="flex items-center gap-0.5">
+                    {idx > 0 && (
+                      <ChevronRight className="w-3 h-3 text-zinc-600 flex-shrink-0" />
+                    )}
+                    {isRoot || isLast ? (
+                      <span className="px-1 py-0.5 text-zinc-600">
+                        {seg.label}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => navigate(seg.path)}
+                        className="px-1 py-0.5 rounded hover:text-zinc-200 hover:bg-surface-50/50 cursor-pointer transition-colors"
+                      >
+                        {seg.label}
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
             </div>
           ) : (
             <span className="font-mono text-xs text-zinc-600">Loading...</span>

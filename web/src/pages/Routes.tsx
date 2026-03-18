@@ -139,13 +139,17 @@ function ActionMenu({
           Restore
         </button>
       )}
-      <div className="my-1 border-t border-border-subtle" />
-      <button
-        onClick={() => onAction("delete", route.id)}
-        className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
-      >
-        Delete
-      </button>
+      {route.archived && (
+        <>
+          <div className="my-1 border-t border-border-subtle" />
+          <button
+            onClick={() => onAction("delete", route.id)}
+            className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+          >
+            Delete
+          </button>
+        </>
+      )}
     </div>,
     document.body
   );
