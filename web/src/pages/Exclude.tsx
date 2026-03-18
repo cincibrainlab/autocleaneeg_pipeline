@@ -151,7 +151,6 @@ function EegBrowser({
   const bodyCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const footerCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
-  const horizontalScrollRef = useRef<HTMLDivElement | null>(null);
   const headerHeight = 34;
   const footerHeight = 26;
   const labelWidth = 88;
@@ -297,7 +296,6 @@ function EegBrowser({
   const epochWidth = traceWidth / Math.max(1, visibleEpochCount);
   const bodyCanvasHeight = channels.length * channelHeight;
   const maxStart = Math.max(0, (manifest?.n_epochs ?? 0) - visibleEpochCount);
-  const totalTrackWidth = Math.max(traceWidth, (manifest?.n_epochs ?? 0) * epochWidth);
 
   const getEpochIndexFromPointer = (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!epochWindow) return null;
@@ -327,15 +325,6 @@ function EegBrowser({
       latencyMs,
     };
   };
-
-  useEffect(() => {
-    const scroller = horizontalScrollRef.current;
-    if (!scroller) return;
-    const nextLeft = epochStart * epochWidth;
-    if (Math.abs(scroller.scrollLeft - nextLeft) > 1) {
-      scroller.scrollLeft = nextLeft;
-    }
-  }, [epochStart, epochWidth]);
 
   if (!epochWindow || !manifest) {
     return <div className="py-16 text-center text-sm text-zinc-500">Loading EEG…</div>;
@@ -378,15 +367,24 @@ function EegBrowser({
           <canvas ref={footerCanvasRef} width={canvasWidth} height={footerHeight} className="block w-full" />
         </div>
       </div>
-      <div
-        ref={horizontalScrollRef}
-        className="overflow-x-auto overflow-y-hidden rounded border border-border bg-surface-100/60"
-        onScroll={(event) => {
-          const nextStart = clamp(Math.round(event.currentTarget.scrollLeft / Math.max(epochWidth, 1)), 0, maxStart);
-          if (nextStart !== epochStart) onEpochStartChange(nextStart);
-        }}
-      >
-        <div style={{ width: totalTrackWidth, height: 14 }} />
+      <div className="rounded border border-border bg-surface-100/60 px-3 py-2">
+        <div className="flex items-center justify-between gap-3 text-[11px] text-zinc-400">
+          <span>File position</span>
+          <span>
+            Epoch {epochStart + 1}
+            {maxStart > 0 ? ` of ${maxStart + 1}` : ""}
+          </span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={Math.max(0, maxStart)}
+          step={1}
+          value={epochStart}
+          onChange={(event) => onEpochStartChange(Number(event.target.value))}
+          className="mt-2 w-full"
+          aria-label="EEG file position"
+        />
       </div>
       <div className="flex items-center justify-between text-[11px] text-zinc-500">
         <span>Use the bottom scrollbar for file position and scroll vertically for channels. Click to focus, double-click or press Space to reject or restore, and right-click for a scalp map at that latency.</span>
@@ -503,7 +501,6 @@ export default function ExcludePage() {
   const [visibleEpochCount, setVisibleEpochCount] = useState(10);
   const [scaleUv, setScaleUv] = useState(50);
   const [channelHeight, setChannelHeight] = useState(8);
-  const [showFileList, setShowFileList] = useState(true);
   const [reprocessJobId, setReprocessJobId] = useState<string | null>(null);
   const [reprocessStatus, setReprocessStatus] = useState<string | null>(null);
   const [reprocessMessage, setReprocessMessage] = useState<string | null>(null);
@@ -984,44 +981,38 @@ export default function ExcludePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="max-w-3xl">
           <h2 className="text-xl font-semibold text-zinc-100">Exclude</h2>
-          <p className="text-sm text-zinc-500 mt-1">
-            Browser-native review for epoch rejection, notes, manual overrides, and report inspection.
+          <p className="mt-1 text-sm text-zinc-400">
+            Review files, reject epochs, add notes, inspect reports, and run manual cleanup actions.
           </p>
         </div>
-        <div className="text-left xl:text-right">
-          <p className="text-[11px] uppercase tracking-wider text-zinc-600">Workspace</p>
-          <p className="text-xs text-zinc-400 font-mono max-w-[32rem] truncate" title={workspaceDir}>
-            {workspaceDir || "Loading..."}
-          </p>
-          <p className="text-[11px] uppercase tracking-wider text-zinc-600">Exports Root</p>
-          <p className="text-xs text-zinc-400 font-mono max-w-[32rem] truncate" title={exportsRoot}>
-            {exportsRoot || "Loading..."}
-          </p>
+        <div className="flex flex-col gap-2 text-xs text-zinc-400 sm:flex-row sm:flex-wrap sm:items-center sm:justify-start lg:justify-end">
+          <div className="min-w-0 rounded-full border border-border bg-surface-100/70 px-3 py-1.5">
+            <span className="mr-2 uppercase tracking-wider text-zinc-500">Workspace</span>
+            <span className="font-mono text-zinc-300" title={workspaceDir}>
+              {workspaceDir || "Loading..."}
+            </span>
+          </div>
+          <div className="min-w-0 rounded-full border border-border bg-surface-100/70 px-3 py-1.5">
+            <span className="mr-2 uppercase tracking-wider text-zinc-500">Exports</span>
+            <span className="font-mono text-zinc-300" title={exportsRoot}>
+              {exportsRoot || "Loading..."}
+            </span>
+          </div>
         </div>
       </div>
 
       {listError && <ErrorBanner message={listError} />}
       {actionError && <ErrorBanner message={actionError} />}
 
-      <div className="flex items-center justify-between gap-3">
-        <button
-          onClick={() => setShowFileList((value) => !value)}
-          className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-100 px-3 py-2 text-sm text-zinc-200 hover:bg-surface-50"
-        >
-          <Search className="h-4 w-4 text-zinc-500" />
-          {showFileList ? "Hide Files" : "Show Files"}
-        </button>
-        <div className="text-xs text-zinc-500">
-          {files.length} file{files.length === 1 ? "" : "s"} in Exclude workspace
-        </div>
+      <div className="text-xs text-zinc-400">
+        {files.length} file{files.length === 1 ? "" : "s"} in Exclude workspace
       </div>
 
-      <div className="flex flex-col gap-5 xl:flex-row">
-        {showFileList ? (
-          <aside className="w-full shrink-0 rounded-lg border border-border bg-surface-100 overflow-hidden xl:w-[18rem]">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[clamp(15rem,20vw,18rem)_minmax(0,1fr)] xl:items-stretch">
+        <aside className="flex h-full min-h-[clamp(34rem,68vh,52rem)] w-full shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-surface-100">
           <div className="p-3 border-b border-border">
             <div className="flex items-center gap-2 rounded-md border border-border bg-surface-50 px-2.5 py-2">
               <Search className="w-4 h-4 text-zinc-500" />
@@ -1033,7 +1024,7 @@ export default function ExcludePage() {
               />
             </div>
           </div>
-          <div className="max-h-[70vh] overflow-auto">
+          <div className="flex-1 overflow-auto">
             {listLoading ? (
               <div className="flex items-center justify-center gap-2 py-10 text-zinc-500 text-sm">
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -1049,14 +1040,14 @@ export default function ExcludePage() {
                   key={file.file_key}
                   onClick={() => setSelectedKey(file.file_key)}
                   className={[
-                    "w-full px-3 py-3 text-left border-b border-border-subtle hover:bg-surface-50/40 transition-colors",
-                    selectedKey === file.file_key ? "bg-brand/10" : "",
+                    "w-full border-b border-border-subtle px-3 py-2.5 text-left transition-colors hover:bg-surface-50/40",
+                    selectedKey === file.file_key ? "border-l-2 border-l-brand bg-brand/10 pl-[0.625rem]" : "border-l-2 border-l-transparent",
                   ].join(" ")}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-zinc-100 truncate">{file.name}</p>
-                      <p className="text-[11px] text-zinc-500 truncate">{file.relative_path}</p>
+                      <p className="text-[11px] text-zinc-400 truncate">{file.relative_path}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1 text-[10px]">
                       {file.bad_epochs_count > 0 && (
@@ -1076,15 +1067,14 @@ export default function ExcludePage() {
               ))
             )}
           </div>
-          </aside>
-        ) : null}
+        </aside>
 
-        <section className="min-w-0 flex-1 rounded-lg border border-border bg-surface-100 overflow-hidden">
+        <section className="min-w-0 flex-1 overflow-hidden rounded-lg border border-border bg-surface-100">
           <div className="px-4 py-3 border-b border-border">
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-zinc-100 truncate">{detail?.name ?? "Select a file"}</p>
-                <p className="text-[11px] text-zinc-500 truncate">{detail?.relative_path ?? "No file selected"}</p>
+                <p className="text-[11px] text-zinc-400 truncate">{detail?.relative_path ?? "No file selected"}</p>
               </div>
               <span
                 className={[
@@ -1108,7 +1098,7 @@ export default function ExcludePage() {
             </div>
           </div>
 
-          <div className="p-4 min-h-[42rem]">
+          <div className="min-h-[clamp(34rem,68vh,52rem)] p-4">
             {detailLoading ? (
               <div className="flex items-center justify-center gap-2 py-20 text-zinc-500">
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -1120,19 +1110,20 @@ export default function ExcludePage() {
               <div className="py-20 text-center text-zinc-600">Select a file to review</div>
             ) : tab === "eeg" ? (
               <div className="space-y-4">
-                <div className="flex items-center justify-between gap-4 text-xs text-zinc-500">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-400">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span>
                       {manifest ? `${manifest.n_epochs} epochs · ${manifest.n_channels} channels · ${manifest.sampling_rate.toFixed(0)} Hz` : "Loading EEG…"}
                     </span>
                     <button
                       type="button"
                       onClick={() => setShowEegHelp((value) => !value)}
-                      className="flex h-5 w-5 items-center justify-center rounded-full border border-border text-[11px] font-semibold text-zinc-300 hover:bg-surface-50 hover:text-zinc-100"
+                      className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-50/70 px-3 py-1 text-[11px] font-medium text-zinc-200 hover:bg-surface-50 hover:text-zinc-100"
                       aria-label={showEegHelp ? "Hide EEG help" : "Show EEG help"}
                       title={showEegHelp ? "Hide EEG help" : "Show EEG help"}
                     >
-                      ?
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full border border-border text-[10px] font-semibold">?</span>
+                      Help &amp; Color Key
                     </button>
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-2">
@@ -1176,6 +1167,10 @@ export default function ExcludePage() {
                     </div>
                   </div>
                 ) : null}
+
+                <div className="rounded-md border border-border bg-surface-50/40 px-3 py-2 text-xs text-zinc-300">
+                  Click to focus. Double-click or press <span className="font-medium text-zinc-100">Space</span> to reject or restore. Right-click for a scalp map at the clicked latency.
+                </div>
 
                 <div className="space-y-3">
                   <div className="relative">
@@ -1231,14 +1226,14 @@ export default function ExcludePage() {
                           Next
                         </button>
                       </div>
-                      <div className="flex flex-wrap gap-4 text-xs text-zinc-400">
+                      <div className="flex flex-wrap gap-4 text-xs text-zinc-300">
                         <p>Leftmost epoch: {epochStart + 1}</p>
                         <p>Focused epoch: {focusedEpoch != null ? focusedEpoch + 1 : "None"}</p>
-                        <p>Rejected in view: {visibleEpochsInView.filter((epoch) => badEpochs.includes(epoch.epoch_index)).length}</p>
+                        <p>Rejected shown: {visibleEpochsInView.filter((epoch) => badEpochs.includes(epoch.epoch_index)).length}</p>
                         <p>Total rejected: {badEpochs.length}</p>
                       </div>
                     </div>
-                    <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
                       <label className="block text-[11px] uppercase tracking-wider text-zinc-600">
                         Visible Epochs
                         <input
@@ -1259,7 +1254,9 @@ export default function ExcludePage() {
                           onChange={(event) => setVisibleEpochCountBounded(Number(event.target.value))}
                           className="mt-2 w-full"
                         />
-                        <div className="mt-1 text-xs text-zinc-400">{visibleEpochCount} epochs per page</div>
+                        <div className="mt-1 text-xs text-zinc-300">
+                          {visibleEpochCount} epochs visible at once. More epochs = wider view.
+                        </div>
                       </label>
                       <label className="block text-[11px] uppercase tracking-wider text-zinc-600">
                         Scale
@@ -1409,16 +1406,22 @@ export default function ExcludePage() {
         </section>
       </div>
 
-      <section className="rounded-lg border border-border bg-surface-100 p-4 space-y-5">
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+      <section className="space-y-4 rounded-lg border border-border bg-surface-100 p-4">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-sm font-semibold text-zinc-100">Review Details</h3>
+          <p className="text-xs text-zinc-400">
+            Capture file notes, inspect summary metrics, edit overrides, then run reprocess or QA export.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(16rem,0.9fr)_minmax(15rem,0.8fr)_minmax(22rem,1.35fr)]">
           <div className="space-y-5">
-          <section className="space-y-3">
+          <section className="space-y-3 rounded-lg border border-border bg-surface-50/60 p-4">
             <div className="flex items-center gap-2">
               <StickyNote className="w-4 h-4 text-zinc-500" />
               <h3 className="text-sm font-semibold text-zinc-100">Review State</h3>
             </div>
             <div className="space-y-2">
-              <label className="block text-[11px] uppercase tracking-wider text-zinc-600">Status</label>
+              <label className="block text-[11px] uppercase tracking-wider text-zinc-500">Status</label>
               <select
                 value={status}
                 onChange={(e) => {
@@ -1441,19 +1444,19 @@ export default function ExcludePage() {
                   scheduleNotesSave(next, status);
                 }}
                 placeholder="Add reviewer notes..."
-                className="w-full min-h-28 rounded-md border border-border bg-surface-50 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none"
+                className="w-full min-h-28 rounded-md border border-border bg-surface-100 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none"
               />
             </div>
           </section>
           </div>
 
           <div className="space-y-5">
-          <section className="space-y-3">
+          <section className="space-y-3 rounded-lg border border-border bg-surface-50/50 p-4">
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-zinc-500" />
               <h3 className="text-sm font-semibold text-zinc-100">Metrics</h3>
             </div>
-            <div className="space-y-2 rounded-md border border-border bg-surface-50 p-3">
+            <div className="space-y-2 p-1">
               <MetricRow label="Data retained" value={String(metrics.data_retained ?? "—")} />
               <MetricRow label="Channels retained" value={`${metrics.channels_retained ?? "—"} / ${metrics.channels_original ?? "—"}`} />
               <MetricRow label="Epochs reviewed" value={`${detail?.epoch_review.bad_epochs_count ?? 0} bad`} />
@@ -1465,153 +1468,167 @@ export default function ExcludePage() {
           </div>
 
           <div className="space-y-5">
-          <section className="space-y-3">
+          <section className="space-y-4 p-1">
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="w-4 h-4 text-zinc-500" />
               <h3 className="text-sm font-semibold text-zinc-100">Manual Overrides</h3>
             </div>
 
-            <div className="space-y-2">
-              <DiffChips label="Bad Channels" baseline={detail?.baseline_bad_channels ?? []} manual={manualBadChannels} />
-              <div className="flex gap-2">
-                <input
-                  value={channelDraft}
-                  onChange={(e) => setChannelDraft(e.target.value)}
-                  placeholder="e.g. E8 or 8"
-                  className="flex-1 rounded-md border border-border bg-surface-50 px-3 py-2 text-sm text-zinc-100 outline-none"
-                />
-                <button
-                  onClick={() => {
-                    const next = normalizeBadChannelInput(channelDraft);
-                    if (!next) return;
-                    if (!validChannelSet.has(next)) {
-                      setActionError(`Invalid bad channel override: ${next}`);
-                      return;
-                    }
-                    setActionError(null);
-                    if (!manualBadChannels.includes(next)) setManualBadChannels([...manualBadChannels, next].sort());
-                    setChannelDraft("");
-                  }}
-                  className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-surface-500"
-                >
-                  Add
-                </button>
+            <div className="space-y-4 rounded-lg border border-border bg-surface-100/70 p-4">
+              <div className="space-y-1">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Edit Overrides</h4>
+                <p className="text-xs text-zinc-400">Adjust channels or ICA decisions before running a new pass.</p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {manualBadChannels.map((channel) => (
+
+              <div className="space-y-2">
+                <DiffChips label="Bad Channels" baseline={detail?.baseline_bad_channels ?? []} manual={manualBadChannels} />
+                <div className="flex gap-2">
+                  <input
+                    value={channelDraft}
+                    onChange={(e) => setChannelDraft(e.target.value)}
+                    placeholder="e.g. E8 or 8"
+                    className="flex-1 rounded-md border border-border bg-surface-50 px-3 py-2 text-sm text-zinc-100 outline-none"
+                  />
                   <button
-                    key={channel}
-                    onClick={() => setManualBadChannels(manualBadChannels.filter((v) => v !== channel))}
-                    className="rounded-full border border-border px-2 py-1 text-xs text-zinc-200 hover:bg-surface-50"
+                    onClick={() => {
+                      const next = normalizeBadChannelInput(channelDraft);
+                      if (!next) return;
+                      if (!validChannelSet.has(next)) {
+                        setActionError(`Invalid bad channel override: ${next}`);
+                        return;
+                      }
+                      setActionError(null);
+                      if (!manualBadChannels.includes(next)) setManualBadChannels([...manualBadChannels, next].sort());
+                      setChannelDraft("");
+                    }}
+                    className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-surface-500"
                   >
-                    {channel} ×
+                    Add
                   </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <DiffChips label="Rejected ICA Components" baseline={detail?.baseline_rejected_ica ?? []} manual={manualRejectedIca} prefix="IC " />
-              <div className="flex gap-2">
-                <input
-                  value={icaDraft}
-                  onChange={(e) => setIcaDraft(e.target.value)}
-                  placeholder="e.g. 3"
-                  className="flex-1 rounded-md border border-border bg-surface-50 px-3 py-2 text-sm text-zinc-100 outline-none"
-                />
-                <button
-                  onClick={() => {
-                    const parsed = Number.parseInt(icaDraft, 10);
-                    if (Number.isNaN(parsed)) return;
-                    if (!isValidIcaComponent(parsed, detail?.max_components ?? 0)) {
-                      const maxText = (detail?.max_components ?? 0) > 0 ? `0-${(detail?.max_components ?? 1) - 1}` : "available range";
-                      setActionError(`Invalid ICA override: IC ${parsed}. Valid range is ${maxText}.`);
-                      return;
-                    }
-                    setActionError(null);
-                    if (!manualRejectedIca.includes(parsed)) {
-                      setManualRejectedIca([...manualRejectedIca, parsed].sort((a, b) => a - b));
-                    }
-                    setIcaDraft("");
-                  }}
-                  className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-surface-500"
-                >
-                  Add
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {manualRejectedIca.map((component) => (
-                  <button
-                    key={component}
-                    onClick={() => setManualRejectedIca(manualRejectedIca.filter((v) => v !== component))}
-                    className="rounded-full border border-border px-2 py-1 text-xs text-zinc-200 hover:bg-surface-50"
-                  >
-                    IC {component} ×
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <button
-              onClick={saveOverrides}
-              disabled={invalidCombinedOverrideChange}
-              className="w-full rounded-md border border-brand/40 bg-brand/10 px-3 py-2 text-sm font-medium text-brand hover:bg-brand/20 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Save Overrides
-            </button>
-
-            <button
-              onClick={startReprocess}
-              disabled={invalidCombinedOverrideChange}
-              className="w-full rounded-md bg-brand px-3 py-2 text-sm font-semibold text-surface-500 hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Reprocess with Overrides
-            </button>
-
-            {invalidCombinedOverrideChange ? (
-              <p className="text-[11px] text-amber-400">
-                Change either bad channels or ICA in this run, not both. Channel overrides can carry forward into a later ICA run.
-              </p>
-            ) : null}
-
-            <button
-              onClick={exportQa}
-              className="w-full rounded-md border border-border px-3 py-2 text-sm font-medium text-zinc-200 hover:bg-surface-50"
-            >
-              Export QA File
-            </button>
-
-            {reprocessStatus && (
-              <div className="rounded-md border border-border bg-surface-50 p-3 text-xs">
-                <p className="font-medium text-zinc-200">Reprocess: {reprocessStatus}</p>
-                {reprocessMessage && <p className="text-zinc-500 mt-1">{reprocessMessage}</p>}
-                {detail?.reprocess.timestamp ? <p className="text-zinc-600 mt-1">Last update: {detail.reprocess.timestamp}</p> : null}
-              </div>
-            )}
-
-            {qaExportMessage && (
-              <div className="rounded-md border border-border bg-surface-50 p-3 text-xs">
-                <p className="font-medium text-zinc-200">QA Export</p>
-                <p className="text-zinc-500 mt-1">{qaExportMessage}</p>
-                <div className="mt-2 flex flex-wrap gap-3">
-                  {detail?.qa_export.path ? (
-                    <a href={api.getExcludeQaLogUrl()} className="inline-block text-brand hover:underline">
-                      Open QA preprocessing log
-                    </a>
-                  ) : null}
-                  {artifact.postedit ? (
-                    <a href={artifact.postedit} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand hover:underline">
-                      <MonitorDown className="h-3.5 w-3.5" />
-                      Open postedit export
-                    </a>
-                  ) : null}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {manualBadChannels.map((channel) => (
+                    <button
+                      key={channel}
+                      onClick={() => setManualBadChannels(manualBadChannels.filter((v) => v !== channel))}
+                      className="rounded-full border border-border px-2 py-1 text-xs text-zinc-200 hover:bg-surface-50"
+                    >
+                      {channel} ×
+                    </button>
+                  ))}
                 </div>
               </div>
-            )}
 
-            <p className="text-[11px] text-zinc-600">
-              Baseline bad channels: {detail?.baseline_bad_channels.length ? detail.baseline_bad_channels.join(", ") : "None"}
-            </p>
+              <div className="space-y-2">
+                <DiffChips label="Rejected ICA Components" baseline={detail?.baseline_rejected_ica ?? []} manual={manualRejectedIca} prefix="IC " />
+                <div className="flex gap-2">
+                  <input
+                    value={icaDraft}
+                    onChange={(e) => setIcaDraft(e.target.value)}
+                    placeholder="e.g. 3"
+                    className="flex-1 rounded-md border border-border bg-surface-50 px-3 py-2 text-sm text-zinc-100 outline-none"
+                  />
+                  <button
+                    onClick={() => {
+                      const parsed = Number.parseInt(icaDraft, 10);
+                      if (Number.isNaN(parsed)) return;
+                      if (!isValidIcaComponent(parsed, detail?.max_components ?? 0)) {
+                        const maxText = (detail?.max_components ?? 0) > 0 ? `0-${(detail?.max_components ?? 1) - 1}` : "available range";
+                        setActionError(`Invalid ICA override: IC ${parsed}. Valid range is ${maxText}.`);
+                        return;
+                      }
+                      setActionError(null);
+                      if (!manualRejectedIca.includes(parsed)) {
+                        setManualRejectedIca([...manualRejectedIca, parsed].sort((a, b) => a - b));
+                      }
+                      setIcaDraft("");
+                    }}
+                    className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-surface-500"
+                  >
+                    Add
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {manualRejectedIca.map((component) => (
+                    <button
+                      key={component}
+                      onClick={() => setManualRejectedIca(manualRejectedIca.filter((v) => v !== component))}
+                      className="rounded-full border border-border px-2 py-1 text-xs text-zinc-200 hover:bg-surface-50"
+                    >
+                      IC {component} ×
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={saveOverrides}
+                disabled={invalidCombinedOverrideChange}
+                className="w-full rounded-md border border-brand/40 bg-brand/10 px-3 py-2 text-sm font-medium text-brand hover:bg-brand/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Save Overrides
+              </button>
+
+              <p className="text-[11px] text-zinc-400">
+                Baseline bad channels: {detail?.baseline_bad_channels.length ? detail.baseline_bad_channels.join(", ") : "None"}
+              </p>
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-border bg-surface-100/90 p-4">
+              <div className="space-y-1">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Run Actions</h4>
+                <p className="text-xs text-zinc-400">Use these after notes, epochs, and overrides are in the state you want to preserve.</p>
+              </div>
+
+              <button
+                onClick={startReprocess}
+                disabled={invalidCombinedOverrideChange}
+                className="w-full rounded-md bg-brand px-3 py-2 text-sm font-semibold text-surface-500 hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Reprocess with Overrides
+              </button>
+
+              {invalidCombinedOverrideChange ? (
+                <p className="text-[11px] text-amber-400">
+                  Change either bad channels or ICA in this run, not both. Channel overrides can carry forward into a later ICA run.
+                </p>
+              ) : null}
+
+              <button
+                onClick={exportQa}
+                className="w-full rounded-md border border-border px-3 py-2 text-sm font-medium text-zinc-200 hover:bg-surface-50"
+              >
+                Export QA File
+              </button>
+
+              {reprocessStatus && (
+                <div className="rounded-md border border-border bg-surface-50 p-3 text-xs">
+                <p className="font-medium text-zinc-200">Reprocess: {reprocessStatus}</p>
+                  {reprocessMessage && <p className="mt-1 text-zinc-400">{reprocessMessage}</p>}
+                  {detail?.reprocess.timestamp ? <p className="mt-1 text-zinc-500">Last update: {detail.reprocess.timestamp}</p> : null}
+                </div>
+              )}
+
+              {qaExportMessage && (
+                <div className="rounded-md border border-border bg-surface-50 p-3 text-xs">
+                  <p className="font-medium text-zinc-200">QA Export</p>
+                  <p className="mt-1 text-zinc-400">{qaExportMessage}</p>
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    {detail?.qa_export.path ? (
+                      <a href={api.getExcludeQaLogUrl()} className="inline-block text-brand hover:underline">
+                        Open QA preprocessing log
+                      </a>
+                    ) : null}
+                    {artifact.postedit ? (
+                      <a href={artifact.postedit} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand hover:underline">
+                        <MonitorDown className="h-3.5 w-3.5" />
+                        Open postedit export
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+            </div>
           </section>
           </div>
         </div>
