@@ -74,7 +74,10 @@ export default function EventAnalyzerPage() {
           Event Analyzer
         </h2>
         <p className="text-xs text-zinc-500 mt-0.5">
-          Inspect event markers in a raw EEG file
+          Utility tool for file-level event inspection
+        </p>
+        <p className="mt-2 max-w-2xl text-xs text-zinc-500">
+          Events is intentionally not route-scoped. Use it when you need to inspect one file’s markers, timing, and event structure outside the route processing workflow.
         </p>
       </div>
 
@@ -118,9 +121,9 @@ export default function EventAnalyzerPage() {
       </div>
 
       {/* Hint text */}
-      <p className="text-[11px] text-zinc-600 -mt-3">
-        Supported formats: .set, .edf, .bdf, .fif, .vhdr &mdash; analysis may take 2&ndash;10 seconds
-      </p>
+      <div className="rounded-lg border border-border bg-surface-100/60 px-3 py-2 text-[11px] text-zinc-500">
+        Supported formats: .set, .edf, .bdf, .fif, .vhdr. Browse to a folder, then complete the filename in the input. This utility reads one file at a time and does not depend on route selection.
+      </div>
 
       {/* Error */}
       {error && <ErrorBanner message={error} />}
@@ -139,7 +142,7 @@ export default function EventAnalyzerPage() {
       {!result && !loading && !error && (
         <div className="flex flex-col items-center justify-center py-16 gap-3 text-zinc-600">
           <Zap className="w-8 h-8 opacity-30" />
-          <p className="text-sm">Enter a file path and click Analyze</p>
+          <p className="text-sm">Enter one file path and click Analyze</p>
         </div>
       )}
 

@@ -19,6 +19,7 @@ import {
   Loader2,
   X,
   ArrowUpDown,
+  Github,
 } from "lucide-react";
 import { api } from "../lib/api";
 import type { ManagedTask, TaskSyncStatus, TaskManagerResponse } from "../lib/api";
@@ -300,14 +301,26 @@ export default function TasksPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-xl font-semibold text-zinc-100">Task Manager</h2>
-          <p className="text-xs text-zinc-500 mt-0.5">Browse, install, and manage EEG processing tasks</p>
+          <p className="text-xs text-zinc-500 mt-0.5">Browse registry-backed tasks and manage workspace installs</p>
           {registryInfo && (
             <p className="text-xs text-zinc-600 mt-1">
               Registry: synced {relativeTime(registryInfo.synced_at)} · {registryInfo.task_count} in library · {installedCount} installed
             </p>
           )}
+          <p className="mt-2 max-w-2xl text-xs text-zinc-500">
+            Tasks are tied to the shared repository-backed registry. Use in-app actions for install, update, and workspace-local creation, but treat source-of-truth task maintenance as a repository workflow.
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          <a
+            href="https://github.com/cincibrainlab/autoclean_pipeline/tree/main/src/autoclean/tasks"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 rounded border border-border px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-surface-50"
+          >
+            <Github className="h-3.5 w-3.5" />
+            Task Registry
+          </a>
           <button onClick={handleRefreshLibrary} disabled={refreshingLibrary} title="Refresh library"
             className="flex items-center justify-center w-8 h-8 rounded border border-border text-zinc-400 hover:text-zinc-200 disabled:opacity-50 transition-colors">
             <RefreshCw className={`w-3.5 h-3.5 ${refreshingLibrary ? "animate-spin" : ""}`} />
@@ -355,6 +368,21 @@ export default function TasksPage() {
         {(searchQuery || activeCategory !== "all" || viewFilter !== "all") && tasks && (
           <span className="text-xs text-zinc-600 self-center">{filtered.length} of {tasks.length}</span>
         )}
+      </div>
+
+      <div className="grid gap-3 rounded-lg border border-border bg-surface-100 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-600">Registry Workflow</p>
+          <p className="mt-2 text-xs text-zinc-400">
+            Installed tasks are linked to the shared registry. Update them from the registry when upstream changes land, and make substantive edits in the repository rather than inventing a separate in-app task editor.
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-600">Workspace Tasks</p>
+          <p className="mt-2 text-xs text-zinc-400">
+            Use <span className="text-zinc-200">New Task</span> for workspace-local variants. Treat rename and major refactors as file/repository operations so task identity, versioning, and registry linkage stay clear.
+          </p>
+        </div>
       </div>
 
       {/* Main: table + detail panel */}
@@ -501,6 +529,15 @@ export default function TasksPage() {
                 maxHeight="400px"
               />
             )}
+
+            <div className="px-5 py-3 border-t border-border-subtle bg-surface-50/40">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-600">Editing Guidance</p>
+              <p className="mt-2 text-xs text-zinc-400">
+                {selected.sync_status === "workspace_only"
+                  ? "Workspace-only tasks can be iterated locally, but treat rename and major refactors as file/repository operations so route references and task identity stay clear."
+                  : "Registry-linked tasks should be updated from the shared registry and edited in the repository rather than through a separate in-app editor."}
+              </p>
+            </div>
 
             {/* Actions */}
             <div className="px-5 py-3 border-t border-border flex items-center gap-2">

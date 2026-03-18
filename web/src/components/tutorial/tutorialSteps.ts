@@ -34,7 +34,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     route: "/",
     title: "Welcome to AutoCleanEEG Serve",
     description:
-      "Let's set up your first processing route in about 2 minutes.",
+      "Let's set up your first processing route in about 2 minutes. Routes are the core project unit, and Queue, Results, and Exclude now follow that route context.",
     action: "next",
     isModal: true,
   },
@@ -45,7 +45,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     route: "/",
     title: "This is your Dashboard",
     description:
-      "These cards give you a live snapshot of routes, queue, settings, and service status. Click any card to jump straight to that section.",
+      "These cards give you a live snapshot of routes, queue, settings, and service status. Use them to jump into the route workflow, then follow Queue into Results and Exclude.",
     action: "next",
     isModal: false,
   },
@@ -100,7 +100,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     route: "/queue",
     title: "Watch Your File Process",
     description:
-      "Files discovered by the service appear here. The tutorial file will move from Pending to Processed once the pipeline finishes.",
+      "Files discovered by the service appear here. Queue stays global, but you can filter by route when many routes exist. The tutorial file will move from Pending to Processed once the pipeline finishes.",
     action: "waiting",
     isModal: false,
   },
@@ -111,7 +111,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     route: null,
     title: "You're all set!",
     description:
-      "1 route created, 1 file processed. You're ready to configure AutoCleanEEG Serve for your real data.",
+      "1 route created, 1 file processed. From here, keep using route-scoped Queue, Results, and Exclude for day-to-day review, and use Tasks, Montages, Events, and Settings as supporting utilities.",
     action: "none",
     isModal: true,
   },
