@@ -11,6 +11,7 @@ import mne  # Core EEG processing library for data containers and processing
 
 from autoclean.io.export import save_epochs_to_set, save_raw_to_set
 from autoclean.io.import_ import import_eeg
+from autoclean.utils.logging import message
 
 # Local imports
 try:

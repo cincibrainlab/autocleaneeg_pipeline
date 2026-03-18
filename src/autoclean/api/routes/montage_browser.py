@@ -15,7 +15,8 @@ from pathlib import Path
 from typing import Any
 
 import matplotlib
-matplotlib.use("Agg")  # Non-interactive backend — must happen before pyplot import
+if matplotlib.get_backend() != "Agg":
+    matplotlib.use("Agg")  # Non-interactive backend — only set if not already Agg
 import matplotlib.pyplot as plt
 import numpy as np
 from fastapi import APIRouter, HTTPException

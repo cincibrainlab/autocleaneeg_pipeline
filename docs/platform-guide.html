@@ -1102,12 +1102,21 @@ config = {
         within minutes of arrival.
       </p>
       <p>
-        He shares the dashboard URL with his team using the <strong>Share</strong> feature
-        (a secure public tunnel with password protection). The postdoc in building A, the
-        graduate student working from home, and the collaborator at another university can
-        all see the queue, check results, and review outputs in real time. The test/live
-        mode toggle means new task configurations can be validated on sample data before
-        being promoted to production.
+        <strong>Remote access:</strong> He clicks <strong>Share</strong> in the dashboard
+        and configures a <strong>permanent Cloudflare Tunnel</strong>&mdash;a one-time
+        setup with a free Cloudflare account that gives his lab a stable URL like
+        <code>https://eeg-lab.cchmc-brain.com</code>. Unlike the ephemeral quick tunnels
+        used for demos (which die on restart and change their URL every time), the named
+        tunnel persists forever. The token is stored in the workspace, so it survives
+        server reboots, OS updates, and machine migrations.
+      </p>
+      <p>
+        The postdoc in building A, the graduate student working from home, and the
+        collaborator at another university all bookmark the same URL. They log in with
+        a session password (auto-generated, shown in the Share popover) and can see the
+        queue, check results, and review outputs in real time. The test/live mode toggle
+        means new task configurations can be validated on sample data before being
+        promoted to production.
       </p>
       <p>
         Every processed file gets a full audit trail: SHA-256 hash of the input, all
@@ -1196,6 +1205,14 @@ config = {
           stimulus computer problems before you commit to processing.</p>
       </div>
       <div class="feature-cell">
+        <div class="tag green">Share</div>
+        <h4>Persistent Tunnels</h4>
+        <p>Share your dashboard with a single click. Quick tunnels for instant demos,
+          or configure a <strong>permanent Cloudflare Tunnel</strong> with a free account
+          for a stable URL that survives restarts. Token stored locally in the workspace&mdash;one-time
+          setup, works forever. Session passwords protect every connection.</p>
+      </div>
+      <div class="feature-cell">
         <div class="tag blue">Settings</div>
         <h4>Settings &amp; Setup</h4>
         <p>YAML configuration with syntax highlighting and live validation. Workspace
@@ -1227,6 +1244,59 @@ config = {
         </div>
       </div>
     </div>
+    <!-- Tunnel deep-dive -->
+    <div class="scenario" style="margin-top: 3rem;">
+      <div class="scenario-header">
+        <div class="scenario-icon">&#x1F310;</div>
+        <div>
+          <div class="scenario-who">Feature Spotlight</div>
+          <div class="scenario-title">Two ways to share: instant demos vs. permanent access</div>
+        </div>
+      </div>
+      <p>
+        Every AutoClean dashboard has a <strong>Share</strong> button in the top bar.
+        Click it, and your local server becomes accessible from anywhere in the world
+        over HTTPS&mdash;no port forwarding, no firewall rules, no IT tickets.
+      </p>
+      <p>
+        <strong>Quick Tunnel (zero config):</strong> Click Share and you get an instant
+        <code>*.trycloudflare.com</code> URL. No account needed. Perfect for a quick
+        demo or helping a colleague debug a failed run. The catch: the URL is random,
+        changes every time you restart, and dies when the server stops. This is Cloudflare's
+        free ephemeral mode&mdash;great for one-off sharing, not for bookmarks.
+      </p>
+      <p>
+        <strong>Named Tunnel (permanent, still free):</strong> For labs that need a
+        stable URL their team can bookmark, click <strong>"Configure permanent tunnel"</strong>
+        in the Share popover. The one-time setup takes three minutes:
+      </p>
+
+      <div class="timeline" style="margin: 1.5rem 0;">
+        <div class="timeline-entry">
+          <h4>Create a free Cloudflare account</h4>
+          <p>No credit card. Go to <code>one.dash.cloudflare.com</code>.</p>
+        </div>
+        <div class="timeline-entry">
+          <h4>Create a tunnel</h4>
+          <p>Networks &rarr; Tunnels &rarr; Create. Name it anything
+            (e.g., <code>eeg-lab</code>). Set the service to <code>http://localhost:8000</code>.</p>
+        </div>
+        <div class="timeline-entry">
+          <h4>Copy the token, paste into AutoClean</h4>
+          <p>The token and your tunnel's public URL go into the config form.
+            Saved to <code>tunnel_config.json</code> in your workspace&mdash;never
+            leaves your machine.</p>
+        </div>
+      </div>
+
+      <p>
+        From then on, clicking Share starts your named tunnel with the same URL every
+        time. The dashboard shows a green <strong>"Permanent"</strong> badge instead of the
+        cyan "Temporary" one. Your team bookmarks one URL. It works today, next week,
+        and after the next OS update.
+      </p>
+    </div>
+
   </div>
 </section>
 

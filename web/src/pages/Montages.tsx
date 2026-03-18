@@ -238,13 +238,13 @@ function MontageDetailPanel({
           )}
 
           {/* Landmarks */}
-          {detail.landmarks && Object.keys(detail.landmarks).length > 0 && (
+          {Object.keys(detail.landmarks ?? {}).length > 0 && (
             <div className="px-5 py-3 border-b border-border">
               <p className="text-[10px] uppercase font-medium text-zinc-500 tracking-wider mb-2">
                 Landmarks
               </p>
               <div className="space-y-1">
-                {Object.entries(detail.landmarks).map(([lm, pos]) => (
+                {Object.entries(detail.landmarks ?? {}).map(([lm, pos]) => (
                   <div key={lm} className="flex items-center justify-between">
                     <span className="text-xs font-medium text-zinc-400 capitalize">
                       {lm}
@@ -283,13 +283,13 @@ function MontageDetailPanel({
                         {ch.name}
                       </td>
                       <td className="py-0.5 text-right font-mono text-zinc-500">
-                        {ch.x?.toFixed(3) ?? "—"}
+                        {(ch.x ?? 0).toFixed(3)}
                       </td>
                       <td className="py-0.5 text-right font-mono text-zinc-500">
-                        {ch.y?.toFixed(3) ?? "—"}
+                        {(ch.y ?? 0).toFixed(3)}
                       </td>
                       <td className="py-0.5 text-right font-mono text-zinc-500">
-                        {ch.z?.toFixed(3) ?? "—"}
+                        {(ch.z ?? 0).toFixed(3)}
                       </td>
                     </tr>
                   ))}

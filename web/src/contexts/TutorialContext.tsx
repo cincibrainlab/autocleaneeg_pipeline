@@ -45,7 +45,7 @@ export interface TutorialContextValue {
   currentStep: number;
   isActive: boolean;
   completed: boolean;
-  tutorialData: { sampleFile: string; suggestedRoute: TutorialSuggestedRoute } | null;
+  tutorialData: { sampleFile: string; suggestedRoute: TutorialSuggestedRoute | null } | null;
   /** Get a target element by step ID (reads from mutable ref) */
   getTarget: (stepId: string) => HTMLElement | undefined;
   startTutorial: () => Promise<void>;
@@ -99,12 +99,10 @@ export function TutorialProvider({ children }: { children: React.ReactNode }) {
   const startTutorial = useCallback(async () => {
     try {
       const result = await api.tutorialSetup();
-      if (result.sample_file && result.suggested_route) {
-        setTutorialData({
-          sampleFile: result.sample_file,
-          suggestedRoute: result.suggested_route,
-        });
-      }
+      setTutorialData({
+        sampleFile: result.sample_file ?? "",
+        suggestedRoute: result.suggested_route ?? null,
+      });
     } catch (err) {
       console.warn("Tutorial setup failed, continuing without sample data:", err);
     }

@@ -6,6 +6,7 @@ that continuously scans ingestion folders and processes matched files.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
@@ -79,7 +80,7 @@ class ServiceStartRequest(BaseModel):
 def _require_workspace():
     """Raise 500 if workspace is not configured."""
     if not api_state.workspace_dir:
-        raise HTTPException(status_code=500, detail="Workspace not configured")
+        raise HTTPException(status_code=409, detail="Workspace not configured")
 
 
 def get_service_status() -> dict:
@@ -190,24 +191,19 @@ async def start_service(settings: ServiceStartRequest | None = None):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@router.post("/stop", response_model=ServiceActionResponse)
-async def stop_service():
-    """Stop the serve-run dispatcher subprocess (SIGTERM)."""
-    global _process, _start_time
+def _stop_service_blocking() -> tuple[bool, int]:
+    """Synchronous helper to stop the service subprocess.
 
-    info = get_service_status()
-    if not info["running"]:
-        return ServiceActionResponse(
-            success=False,
-            message="Service is not running",
-        )
+    Returns (was_running, pid). Called via asyncio.to_thread() to avoid
+    blocking the event loop during proc.wait().
+    """
+    global _process, _start_time
 
     with _service_lock:
         proc = _process
-        pid = proc.pid if proc else None  # type: ignore[union-attr]
-
-    if proc is None or pid is None:
-        return ServiceActionResponse(success=False, message="Service is not running")
+        if proc is None:
+            return False, 0
+        pid = proc.pid
 
     try:
         proc.send_signal(signal.SIGTERM)
@@ -215,13 +211,34 @@ async def stop_service():
     except subprocess.TimeoutExpired:
         proc.kill()
         logger.warning("Service pid=%d did not stop gracefully; killed", pid)
-    except Exception as exc:
-        logger.exception("Error stopping service pid=%d", pid)
-        raise HTTPException(status_code=500, detail=str(exc))
+    except Exception:
+        proc.kill()
     finally:
         with _service_lock:
             _process = None
             _start_time = None
+
+    return True, pid
+
+
+@router.post("/stop", response_model=ServiceActionResponse)
+async def stop_service():
+    """Stop the serve-run dispatcher subprocess (SIGTERM)."""
+    info = get_service_status()
+    if not info["running"]:
+        return ServiceActionResponse(
+            success=False,
+            message="Service is not running",
+        )
+
+    try:
+        was_running, pid = await asyncio.to_thread(_stop_service_blocking)
+    except Exception as exc:
+        logger.exception("Error stopping service")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    if not was_running:
+        return ServiceActionResponse(success=False, message="Service is not running")
 
     logger.info("Stopped serve dispatcher pid=%d", pid)
     return ServiceActionResponse(

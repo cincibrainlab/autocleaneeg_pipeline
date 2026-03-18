@@ -139,13 +139,17 @@ function ActionMenu({
           Restore
         </button>
       )}
-      <div className="my-1 border-t border-border-subtle" />
-      <button
-        onClick={() => onAction("delete", route.id)}
-        className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
-      >
-        Delete
-      </button>
+      {route.archived && (
+        <>
+          <div className="my-1 border-t border-border-subtle" />
+          <button
+            onClick={() => onAction("delete", route.id)}
+            className="w-full text-left px-3 py-1.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+          >
+            Delete
+          </button>
+        </>
+      )}
     </div>,
     document.body
   );
@@ -393,7 +397,7 @@ export default function RoutesPage() {
       ingestion_folders: [...route.ingestion_folders],
       file_globs: [...route.file_globs],
       modes: [...route.modes],
-      enabled: route.enabled,
+      enabled: route.enabled ?? true,
       recursive: route.recursive ?? false,
       priority: route.priority ?? 100,
     });

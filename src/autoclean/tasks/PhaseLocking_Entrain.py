@@ -42,7 +42,7 @@ config = {
     # =============================================================================
     # DATASET CONFIGURATION
     # =============================================================================
-    "dataset_name": "ENTRAIN_PhaseLockin g",  # Customize for your dataset
+    "dataset_name": "ENTRAIN_PhaseLocking",  # Customize for your dataset
     # "input_path": "/path/to/your/data/",  # Uncomment and specify your data path
     # Optional: Keep flagged files in standard output (set False to move them)
     "move_flagged_files": False,

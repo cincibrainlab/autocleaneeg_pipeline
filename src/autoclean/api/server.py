@@ -173,7 +173,7 @@ def _save_recent_workspace(path: str) -> None:
         recent.remove(path)
     recent.insert(0, path)
     _RECENT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _RECENT_FILE.write_text(json.dumps(recent[:10]))
+    _RECENT_FILE.write_text(json.dumps(recent[:10]), encoding="utf-8")
 
 
 def _load_persisted_serve_workspace() -> Optional[Path]:
@@ -356,20 +356,20 @@ REST API for managing automated EEG file processing pipelines.
         Stops the running service if any, switches api_state.mode,
         and returns the new mode.
         """
+        from fastapi import HTTPException as _HTTPExc
+        from autoclean.api.routes.service import get_service_status, stop_service
+
         new_mode = body.get("mode", "").lower()
         if new_mode not in ("test", "live"):
-            from fastapi import HTTPException as _H
-            raise _H(status_code=400, detail="Mode must be 'test' or 'live'")
+            raise _HTTPExc(status_code=400, detail="Mode must be 'test' or 'live'")
 
         if new_mode == api_state.mode:
             return {"success": True, "mode": new_mode, "message": f"Already in {new_mode} mode"}
 
         # Stop running service before switching
         try:
-            from autoclean.api.routes.service import get_service_status
             svc = get_service_status()
             if svc.get("running"):
-                from autoclean.api.routes.service import stop_service
                 await stop_service()
         except Exception:
             pass
