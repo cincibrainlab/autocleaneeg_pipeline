@@ -49,6 +49,8 @@ def _allowed_roots() -> list[Path]:
 def _is_allowed(path: Path) -> bool:
     """Return True only if *path* falls inside (or is) an allowed root."""
     resolved = path.resolve()
+    if resolved == Path("/"):
+        return True
     for root in _allowed_roots():
         try:
             resolved.relative_to(root)
@@ -101,6 +103,18 @@ async def browse_directory(
         raise HTTPException(
             status_code=403,
             detail=f"Browsing into '{target}' is not permitted",
+        )
+
+    if target == Path("/"):
+        entries = [
+            FolderEntry(name=root.name or str(root), path=str(root), is_dir=True)
+            for root in _allowed_roots()
+        ]
+        unique_entries: dict[str, FolderEntry] = {entry.path: entry for entry in entries}
+        return BrowseResponse(
+            path=str(target),
+            parent=None,
+            entries=sorted(unique_entries.values(), key=lambda entry: entry.path.lower()),
         )
 
     # Must be an existing directory

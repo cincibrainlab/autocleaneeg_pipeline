@@ -271,6 +271,24 @@ class TestFilesystemSecurity:
             home = Path.home()
             assert fs._is_allowed(home) is True
 
+    def test_is_allowed_root_directory(self, tmp_path: Path):
+        """Root directory is allowed only as a top-level chooser for allowed roots."""
+        import autoclean.api.routes.filesystem as fs
+
+        with patch.object(fs.api_state, "workspace_dir", tmp_path):
+            assert fs._is_allowed(Path("/")) is True
+
+    def test_browse_root_returns_allowed_roots(self, tmp_path: Path):
+        """Browsing / returns the configured allowed roots rather than a full filesystem listing."""
+        import asyncio
+        import autoclean.api.routes.filesystem as fs
+
+        with patch.object(fs.api_state, "workspace_dir", tmp_path):
+            response = asyncio.run(fs.browse_directory(path="/"))
+            returned_paths = {entry.path for entry in response.entries}
+            assert str(tmp_path.resolve()) in returned_paths
+            assert str(Path.home().resolve()) in returned_paths
+
 
 # ── Service stop_service threading tests ──────────────────────────────
 

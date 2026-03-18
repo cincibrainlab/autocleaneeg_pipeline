@@ -269,6 +269,7 @@ class RunSummary(BaseModel):
     status: str
     success: bool
     automation_dir: str
+    route_id: str | None = None
 
 
 class ResultsListResponse(BaseModel):
@@ -313,6 +314,7 @@ class RunDetail(BaseModel):
     metrics: ProcessingMetrics
     assets: AssetAvailability
     user_context: dict[str, Any] | None
+    route_id: str | None = None
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -323,7 +325,48 @@ def _require_workspace() -> Path:
     return api_state.workspace_dir
 
 
-def _row_to_summary(row: dict[str, Any], task_root: Path) -> RunSummary:
+def _route_output_map(workspace: Path) -> dict[str, Path]:
+    try:
+        from autoclean.utils.serve_routes import load_route_specs
+        from autoclean.utils.ingestion import build_workspace_name
+    except Exception:
+        return {}
+
+    mapping: dict[str, Path] = {}
+    for spec in load_route_specs(workspace):
+        route_id = str(spec.get("id") or "").strip()
+        taskfile = str(spec.get("taskfile") or "").strip()
+        montage = str(spec.get("montage") or "").strip()
+        if not route_id or not taskfile or not montage:
+            continue
+        taskfile_label = Path(taskfile).name.replace(".py", "")
+        workspace_name = build_workspace_name(
+            spec.get("workspace_name", "taskfile-montage-version"),
+            taskfile=taskfile_label,
+            montage=montage,
+            version=spec.get("version"),
+        )
+        automation_root = workspace / str(spec.get("automation_root", "automations"))
+        mapping[route_id] = (automation_root / workspace_name).resolve()
+    return mapping
+
+
+def _resolve_route_id(task_root: Path, route_outputs: dict[str, Path]) -> str | None:
+    resolved = task_root.resolve()
+    for route_id, output_path in route_outputs.items():
+        if resolved == output_path:
+            return route_id
+        try:
+            resolved.relative_to(output_path)
+            return route_id
+        except ValueError:
+            continue
+    return None
+
+
+def _row_to_summary(
+    row: dict[str, Any], task_root: Path, route_outputs: dict[str, Path]
+) -> RunSummary:
     unprocessed = row.get("unprocessed_file") or ""
     filename = Path(unprocessed).name if unprocessed else ""
     return RunSummary(
@@ -334,6 +377,7 @@ def _row_to_summary(row: dict[str, Any], task_root: Path) -> RunSummary:
         status=row.get("status", ""),
         success=bool(row.get("success", False)),
         automation_dir=str(task_root),
+        route_id=_resolve_route_id(task_root, route_outputs),
     )
 
 
@@ -360,11 +404,16 @@ def _get_stem_and_asset(
 # ── Endpoints ────────────────────────────────────────────────────────
 
 @router.get("", response_model=ResultsListResponse)
-async def list_results() -> ResultsListResponse:
+async def list_results(
+    route_id: str | None = Query(default=None, description="Filter by route ID"),
+) -> ResultsListResponse:
     """List all processed runs across all automation output directories."""
     workspace = _require_workspace()
     all_runs = _find_all_runs(workspace)
-    summaries = [_row_to_summary(row, task_root) for row, task_root in all_runs]
+    route_outputs = _route_output_map(workspace)
+    summaries = [_row_to_summary(row, task_root, route_outputs) for row, task_root in all_runs]
+    if route_id:
+        summaries = [summary for summary in summaries if summary.route_id == route_id]
     return ResultsListResponse(runs=summaries, total=len(summaries))
 
 
@@ -425,6 +474,7 @@ async def get_run_detail(run_id: str) -> RunDetail:
         metrics=ProcessingMetrics(**metrics_dict),
         assets=assets,
         user_context=user_context,
+        route_id=_resolve_route_id(task_root, _route_output_map(workspace)),
     )
 
 

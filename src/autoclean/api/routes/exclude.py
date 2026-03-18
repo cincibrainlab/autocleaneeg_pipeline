@@ -40,9 +40,48 @@ def _strip_suffixes(stem: str) -> str:
 
 
 def _resolve_exports_root() -> Path:
+    return _resolve_exports_root_for_route(None)
+
+
+def _resolve_exports_root_for_route(route_id: str | None) -> Path:
     workspace = api_state.workspace_dir
     if workspace is None:
         raise HTTPException(status_code=500, detail="Workspace not configured")
+
+    if route_id:
+        try:
+            from autoclean.utils.ingestion import build_workspace_name
+            from autoclean.utils.serve_routes import load_route_specs
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Could not resolve route exports: {exc}")
+
+        for spec in load_route_specs(workspace):
+            if str(spec.get("id") or "") != route_id:
+                continue
+            taskfile = str(spec.get("taskfile") or "").strip()
+            montage = str(spec.get("montage") or "").strip()
+            if not taskfile or not montage:
+                raise HTTPException(status_code=400, detail=f"Route '{route_id}' is missing task or montage")
+            workspace_name = build_workspace_name(
+                spec.get("workspace_name", "taskfile-montage-version"),
+                taskfile=Path(taskfile).name.replace(".py", ""),
+                montage=montage,
+                version=spec.get("version"),
+            )
+            automation_root = workspace / str(spec.get("automation_root", "automations"))
+            route_root = (automation_root / workspace_name).resolve()
+            direct_exports = route_root / "exports"
+            if direct_exports.exists() and direct_exports.is_dir():
+                return direct_exports
+            nested_exports = sorted(
+                [path.resolve() for path in route_root.rglob("exports") if path.is_dir()],
+                key=lambda path: len(path.parts),
+            )
+            if nested_exports:
+                return nested_exports[0]
+            raise HTTPException(status_code=404, detail=f"No exports directory found for route '{route_id}'")
+
+        raise HTTPException(status_code=404, detail=f"Route '{route_id}' not found")
 
     direct = workspace / "exports"
     if direct.exists() and direct.is_dir():
@@ -954,14 +993,14 @@ class OverridesUpdate(BaseModel):
 
 
 @router.get("/root", response_model=ExcludeRootResponse)
-async def get_exclude_root() -> ExcludeRootResponse:
-    root = _resolve_exports_root()
+async def get_exclude_root(route_id: str | None = Query(default=None)) -> ExcludeRootResponse:
+    root = _resolve_exports_root_for_route(route_id)
     return ExcludeRootResponse(exports_root=str(root))
 
 
 @router.get("/files", response_model=ExcludeFilesResponse)
-async def list_exclude_files() -> ExcludeFilesResponse:
-    root = _resolve_exports_root()
+async def list_exclude_files(route_id: str | None = Query(default=None)) -> ExcludeFilesResponse:
+    root = _resolve_exports_root_for_route(route_id)
     decisions = _load_decisions(root)
     files: list[ExcludeFileSummary] = []
     for path in sorted(root.rglob("*.set")):
@@ -984,8 +1023,8 @@ async def list_exclude_files() -> ExcludeFilesResponse:
 
 
 @router.get("/files/{file_key:path}/artifacts/{asset_name}")
-async def get_exclude_artifact(file_key: str, asset_name: str):
-    root = _resolve_exports_root()
+async def get_exclude_artifact(file_key: str, asset_name: str, route_id: str | None = Query(default=None)):
+    root = _resolve_exports_root_for_route(route_id)
     file_path, _relative_path = _resolve_file(root, file_key)
     related = _related_paths(root, file_path)
     path = related.get(asset_name)
@@ -995,8 +1034,8 @@ async def get_exclude_artifact(file_key: str, asset_name: str):
 
 
 @router.get("/files/{file_key:path}/ica-summary")
-async def get_exclude_ica_summary(file_key: str) -> dict[str, Any]:
-    root = _resolve_exports_root()
+async def get_exclude_ica_summary(file_key: str, route_id: str | None = Query(default=None)) -> dict[str, Any]:
+    root = _resolve_exports_root_for_route(route_id)
     file_path, _relative_path = _resolve_file(root, file_key)
     related = _related_paths(root, file_path)
     ica_path = related.get("ica_report")
@@ -1094,8 +1133,8 @@ def _render_epoch_topography(
 
 
 @router.get("/files/{file_key:path}/eeg/manifest", response_model=EpochManifest)
-async def get_eeg_manifest(file_key: str) -> EpochManifest:
-    root = _resolve_exports_root()
+async def get_eeg_manifest(file_key: str, route_id: str | None = Query(default=None)) -> EpochManifest:
+    root = _resolve_exports_root_for_route(route_id)
     file_path, relative_path = _resolve_file(root, file_key)
     decisions = _load_decisions(root)
     record = _record_for(decisions, file_key, relative_path)
@@ -1120,8 +1159,9 @@ async def get_eeg_epochs(
     start: int = Query(default=0, ge=0),
     count: int = Query(default=10, ge=1),
     channels: Optional[str] = None,
+    route_id: str | None = Query(default=None),
 ) -> EpochWindowResponse:
-    root = _resolve_exports_root()
+    root = _resolve_exports_root_for_route(route_id)
     file_path, relative_path = _resolve_file(root, file_key)
     decisions = _load_decisions(root)
     record = _record_for(decisions, file_key, relative_path)
@@ -1175,8 +1215,9 @@ async def get_eeg_topography(
     file_key: str,
     epoch_index: int = Query(..., ge=0),
     sample_index: int = Query(..., ge=0),
+    route_id: str | None = Query(default=None),
 ) -> EpochTopographyResponse:
-    root = _resolve_exports_root()
+    root = _resolve_exports_root_for_route(route_id)
     file_path, _relative_path = _resolve_file(root, file_key)
     epochs = _load_epochs(file_path)
     return _render_epoch_topography(
@@ -1188,8 +1229,8 @@ async def get_eeg_topography(
 
 
 @router.get("/files/{file_key:path}/epoch-review")
-async def get_epoch_review(file_key: str) -> dict[str, Any]:
-    root = _resolve_exports_root()
+async def get_epoch_review(file_key: str, route_id: str | None = Query(default=None)) -> dict[str, Any]:
+    root = _resolve_exports_root_for_route(route_id)
     _, relative_path = _resolve_file(root, file_key)
     decisions = _load_decisions(root)
     record = _record_for(decisions, file_key, relative_path)
@@ -1204,8 +1245,10 @@ async def get_epoch_review(file_key: str) -> dict[str, Any]:
 
 
 @router.put("/files/{file_key:path}/epoch-review")
-async def save_epoch_review(file_key: str, body: EpochReviewUpdate) -> dict[str, Any]:
-    root = _resolve_exports_root()
+async def save_epoch_review(
+    file_key: str, body: EpochReviewUpdate, route_id: str | None = Query(default=None)
+) -> dict[str, Any]:
+    root = _resolve_exports_root_for_route(route_id)
     file_path, relative_path = _resolve_file(root, file_key)
     task_root = root.parent
     decisions = _load_decisions(root)
@@ -1249,8 +1292,8 @@ async def save_epoch_review(file_key: str, body: EpochReviewUpdate) -> dict[str,
 
 
 @router.get("/files/{file_key:path}", response_model=ExcludeFileDetail)
-async def get_exclude_file_detail(file_key: str) -> ExcludeFileDetail:
-    root = _resolve_exports_root()
+async def get_exclude_file_detail(file_key: str, route_id: str | None = Query(default=None)) -> ExcludeFileDetail:
+    root = _resolve_exports_root_for_route(route_id)
     file_path, relative_path = _resolve_file(root, file_key)
     decisions = _load_decisions(root)
     record = _record_for(decisions, file_key, relative_path)
@@ -1293,20 +1336,35 @@ async def get_exclude_file_detail(file_key: str) -> ExcludeFileDetail:
             "timestamp": str(record.get("reprocess_timestamp", "")),
         },
         artifacts={
-            "run_report": f"/api/exclude/files/{file_key}/artifacts/run_report" if related["run_report"] else None,
-            "ica_report": f"/api/exclude/files/{file_key}/artifacts/ica_report" if related["ica_report"] else None,
-            "psd": f"/api/exclude/files/{file_key}/artifacts/psd" if related["psd"] else None,
-            "metadata": f"/api/exclude/files/{file_key}/artifacts/metadata" if related["metadata"] else None,
-            "postedit": f"/api/exclude/files/{file_key}/artifacts/postedit" if related["postedit"] else None,
+            "run_report": (
+                f"/api/exclude/files/{file_key}/artifacts/run_report?route_id={route_id}" if related["run_report"] and route_id else
+                f"/api/exclude/files/{file_key}/artifacts/run_report" if related["run_report"] else None
+            ),
+            "ica_report": (
+                f"/api/exclude/files/{file_key}/artifacts/ica_report?route_id={route_id}" if related["ica_report"] and route_id else
+                f"/api/exclude/files/{file_key}/artifacts/ica_report" if related["ica_report"] else None
+            ),
+            "psd": (
+                f"/api/exclude/files/{file_key}/artifacts/psd?route_id={route_id}" if related["psd"] and route_id else
+                f"/api/exclude/files/{file_key}/artifacts/psd" if related["psd"] else None
+            ),
+            "metadata": (
+                f"/api/exclude/files/{file_key}/artifacts/metadata?route_id={route_id}" if related["metadata"] and route_id else
+                f"/api/exclude/files/{file_key}/artifacts/metadata" if related["metadata"] else None
+            ),
+            "postedit": (
+                f"/api/exclude/files/{file_key}/artifacts/postedit?route_id={route_id}" if related["postedit"] and route_id else
+                f"/api/exclude/files/{file_key}/artifacts/postedit" if related["postedit"] else None
+            ),
         },
     )
 
 
 @router.put("/files/{file_key:path}/notes")
-async def save_notes(file_key: str, body: NotesUpdate) -> dict[str, Any]:
+async def save_notes(file_key: str, body: NotesUpdate, route_id: str | None = Query(default=None)) -> dict[str, Any]:
     from datetime import datetime
 
-    root = _resolve_exports_root()
+    root = _resolve_exports_root_for_route(route_id)
     _, relative_path = _resolve_file(root, file_key)
     decisions = _load_decisions(root)
     record = _record_for(decisions, file_key, relative_path)
@@ -1319,10 +1377,10 @@ async def save_notes(file_key: str, body: NotesUpdate) -> dict[str, Any]:
 
 
 @router.put("/files/{file_key:path}/overrides")
-async def save_overrides(file_key: str, body: OverridesUpdate) -> dict[str, Any]:
+async def save_overrides(file_key: str, body: OverridesUpdate, route_id: str | None = Query(default=None)) -> dict[str, Any]:
     from datetime import datetime
 
-    root = _resolve_exports_root()
+    root = _resolve_exports_root_for_route(route_id)
     file_path, relative_path = _resolve_file(root, file_key)
     decisions = _load_decisions(root)
     record = _record_for(decisions, file_key, relative_path)
@@ -1368,8 +1426,10 @@ async def save_overrides(file_key: str, body: OverridesUpdate) -> dict[str, Any]
 
 
 @router.post("/files/{file_key:path}/reprocess", response_model=ReprocessResponse)
-async def start_reprocess(file_key: str, body: ReprocessRequest) -> ReprocessResponse:
-    root = _resolve_exports_root()
+async def start_reprocess(
+    file_key: str, body: ReprocessRequest, route_id: str | None = Query(default=None)
+) -> ReprocessResponse:
+    root = _resolve_exports_root_for_route(route_id)
     file_path, relative_path = _resolve_file(root, file_key)
     task_root = root.parent
     if "reprocess" in task_root.parts:
