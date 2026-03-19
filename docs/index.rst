@@ -13,6 +13,7 @@ If you're new to EEG processing or programming, AutoClean provides:
 * **Drop-and-go workflow**: Simply drop your task files and run
 * **No coding required**: Process your data with simple commands
 * **Serve docs portal**: Start with `Serve Docs Portal <serve-docs-portal.html>`_ if you want a browsable local menu instead of a single standalone guide page
+* **Serve UI tutorial**: Read :doc:`serve_ui_workflow` for the CLI-first setup and daily-use workflow
 * **Serve tutorial**: Open `First Route Tutorial <serve-first-route-tutorial.html>`_ for the step-by-step workflow from workspace creation through Draft validation and Production promotion
 * **Edit tutorial**: Open `Edit Existing Route Tutorial <serve-edit-route-tutorial.html>`_ when a route already exists and you need to change it without casually changing live behavior
 * **Recovery tutorial**: Open `Failures and Recovery Tutorial <serve-failures-recovery-tutorial.html>`_ when validation fails, a route is missing, the wrong files are matched, or Production no longer feels safe
@@ -111,6 +112,7 @@ Quick Start Examples
    :caption: Getting Started
 
    getting_started
+   serve_ui_workflow
 
 .. toctree::
    :maxdepth: 2
