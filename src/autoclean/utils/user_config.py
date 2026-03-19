@@ -279,7 +279,12 @@ class UserConfigManager:
             return False
 
     def get_serve_workspace(self) -> Optional[Path]:
-        """Get the configured automation serve workspace, if any."""
+        """Get the workspace root that Serve should use.
+
+        Prefer the normal persisted workspace root so Serve behaves as a layer
+        on top of the main AutoClean workspace. Fall back to the older
+        ``serve_workspace`` field only for backward compatibility.
+        """
         global_config = (
             Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
         )
@@ -293,7 +298,7 @@ class UserConfigManager:
         except (json.JSONDecodeError, FileNotFoundError):
             return None
 
-        raw_path = config.get("serve_workspace")
+        raw_path = config.get("config_directory") or config.get("serve_workspace")
         if not raw_path:
             return None
 
@@ -303,7 +308,12 @@ class UserConfigManager:
             return None
 
     def set_serve_workspace(self, workspace_path: Optional[Path]) -> bool:
-        """Persist the automation serve workspace path."""
+        """Persist the workspace root that Serve should use.
+
+        Serve now aligns with the normal workspace root. The legacy
+        ``serve_workspace`` field is still written as a compatibility mirror so
+        older code paths can continue to function during the transition.
+        """
         global_config = (
             Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
         )
@@ -322,7 +332,13 @@ class UserConfigManager:
         if workspace_path is None:
             config.pop("serve_workspace", None)
         else:
-            config["serve_workspace"] = str(workspace_path)
+            resolved = Path(workspace_path).expanduser().resolve()
+            self.config_dir = resolved
+            self.tasks_dir = resolved / "tasks"
+            self.config_dir.mkdir(parents=True, exist_ok=True)
+            self.tasks_dir.mkdir(parents=True, exist_ok=True)
+            config["config_directory"] = str(resolved)
+            config["serve_workspace"] = str(resolved)
         config["serve_workspace_updated"] = self._current_timestamp()
 
         global_config.parent.mkdir(parents=True, exist_ok=True)
@@ -333,6 +349,13 @@ class UserConfigManager:
         except Exception as e:
             print(f"Warning: Could not save serve workspace config: {e}")
             return False
+
+    def get_serve_tasks_dir(self) -> Optional[Path]:
+        """Return the task directory inside the workspace Serve is using."""
+        workspace = self.get_serve_workspace()
+        if workspace is None:
+            return None
+        return workspace.expanduser().resolve() / "tasks"
 
     def get_theme(self) -> Optional[str]:
         """Get the configured theme preference."""

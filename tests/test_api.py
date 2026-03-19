@@ -8,6 +8,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+from fastapi.testclient import TestClient
 
 from autoclean.api.models import (
     ConfigResponse,
@@ -24,6 +25,7 @@ from autoclean.api.models import (
 )
 from autoclean.api.server import create_app
 from autoclean.api.state import APIState, api_state
+from autoclean.api.routes.service import ServiceStartRequest
 
 
 class TestAPIState:
@@ -92,6 +94,64 @@ class TestCreateApp:
         """Test creating app with workspace."""
         app = create_app(workspace_dir=tmp_path, mode="live")
         assert app is not None
+
+
+class TestTaskManagerWorkspaceResolution:
+    """Tests for Serve-aware Task Manager workspace resolution."""
+
+    def test_task_manager_prefers_serve_workspace_tasks_dir(self, tmp_path: Path) -> None:
+        from autoclean.api.routes.task_manager import _get_workspace_dir
+
+        serve_workspace = tmp_path / "serve-workspace"
+        serve_tasks_dir = serve_workspace / "tasks"
+        serve_tasks_dir.mkdir(parents=True)
+        legacy_tasks_dir = tmp_path / "legacy-workspace" / "tasks"
+        legacy_tasks_dir.mkdir(parents=True)
+
+        with patch("autoclean.utils.user_config.UserConfigManager") as mock_ucm:
+            mgr = mock_ucm.return_value
+            mgr.get_serve_tasks_dir.return_value = serve_tasks_dir
+            mgr.tasks_dir = legacy_tasks_dir
+            assert _get_workspace_dir() == serve_tasks_dir
+
+
+class TestSetupWorkspaceRoute:
+    """Tests for API workspace setup behavior."""
+
+    def test_setup_workspace_rejects_arbitrary_existing_directory(self, tmp_path: Path) -> None:
+        app = create_app()
+        client = TestClient(app)
+
+        workspace = tmp_path / "random-folder"
+        workspace.mkdir()
+        (workspace / "notes.txt").write_text("not a workspace", encoding="utf-8")
+
+        response = client.post(
+            "/api/setup/workspace",
+            json={"path": str(workspace), "create_new": False},
+        )
+
+        assert response.status_code == 400
+        assert "valid Serve workspace or an AutoClean workspace" in response.json()["detail"]
+
+    def test_setup_workspace_bootstraps_existing_normal_workspace(self, tmp_path: Path) -> None:
+        app = create_app()
+        client = TestClient(app)
+
+        workspace = tmp_path / "workspace"
+        (workspace / "tasks").mkdir(parents=True)
+        (workspace / "output").mkdir(parents=True)
+
+        response = client.post(
+            "/api/setup/workspace",
+            json={"path": str(workspace), "create_new": False},
+        )
+
+        assert response.status_code == 200
+        assert (workspace / "serve-test.yaml").exists()
+        assert (workspace / "serve-live.yaml").exists()
+        assert (workspace / "routes").exists()
+        assert (workspace / "automations").exists()
 
 
 class TestQueueModels:
@@ -205,6 +265,16 @@ class TestConfigModels:
         )
         assert response.valid is False
         assert len(response.errors) == 1
+
+
+class TestServiceModels:
+    """Tests for service-related request defaults."""
+
+    def test_service_start_request_defaults_to_long_running_dispatcher(self) -> None:
+        """UI/API start requests should default to a persistent service loop."""
+        request = ServiceStartRequest()
+        assert request.max_cycles == 0
+        assert request.idle_limit == 0
 
 
 class TestEventModels:

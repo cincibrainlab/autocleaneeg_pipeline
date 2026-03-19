@@ -31,9 +31,10 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 import yaml
@@ -745,9 +746,10 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             ("📜 task list", "List available tasks (same as 'list-tasks')"),
             ("📂 task explore", "Open the workspace tasks folder"),
             ("✏️  task edit [name|path]", "Edit task (omit uses active)"),
+            ("🆕 task create <ClassName>", "Create a workspace-local task from template"),
             ("📥 task import <path>", "Copy a task file into workspace"),
             ("📄 task copy [name|path]", "Copy task (omit uses active)"),
-            ("🗑  task delete [name|path]", "Delete task (omit uses active)"),
+            ("🗑  task delete [name|path]", "Delete task from the active workspace"),
             ("🎯 task set [name]", "Set active task (interactive if omitted)"),
             ("🧹 task unset", "Clear the active task"),
             ("👁️  task show", "Show the current active task"),
@@ -1309,10 +1311,11 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
                 "edit": "Edit a task",
                 "copy": "Copy a task",
                 "delete": "Delete a task",
+                "create": "Create a workspace-local task from template",
                 "set": "Set active task",
                 "unset": "Clear active task",
                 "show": "Show current active task",
-                "use": "Install and activate a task",
+                "use": "Install a task into the active workspace",
                 "install": "Install a task from library/file",
                 "sync": "Check for task updates",
                 "update": "Update task library index",
@@ -1523,7 +1526,7 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     # Use task (install + activate in one step)
     use_task_parser = task_subparsers.add_parser(
         "use",
-        help="Install and activate a task in one step (from library or built-in)",
+        help="Install a task into the active workspace and activate it when applicable",
         add_help=False,
     )
     attach_rich_help(use_task_parser)
@@ -1542,6 +1545,29 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "--no-activate",
         action="store_true",
         help="Install only, don't set as active task",
+    )
+
+    create_task_parser = task_subparsers.add_parser(
+        "create",
+        help="Create a workspace-local task from the bundled template",
+        add_help=False,
+    )
+    attach_rich_help(create_task_parser)
+    create_task_parser.add_argument(
+        "class_name",
+        type=str,
+        help="Python class name for the new task",
+    )
+    create_task_parser.add_argument(
+        "--file-name",
+        type=str,
+        default=None,
+        help="Optional file name stem (defaults to class name)",
+    )
+    create_task_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite an existing workspace task file",
     )
 
     # Install task (unified command for any source)
@@ -2189,8 +2215,8 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     serve_parser.add_argument(
         "--port",
         type=int,
-        default=4000,
-        help="Port to serve on (default: 4000)",
+        default=8000,
+        help="Port to serve on (default: 8000)",
     )
     serve_parser.add_argument(
         "--host",
@@ -2208,14 +2234,20 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     attach_rich_help(serve_docs)
 
     serve_workspace = serve_subparsers.add_parser(
-        "workspace", help="Configure automation serve workspace", add_help=False
+        "workspace", help="Configure the workspace Serve uses", add_help=False
     )
     attach_rich_help(serve_workspace)
+    serve_workspace.add_argument(
+        "workspace_action",
+        nargs="?",
+        choices=["status", "doctor", "use"],
+        help="Inspect, diagnose, or switch the workspace Serve uses",
+    )
     serve_workspace.add_argument(
         "--path",
         type=Path,
         default=None,
-        help="Path to automation serve workspace",
+        help="Path to the workspace root Serve should use",
     )
     serve_workspace.add_argument(
         "--mode",
@@ -2631,6 +2663,103 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         action="store_true",
         help="Run in burst mode (exit when queue is empty)",
     )
+
+    serve_service = serve_subparsers.add_parser(
+        "service", help="Control the dispatcher through the running Serve server", add_help=False
+    )
+    attach_rich_help(serve_service)
+    serve_service_subparsers = serve_service.add_subparsers(
+        dest="service_action", help="Service actions"
+    )
+
+    serve_service_status = serve_service_subparsers.add_parser(
+        "status", help="Show dispatcher status", add_help=False
+    )
+    attach_rich_help(serve_service_status)
+    serve_service_status.add_argument("--port", dest="service_port", type=int, default=None, help="Serve port override")
+
+    serve_service_start = serve_service_subparsers.add_parser(
+        "start", help="Start the dispatcher through the Serve API", add_help=False
+    )
+    attach_rich_help(serve_service_start)
+    serve_service_start.add_argument("--port", dest="service_port", type=int, default=None, help="Serve port override")
+    serve_service_start.add_argument("--max-cycles", type=int, default=0, help="0 = unlimited")
+    serve_service_start.add_argument("--idle-limit", type=int, default=0, help="0 = keep running")
+    serve_service_start.add_argument("--sleep-seconds", type=float, default=1.0, help="Sleep between cycles")
+    serve_service_start.add_argument("--no-watch", action="store_true", help="Disable watchfiles usage")
+    serve_service_start.add_argument("--no-sentinel", action="store_true", help="Disable sentinel requirement")
+
+    serve_service_stop = serve_service_subparsers.add_parser(
+        "stop", help="Stop the dispatcher through the Serve API", add_help=False
+    )
+    attach_rich_help(serve_service_stop)
+    serve_service_stop.add_argument("--port", dest="service_port", type=int, default=None, help="Serve port override")
+
+    serve_mode = serve_subparsers.add_parser(
+        "mode", help="Inspect or switch test/live mode on a running Serve session", add_help=False
+    )
+    attach_rich_help(serve_mode)
+    serve_mode.add_argument(
+        "mode_action",
+        nargs="?",
+        default="status",
+        choices=["status", "test", "live"],
+        help="Show current mode or switch the running session to test/live",
+    )
+    serve_mode.add_argument("--port", dest="mode_port", type=int, default=None, help="Serve port override")
+
+    serve_queue = serve_subparsers.add_parser(
+        "queue", help="Inspect and maintain queue entries through the running Serve server", add_help=False
+    )
+    attach_rich_help(serve_queue)
+    serve_queue_subparsers = serve_queue.add_subparsers(
+        dest="queue_action", help="Queue actions"
+    )
+
+    serve_queue_status = serve_queue_subparsers.add_parser(
+        "status", help="Show queue statistics", add_help=False
+    )
+    attach_rich_help(serve_queue_status)
+    serve_queue_status.add_argument("--port", dest="queue_port", type=int, default=None, help="Serve port override")
+
+    serve_queue_list = serve_queue_subparsers.add_parser(
+        "list", help="List queue entries", add_help=False
+    )
+    attach_rich_help(serve_queue_list)
+    serve_queue_list.add_argument("--port", dest="queue_port", type=int, default=None, help="Serve port override")
+    serve_queue_list.add_argument(
+        "--status",
+        choices=["pending", "processing", "processed", "failed"],
+        default=None,
+        help="Filter by queue status",
+    )
+    serve_queue_list.add_argument("--route-id", default=None, help="Filter by route id")
+    serve_queue_list.add_argument("--limit", type=int, default=100, help="Max entries to show")
+    serve_queue_list.add_argument("--offset", type=int, default=0, help="Offset into the queue")
+
+    serve_queue_retry = serve_queue_subparsers.add_parser(
+        "retry-failed", help="Reset failed entries back to pending", add_help=False
+    )
+    attach_rich_help(serve_queue_retry)
+    serve_queue_retry.add_argument("--port", dest="queue_port", type=int, default=None, help="Serve port override")
+    serve_queue_retry.add_argument(
+        "paths",
+        nargs="*",
+        help="Optional specific queue entry paths to retry",
+    )
+
+    serve_queue_clear_processed = serve_queue_subparsers.add_parser(
+        "clear-processed", help="Remove processed queue entries", add_help=False
+    )
+    attach_rich_help(serve_queue_clear_processed)
+    serve_queue_clear_processed.add_argument("--port", dest="queue_port", type=int, default=None, help="Serve port override")
+
+    serve_queue_remove = serve_queue_subparsers.add_parser(
+        "remove", help="Remove one queue entry by full path", add_help=False
+    )
+    attach_rich_help(serve_queue_remove)
+    serve_queue_remove.add_argument("--port", dest="queue_port", type=int, default=None, help="Serve port override")
+    serve_queue_remove.add_argument("path", help="Full queue entry path to remove")
 
     # Serve daemon management
     serve_up = serve_subparsers.add_parser(
@@ -3526,9 +3655,9 @@ def cmd_list_tasks(args) -> int:
                     )
                 )
 
-        # Discover all tasks
-        valid_tasks, invalid_files, skipped_files = safe_discover_tasks()
-        workspace_dir = user_config.tasks_dir
+        # Discover all tasks against the active operator task workspace.
+        with _active_task_workspace_context() as workspace_dir:
+            valid_tasks, invalid_files, skipped_files = safe_discover_tasks()
 
         def _montage_label(task_name: str) -> str:
             try:
@@ -5290,6 +5419,62 @@ def _wizard_render_state(display: CLIDisplay, title: str) -> None:
     display.blank_line()
 
 
+def _active_task_workspace_dir(*, prefer_serve: bool = True) -> Path:
+    """Return the task directory that operator-facing commands should use."""
+    if prefer_serve:
+        try:
+            serve_tasks_dir = user_config.get_serve_tasks_dir()
+        except Exception:
+            serve_tasks_dir = None
+        if serve_tasks_dir is not None:
+            return serve_tasks_dir
+    return user_config.tasks_dir
+
+
+def _list_active_workspace_tasks() -> dict[str, dict[str, Any]]:
+    """List tasks from the currently active operator workspace directory."""
+    tasks_dir = _active_task_workspace_dir()
+    custom_tasks: dict[str, dict[str, Any]] = {}
+
+    if not tasks_dir.exists():
+        return custom_tasks
+
+    for task_file in tasks_dir.rglob("*.py"):
+        if task_file.name.startswith("_"):
+            continue
+        try:
+            class_name, description = user_config._extract_task_info(task_file)
+            custom_tasks[class_name] = {
+                "file_path": str(task_file),
+                "description": description,
+                "class_name": class_name,
+                "modified_time": task_file.stat().st_mtime,
+            }
+        except Exception:
+            continue
+    return custom_tasks
+
+
+@contextmanager
+def _active_task_workspace_context(*, prefer_serve: bool = True):
+    """Temporarily point task helpers at the active operator task workspace."""
+    active_tasks_dir = _active_task_workspace_dir(prefer_serve=prefer_serve)
+    original_tasks_dir = user_config.tasks_dir
+    original_config_dir = user_config.config_dir
+
+    if active_tasks_dir == original_tasks_dir:
+        yield active_tasks_dir
+        return
+
+    try:
+        user_config.tasks_dir = active_tasks_dir
+        user_config.config_dir = active_tasks_dir.parent
+        yield active_tasks_dir
+    finally:
+        user_config.tasks_dir = original_tasks_dir
+        user_config.config_dir = original_config_dir
+
+
 def _wizard_create_task_from_template(
     display: CLIDisplay, class_name: str, file_name: str, *, overwrite: bool = False
 ) -> Path:
@@ -5297,7 +5482,7 @@ def _wizard_create_task_from_template(
 
     templates_dir = Path(__file__).resolve().parent / "templates"
     template_path = templates_dir / "custom_task_template.jinja"
-    target_path = user_config.tasks_dir / f"{file_name}.py"
+    target_path = _active_task_workspace_dir() / f"{file_name}.py"
 
     try:
         validate_python_identifier(class_name, label="Task class name")
@@ -6416,6 +6601,8 @@ def cmd_task(args) -> int:
         return cmd_task_show(args)
     elif args.task_action == "use":
         return cmd_task_use(args)
+    elif args.task_action == "create":
+        return cmd_task_create(args)
     elif args.task_action == "install":
         return cmd_task_install(args)
     elif args.task_action == "sync":
@@ -6482,7 +6669,7 @@ def cmd_task_schema_export(args) -> int:
 def cmd_task_explore(_args) -> int:
     """Open the workspace tasks directory in the system file browser."""
     try:
-        tasks_dir = user_config.tasks_dir
+        tasks_dir = _active_task_workspace_dir()
         tasks_dir.mkdir(parents=True, exist_ok=True)
 
         # Detect platform and open folder
@@ -6523,12 +6710,13 @@ def _resolve_task_file(target: str) -> Optional[Path]:
         if p.exists() and p.is_file():
             return p
         # Try within workspace tasks dir
+        tasks_dir = _active_task_workspace_dir()
         candidates = []
         if target.endswith(".py"):
-            candidates.append(user_config.tasks_dir / target)
+            candidates.append(tasks_dir / target)
         else:
-            candidates.append(user_config.tasks_dir / f"{target}.py")
-            candidates.append(user_config.tasks_dir / target)
+            candidates.append(tasks_dir / f"{target}.py")
+            candidates.append(tasks_dir / target)
         for c in candidates:
             if c.exists() and c.is_file():
                 return c
@@ -6562,10 +6750,18 @@ def _detect_editor() -> Optional[list]:
 def cmd_task_edit(args) -> int:
     """Open specified task in the user's editor."""
     try:
+        tasks_dir = _active_task_workspace_dir()
         target = getattr(args, "target", None)
         if not target:
             try:
                 from rich.prompt import Confirm as _Confirm
+
+                if tasks_dir != user_config.tasks_dir:
+                    message(
+                        "error",
+                        "No target provided. In Serve workspace mode, pass the task name or path explicitly.",
+                    )
+                    return 1
 
                 active = user_config.get_active_task()
                 if active:
@@ -6598,9 +6794,8 @@ def cmd_task_edit(args) -> int:
                 from rich.prompt import Confirm as _Confirm
                 from rich.prompt import Prompt as _Prompt
 
-                from autoclean.utils.task_discovery import safe_discover_tasks
-
-                tasks, _, _ = safe_discover_tasks()
+                with _active_task_workspace_context():
+                    tasks, _, _ = safe_discover_tasks()
                 match = None
                 for t in tasks:
                     if t.name.lower() == target.lower():
@@ -6609,7 +6804,7 @@ def cmd_task_edit(args) -> int:
                 if match:
                     src = Path(match.source)
                     # If built-in (not in workspace), offer to copy into workspace first
-                    if user_config.tasks_dir not in src.parents:
+                    if tasks_dir not in src.parents:
                         # Determine destination filename
                         suggested_name = args.name or src.stem
                         if not args.force:
@@ -6633,7 +6828,7 @@ def cmd_task_edit(args) -> int:
                                 else suggested_name
                             )
 
-                        dest = user_config.tasks_dir / new_name
+                        dest = tasks_dir / new_name
                         dest.parent.mkdir(parents=True, exist_ok=True)
                         if dest.exists():
                             if args.force:
@@ -6664,7 +6859,7 @@ def cmd_task_edit(args) -> int:
                                     renamed = _Prompt.ask(
                                         "New filename", default=f"copy_of_{new_name}"
                                     )
-                                    dest = user_config.tasks_dir / (
+                                    dest = tasks_dir / (
                                         renamed
                                         if renamed.endswith(".py")
                                         else f"{renamed}.py"
@@ -6739,6 +6934,13 @@ def cmd_task_delete(args) -> int:
             try:
                 from rich.prompt import Confirm as _Confirm
 
+                if _active_task_workspace_dir() != user_config.tasks_dir:
+                    message(
+                        "error",
+                        "No target provided. In Serve workspace mode, pass the task name or path explicitly.",
+                    )
+                    return 1
+
                 active = user_config.get_active_task()
                 if active:
                     if not _Confirm.ask(f"Use active task '{active}'?", default=True):
@@ -6774,7 +6976,7 @@ def cmd_task_delete(args) -> int:
 
         # Ensure within workspace tasks dir
         try:
-            ws_tasks = user_config.tasks_dir.resolve()
+            ws_tasks = _active_task_workspace_dir().resolve()
             if ws_tasks not in f.resolve().parents:
                 message("error", "Refusing to delete files outside workspace tasks/")
                 return 1
@@ -6811,15 +7013,15 @@ def cmd_task_delete(args) -> int:
 def cmd_task_copy(args) -> int:
     """Copy a task to a new file in the workspace tasks directory."""
     try:
+        tasks_dir = _active_task_workspace_dir()
         source = (
             args.source if hasattr(args, "source") else getattr(args, "target", None)
         )
         if not source:
             # Interactive selection across built-in and custom tasks
             try:
-                from autoclean.utils.task_discovery import safe_discover_tasks
-
-                tasks, _, _ = safe_discover_tasks()
+                with _active_task_workspace_context():
+                    tasks, _, _ = safe_discover_tasks()
                 if not tasks:
                     message("error", "No tasks available to copy")
                     return 1
@@ -6914,9 +7116,8 @@ def cmd_task_copy(args) -> int:
         src_path = _resolve_task_file(source) if isinstance(source, str) else src_path
         if not src_path:
             try:
-                from autoclean.utils.task_discovery import safe_discover_tasks
-
-                tasks, _, _ = safe_discover_tasks()
+                with _active_task_workspace_context():
+                    tasks, _, _ = safe_discover_tasks()
                 for t in tasks:
                     if t.name.lower() == str(source).lower():
                         src_path = Path(t.source)
@@ -6929,7 +7130,7 @@ def cmd_task_copy(args) -> int:
             return 1
 
         # Prepare destination with unified name entry (derive filename + class)
-        dest_dir = user_config.tasks_dir
+        dest_dir = tasks_dir
         dest_dir.mkdir(parents=True, exist_ok=True)
 
         # Extract original class name for reference
@@ -7023,7 +7224,7 @@ def cmd_task_copy(args) -> int:
             camel = f"T{camel}" if camel and camel[0].isdigit() else "TaskCopy"
 
         # Avoid class name collisions with existing workspace tasks
-        existing = set(user_config.list_custom_tasks().keys())
+        existing = set(_list_active_workspace_tasks().keys())
         new_class = camel if camel not in existing else f"{camel}_{_ts()}"
         dest = _unique_dest(snake)
 
@@ -7242,10 +7443,51 @@ def cmd_task_show(_args) -> int:
         return 1
 
 
+def cmd_task_create(args) -> int:
+    """Create a workspace-local task from the bundled template."""
+    console = get_console(args)
+    class_name = str(args.class_name).strip()
+    file_name = str(getattr(args, "file_name", None) or class_name).strip()
+
+    if not class_name:
+        message("error", "Task class name is required.")
+        return 1
+    if not file_name:
+        message("error", "Task file name is required.")
+        return 1
+
+    display = CLIDisplay(console)
+    try:
+        target_path = _wizard_create_task_from_template(
+            display,
+            class_name,
+            file_name,
+            overwrite=bool(getattr(args, "force", False)),
+        )
+    except RuntimeError as exc:
+        message("error", str(exc))
+        return 1
+
+    console.print("\n[header]Next steps:[/header]")
+    console.print(f"  • Edit the task at [accent]{target_path}[/accent]")
+    serve_tasks_dir = user_config.get_serve_tasks_dir()
+    if serve_tasks_dir is not None and serve_tasks_dir in target_path.parents:
+        console.print(
+            "  • Reference it from a Serve route with "
+            f"[accent]serve route upsert ... --taskfile {target_path}[/accent]"
+        )
+    else:
+        console.print(
+            f"  • Run [accent]task set {file_name}[/accent] to make it the active task"
+        )
+    return 0
+
+
 def cmd_task_use(args) -> int:
-    """Install and activate a task in one step (one-step workflow)."""
+    """Install a task into the active workspace and activate it when applicable."""
     console = get_console(args)
     registry = BuiltinRegistry()
+    tasks_dir = _active_task_workspace_dir()
 
     # Interactive selection if no task name provided
     if not args.task_name:
@@ -7255,7 +7497,7 @@ def cmd_task_use(args) -> int:
             console.print("[warning]No library tasks available.[/warning]")
             return 1
 
-        console.print("\n[header]Select a task to install and activate:[/header]\n")
+        console.print("\n[header]Select a task to install into the active workspace:[/header]\n")
 
         from rich.table import Table
 
@@ -7311,11 +7553,11 @@ def cmd_task_use(args) -> int:
         return 1
 
     # Check if already exists in workspace
-    dest_path = user_config.tasks_dir / f"{task_name}.py"
+    dest_path = tasks_dir / f"{task_name}.py"
     skip_install = False
 
     if dest_path.exists() and not args.force:
-        sync_status = registry.task_sync_status(task_name, user_config.tasks_dir)
+        sync_status = registry.task_sync_status(task_name, tasks_dir)
         status = sync_status.get("status")
 
         if status == "synced":
@@ -7338,7 +7580,7 @@ def cmd_task_use(args) -> int:
     if not skip_install:
         try:
             installed_path = registry.materialize_task_to(
-                task_name, user_config.tasks_dir
+                task_name, tasks_dir
             )
             console.print(
                 f"[success]✓[/success] {task_name} installed to [info]{installed_path}[/info]"
@@ -7348,7 +7590,7 @@ def cmd_task_use(args) -> int:
             return 1
 
     # Set as active task (unless --no-activate)
-    if not args.no_activate:
+    if not args.no_activate and tasks_dir == user_config.tasks_dir:
         if user_config.set_active_task(task_name):
             console.print(
                 f"[success]✓[/success] Active task set to: [accent]{task_name}[/accent]"
@@ -7359,6 +7601,10 @@ def cmd_task_use(args) -> int:
         else:
             console.print("[error]✗[/error] Failed to set active task")
             return 1
+    elif not args.no_activate:
+        console.print(
+            "[muted]Installed into the workspace Serve is using; no legacy active task was changed.[/muted]"
+        )
 
     return 0
 
@@ -7367,6 +7613,7 @@ def cmd_task_install(args) -> int:
     """Install a task from any source (library, file, or built-in) - unified command."""
     console = get_console(args)
     registry = BuiltinRegistry()
+    tasks_dir = _active_task_workspace_dir()
 
     task_source = args.task_source
     source_type = args.source  # auto, library, file, builtin
@@ -7420,7 +7667,7 @@ def cmd_task_install(args) -> int:
             else:
                 dest_name = source_path.name
 
-            dest_path = user_config.tasks_dir / dest_name
+            dest_path = tasks_dir / dest_name
 
             # Check if already exists
             if dest_path.exists() and not force:
@@ -7458,12 +7705,12 @@ def cmd_task_install(args) -> int:
                 )
                 return 1
 
-            dest_path = user_config.tasks_dir / f"{task_name}.py"
+            dest_path = tasks_dir / f"{task_name}.py"
 
             # Check if already exists
             if dest_path.exists() and not force:
                 sync_status = registry.task_sync_status(
-                    task_source, user_config.tasks_dir
+                    task_source, tasks_dir
                 )
                 status = sync_status.get("status")
 
@@ -7487,12 +7734,12 @@ def cmd_task_install(args) -> int:
             else:
                 # Install task
                 materialized_path = registry.materialize_task_to(
-                    task_source, user_config.tasks_dir
+                    task_source, tasks_dir
                 )
 
                 # Rename if custom name specified
                 if custom_name and custom_name != task_source:
-                    new_path = user_config.tasks_dir / f"{custom_name}.py"
+                    new_path = tasks_dir / f"{custom_name}.py"
                     materialized_path.rename(new_path)
                     materialized_path = new_path
                     task_name = custom_name
@@ -7520,7 +7767,7 @@ def cmd_task_install(args) -> int:
                 )
                 return 1
 
-            dest_path = user_config.tasks_dir / f"{task_name}.py"
+            dest_path = tasks_dir / f"{task_name}.py"
 
             # Check if already exists
             if dest_path.exists() and not force:
@@ -7549,7 +7796,7 @@ def cmd_task_install(args) -> int:
 
         # Optionally activate
         activated = False
-        if activate:
+        if activate and tasks_dir == user_config.tasks_dir:
             if user_config.set_active_task(task_name):
                 console.print(
                     f"[success]✓[/success] Active task set to: [accent]{task_name}[/accent]"
@@ -7558,6 +7805,10 @@ def cmd_task_install(args) -> int:
             else:
                 console.print("[error]✗[/error] Failed to set active task")
                 return 1
+        elif activate:
+            console.print(
+                "[muted]Installed into the workspace Serve is using; no legacy active task was changed.[/muted]"
+            )
         _render_task_install_summary(
             console,
             task_name=task_name,
@@ -7577,11 +7828,12 @@ def cmd_task_sync(args) -> int:
     """Check workspace tasks for updates and optionally apply them."""
     console = get_console(args)
     registry = BuiltinRegistry()
+    tasks_dir = _active_task_workspace_dir()
 
     console.print("→ Checking workspace tasks against sources...\n")
 
     # Get all workspace tasks
-    workspace_tasks = user_config.list_custom_tasks()
+    workspace_tasks = _list_active_workspace_tasks()
     if not workspace_tasks:
         console.print("[muted]No tasks installed in workspace.[/muted]")
         return 0
@@ -7595,7 +7847,7 @@ def cmd_task_sync(args) -> int:
     orphaned_tasks = []
 
     for task_name in workspace_tasks.keys():
-        sync_status = registry.task_sync_status(task_name, user_config.tasks_dir)
+        sync_status = registry.task_sync_status(task_name, tasks_dir)
         status = sync_status.get("status")
         source = sync_status.get("source", "unknown")
 
@@ -7690,9 +7942,9 @@ def cmd_task_sync(args) -> int:
         for task_name, source in outdated_tasks:
             try:
                 # Create backup
-                task_path = user_config.tasks_dir / f"{task_name}.py"
+                task_path = tasks_dir / f"{task_name}.py"
                 backup_path = (
-                    user_config.tasks_dir / f"{task_name}.backup.{backup_suffix}.py"
+                    tasks_dir / f"{task_name}.backup.{backup_suffix}.py"
                 )
 
                 import shutil
@@ -7701,7 +7953,7 @@ def cmd_task_sync(args) -> int:
                 console.print(f"  ⚠ Backed up {task_name} to {backup_path.name}")
 
                 # Reinstall from library
-                registry.materialize_task_to(task_name, user_config.tasks_dir)
+                registry.materialize_task_to(task_name, tasks_dir)
                 console.print(f"  ✓ Updated {task_name} from {source}")
             except Exception as exc:
                 console.print(f"  ✗ Failed to update {task_name}: {exc}")
@@ -7758,7 +8010,7 @@ def cmd_task_update(args) -> int:
             "  • Run [accent]'task list --source=library'[/accent] to see all library tasks"
         )
         console.print(
-            "  • Run [accent]'task use <name>'[/accent] to install and activate a new task"
+            "  • Run [accent]'task use <name>'[/accent] to install a new task into the active workspace"
         )
         console.print()
 
@@ -7785,11 +8037,12 @@ def cmd_task_diagnose(args) -> int:
     """Run workspace health check."""
     console = get_console(args)
     registry = BuiltinRegistry()
+    tasks_dir = _active_task_workspace_dir()
 
     console.print("→ Running workspace health check...\n")
 
     # Check tasks
-    workspace_tasks = user_config.list_custom_tasks()
+    workspace_tasks = _list_active_workspace_tasks()
     num_tasks = len(workspace_tasks)
     num_customized = 0
     num_outdated = 0
@@ -7797,7 +8050,7 @@ def cmd_task_diagnose(args) -> int:
     import_errors = []
 
     for task_name in workspace_tasks.keys():
-        sync_status = registry.task_sync_status(task_name, user_config.tasks_dir)
+        sync_status = registry.task_sync_status(task_name, tasks_dir)
         status = sync_status.get("status")
 
         if status == "modified":
@@ -7892,7 +8145,6 @@ def cmd_task_diagnose(args) -> int:
     console.print("\n[info]Configuration:[/info]")
     active_task = user_config.get_active_task()
     workspace_dir = user_config.config_dir
-    tasks_dir = user_config.tasks_dir
 
     console.print(
         f"  • Active task: {active_task or 'None'} {'✓' if active_task else '✗'}"
@@ -7935,12 +8187,13 @@ def cmd_task_diff(args) -> int:
     console = get_console(args)
     registry = BuiltinRegistry()
     task_name = args.task_name
+    tasks_dir = _active_task_workspace_dir()
 
     # Check if task exists in workspace
-    workspace_path = user_config.tasks_dir / f"{task_name}.py"
+    workspace_path = tasks_dir / f"{task_name}.py"
     if not workspace_path.exists():
         console.print(f"[error]✗[/error] Task '{task_name}' not found in workspace")
-        console.print("[muted]Install it first with: task install {task_name}[/muted]")
+        console.print(f"[muted]Install it first with: task install {task_name}[/muted]")
         return 1
 
     # Get task from library
@@ -8041,6 +8294,7 @@ def cmd_task_search(args) -> int:
     console = get_console(args)
     registry = BuiltinRegistry()
     query = args.query.lower()
+    tasks_dir = _active_task_workspace_dir()
 
     console.print(f"→ Searching for [accent]'{args.query}'[/accent]...\n")
 
@@ -8067,7 +8321,7 @@ def cmd_task_search(args) -> int:
                     or query in category.lower()
                 ):
                     # Check if installed
-                    workspace_path = user_config.tasks_dir / f"{name}.py"
+                    workspace_path = tasks_dir / f"{name}.py"
                     status = "installed" if workspace_path.exists() else "available"
 
                     results.append(
@@ -8084,7 +8338,7 @@ def cmd_task_search(args) -> int:
 
     # Search workspace tasks
     if args.source in ["all", "workspace"]:
-        workspace_tasks = user_config.list_custom_tasks()
+        workspace_tasks = _list_active_workspace_tasks()
         for task_name, task_info in workspace_tasks.items():
             description = task_info.get("description", "")
             if query in task_name.lower() or query in description.lower():
@@ -8143,7 +8397,7 @@ def cmd_task_search(args) -> int:
     available_count = sum(1 for r in results if r["status"] == "available")
     if available_count > 0:
         console.print(
-            "[muted]Use 'task use <name>' to install and activate a task[/muted]"
+            "[muted]Use 'task use <name>' to install a task into the active workspace[/muted]"
         )
 
     return 0
@@ -9423,18 +9677,29 @@ def cmd_serve(args) -> int:
             c.print("  [dim]● Stopped[/dim]")
 
         c.print()
-        c.print("[bold]Commands:[/bold]")
-        c.print("  [white]serve up[/white]        Start the dashboard server")
+        c.print("[bold]First-time setup:[/bold]")
+        c.print("  [white]serve workspace[/white] Create or link a Serve workspace")
+        c.print("  [white]serve up[/white]        Start the Serve UI and processing service")
+        c.print()
+        c.print("[bold]Daily use:[/bold]")
+        c.print("  [white]serve up[/white]        Start the Serve UI and processing service")
+        c.print("  [white]serve status[/white]    Show whether UI and processing are operational")
+        c.print("  [white]serve service[/white]   Control dispatcher start/stop/status")
+        c.print("  [white]serve queue[/white]     Inspect or maintain queue entries")
+        c.print("  [white]serve mode[/white]      Switch between test and live in a running session")
+        c.print()
+        c.print("[bold]Advanced:[/bold]")
+        c.print("  [white]serve api[/white]       Start API/UI only in foreground")
+        c.print("  [white]serve run[/white]       Start processing dispatcher only")
+        c.print("  [white]serve route[/white]     Manage routes from CLI")
+        c.print("  [white]serve validate[/white]  Validate serve config")
+        c.print("  [white]serve deploy[/white]    Deploy serve config")
+        c.print("  [white]serve tui[/white]       Terminal UI alternative")
+        c.print()
+        c.print("[bold]Other commands:[/bold]")
         c.print("  [white]serve down[/white]      Stop the server")
         c.print("  [white]serve restart[/white]   Restart the server")
-        c.print("  [white]serve status[/white]    Show server details")
         c.print("  [white]serve share[/white]     Start public tunnel + print URL")
-        c.print()
-        c.print("[dim]Advanced:[/dim]")
-        c.print("  [dim]serve run         Start processing dispatcher only[/dim]")
-        c.print("  [dim]serve tui         Terminal UI (alternative to web)[/dim]")
-        c.print("  [dim]serve route       Manage routes from CLI[/dim]")
-        c.print("  [dim]serve api         Start API in foreground[/dim]")
         c.print()
         return 0
     if action == "docs":
@@ -9451,6 +9716,12 @@ def cmd_serve(args) -> int:
         return cmd_serve_deploy(args)
     if action == "run":
         return cmd_serve_run(args)
+    if action == "service":
+        return cmd_serve_service(args)
+    if action == "mode":
+        return cmd_serve_mode(args)
+    if action == "queue":
+        return cmd_serve_queue(args)
     if action == "tui":
         return cmd_serve_tui(args)
     if action == "api":
@@ -9493,6 +9764,61 @@ def _ensure_deploy_dir(paths: dict[str, Path]) -> None:
     if not deploy_dir.exists():
         deploy_dir.mkdir(parents=True, exist_ok=True)
         message("info", f"Created deploy directory: {deploy_dir}")
+
+
+def _looks_like_cli_workspace(workspace_dir: Path) -> bool:
+    """Return True when the directory already looks like a normal AutoClean workspace."""
+    return (
+        (workspace_dir / "tasks").exists()
+        or (workspace_dir / "output").exists()
+        or (workspace_dir / "tasks" / "builtin").exists()
+    )
+
+
+def _bootstrap_serve_workspace(
+    workspace_dir: Path,
+    package_spec: str,
+    *,
+    create_workspace_basics: bool,
+) -> dict[str, Path]:
+    """Ensure Serve-specific structure exists inside the shared workspace root."""
+    paths = _serve_workspace_paths(workspace_dir)
+
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    if create_workspace_basics:
+        try:
+            user_config._create_workspace_structure(workspace_dir)  # type: ignore[attr-defined]
+        except Exception:
+            (workspace_dir / "tasks").mkdir(parents=True, exist_ok=True)
+            (workspace_dir / "output").mkdir(parents=True, exist_ok=True)
+
+    paths["automations"].mkdir(parents=True, exist_ok=True)
+    paths["routes"].mkdir(parents=True, exist_ok=True)
+    paths["runtimes_test"].mkdir(parents=True, exist_ok=True)
+    paths["runtimes_live"].mkdir(parents=True, exist_ok=True)
+
+    _write_serve_yaml(
+        paths["serve_test"],
+        "test",
+        paths["runtimes_test"],
+        paths["automations"],
+        workspace_dir,
+        package_spec,
+    )
+    _write_serve_yaml(
+        paths["serve_live"],
+        "live",
+        paths["runtimes_live"],
+        paths["automations"],
+        workspace_dir,
+        package_spec,
+    )
+    _write_serve_makefile(workspace_dir)
+    _write_workspace_env(workspace_dir)
+    _write_dockerfile(workspace_dir)
+    _write_docker_compose(workspace_dir)
+    _ensure_deploy_dir(paths)
+    return paths
 
 
 def _resolve_config_path(paths: dict[str, Path], mode: str, deployed: bool) -> Path:
@@ -10354,19 +10680,181 @@ def _validate_serve_workspace(paths: dict[str, Path]) -> bool:
     return True
 
 
+def _serve_workspace_checklist(workspace_dir: Path) -> list[tuple[str, bool, str]]:
+    """Return workspace health checks for status/doctor commands."""
+    paths = _serve_workspace_paths(workspace_dir)
+    checks: list[tuple[str, bool, str]] = []
+
+    required_items = [
+        ("serve-test.yaml", paths["serve_test"]),
+        ("serve-live.yaml", paths["serve_live"]),
+        ("routes/", paths["routes"]),
+        ("automations/", paths["automations"]),
+        ("runtimes/test", paths["runtimes_test"]),
+        ("runtimes/live", paths["runtimes_live"]),
+        ("deploy/", paths["deploy"]),
+    ]
+    for label, path in required_items:
+        checks.append((label, path.exists(), str(path)))
+
+    test_runtime_cli = _runtime_cli_bin(paths["runtimes_test"] / ".venv")
+    live_runtime_cli = _runtime_cli_bin(paths["runtimes_live"] / ".venv")
+    checks.append(("test runtime CLI", test_runtime_cli.exists(), str(test_runtime_cli)))
+    checks.append(("live runtime CLI", live_runtime_cli.exists(), str(live_runtime_cli)))
+
+    route_count = len(list(paths["routes"].glob("*.yaml"))) if paths["routes"].exists() else 0
+    checks.append(("route specs present", route_count > 0, f"{route_count} route spec(s)"))
+
+    for mode in ("test", "live"):
+        config_path = _resolve_config_path(paths, mode, deployed=False)
+        config = _load_serve_yaml(config_path)
+        valid = config is not None and _validate_serve_yaml(config, mode, workspace_dir)
+        checks.append((f"{mode} config valid", valid, str(config_path)))
+
+    return checks
+
+
+def _serve_workspace_route_mode_counts(workspace_dir: Path) -> dict[str, int]:
+    """Return route counts by Serve mode for registry guidance."""
+    try:
+        from autoclean.utils.serve_routes import load_route_specs
+
+        specs = load_route_specs(workspace_dir)
+    except Exception:
+        return {"test": 0, "live": 0}
+
+    counts = {"test": 0, "live": 0}
+    for spec in specs:
+        if spec.get("archived", False) or not spec.get("enabled", True):
+            continue
+        for mode in spec.get("modes", ["test"]):
+            if mode in counts:
+                counts[mode] += 1
+    return counts
+
+
+def _print_workspace_status(workspace_dir: Path) -> int:
+    """Print a concise status summary for the workspace Serve is using."""
+    paths = _serve_workspace_paths(workspace_dir)
+    message("info", f"Workspace used by Serve: {workspace_dir}")
+    persisted = user_config.get_serve_workspace()
+    if persisted is not None:
+        current = persisted.expanduser().resolve()
+        message("info", f"Selected in user config: {'yes' if current == workspace_dir else 'no'}")
+
+    checks = _serve_workspace_checklist(workspace_dir)
+    for label, ok, detail in checks:
+        prefix = "success" if ok else "warning"
+        marker = "✓" if ok else "•"
+        message(prefix, f"{marker} {label}: {detail}")
+    return 0
+
+
+def _print_workspace_doctor(workspace_dir: Path) -> int:
+    """Run a more action-oriented diagnosis for the workspace Serve is using."""
+    checks = _serve_workspace_checklist(workspace_dir)
+    route_counts = _serve_workspace_route_mode_counts(workspace_dir)
+    blocking_failures: list[tuple[str, str]] = []
+    guidance_items: list[tuple[str, str]] = []
+
+    for label, ok, detail in checks:
+        if ok:
+            continue
+        if label == "route specs present":
+            guidance_items.append((label, detail))
+            continue
+        if label == "live config valid" and route_counts["live"] == 0:
+            guidance_items.append(
+                (
+                    label,
+                    f"{detail} (expected until a route is promoted to live)",
+                )
+            )
+            continue
+        blocking_failures.append((label, detail))
+
+    message("info", f"Serve workspace doctor: {workspace_dir}")
+    if not blocking_failures and not guidance_items:
+        message("success", "✓ Workspace looks healthy")
+        message("info", "Next: run 'autocleaneeg-pipeline serve up' to start the normal Serve experience")
+        return 0
+
+    if blocking_failures:
+        message("warning", f"Found {len(blocking_failures)} blocking issue(s):")
+        for label, detail in blocking_failures:
+            message("warning", f"- {label}: {detail}")
+
+    if guidance_items:
+        message("info", "Setup guidance:")
+        for label, detail in guidance_items:
+            message("info", f"- {label}: {detail}")
+
+    if any("runtime CLI" in label for label, _detail in blocking_failures):
+        message("info", "Try re-running 'autocleaneeg-pipeline serve workspace --mode existing --path <dir>' to rebuild runtimes")
+    if any("route specs present" in label for label, _detail in guidance_items):
+        message("info", "Create a route in the UI or with 'autocleaneeg-pipeline serve route upsert ...'")
+    if any("config valid" in label for label, _detail in blocking_failures):
+        message("info", "Open Settings in the Serve UI or run 'autocleaneeg-pipeline serve validate --mode <test|live>'")
+    if any(label == "live config valid" for label, _detail in guidance_items):
+        message("info", "Promote a validated route when you are ready to operate in live mode")
+    if not blocking_failures:
+        message("success", "✓ Workspace infrastructure is healthy; setup is not fully complete yet")
+        return 0
+    return 1
+
+
 def cmd_serve_workspace(args) -> int:
-    """Configure or validate the automation serve workspace."""
+    """Configure or validate the workspace Serve should use."""
     existing = user_config.get_serve_workspace()
     if existing:
-        message("info", f"Current automation workspace: {existing}")
+        message("info", f"Current workspace used by Serve: {existing}")
     else:
-        message("info", "No automation workspace configured")
+        message("info", "No workspace configured for Serve")
+
+    action = getattr(args, "workspace_action", None)
+
+    if action == "status":
+        workspace_dir = _resolve_serve_workspace_dir(args.path)
+        if workspace_dir is None:
+            message("error", "No workspace configured for Serve")
+            return 1
+        return _print_workspace_status(workspace_dir)
+
+    if action == "doctor":
+        workspace_dir = _resolve_serve_workspace_dir(args.path)
+        if workspace_dir is None:
+            message("error", "No workspace configured for Serve")
+            return 1
+        return _print_workspace_doctor(workspace_dir)
+
+    if action == "use":
+        workspace_dir = _resolve_serve_workspace_dir(args.path)
+        if workspace_dir is None:
+            message("error", "Workspace path is required")
+            return 1
+        if not workspace_dir.exists():
+            message("error", f"Workspace directory does not exist: {workspace_dir}")
+            return 1
+        if not _validate_serve_workspace(_serve_workspace_paths(workspace_dir)) and not _looks_like_cli_workspace(workspace_dir):
+            message(
+                "error",
+                "Workspace must already be a valid Serve workspace or an AutoClean workspace with tasks/output.",
+            )
+            return 1
+        if not user_config.set_serve_workspace(workspace_dir):
+            message("error", "Failed to persist serve workspace setting")
+            return 1
+        message("success", f"✓ Serve will now use workspace: {workspace_dir}")
+        message("info", "Next: run 'autocleaneeg-pipeline serve status' or 'autocleaneeg-pipeline serve up'")
+        return 0
 
     if not args.mode and args.path is None:
         message("info", "Use --mode new --path <dir> to create a workspace")
         message(
             "info", "Use --mode existing --path <dir> to link an existing workspace"
         )
+        message("info", "Use 'serve workspace status' to inspect the selected workspace")
+        message("info", "Use 'serve workspace doctor' to diagnose workspace issues")
         return 0
 
     mode = args.mode
@@ -10389,35 +10877,28 @@ def cmd_serve_workspace(args) -> int:
                 "Workspace directory is not empty; use --mode existing to link",
             )
             return 1
-        workspace_dir.mkdir(parents=True, exist_ok=True)
-        paths["automations"].mkdir(parents=True, exist_ok=True)
-        paths["routes"].mkdir(parents=True, exist_ok=True)
-        paths["runtimes_test"].mkdir(parents=True, exist_ok=True)
-        paths["runtimes_live"].mkdir(parents=True, exist_ok=True)
-        _write_serve_yaml(
-            paths["serve_test"],
-            "test",
-            paths["runtimes_test"],
-            paths["automations"],
+        paths = _bootstrap_serve_workspace(
             workspace_dir,
             args.package,
+            create_workspace_basics=True,
         )
-        _write_serve_yaml(
-            paths["serve_live"],
-            "live",
-            paths["runtimes_live"],
-            paths["automations"],
-            workspace_dir,
-            args.package,
-        )
-        _write_serve_makefile(workspace_dir)
-        _write_workspace_env(workspace_dir)
-        _write_dockerfile(workspace_dir)
-        _write_docker_compose(workspace_dir)
-        _ensure_deploy_dir(paths)
     elif mode == "existing":
-        _ensure_deploy_dir(paths)
-        if not _validate_serve_workspace(paths):
+        if not workspace_dir.exists():
+            message("error", f"Workspace directory does not exist: {workspace_dir}")
+            return 1
+        if _validate_serve_workspace(paths):
+            _ensure_deploy_dir(paths)
+        elif _looks_like_cli_workspace(workspace_dir):
+            paths = _bootstrap_serve_workspace(
+                workspace_dir,
+                args.package,
+                create_workspace_basics=False,
+            )
+        else:
+            message(
+                "error",
+                "Existing path is neither a valid Serve workspace nor a recognizable AutoClean workspace.",
+            )
             return 1
     else:
         message("error", "Serve workspace mode must be 'new' or 'existing'")
@@ -10445,7 +10926,11 @@ def cmd_serve_workspace(args) -> int:
     if not user_config.set_serve_workspace(workspace_dir):
         message("warning", "Failed to persist serve workspace setting")
     else:
-        message("success", f"✓ Serve workspace configured: {workspace_dir}")
+        message("success", f"✓ Serve configured in workspace: {workspace_dir}")
+    message("info", "Next steps:")
+    message("info", "1. Run 'autocleaneeg-pipeline serve up' to start the Serve UI")
+    message("info", "2. Finish route setup in the web UI or with 'serve route upsert'")
+    message("info", "3. Use 'autocleaneeg-pipeline serve status' to confirm processing is active")
     return 0
 
 
@@ -10913,6 +11398,194 @@ def cmd_serve_run(args) -> int:
         f"✓ Serve run complete after {result.cycles} cycles (idle={result.idle_cycles})",
     )
     return 0
+
+
+def _serve_api_request_or_error(port: int, path: str, method: str = "GET", body: dict | None = None) -> tuple[bool, dict | str]:
+    """Call the local Serve API, returning a success flag and payload or error."""
+    try:
+        from autoclean.serve_launcher import _api_request, _check_existing_server
+
+        existing = _check_existing_server(port)
+        if not existing:
+            return False, "Serve is not running. Start it with 'autocleaneeg-pipeline serve up'."
+
+        _pid, resolved_port, _health = existing
+        payload = _api_request(resolved_port, path, method=method, body=body, timeout=20)
+        return True, payload
+    except Exception as exc:
+        return False, str(exc)
+
+
+def _serve_effective_port(args, override_attr: str | None = None) -> int:
+    """Resolve the port for operator subcommands, honoring top-level serve --port."""
+    override = getattr(args, override_attr, None) if override_attr else None
+    if override is not None:
+        return int(override)
+    return int(getattr(args, "port", 8000) or 8000)
+
+
+def cmd_serve_service(args) -> int:
+    """Control the dispatcher through the running Serve server."""
+    action = getattr(args, "service_action", None) or "status"
+    port = _serve_effective_port(args, "service_port")
+
+    if action == "status":
+        ok, payload = _serve_api_request_or_error(port, "/api/service/status")
+        if not ok:
+            message("error", str(payload))
+            return 1
+        status = payload
+        if status.get("running"):
+            message("success", f"✓ Dispatcher running (pid {status.get('pid')})")
+        else:
+            message("info", "Dispatcher is stopped")
+        return 0
+
+    if action == "start":
+        ok, payload = _serve_api_request_or_error(
+            port,
+            "/api/service/start",
+            method="POST",
+            body={
+                "max_cycles": args.max_cycles,
+                "idle_limit": args.idle_limit,
+                "sleep_seconds": args.sleep_seconds,
+                "no_watch": args.no_watch,
+                "no_sentinel": args.no_sentinel,
+            },
+        )
+        if not ok:
+            message("error", str(payload))
+            return 1
+        success = bool(payload.get("success"))
+        log_method = "success" if success else "error"
+        message(log_method, payload.get("message", "Dispatcher start request finished"))
+        return 0 if success else 1
+
+    if action == "stop":
+        ok, payload = _serve_api_request_or_error(port, "/api/service/stop", method="POST", body={})
+        if not ok:
+            message("error", str(payload))
+            return 1
+        success = bool(payload.get("success"))
+        log_method = "success" if success else "error"
+        message(log_method, payload.get("message", "Dispatcher stop request finished"))
+        return 0 if success else 1
+
+    message("error", f"Unknown serve service action: {action}")
+    return 1
+
+
+def cmd_serve_mode(args) -> int:
+    """Inspect or switch the mode of a running Serve session."""
+    action = getattr(args, "mode_action", None) or "status"
+    port = _serve_effective_port(args, "mode_port")
+
+    if action == "status":
+        ok, payload = _serve_api_request_or_error(port, "/api/status")
+        if not ok:
+            message("error", str(payload))
+            return 1
+        mode = payload.get("mode", "unknown")
+        message("info", f"Current Serve mode: {mode}")
+        return 0
+
+    ok, payload = _serve_api_request_or_error(
+        port,
+        "/api/mode/switch",
+        method="POST",
+        body={"mode": action},
+    )
+    if not ok:
+        message("error", str(payload))
+        return 1
+    success = bool(payload.get("success"))
+    log_method = "success" if success else "error"
+    message(log_method, payload.get("message", f"Switched to {action} mode"))
+    return 0 if success else 1
+
+
+def cmd_serve_queue(args) -> int:
+    """Inspect and maintain queue entries through the running Serve server."""
+    from urllib.parse import urlencode, quote
+
+    action = getattr(args, "queue_action", None) or "status"
+    port = _serve_effective_port(args, "queue_port")
+
+    if action == "status":
+        ok, payload = _serve_api_request_or_error(port, "/api/queue/stats")
+        if not ok:
+            message("error", str(payload))
+            return 1
+        message(
+            "info",
+            "Queue: "
+            f"{payload.get('pending', 0)} pending, "
+            f"{payload.get('processing', 0)} processing, "
+            f"{payload.get('processed', 0)} processed, "
+            f"{payload.get('failed', 0)} failed",
+        )
+        return 0
+
+    if action == "list":
+        params: dict[str, str | int] = {
+            "limit": int(getattr(args, "limit", 100) or 100),
+            "offset": int(getattr(args, "offset", 0) or 0),
+        }
+        if getattr(args, "status", None):
+            params["status"] = args.status
+        if getattr(args, "route_id", None):
+            params["route_id"] = args.route_id
+        query = urlencode(params)
+        path = f"/api/queue/entries?{query}" if query else "/api/queue/entries"
+        ok, payload = _serve_api_request_or_error(port, path)
+        if not ok:
+            message("error", str(payload))
+            return 1
+        entries = payload.get("entries", [])
+        if not entries:
+            message("info", "No queue entries matched the current filters.")
+            return 0
+        for entry in entries:
+            route = entry.get("route_id") or "-"
+            message(
+                "info",
+                f"[{entry.get('status', 'pending')}] {entry.get('path')} (route: {route})",
+            )
+        return 0
+
+    if action == "retry-failed":
+        ok, payload = _serve_api_request_or_error(
+            port,
+            "/api/queue/retry",
+            method="POST",
+            body={"paths": list(getattr(args, "paths", []) or [])},
+        )
+        if not ok:
+            message("error", str(payload))
+            return 1
+        message("success", f"Retried {payload.get('retried', 0)} failed queue entr{'y' if payload.get('retried', 0) == 1 else 'ies'}.")
+        return 0
+
+    if action == "clear-processed":
+        ok, payload = _serve_api_request_or_error(port, "/api/queue/processed", method="DELETE")
+        if not ok:
+            message("error", str(payload))
+            return 1
+        message("success", f"Cleared {payload.get('cleared', 0)} processed queue entr{'y' if payload.get('cleared', 0) == 1 else 'ies'}.")
+        return 0
+
+    if action == "remove":
+        path = quote(str(args.path), safe="")
+        ok, payload = _serve_api_request_or_error(port, f"/api/queue/entry/{path}", method="DELETE")
+        if not ok:
+            message("error", str(payload))
+            return 1
+        message("success", f"Removed queue entry: {args.path}")
+        return 0
+
+    message("error", f"Unknown serve queue action: {action}")
+    return 1
 
 
 def cmd_serve_tui(args) -> int:

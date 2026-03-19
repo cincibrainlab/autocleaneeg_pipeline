@@ -43,6 +43,97 @@ def _api_request(port: int, path: str, method: str = "GET",
     return json.loads(resp.read())
 
 
+def _wait_for_health(port: int, attempts: int = 30, delay: float = 0.5) -> dict[str, Any] | None:
+    """Wait for the local API to become healthy."""
+    import time
+
+    for _ in range(attempts):
+        time.sleep(delay)
+        try:
+            return _api_request(port, "/health", timeout=1)
+        except Exception:
+            continue
+    return None
+
+
+def _ensure_operational_service(port: int) -> tuple[bool, list[str]]:
+    """Ensure the dispatcher is running when the workspace is ready.
+
+    Returns:
+        (service_running, messages)
+    """
+    messages: list[str] = []
+
+    try:
+        status = _api_request(port, "/api/status", timeout=3)
+    except Exception as exc:
+        return False, [f"Could not inspect Serve status: {exc}"]
+
+    if not status.get("configured"):
+        messages.append("Workspace not configured yet. Open the UI to choose or create a workspace.")
+        return False, messages
+
+    workspace_dir = status.get("workspace_dir", "unknown workspace")
+    routes = status.get("routes", {}) or {}
+    config = status.get("config", {}) or {}
+    queue = status.get("queue", {}) or {}
+    service = status.get("service", {}) or {}
+
+    if service.get("running"):
+        messages.append(f"Processing service already running for {workspace_dir}.")
+        return True, messages
+
+    if routes.get("total", 0) == 0:
+        messages.append("Serve UI started, but no routes exist yet. Add a route before processing can start.")
+        return False, messages
+
+    if config.get("errors"):
+        messages.append("Serve UI started, but processing was not started because configuration is invalid.")
+        return False, messages
+
+    if config.get("needs_deploy"):
+        try:
+            result = _api_request(port, "/api/config/deploy", method="POST", body={}, timeout=30)
+            if result.get("success"):
+                messages.append("Applied the latest Serve configuration before starting processing.")
+            else:
+                messages.append(result.get("message", "Failed to apply the latest Serve configuration."))
+                return False, messages
+        except Exception as exc:
+            messages.append(f"Serve UI started, but auto-deploy failed: {exc}")
+            return False, messages
+
+    try:
+        result = _api_request(
+            port,
+            "/api/service/start",
+            method="POST",
+            body={
+                "max_cycles": 0,
+                "idle_limit": 0,
+                "sleep_seconds": 1.0,
+                "no_watch": False,
+                "no_sentinel": False,
+            },
+            timeout=10,
+        )
+    except Exception as exc:
+        messages.append(f"Serve UI started, but processing service failed to start: {exc}")
+        return False, messages
+
+    success = bool(result.get("success"))
+    if success:
+        messages.append(result.get("message", "Processing service started."))
+        pending = queue.get("pending", 0)
+        processing = queue.get("processing", 0)
+        if pending or processing:
+            messages.append(f"Queue currently has {pending} pending and {processing} active file(s).")
+        return True, messages
+
+    messages.append(result.get("message", "Processing service did not start."))
+    return False, messages
+
+
 # ── Entry point ───────────────────────────────────────────────────────
 
 
@@ -106,7 +197,6 @@ def main() -> None:
 def _cmd_foreground(args) -> None:
     """Start server in foreground (blocking)."""
     import threading
-    import time
     import webbrowser
 
     if not args.force:
@@ -132,18 +222,26 @@ def _cmd_foreground(args) -> None:
 
     _write_pid_file(port)
 
-    if not args.no_browser:
-        def open_browser() -> None:
-            url = f"http://127.0.0.1:{port}"
-            for _ in range(30):
-                try:
-                    _api_request(port, "/health", timeout=1)
-                    webbrowser.open(url)
-                    return
-                except Exception:
-                    time.sleep(0.5)
+    def post_start_tasks() -> None:
+        health = _wait_for_health(port)
+        if health is None:
+            return
 
-        threading.Thread(target=open_browser, daemon=True).start()
+        if not args.no_browser:
+            try:
+                webbrowser.open(f"http://127.0.0.1:{port}")
+            except Exception:
+                pass
+
+        service_running, messages = _ensure_operational_service(port)
+        for line in messages:
+            print(line)
+        if service_running:
+            print("Serve is operational: UI and processing service are both running.")
+        elif workspace:
+            print("Serve UI is running, but processing is not fully active yet.")
+
+    threading.Thread(target=post_start_tasks, daemon=True).start()
 
     from autoclean.api.server import run_server
 
@@ -194,19 +292,34 @@ def _cmd_up(args) -> int:
     log_f.close()  # Parent doesn't need the FD
 
     # Wait for health check
-    import time
     port = args.port
-    for _ in range(30):
-        time.sleep(0.5)
-        try:
-            _api_request(port, "/health", timeout=1)
+    child_pid = 0
+    health = _wait_for_health(port)
+    if health is None:
+        existing = _check_existing_server(args.port)
+        if existing is not None:
+            child_pid, port, health = existing
+        else:
+            print(f"Server did not respond within 15s. Check {log_path}")
+            return 1
+    else:
+        child_pid = _read_pid_from_file()
+
+    if health is not None:
+        if child_pid == 0:
             child_pid = _read_pid_from_file()
-            print(f"AutoCleanEEG Serve started (pid {child_pid}, port {port}).")
-            _print_server_urls(port)
-            print(f"  Log:     {log_path}")
-            return 0
-        except Exception:
-            pass
+        print(f"AutoCleanEEG Serve started (pid {child_pid}, port {port}).")
+        _print_server_urls(port)
+        print(f"  Log:     {log_path}")
+
+        service_running, messages = _ensure_operational_service(port)
+        for line in messages:
+            print(f"  {line}")
+        if service_running:
+            print("  Operational state: UI + processing service are running.")
+        else:
+            print("  Operational state: UI is running; processing still needs attention.")
+        return 0
 
     print(f"Server did not respond within 15s. Check {log_path}")
     return 1
@@ -310,6 +423,54 @@ def _cmd_status(default_port: int) -> int:
         version = health.get("pipeline_version", "?")
         workspace = "configured" if health.get("workspace_configured") else "not configured"
         print(f"  Mode: {mode}  |  Version: {version}  |  Workspace: {workspace}")
+
+    try:
+        status = _api_request(port, "/api/status", timeout=3)
+    except Exception as exc:
+        print(f"  Status detail unavailable: {exc}")
+        return 0
+
+    if not status.get("configured"):
+        print("  Workspace setup is incomplete.")
+        print("  Next: choose or create a workspace in the web UI.")
+        return 0
+
+    service = status.get("service", {}) or {}
+    routes = status.get("routes", {}) or {}
+    queue = status.get("queue", {}) or {}
+    config = status.get("config", {}) or {}
+
+    dispatcher = "running" if service.get("running") else "stopped"
+    print(f"  Dispatcher: {dispatcher}")
+    if service.get("running") and service.get("pid"):
+        print(f"  Dispatcher PID: {service['pid']}")
+
+    print(
+        "  Routes: "
+        f"{routes.get('active', 0)} active"
+        + (f", {routes.get('archived', 0)} archived" if routes.get("archived", 0) else "")
+    )
+    print(
+        "  Queue: "
+        f"{queue.get('pending', 0)} pending, "
+        f"{queue.get('processing', 0)} processing, "
+        f"{queue.get('failed', 0)} failed"
+    )
+
+    if config.get("errors"):
+        print("  Config: invalid")
+    elif config.get("needs_deploy"):
+        print("  Config: valid but unapplied changes exist")
+    else:
+        print("  Config: ready")
+
+    if not service.get("running"):
+        if routes.get("total", 0) == 0:
+            print("  Next: add a route before processing can begin.")
+        elif config.get("errors"):
+            print("  Next: fix configuration errors, then start processing.")
+        else:
+            print("  Next: restart with 'autocleaneeg-pipeline serve up' or start processing from the UI.")
     return 0
 
 

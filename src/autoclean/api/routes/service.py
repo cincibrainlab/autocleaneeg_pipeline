@@ -71,7 +71,11 @@ class ServiceStartRequest(BaseModel):
     """Optional settings for starting the service."""
 
     max_cycles: int = Field(default=0, ge=0, description="Max cycles (0 = unlimited)")
-    idle_limit: int = Field(default=2, ge=0, description="Idle cycles before exiting")
+    idle_limit: int = Field(
+        default=0,
+        ge=0,
+        description="Idle cycles before exiting (0 = keep running)",
+    )
     sleep_seconds: float = Field(default=1.0, ge=0, description="Sleep between cycles in seconds")
     no_watch: bool = Field(default=False, description="Disable watchfiles usage")
     no_sentinel: bool = Field(default=False, description="Disable sentinel requirement")

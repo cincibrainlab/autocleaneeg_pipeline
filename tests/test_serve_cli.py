@@ -94,6 +94,121 @@ class TestServeWorkspaceValidation:
         assert _validate_serve_workspace(paths)
 
 
+class TestServeWorkspaceCommands:
+    """Tests for explicit workspace inspection and switching commands."""
+
+    def test_workspace_status_uses_selected_workspace(self, tmp_path: Path) -> None:
+        from autoclean.cli import cmd_serve_workspace
+
+        workspace = create_minimal_serve_workspace(tmp_path)
+        args = MagicMock()
+        args.workspace_action = "status"
+        args.path = None
+        args.mode = None
+        args.package = "autocleaneeg-pipeline"
+
+        with patch("autoclean.cli.user_config") as mock_config:
+            mock_config.get_serve_workspace.return_value = workspace
+            assert cmd_serve_workspace(args) == 0
+
+    def test_workspace_doctor_reports_missing_components(self, tmp_path: Path) -> None:
+        from autoclean.cli import cmd_serve_workspace
+
+        workspace = create_minimal_serve_workspace(tmp_path)
+        (workspace / "serve-test.yaml").unlink()
+
+        args = MagicMock()
+        args.workspace_action = "doctor"
+        args.path = workspace
+        args.mode = None
+        args.package = "autocleaneeg-pipeline"
+
+        with patch("autoclean.cli.user_config") as mock_config:
+            mock_config.get_serve_workspace.return_value = workspace
+            assert cmd_serve_workspace(args) == 1
+
+    def test_workspace_doctor_treats_unpromoted_live_as_guidance(self, tmp_path: Path) -> None:
+        from autoclean.cli import cmd_serve_workspace
+
+        workspace = create_minimal_serve_workspace(tmp_path)
+        (workspace / "routes").mkdir()
+        runtime_cli = workspace / "runtimes" / "test" / ".venv" / "bin" / "autocleaneeg-pipeline"
+        runtime_cli.parent.mkdir(parents=True)
+        runtime_cli.write_text("", encoding="utf-8")
+        live_runtime_cli = workspace / "runtimes" / "live" / ".venv" / "bin" / "autocleaneeg-pipeline"
+        live_runtime_cli.parent.mkdir(parents=True)
+        live_runtime_cli.write_text("", encoding="utf-8")
+
+        args = MagicMock()
+        args.workspace_action = "doctor"
+        args.path = workspace
+        args.mode = None
+        args.package = "autocleaneeg-pipeline"
+
+        with patch("autoclean.cli.user_config") as mock_config:
+            mock_config.get_serve_workspace.return_value = workspace
+            with patch("autoclean.cli._validate_serve_yaml", side_effect=lambda config, mode, workspace_dir: mode == "test"):
+                assert cmd_serve_workspace(args) == 0
+
+    def test_workspace_use_persists_selection(self, tmp_path: Path) -> None:
+        from autoclean.cli import cmd_serve_workspace
+
+        workspace = create_minimal_serve_workspace(tmp_path)
+        args = MagicMock()
+        args.workspace_action = "use"
+        args.path = workspace
+        args.mode = None
+        args.package = "autocleaneeg-pipeline"
+
+        with patch("autoclean.cli.user_config") as mock_config:
+            mock_config.get_serve_workspace.return_value = None
+            mock_config.set_serve_workspace.return_value = True
+            assert cmd_serve_workspace(args) == 0
+            mock_config.set_serve_workspace.assert_called_once()
+
+    def test_workspace_use_rejects_arbitrary_existing_directory(self, tmp_path: Path) -> None:
+        from autoclean.cli import cmd_serve_workspace
+
+        workspace = tmp_path / "random-folder"
+        workspace.mkdir()
+        (workspace / "notes.txt").write_text("not a workspace", encoding="utf-8")
+
+        args = MagicMock()
+        args.workspace_action = "use"
+        args.path = workspace
+        args.mode = None
+        args.package = "autocleaneeg-pipeline"
+
+        with patch("autoclean.cli.user_config") as mock_config:
+            mock_config.get_serve_workspace.return_value = None
+            assert cmd_serve_workspace(args) == 1
+
+    def test_workspace_existing_bootstraps_normal_workspace(self, tmp_path: Path) -> None:
+        from autoclean.cli import cmd_serve_workspace
+
+        workspace = tmp_path / "workspace"
+        (workspace / "tasks").mkdir(parents=True)
+        (workspace / "output").mkdir(parents=True)
+
+        args = MagicMock()
+        args.workspace_action = None
+        args.path = workspace
+        args.mode = "existing"
+        args.package = "autocleaneeg-pipeline"
+        args.skip_uv = True
+        args.no_test = True
+
+        with patch("autoclean.cli.user_config") as mock_config:
+            mock_config.get_serve_workspace.return_value = None
+            mock_config.set_serve_workspace.return_value = True
+            assert cmd_serve_workspace(args) == 0
+
+        assert (workspace / "serve-test.yaml").exists()
+        assert (workspace / "serve-live.yaml").exists()
+        assert (workspace / "routes").exists()
+        assert (workspace / "automations").exists()
+
+
 class TestResolveWorkspaceDir:
     """Tests for workspace directory resolution."""
 
@@ -120,6 +235,622 @@ class TestResolveWorkspaceDir:
         # Create a path that looks like it has a tilde
         result = _resolve_serve_workspace_dir(tmp_path)
         assert result.is_absolute()
+
+    def test_resolve_serve_workspace_uses_main_workspace_root(self, tmp_path: Path, monkeypatch) -> None:
+        """Serve should resolve through the normal persisted workspace root."""
+        from autoclean.utils.user_config import UserConfigManager
+        import autoclean.cli as cli_module
+
+        config_home = tmp_path / "config-home"
+        docs_home = tmp_path / "docs-home"
+        monkeypatch.setattr("platformdirs.user_config_dir", lambda app, appauthor=None: str(config_home))
+        monkeypatch.setattr("platformdirs.user_documents_dir", lambda: str(docs_home))
+
+        setup_json = config_home / "setup.json"
+        setup_json.parent.mkdir(parents=True, exist_ok=True)
+        workspace = tmp_path / "workspace-root"
+        legacy_serve = tmp_path / "legacy-serve-root"
+        setup_json.write_text(
+            json.dumps(
+                {
+                    "config_directory": str(workspace),
+                    "serve_workspace": str(legacy_serve),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        manager = UserConfigManager()
+        monkeypatch.setattr(cli_module, "user_config", manager)
+
+        from autoclean.cli import _resolve_serve_workspace_dir
+
+        assert _resolve_serve_workspace_dir(None) == workspace.resolve()
+
+
+class TestServeWorkspaceRootAlignment:
+    """Tests for Serve alignment with the normal workspace root."""
+
+    def test_get_serve_workspace_prefers_main_workspace_root(self, tmp_path: Path, monkeypatch) -> None:
+        from autoclean.utils.user_config import UserConfigManager
+
+        config_home = tmp_path / "config-home"
+        docs_home = tmp_path / "docs-home"
+        monkeypatch.setattr("platformdirs.user_config_dir", lambda app, appauthor=None: str(config_home))
+        monkeypatch.setattr("platformdirs.user_documents_dir", lambda: str(docs_home))
+
+        setup_json = config_home / "setup.json"
+        setup_json.parent.mkdir(parents=True, exist_ok=True)
+        workspace = tmp_path / "workspace-root"
+        legacy_serve = tmp_path / "legacy-serve-root"
+        setup_json.write_text(
+            json.dumps(
+                {
+                    "config_directory": str(workspace),
+                    "serve_workspace": str(legacy_serve),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        manager = UserConfigManager()
+        assert manager.get_serve_workspace() == workspace
+
+    def test_set_serve_workspace_updates_main_workspace_root(self, tmp_path: Path, monkeypatch) -> None:
+        from autoclean.utils.user_config import UserConfigManager
+
+        config_home = tmp_path / "config-home"
+        docs_home = tmp_path / "docs-home"
+        monkeypatch.setattr("platformdirs.user_config_dir", lambda app, appauthor=None: str(config_home))
+        monkeypatch.setattr("platformdirs.user_documents_dir", lambda: str(docs_home))
+
+        manager = UserConfigManager()
+        workspace = tmp_path / "workspace-root"
+
+        assert manager.set_serve_workspace(workspace) is True
+
+        setup_json = config_home / "setup.json"
+        saved = json.loads(setup_json.read_text(encoding="utf-8"))
+        assert saved["config_directory"] == str(workspace.resolve())
+        assert saved["serve_workspace"] == str(workspace.resolve())
+        assert manager.config_dir == workspace.resolve()
+        assert manager.tasks_dir == workspace.resolve() / "tasks"
+
+
+class TestTaskCreateCli:
+    """Tests for workspace-local task creation from the CLI."""
+
+    def test_task_create_writes_template_file(self, tmp_path: Path) -> None:
+        from autoclean.cli import cmd_task_create
+
+        workspace = tmp_path / "workspace"
+        tasks_dir = workspace / "tasks"
+        tasks_dir.mkdir(parents=True)
+
+        args = MagicMock()
+        args.class_name = "MyCustomTask"
+        args.file_name = None
+        args.force = False
+
+        with patch("autoclean.cli.user_config") as mock_config:
+            mock_config.tasks_dir = tasks_dir
+            mock_config.get_serve_tasks_dir.return_value = None
+            assert cmd_task_create(args) == 0
+
+        task_file = tasks_dir / "MyCustomTask.py"
+        assert task_file.exists()
+        assert "class MyCustomTask" in task_file.read_text(encoding="utf-8")
+
+    def test_task_create_prefers_selected_serve_workspace(self, tmp_path: Path) -> None:
+        from autoclean.cli import cmd_task_create
+
+        serve_workspace = tmp_path / "serve-workspace"
+        serve_tasks_dir = serve_workspace / "tasks"
+        serve_tasks_dir.mkdir(parents=True)
+        legacy_tasks_dir = tmp_path / "legacy-workspace" / "tasks"
+        legacy_tasks_dir.mkdir(parents=True)
+
+        args = MagicMock()
+        args.class_name = "ServeTask"
+        args.file_name = None
+        args.force = False
+
+        with patch("autoclean.cli.user_config") as mock_config:
+            mock_config.tasks_dir = legacy_tasks_dir
+            mock_config.get_serve_tasks_dir.return_value = serve_tasks_dir
+            assert cmd_task_create(args) == 0
+
+        assert (serve_tasks_dir / "ServeTask.py").exists()
+        assert not (legacy_tasks_dir / "ServeTask.py").exists()
+
+    def test_task_install_prefers_selected_serve_workspace(self, tmp_path: Path) -> None:
+        from autoclean.cli import cmd_task_install
+
+        serve_workspace = tmp_path / "serve-workspace"
+        serve_tasks_dir = serve_workspace / "tasks"
+        serve_tasks_dir.mkdir(parents=True)
+        legacy_tasks_dir = tmp_path / "legacy-workspace" / "tasks"
+        legacy_tasks_dir.mkdir(parents=True)
+
+        args = MagicMock()
+        args.task_source = "RestingState_Basic"
+        args.source = "library"
+        args.name = None
+        args.force = False
+        args.activate = False
+
+        fake_registry = MagicMock()
+        fake_registry.get_task.return_value = object()
+
+        def materialize(task_name: str, target_dir: Path):
+            dest = target_dir / f"{task_name}.py"
+            dest.write_text("class RestingState_Basic: pass", encoding="utf-8")
+            return dest
+
+        fake_registry.materialize_task_to.side_effect = materialize
+
+        with patch("autoclean.cli.BuiltinRegistry", return_value=fake_registry):
+            with patch("autoclean.cli.user_config") as mock_config:
+                mock_config.tasks_dir = legacy_tasks_dir
+                mock_config.get_serve_tasks_dir.return_value = serve_tasks_dir
+                assert cmd_task_install(args) == 0
+
+        assert (serve_tasks_dir / "RestingState_Basic.py").exists()
+        assert not (legacy_tasks_dir / "RestingState_Basic.py").exists()
+
+    def test_task_sync_prefers_selected_serve_workspace(self, tmp_path: Path) -> None:
+        from autoclean.cli import cmd_task_sync
+
+        serve_workspace = tmp_path / "serve-workspace"
+        serve_tasks_dir = serve_workspace / "tasks"
+        serve_tasks_dir.mkdir(parents=True)
+        legacy_tasks_dir = tmp_path / "legacy-workspace" / "tasks"
+        legacy_tasks_dir.mkdir(parents=True)
+        (serve_tasks_dir / "ServeTask.py").write_text("class ServeTask: pass", encoding="utf-8")
+
+        args = MagicMock()
+        args.update = False
+        args.dry_run = False
+
+        fake_registry = MagicMock()
+        fake_registry.task_sync_status.return_value = {"status": "synced", "source": "library"}
+
+        with patch("autoclean.cli.BuiltinRegistry", return_value=fake_registry):
+            with patch("autoclean.cli.user_config") as mock_config:
+                mock_config.tasks_dir = legacy_tasks_dir
+                mock_config.get_serve_tasks_dir.return_value = serve_tasks_dir
+                mock_config._extract_task_info.return_value = ("ServeTask", "desc")
+                assert cmd_task_sync(args) == 0
+
+        fake_registry.task_sync_status.assert_called_with("ServeTask", serve_tasks_dir)
+
+    def test_task_delete_prefers_selected_serve_workspace(self, tmp_path: Path) -> None:
+        from autoclean.cli import cmd_task_delete
+
+        serve_tasks_dir = tmp_path / "serve-workspace" / "tasks"
+        serve_tasks_dir.mkdir(parents=True)
+        legacy_tasks_dir = tmp_path / "legacy-workspace" / "tasks"
+        legacy_tasks_dir.mkdir(parents=True)
+
+        serve_task = serve_tasks_dir / "ServeTask.py"
+        serve_task.write_text("class ServeTask: pass", encoding="utf-8")
+
+        args = MagicMock()
+        args.target = "ServeTask"
+        args.force = True
+
+        with patch("autoclean.cli.user_config") as mock_config:
+            mock_config.tasks_dir = legacy_tasks_dir
+            mock_config.get_serve_tasks_dir.return_value = serve_tasks_dir
+            assert cmd_task_delete(args) == 0
+
+        assert not serve_task.exists()
+
+    def test_task_diff_prefers_selected_serve_workspace(self, tmp_path: Path) -> None:
+        from autoclean.cli import cmd_task_diff
+
+        serve_tasks_dir = tmp_path / "serve-workspace" / "tasks"
+        serve_tasks_dir.mkdir(parents=True)
+        legacy_tasks_dir = tmp_path / "legacy-workspace" / "tasks"
+        legacy_tasks_dir.mkdir(parents=True)
+
+        serve_task = serve_tasks_dir / "ServeTask.py"
+        serve_task.write_text("class ServeTask: pass\n", encoding="utf-8")
+        source_file = tmp_path / "ServeTask-source.py"
+        source_file.write_text("class ServeTask: pass\n", encoding="utf-8")
+
+        args = MagicMock()
+        args.task_name = "ServeTask"
+        args.context = 3
+        args.color = True
+
+        fake_registry = MagicMock()
+        fake_registry.get_task.return_value = MagicMock(path="ServeTask.py")
+        fake_registry._cache_path_for.return_value = source_file
+
+        with patch("autoclean.cli.BuiltinRegistry", return_value=fake_registry):
+            with patch("autoclean.cli.user_config") as mock_config:
+                mock_config.tasks_dir = legacy_tasks_dir
+                mock_config.get_serve_tasks_dir.return_value = serve_tasks_dir
+                assert cmd_task_diff(args) == 0
+
+    def test_task_search_prefers_selected_serve_workspace(self, tmp_path: Path) -> None:
+        from autoclean.cli import cmd_task_search
+
+        serve_tasks_dir = tmp_path / "serve-workspace" / "tasks"
+        serve_tasks_dir.mkdir(parents=True)
+        legacy_tasks_dir = tmp_path / "legacy-workspace" / "tasks"
+        legacy_tasks_dir.mkdir(parents=True)
+
+        (serve_tasks_dir / "ServeTask.py").write_text("class ServeTask: pass\n", encoding="utf-8")
+
+        args = MagicMock()
+        args.query = "serve"
+        args.source = "all"
+
+        fake_registry = MagicMock()
+        fake_registry._cache_index_path.return_value = tmp_path / "missing-index.json"
+        fake_registry._pkg_index_text.return_value = json.dumps(
+            {"tasks": [{"name": "ServeTask", "description": "Serve task", "category": "custom"}]}
+        )
+
+        with patch("autoclean.cli.BuiltinRegistry", return_value=fake_registry):
+            with patch("autoclean.cli.user_config") as mock_config:
+                mock_config.tasks_dir = legacy_tasks_dir
+                mock_config.get_serve_tasks_dir.return_value = serve_tasks_dir
+                mock_config._extract_task_info.return_value = ("ServeTask", "Serve task")
+                assert cmd_task_search(args) == 0
+
+    def test_task_diagnose_prefers_selected_serve_workspace(self, tmp_path: Path) -> None:
+        from autoclean.cli import cmd_task_diagnose
+
+        serve_tasks_dir = tmp_path / "serve-workspace" / "tasks"
+        serve_tasks_dir.mkdir(parents=True)
+        legacy_tasks_dir = tmp_path / "legacy-workspace" / "tasks"
+        legacy_tasks_dir.mkdir(parents=True)
+
+        (serve_tasks_dir / "ServeTask.py").write_text("class ServeTask: pass\n", encoding="utf-8")
+
+        args = MagicMock()
+
+        fake_registry = MagicMock()
+        fake_registry.task_sync_status.return_value = {"status": "synced"}
+        fake_registry.manifest.task_record.return_value = None
+        fake_registry.registry_status.return_value = {"commit": "abc123", "synced_at": None}
+        fake_registry.cache_root = tmp_path / "cache"
+        fake_registry.cache_root.mkdir()
+
+        with patch("autoclean.cli.BuiltinRegistry", return_value=fake_registry):
+            with patch("autoclean.cli.user_config") as mock_config:
+                mock_config.tasks_dir = legacy_tasks_dir
+                mock_config.config_dir = tmp_path / "legacy-workspace"
+                mock_config.get_serve_tasks_dir.return_value = serve_tasks_dir
+                mock_config.get_active_task.return_value = None
+                mock_config._extract_task_info.return_value = ("ServeTask", "Serve task")
+                assert cmd_task_diagnose(args) == 0
+
+        fake_registry.task_sync_status.assert_called_with("ServeTask", serve_tasks_dir)
+
+    def test_task_list_prefers_selected_serve_workspace(self, tmp_path: Path) -> None:
+        from autoclean.cli import cmd_list_tasks
+
+        serve_tasks_dir = tmp_path / "serve-workspace" / "tasks"
+        serve_tasks_dir.mkdir(parents=True)
+        legacy_tasks_dir = tmp_path / "legacy-workspace" / "tasks"
+        legacy_tasks_dir.mkdir(parents=True)
+
+        args = MagicMock()
+        args.overrides = False
+        args.source = "all"
+        args.status = "all"
+        args.category = "all"
+        args.format = "json"
+
+        fake_registry = MagicMock()
+        fake_registry.registry_status.return_value = {}
+        fake_registry.list_tasks.return_value = []
+
+        discovered = [
+            MagicMock(name="ServeTask", description="Serve task", source=str(serve_tasks_dir / "ServeTask.py")),
+        ]
+        discovered[0].name = "ServeTask"
+        discovered[0].description = "Serve task"
+        discovered[0].source = str(serve_tasks_dir / "ServeTask.py")
+
+        with patch("autoclean.cli.BuiltinRegistry", return_value=fake_registry):
+            with patch("autoclean.cli.safe_discover_tasks", return_value=(discovered, [], [])):
+                with patch("autoclean.cli.user_config") as mock_config:
+                    mock_config.tasks_dir = legacy_tasks_dir
+                    mock_config.config_dir = tmp_path / "legacy-workspace"
+                    mock_config.get_serve_tasks_dir.return_value = serve_tasks_dir
+                    assert cmd_list_tasks(args) == 0
+
+    def test_task_copy_prefers_selected_serve_workspace(self, tmp_path: Path) -> None:
+        from autoclean.cli import cmd_task_copy
+
+        serve_tasks_dir = tmp_path / "serve-workspace" / "tasks"
+        serve_tasks_dir.mkdir(parents=True)
+        legacy_tasks_dir = tmp_path / "legacy-workspace" / "tasks"
+        legacy_tasks_dir.mkdir(parents=True)
+        source_file = tmp_path / "SourceTask.py"
+        source_file.write_text("class SourceTask:\n    pass\n", encoding="utf-8")
+
+        args = MagicMock()
+        args.source = str(source_file)
+        args.name = "Copied Serve Task"
+        args.force = True
+
+        with patch("autoclean.cli.user_config") as mock_config:
+            mock_config.tasks_dir = legacy_tasks_dir
+            mock_config.config_dir = tmp_path / "legacy-workspace"
+            mock_config.get_serve_tasks_dir.return_value = serve_tasks_dir
+            mock_config._extract_task_info.return_value = ("SourceTask", "desc")
+            assert cmd_task_copy(args) == 0
+
+        copied = serve_tasks_dir / "copied_serve_task.py"
+        assert copied.exists()
+        assert not (legacy_tasks_dir / "copied_serve_task.py").exists()
+
+    def test_task_edit_copies_builtin_into_selected_serve_workspace(self, tmp_path: Path) -> None:
+        from autoclean.cli import cmd_task_edit
+
+        serve_tasks_dir = tmp_path / "serve-workspace" / "tasks"
+        serve_tasks_dir.mkdir(parents=True)
+        legacy_tasks_dir = tmp_path / "legacy-workspace" / "tasks"
+        legacy_tasks_dir.mkdir(parents=True)
+        builtin_source = tmp_path / "BuiltinTask.py"
+        builtin_source.write_text("class BuiltinTask:\n    pass\n", encoding="utf-8")
+
+        args = MagicMock()
+        args.target = "BuiltinTask"
+        args.name = None
+        args.force = True
+
+        discovered = [
+            MagicMock(name="BuiltinTask", description="Builtin task", source=str(builtin_source)),
+        ]
+        discovered[0].name = "BuiltinTask"
+        discovered[0].description = "Builtin task"
+        discovered[0].source = str(builtin_source)
+
+        with patch("autoclean.cli.safe_discover_tasks", return_value=(discovered, [], [])):
+            with patch("autoclean.cli._detect_editor", return_value=["true"]):
+                with patch("autoclean.cli.subprocess.call", return_value=0):
+                    with patch("autoclean.cli.user_config") as mock_config:
+                        mock_config.tasks_dir = legacy_tasks_dir
+                        mock_config.config_dir = tmp_path / "legacy-workspace"
+                        mock_config.get_serve_tasks_dir.return_value = serve_tasks_dir
+                        assert cmd_task_edit(args) == 0
+
+        copied = serve_tasks_dir / "BuiltinTask.py"
+        assert copied.exists()
+        assert not (legacy_tasks_dir / "BuiltinTask.py").exists()
+
+
+class TestServeParserDefaults:
+    """Tests for consistent Serve CLI defaults."""
+
+    def test_serve_parser_defaults_to_port_8000(self) -> None:
+        from autoclean.cli import create_parser
+
+        parser = create_parser()
+        args = parser.parse_args(["serve"])
+        assert args.port == 8000
+
+    def test_top_level_serve_port_flows_to_service_and_queue_commands(self) -> None:
+        from autoclean.cli import create_parser
+
+        parser = create_parser()
+
+        service_args = parser.parse_args(["serve", "--port", "9001", "service", "status"])
+        queue_args = parser.parse_args(["serve", "--port", "9001", "queue", "status"])
+        mode_args = parser.parse_args(["serve", "--port", "9001", "mode", "status"])
+
+        assert service_args.port == 9001
+        assert queue_args.port == 9001
+        assert mode_args.port == 9001
+
+
+class TestServeLauncherOperationalStartup:
+    """Tests for the normal Serve startup path."""
+
+    def test_operational_service_skips_when_workspace_missing(self) -> None:
+        from autoclean.serve_launcher import _ensure_operational_service
+
+        with patch("autoclean.serve_launcher._api_request", return_value={"configured": False}):
+            running, messages = _ensure_operational_service(8000)
+
+        assert running is False
+        assert any("Workspace not configured" in message for message in messages)
+
+    def test_operational_service_skips_when_no_routes(self) -> None:
+        from autoclean.serve_launcher import _ensure_operational_service
+
+        status = {
+            "configured": True,
+            "workspace_dir": "/tmp/workspace",
+            "routes": {"total": 0, "active": 0, "archived": 0},
+            "config": {"errors": [], "needs_deploy": False},
+            "queue": {"pending": 0, "processing": 0, "failed": 0},
+            "service": {"running": False},
+        }
+
+        with patch("autoclean.serve_launcher._api_request", return_value=status):
+            running, messages = _ensure_operational_service(8000)
+
+        assert running is False
+        assert any("no routes" in message.lower() for message in messages)
+
+    def test_operational_service_deploys_then_starts(self) -> None:
+        from autoclean.serve_launcher import _ensure_operational_service
+
+        status = {
+            "configured": True,
+            "workspace_dir": "/tmp/workspace",
+            "routes": {"total": 1, "active": 1, "archived": 0},
+            "config": {"errors": [], "needs_deploy": True},
+            "queue": {"pending": 2, "processing": 1, "failed": 0},
+            "service": {"running": False},
+        }
+
+        def fake_request(port: int, path: str, method: str = "GET", body: dict | None = None, timeout: int = 20):
+            if path == "/api/status":
+                return status
+            if path == "/api/config/deploy":
+                assert method == "POST"
+                return {"success": True, "message": "Deployed"}
+            if path == "/api/service/start":
+                assert method == "POST"
+                assert body is not None
+                assert body["max_cycles"] == 0
+                assert body["idle_limit"] == 0
+                return {"success": True, "message": "Service started (pid 123)"}
+            raise AssertionError(f"Unexpected path: {path}")
+
+        with patch("autoclean.serve_launcher._api_request", side_effect=fake_request):
+            running, messages = _ensure_operational_service(8000)
+
+        assert running is True
+        assert any("Applied the latest Serve configuration" in message for message in messages)
+        assert any("Service started" in message for message in messages)
+
+    def test_operational_service_reports_invalid_config(self) -> None:
+        from autoclean.serve_launcher import _ensure_operational_service
+
+        status = {
+            "configured": True,
+            "workspace_dir": "/tmp/workspace",
+            "routes": {"total": 1, "active": 1, "archived": 0},
+            "config": {"errors": ["bad config"], "needs_deploy": True},
+            "queue": {"pending": 0, "processing": 0, "failed": 0},
+            "service": {"running": False},
+        }
+
+        with patch("autoclean.serve_launcher._api_request", return_value=status):
+            running, messages = _ensure_operational_service(8000)
+
+        assert running is False
+        assert any("configuration is invalid" in message for message in messages)
+
+
+class TestServeServiceCli:
+    """Tests for dispatcher control through the CLI."""
+
+    def test_service_status_requires_running_server(self) -> None:
+        from autoclean.cli import cmd_serve_service
+
+        args = MagicMock()
+        args.service_action = "status"
+        args.port = 8000
+        args.service_port = None
+
+        with patch("autoclean.serve_launcher._check_existing_server", return_value=None):
+            assert cmd_serve_service(args) == 1
+
+    def test_service_start_calls_api(self) -> None:
+        from autoclean.cli import cmd_serve_service
+
+        args = MagicMock()
+        args.service_action = "start"
+        args.port = 8000
+        args.service_port = None
+        args.max_cycles = 0
+        args.idle_limit = 0
+        args.sleep_seconds = 1.0
+        args.no_watch = False
+        args.no_sentinel = False
+
+        with patch("autoclean.serve_launcher._check_existing_server", return_value=(123, 8000, {})):
+            with patch("autoclean.serve_launcher._api_request", return_value={"success": True, "message": "Service started"}):
+                assert cmd_serve_service(args) == 0
+
+    def test_service_stop_calls_api(self) -> None:
+        from autoclean.cli import cmd_serve_service
+
+        args = MagicMock()
+        args.service_action = "stop"
+        args.port = 8000
+        args.service_port = None
+
+        with patch("autoclean.serve_launcher._check_existing_server", return_value=(123, 8000, {})):
+            with patch("autoclean.serve_launcher._api_request", return_value={"success": True, "message": "Service stopped"}):
+                assert cmd_serve_service(args) == 0
+
+
+class TestServeModeCli:
+    """Tests for mode switching through the CLI."""
+
+    def test_mode_status_calls_api(self) -> None:
+        from autoclean.cli import cmd_serve_mode
+
+        args = MagicMock()
+        args.mode_action = "status"
+        args.port = 8000
+        args.mode_port = None
+
+        with patch("autoclean.serve_launcher._check_existing_server", return_value=(123, 8000, {})):
+            with patch("autoclean.serve_launcher._api_request", return_value={"mode": "live"}):
+                assert cmd_serve_mode(args) == 0
+
+    def test_mode_switch_calls_api(self) -> None:
+        from autoclean.cli import cmd_serve_mode
+
+        args = MagicMock()
+        args.mode_action = "live"
+        args.port = 8000
+        args.mode_port = None
+
+        with patch("autoclean.serve_launcher._check_existing_server", return_value=(123, 8000, {})):
+            with patch("autoclean.serve_launcher._api_request", return_value={"success": True, "message": "Switched to live"}):
+                assert cmd_serve_mode(args) == 0
+
+
+class TestServeQueueCli:
+    """Tests for queue inspection and maintenance through the CLI."""
+
+    def test_queue_status_calls_api(self) -> None:
+        from autoclean.cli import cmd_serve_queue
+
+        args = MagicMock()
+        args.queue_action = "status"
+        args.port = 8000
+        args.queue_port = None
+
+        with patch("autoclean.serve_launcher._check_existing_server", return_value=(123, 8000, {})):
+            with patch(
+                "autoclean.serve_launcher._api_request",
+                return_value={"pending": 2, "processing": 1, "processed": 3, "failed": 4},
+            ):
+                assert cmd_serve_queue(args) == 0
+
+    def test_queue_retry_failed_calls_api(self) -> None:
+        from autoclean.cli import cmd_serve_queue
+
+        args = MagicMock()
+        args.queue_action = "retry-failed"
+        args.port = 8000
+        args.queue_port = None
+        args.paths = ["/tmp/a.set"]
+
+        with patch("autoclean.serve_launcher._check_existing_server", return_value=(123, 8000, {})):
+            with patch("autoclean.serve_launcher._api_request", return_value={"retried": 1}) as request:
+                assert cmd_serve_queue(args) == 0
+                request.assert_called_once()
+                assert request.call_args.kwargs["body"] == {"paths": ["/tmp/a.set"]}
+
+    def test_queue_remove_calls_api(self) -> None:
+        from autoclean.cli import cmd_serve_queue
+
+        args = MagicMock()
+        args.queue_action = "remove"
+        args.port = 8000
+        args.queue_port = None
+        args.path = "/tmp/a file.set"
+
+        with patch("autoclean.serve_launcher._check_existing_server", return_value=(123, 8000, {})):
+            with patch("autoclean.serve_launcher._api_request", return_value={"cleared": 1}) as request:
+                assert cmd_serve_queue(args) == 0
+                assert "/api/queue/entry/%2Ftmp%2Fa%20file.set" in request.call_args.args[1]
 
 
 class TestServeRouteCommands:

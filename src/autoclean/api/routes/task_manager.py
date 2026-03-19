@@ -69,11 +69,11 @@ class TaskActionResponse(BaseModel):
 # ── Helpers ─────────────────────────────────────────────────────────
 
 def _get_workspace_dir() -> Optional[Path]:
-    """Return the user workspace tasks directory, or None if unavailable."""
+    """Return the active Serve workspace tasks directory when available."""
     try:
         from autoclean.utils.user_config import UserConfigManager
         mgr = UserConfigManager()
-        return mgr.tasks_dir
+        return mgr.get_serve_tasks_dir() or mgr.tasks_dir
     except Exception as exc:
         logger.debug("UserConfigManager unavailable: %s", exc)
         return None
