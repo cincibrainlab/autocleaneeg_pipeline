@@ -71,6 +71,7 @@ export default function Queue() {
     5000
   );
   const { data: routes } = usePolling<RouteSpec[]>(api.getRoutes, 30000);
+  const { data: status } = usePolling(api.getStatus, 5000);
   const [acting, setActing] = useState(false);
   const [notice, setNotice] = useState<{
     type: "success" | "error";
@@ -217,6 +218,13 @@ export default function Queue() {
       </div>
 
       {(entriesError || statsError) && <ErrorBanner message={entriesError || statsError!} />}
+
+      {status?.configured && status.operational_state !== "ready" && (
+        <div className="rounded-lg border border-border bg-surface-100 px-5 py-3 text-sm text-zinc-400">
+          <span className="font-medium text-zinc-200">Current state:</span>
+          <span className="ml-2">{status.next_step || "Serve is not fully operational yet."}</span>
+        </div>
+      )}
 
       <div className="grid gap-3 rounded-lg border border-border bg-surface-100 p-4 xl:grid-cols-[minmax(0,1fr)_14rem_14rem_18rem]">
         <div>
@@ -369,7 +377,9 @@ export default function Queue() {
                           <p className="text-xs text-zinc-600">
                             {selectedRoute
                               ? "No files are currently queued for the selected route"
-                              : "Files will appear here when the service starts processing"}
+                              : status?.service?.running
+                                ? "Files will appear here when matching routes discover work."
+                                : "Files will appear here when the processing service is running"}
                           </p>
                         </>
                       ) : (

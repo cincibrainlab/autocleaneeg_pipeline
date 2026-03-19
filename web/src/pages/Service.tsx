@@ -64,7 +64,7 @@ export default function Service() {
   // ── Settings state ──────────────────────────────────────────────
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [maxCycles, setMaxCycles] = useState(0);
-  const [idleLimit, setIdleLimit] = useState(2);
+  const [idleLimit, setIdleLimit] = useState(0);
   const [sleepSeconds, setSleepSeconds] = useState(1.0);
   const [noWatch, setNoWatch] = useState(false);
   const [noSentinel, setNoSentinel] = useState(false);
@@ -118,6 +118,12 @@ export default function Service() {
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] gap-3">
       {error && <ErrorBanner message={error} />}
+
+      <div className="rounded-lg border border-border bg-surface-100 px-5 py-3 text-sm text-zinc-400">
+        This page controls the background dispatcher. In normal day-to-day use,
+        <code className="mx-1 rounded bg-surface-50 px-1.5 py-0.5 text-xs text-zinc-200">serve up</code>
+        should already bring this online when the workspace is ready.
+      </div>
 
       {/* ── Control bar ──────────────────────────────────────────── */}
       <div ref={serviceControlRef} className="flex items-center justify-between rounded-lg border border-border bg-surface-100 px-5 py-3 flex-shrink-0">
@@ -257,7 +263,7 @@ export default function Service() {
               <div>
                 <label className="block text-sm text-zinc-400 mb-1">
                   Idle Limit
-                  <span className="text-zinc-600 ml-1">(cycles before exit)</span>
+                  <span className="text-zinc-600 ml-1">(0 = keep running)</span>
                 </label>
                 <input
                   type="number"
@@ -311,6 +317,13 @@ export default function Service() {
             {service?.running && (
               <p className="mt-3 text-xs text-zinc-600">
                 Settings cannot be changed while the service is running.
+              </p>
+            )}
+            {!service?.running && (
+              <p className="mt-3 text-xs text-zinc-600">
+                For normal use, keep <span className="text-zinc-400">Max Cycles</span> and
+                <span className="text-zinc-400"> Idle Limit</span> at
+                <span className="text-zinc-400"> 0</span> so the dispatcher stays up continuously.
               </p>
             )}
           </div>

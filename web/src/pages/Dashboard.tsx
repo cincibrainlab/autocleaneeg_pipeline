@@ -25,6 +25,46 @@ function getRecommendation(data: DashboardStatus) {
   return null;
 }
 
+function getOperationalSummary(data: DashboardStatus) {
+  const state = data.operational_state;
+  if (state === "setup_incomplete") {
+    return {
+      label: "Setup Incomplete",
+      tone: "text-cyan-400 border-cyan-500/30 bg-cyan-500/10",
+      description: data.next_step || "Create a route to finish initial setup.",
+    };
+  }
+  if (state === "blocked") {
+    return {
+      label: "Blocked",
+      tone: "text-red-400 border-red-500/30 bg-red-500/10",
+      description: data.next_step || "Fix configuration problems before processing can start.",
+    };
+  }
+  if (state === "needs_apply") {
+    return {
+      label: "Needs Apply",
+      tone: "text-amber-400 border-amber-500/30 bg-amber-500/10",
+      description: data.next_step || "Apply the latest configuration before processing uses it.",
+    };
+  }
+  if (state === "ui_only") {
+    return {
+      label: "UI Only",
+      tone: "text-cyan-400 border-cyan-500/30 bg-cyan-500/10",
+      description: data.next_step || "The UI is running, but the processing service is stopped.",
+    };
+  }
+  return {
+    label: "Operational",
+    tone: "text-brand border-brand/30 bg-brand/10",
+    description:
+      data.processing_state === "processing"
+        ? "Serve is operational and actively processing files."
+        : "Serve is operational. The UI and processing service are both ready.",
+  };
+}
+
 export default function Dashboard() {
   const { data, error, loading, refresh } = usePolling<DashboardStatus>(
     api.getStatus,
@@ -32,6 +72,7 @@ export default function Dashboard() {
   );
   const navigate = useNavigate();
   const recommendation = data ? getRecommendation(data) : null;
+  const operational = data ? getOperationalSummary(data) : null;
   const { startTutorial, completed, isActive } = useTutorial();
   const statsRef = useTutorialTarget("dashboard-stats");
 
@@ -58,6 +99,20 @@ export default function Dashboard() {
       </div>
 
       {error && <ErrorBanner message={error} />}
+
+      {data && data.configured && operational && (
+        <div className={`rounded-lg border px-5 py-4 ${operational.tone}`}>
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold">{operational.label}</p>
+              <p className="text-sm opacity-90">{operational.description}</p>
+            </div>
+            <div className="text-xs opacity-80">
+              {data.service.running ? "Dispatcher running" : "Dispatcher stopped"}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* No workspace configured card */}
       {data && !data.configured && (

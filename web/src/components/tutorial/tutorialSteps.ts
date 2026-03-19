@@ -78,7 +78,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     route: "/settings",
     title: "Apply the Configuration",
     description:
-      "Routes are compiled into a serve config. Click \"Apply\" to deploy the current settings so the service can use them.",
+      "Routes are compiled into a serve config. Click \"Apply\" to publish the current settings so the processing service can use them.",
     action: "waiting",
     isModal: false,
   },
@@ -89,7 +89,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     route: "/service",
     title: "Start the Processing Service",
     description:
-      "The service watches your configured folders and dispatches EEG files for processing. Click \"Start Service\" to begin.",
+      "The service watches your configured folders and dispatches EEG files for processing. In normal use, `serve up` should already bring this online. Click \"Start Service\" here if it is still stopped.",
     action: "waiting",
     isModal: false,
   },

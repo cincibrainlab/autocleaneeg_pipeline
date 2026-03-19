@@ -308,7 +308,7 @@ export default function TasksPage() {
             </p>
           )}
           <p className="mt-2 max-w-2xl text-xs text-zinc-500">
-            Tasks are tied to the shared repository-backed registry. Use in-app actions for install, update, and workspace-local creation, but treat source-of-truth task maintenance as a repository workflow.
+            Tasks are tied to the shared repository-backed registry. Use in-app actions for install, update, removal, and workspace-local creation, but treat source-of-truth task maintenance as a repository workflow.
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">

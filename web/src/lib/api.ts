@@ -41,6 +41,9 @@ export interface DashboardStatus {
   routes: { total: number; active?: number; archived: number };
   config: { errors: string[]; warnings?: string[]; needs_deploy?: boolean; source?: string };
   service: { running: boolean; pid?: number | null; uptime_seconds?: number | null };
+  operational_state?: "setup_incomplete" | "blocked" | "needs_apply" | "ui_only" | "ready" | string;
+  processing_state?: "idle" | "queued" | "processing" | "attention" | string;
+  next_step?: string | null;
 }
 
 export interface QueueEntry {

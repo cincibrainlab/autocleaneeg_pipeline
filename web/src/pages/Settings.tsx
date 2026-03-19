@@ -123,6 +123,12 @@ export default function Settings() {
         </div>
       </div>
 
+      <div className="rounded-lg border border-border bg-surface-100 px-5 py-3 text-sm text-zinc-400">
+        <span className="text-zinc-200 font-medium">Apply</span> copies the current
+        <code className="mx-1 rounded bg-surface-50 px-1.5 py-0.5 text-xs text-zinc-200">{configFile}</code>
+        into the deployed configuration used by processing. Routes can be created in the UI, but the service only uses the applied config.
+      </div>
+
       {configError && <ErrorBanner message={configError} />}
 
       {/* Notice */}

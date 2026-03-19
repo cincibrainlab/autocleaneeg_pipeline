@@ -92,8 +92,15 @@ export default function Setup() {
       <div>
         <h2 className="text-xl font-semibold text-zinc-100">Choose a workspace</h2>
         <p className="text-sm text-zinc-500 mt-1">
-          Open a recent workspace or browse to a folder.
+          Open a recent workspace or browse to the workspace root that Serve should use.
         </p>
+      </div>
+
+      <div className="rounded-lg border border-border bg-surface-100 px-5 py-3 text-sm text-zinc-400">
+        CLI equivalent:
+        <code className="mx-1 rounded bg-surface-50 px-1.5 py-0.5 text-xs text-zinc-200">autocleaneeg-pipeline serve workspace --mode new --path &lt;dir&gt;</code>
+        or
+        <code className="mx-1 rounded bg-surface-50 px-1.5 py-0.5 text-xs text-zinc-200">autocleaneeg-pipeline serve workspace --mode existing --path &lt;dir&gt;</code>
       </div>
 
       {/* Recent workspaces list */}

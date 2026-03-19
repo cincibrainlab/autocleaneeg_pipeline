@@ -262,7 +262,11 @@ export default function RoutesPage() {
       setShowModal(false);
       setEditingRoute(null);
       setForm({ ...emptyForm });
-      showNotice(editingRoute ? `Route '${form.id}' updated` : `Route '${form.id}' created`);
+      showNotice(
+        editingRoute
+          ? `Route '${form.id}' updated. Open Settings and click Apply to publish the latest config.`
+          : `Route '${form.id}' created. Open Settings and click Apply to start using it for processing.`
+      );
       refresh();
       // Advance tutorial from step 3 (route-form) to step 4 (apply-config)
       if (isActive && currentStep === 3) {
@@ -553,6 +557,12 @@ export default function RoutesPage() {
             New Route
           </button>
         </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-surface-100 px-5 py-3 text-sm text-zinc-400">
+        Routes define what Serve watches and how files are processed. Saving a route updates the draft configuration immediately; use
+        <span className="mx-1 font-medium text-zinc-200">Settings → Apply</span>
+        to publish those changes for processing.
       </div>
 
       {error && <ErrorBanner message={error} />}
