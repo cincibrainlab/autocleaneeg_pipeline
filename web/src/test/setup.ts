@@ -16,3 +16,15 @@ HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
   font: "",
   textBaseline: "alphabetic",
 })) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+
+const storageMock = {
+  getItem: vi.fn(() => null),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+  clear: vi.fn(),
+};
+
+Object.defineProperty(window, "localStorage", {
+  value: storageMock,
+  writable: true,
+});
