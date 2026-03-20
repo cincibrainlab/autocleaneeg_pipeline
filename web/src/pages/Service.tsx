@@ -8,8 +8,10 @@ import ErrorBanner from "../components/ErrorBanner";
 import { useTutorial } from "../contexts/TutorialContext";
 import { useTutorialTarget } from "../hooks/useTutorialTarget";
 import { formatUptime } from "../lib/format";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Service() {
+  const { hasPermission } = useAuth();
   const { data: service, error, refresh } = usePolling(
     api.getServiceStatus,
     3000
@@ -156,8 +158,9 @@ export default function Service() {
           service.running ? (
             <button
               onClick={handleStop}
-              disabled={acting}
+              disabled={acting || !hasPermission("service.control")}
               className="rounded-md px-5 py-2 text-sm font-medium border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors duration-150 flex items-center gap-2 disabled:opacity-50"
+              title={!hasPermission("service.control") ? "Operator permission required" : undefined}
             >
               <Square className="w-4 h-4" />
               Stop
@@ -165,8 +168,9 @@ export default function Service() {
           ) : (
             <button
               onClick={handleStart}
-              disabled={acting}
+              disabled={acting || !hasPermission("service.control")}
               className="rounded-md px-5 py-2 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500 transition-colors duration-150 flex items-center gap-2 disabled:opacity-50"
+              title={!hasPermission("service.control") ? "Operator permission required" : undefined}
             >
               <Play className="w-4 h-4" />
               Start Service

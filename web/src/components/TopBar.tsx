@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { Share2, Copy, Check, Loader2, X, Menu, Sun, Moon, Settings2 } from "lucide-react";
+import { Share2, Copy, Check, Loader2, X, Menu, Sun, Moon, Settings2, LogOut } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { usePolling } from "../hooks/usePolling";
 import { api } from "../lib/api";
 import type { TunnelStatus } from "../lib/api";
 import StatusBadge from "./StatusBadge";
+import { useAuth } from "../hooks/useAuth";
 
 const pageTitles: Record<string, string> = {
   "/": "Dashboard",
@@ -59,6 +60,7 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
     api.getTunnelStatus,
     10000
   );
+  const { authStatus, me, refresh: refreshAuthStatus, hasPermission } = useAuth();
 
   const [showPopover, setShowPopover] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
@@ -74,6 +76,7 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
   const { theme, toggle: toggleTheme } = useTheme();
   const title = pageTitles[location.pathname] || "AutoClean";
   const tunnelActive = tunnel?.active ?? false;
+  const shareBlocked = authStatus?.mode === "disabled" || !hasPermission("tunnel.admin");
 
   // Close popover on outside click
   useEffect(() => {
@@ -158,6 +161,34 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
 
       {/* Right: Status indicators */}
       <div className="flex items-center gap-3">
+        {authStatus?.mode === "disabled" && (
+          <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-300">
+            Auth Off
+          </span>
+        )}
+
+        {me?.user && (
+          <div className="flex items-center gap-2 rounded-md border border-border bg-surface-100 px-2.5 py-1.5">
+            <div className="text-right leading-tight">
+              <div className="text-xs font-medium text-zinc-100">
+                {me.user.display_name || me.user.login}
+              </div>
+              <div className="text-[11px] text-zinc-500">{me.user.roles.join(", ")}</div>
+            </div>
+            <button
+              onClick={async () => {
+                await api.logout();
+                refreshAuthStatus();
+                window.location.reload();
+              }}
+              className="rounded p-1 text-zinc-500 hover:bg-surface-50 hover:text-zinc-200"
+              title="Log out"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         {/* Theme toggle */}
         <button
           onClick={toggleTheme}
@@ -172,14 +203,21 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
         <div className="relative" ref={popoverRef}>
           <button
             onClick={handleShare}
-            disabled={starting}
+            disabled={starting || shareBlocked}
             className={[
               "rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-2 transition-colors duration-150",
               tunnelActive
                 ? "bg-brand/20 text-brand border border-brand/40 hover:bg-brand/30"
                 : "border border-border text-zinc-400 hover:text-zinc-200 hover:bg-surface-50",
-              starting ? "opacity-60 cursor-wait" : "",
+              starting || shareBlocked ? "opacity-60 cursor-not-allowed" : "",
             ].join(" ")}
+            title={
+              authStatus?.mode === "disabled"
+                ? "Enable authentication before sharing publicly"
+                : !hasPermission("tunnel.admin")
+                  ? "Admin permission required"
+                  : undefined
+            }
           >
             {starting ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />

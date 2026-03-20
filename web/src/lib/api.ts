@@ -1,17 +1,42 @@
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 
+let csrfToken: string | null = null;
+
+export class ApiError extends Error {
+  status: number;
+  body: string;
+
+  constructor(status: number, body: string) {
+    super(`API ${status}: ${body}`);
+    this.name = "ApiError";
+    this.status = status;
+    this.body = body;
+  }
+}
+
+export function setCsrfToken(token: string | null) {
+  csrfToken = token;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method ?? "GET").toUpperCase();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...((init?.headers as Record<string, string> | undefined) ?? {}),
+  };
+  if (!["GET", "HEAD", "OPTIONS"].includes(method) && csrfToken) {
+    headers["x-csrf-token"] = csrfToken;
+  }
+
   const response = await fetch(path, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
+    credentials: "same-origin",
+    headers,
     ...init,
   });
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`API ${response.status}: ${text}`);
+    throw new ApiError(response.status, text);
   }
 
   if (response.status === 204) {
@@ -149,6 +174,98 @@ export interface TunnelStatus {
   url?: string | null;
   mode?: "quick" | "named" | string;
   password?: string | null;
+}
+
+export interface AuthStatus {
+  enabled: boolean;
+  mode: "disabled" | "oauth" | string;
+  provider?: string | null;
+  configured: boolean;
+  selected_provider_configured?: boolean;
+  authenticated: boolean;
+  providers?: Record<string, { configured: boolean; selected: boolean }>;
+  configured_providers?: string[];
+  bootstrap_allowed?: boolean;
+}
+
+export interface AuthUser {
+  id: string;
+  login: string;
+  email?: string | null;
+  display_name?: string | null;
+  roles: string[];
+  provider: string;
+  last_login_at?: string | null;
+  disabled?: boolean;
+}
+
+export interface MeResponse {
+  user: AuthUser;
+  permissions: string[];
+  csrf_token: string | null;
+}
+
+export interface AuthConfigResponse {
+  mode: "disabled" | "oauth" | string;
+  provider: string;
+  allow_disable_auth: boolean;
+  session: {
+    cookie_name: string;
+    ttl_hours: number;
+    secure: boolean | null;
+  };
+  github: {
+    client_id: string;
+    client_secret: string;
+    redirect_uri: string;
+    allowed_orgs: string[];
+    allowed_users: string[];
+  };
+  oidc: {
+    issuer_url: string;
+    client_id: string;
+    client_secret: string;
+    redirect_uri: string;
+    scopes: string[];
+    allowed_groups: string[];
+    allowed_users: string[];
+    username_claim: string;
+    groups_claim: string;
+  };
+  bootstrap_admins: string[];
+  providers?: Record<string, { configured: boolean; selected: boolean }>;
+}
+
+export interface AdminUsersResponse {
+  users: AuthUser[];
+}
+
+export interface NotificationsConfigResponse {
+  enabled: boolean;
+  provider: "resend" | string;
+  app_base_url: string;
+  resend: {
+    api_key: string;
+    has_api_key?: boolean;
+    sender_email: string;
+    sender_name: string;
+    reply_to: string;
+  };
+  recipients: {
+    service: string[];
+    config_failure: string[];
+    queue_failure: string[];
+    job_failure: string[];
+  };
+  cooldown_minutes: {
+    service: number;
+    config_failure: number;
+    queue_failure: number;
+    job_failure: number;
+  };
+  route_recipients: Record<string, string[]>;
+  daily_digest_recipients: string[];
+  providers?: Record<string, { configured: boolean; selected: boolean }>;
 }
 
 export interface FolderEntry {
@@ -443,6 +560,26 @@ export interface ExcludeEpochTopographyResponse {
 }
 
 export const api = {
+  getAuthStatus: () => json<AuthStatus>("/api/auth/status"),
+  login: (provider = "github") => json<{ provider: string; login_url: string }>("/api/auth/login", "POST", { provider }),
+  logout: () => json<{ success: boolean }>("/api/auth/logout", "POST", {}),
+  getMe: async () => {
+    const result = await json<MeResponse>("/api/auth/me");
+    setCsrfToken(result.csrf_token ?? null);
+    return result;
+  },
+  getAuthConfig: () => json<AuthConfigResponse>("/api/admin/auth/config"),
+  saveAuthConfig: (body: AuthConfigResponse) => json<{ success: boolean }>("/api/admin/auth/config", "PUT", body),
+  getAdminUsers: () => json<AdminUsersResponse>("/api/admin/users"),
+  setUserRoles: (userId: string, roles: string[]) => json<{ success: boolean }>(`/api/admin/users/${encodeURIComponent(userId)}/roles`, "POST", { roles }),
+  removeUserRole: (userId: string, role: string) => json<{ success: boolean }>(`/api/admin/users/${encodeURIComponent(userId)}/roles/${encodeURIComponent(role)}`, "DELETE"),
+  getNotificationsConfig: () => json<NotificationsConfigResponse>("/api/admin/notifications/config"),
+  saveNotificationsConfig: (body: NotificationsConfigResponse) =>
+    json<{ success: boolean; config: NotificationsConfigResponse }>("/api/admin/notifications/config", "PUT", body),
+  sendTestEmail: (to: string[], subject: string, message: string) =>
+    json<{ success: boolean; message_id?: string }>("/api/admin/notifications/test-email", "POST", { to, subject, message }),
+  sendDailyDigest: () =>
+    json<{ success: boolean; message_id?: string }>("/api/admin/notifications/daily-digest", "POST", {}),
   getHealth: () => json<Record<string, any>>("/health"),
   getStatus: () => json<DashboardStatus>("/api/status"),
   switchMode: (mode: "test" | "live") => json<Record<string, any>>("/api/mode/switch", "POST", { mode }),

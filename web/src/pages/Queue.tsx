@@ -9,6 +9,7 @@ import ErrorBanner from "../components/ErrorBanner";
 import { useTutorial } from "../contexts/TutorialContext";
 import { useTutorialTarget } from "../hooks/useTutorialTarget";
 import { relativeTime, formatTime } from "../lib/format";
+import { useAuth } from "../hooks/useAuth";
 
 type StatusFilter = "all" | "pending" | "processing" | "processed" | "failed";
 
@@ -56,6 +57,7 @@ function StatCard({
 // ── Page ─────────────────────────────────────────────────────────
 
 export default function Queue() {
+  const { hasPermission } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedRoute = searchParams.get("route") || "";
   const taskFilter = searchParams.get("task") || "";
@@ -200,16 +202,18 @@ export default function Queue() {
           </button>
           <button
             onClick={handleRetry}
-            disabled={acting || !stats?.failed}
+            disabled={acting || !stats?.failed || !hasPermission("queue.control")}
             className="rounded-md px-3 py-1.5 text-sm font-medium border border-border text-zinc-300 hover:bg-surface-50 transition-colors duration-150 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={!hasPermission("queue.control") ? "Operator permission required" : undefined}
           >
             <RotateCcw className="w-3.5 h-3.5" />
             Retry Failed
           </button>
           <button
             onClick={handleClear}
-            disabled={acting || !stats?.processed}
+            disabled={acting || !stats?.processed || !hasPermission("queue.control")}
             className="rounded-md px-3 py-1.5 text-sm font-medium border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors duration-150 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={!hasPermission("queue.control") ? "Operator permission required" : undefined}
           >
             <Trash2 className="w-3.5 h-3.5" />
             Clear Done

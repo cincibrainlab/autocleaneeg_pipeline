@@ -13,6 +13,7 @@ import TagInput from "../components/TagInput";
 import FolderBrowser from "../components/FolderBrowser";
 import { useTutorial } from "../contexts/TutorialContext";
 import { useTutorialTarget } from "../hooks/useTutorialTarget";
+import { useAuth } from "../hooks/useAuth";
 
 type ViewFilter = "active" | "archived" | "all";
 
@@ -147,6 +148,7 @@ function ActionMenu({
 // ── Page Component ──────────────────────────────────────────────
 
 export default function RoutesPage() {
+  const { hasPermission } = useAuth();
   const { data: routes, error, loading, refresh } = usePolling(api.getRoutes, 10000);
   const [viewFilter, setViewFilter] = useState<ViewFilter>("active");
   const [search, setSearch] = useState("");
@@ -451,21 +453,25 @@ export default function RoutesPage() {
           <button
             onClick={(e) => {
               e.stopPropagation();
+              if (!hasPermission("routes.write")) return;
               openEditModal(r);
             }}
             title="Edit route"
-            className="p-1 rounded hover:bg-surface-50 text-zinc-500 hover:text-zinc-300 transition-colors duration-150"
+            className="p-1 rounded hover:bg-surface-50 text-zinc-500 hover:text-zinc-300 transition-colors duration-150 disabled:opacity-40"
+            disabled={!hasPermission("routes.write")}
           >
             <Pencil className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
+              if (!hasPermission("routes.write")) return;
               setActionMenu(
                 actionMenu?.id === r.id ? null : { id: r.id, trigger: e.currentTarget }
               );
             }}
-            className="p-1 rounded hover:bg-surface-50 text-zinc-500 hover:text-zinc-300 transition-colors duration-150"
+            className="p-1 rounded hover:bg-surface-50 text-zinc-500 hover:text-zinc-300 transition-colors duration-150 disabled:opacity-40"
+            disabled={!hasPermission("routes.write")}
           >
             <MoreVertical className="w-4 h-4" />
           </button>
@@ -499,12 +505,14 @@ export default function RoutesPage() {
           </div>
           <button
             onClick={() => {
+              if (!hasPermission("routes.write")) return;
               setEditingRoute(null);
               setForm({ ...emptyForm });
               setSaveError(null);
               setShowModal(true);
             }}
-            className="mt-2 rounded-md px-3 py-1.5 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500 transition-colors duration-150 flex items-center gap-2"
+            className="mt-2 rounded-md px-3 py-1.5 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500 transition-colors duration-150 flex items-center gap-2 disabled:opacity-50"
+            disabled={!hasPermission("routes.write")}
           >
             <Plus className="w-4 h-4" />
             New Route
@@ -546,12 +554,15 @@ export default function RoutesPage() {
           <button
             ref={newRouteButtonRef}
             onClick={() => {
+              if (!hasPermission("routes.write")) return;
               setEditingRoute(null);
               setForm({ ...emptyForm });
               setSaveError(null);
               setShowModal(true);
             }}
-            className="rounded-md px-3 py-1.5 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500 transition-colors duration-150 flex items-center gap-2"
+            className="rounded-md px-3 py-1.5 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500 transition-colors duration-150 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!hasPermission("routes.write")}
+            title={!hasPermission("routes.write") ? "Editor permission required" : undefined}
           >
             <Plus className="w-4 h-4" />
             New Route
@@ -909,8 +920,9 @@ export default function RoutesPage() {
                 </button>
                 <button
                   onClick={handleSave}
-                  disabled={saving || !form.id || !form.taskfile}
+                  disabled={saving || !form.id || !form.taskfile || !hasPermission("routes.write")}
                   className="rounded-md px-4 py-2 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={!hasPermission("routes.write") ? "Editor permission required" : undefined}
                 >
                   {saving
                     ? editingRoute ? "Saving..." : "Creating..."
