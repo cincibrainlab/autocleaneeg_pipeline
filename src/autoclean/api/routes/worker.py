@@ -8,8 +8,10 @@ import subprocess
 import sys
 from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from autoclean.api.auth.dependencies import require_permission
+from autoclean.api.auth.models import Permission
 from autoclean.api.models import (
     JobInfo,
     WorkerInfo,
@@ -60,7 +62,7 @@ def _get_queue_job_counts() -> tuple[int, int]:
         return 0, 0
 
 
-@router.get("/status", response_model=WorkerStatusResponse)
+@router.get("/status", response_model=WorkerStatusResponse, dependencies=[Depends(require_permission(Permission.WORKER_READ))])
 async def get_worker_status() -> WorkerStatusResponse:
     """Get status of all workers."""
     redis_ok = api_state.check_redis()
@@ -106,7 +108,7 @@ async def get_worker_status() -> WorkerStatusResponse:
     )
 
 
-@router.post("/start", response_model=WorkerStartResponse)
+@router.post("/start", response_model=WorkerStartResponse, dependencies=[Depends(require_permission(Permission.WORKER_CONTROL))])
 async def start_workers(request: WorkerStartRequest) -> WorkerStartResponse:
     """Start RQ worker processes."""
     global _worker_processes
@@ -149,7 +151,7 @@ async def start_workers(request: WorkerStartRequest) -> WorkerStartResponse:
     return WorkerStartResponse(started=len(started_pids), pids=started_pids)
 
 
-@router.post("/stop", response_model=WorkerStopResponse)
+@router.post("/stop", response_model=WorkerStopResponse, dependencies=[Depends(require_permission(Permission.WORKER_CONTROL))])
 async def stop_workers(request: WorkerStopRequest) -> WorkerStopResponse:
     """Stop RQ worker processes."""
     global _worker_processes
@@ -191,7 +193,7 @@ async def stop_workers(request: WorkerStopRequest) -> WorkerStopResponse:
     return WorkerStopResponse(stopped=stopped)
 
 
-@router.get("/jobs", response_model=list[JobInfo])
+@router.get("/jobs", response_model=list[JobInfo], dependencies=[Depends(require_permission(Permission.WORKER_READ))])
 async def list_jobs(
     status: Optional[str] = None,
     limit: int = 50,
@@ -265,7 +267,7 @@ def _job_to_info(job) -> JobInfo:
     )
 
 
-@router.post("/enqueue/{task_name}")
+@router.post("/enqueue/{task_name}", dependencies=[Depends(require_permission(Permission.WORKER_CONTROL))])
 async def enqueue_task(
     task_name: str,
     workspace_dir: Optional[str] = None,
@@ -317,7 +319,7 @@ async def enqueue_task(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@router.get("/job/{job_id}", response_model=JobInfo)
+@router.get("/job/{job_id}", response_model=JobInfo, dependencies=[Depends(require_permission(Permission.WORKER_READ))])
 async def get_job(job_id: str) -> JobInfo:
     """Get information about a specific job."""
     if not api_state.check_redis():
@@ -332,7 +334,7 @@ async def get_job(job_id: str) -> JobInfo:
         raise HTTPException(status_code=404, detail=f"Job not found: {exc}")
 
 
-@router.delete("/job/{job_id}")
+@router.delete("/job/{job_id}", dependencies=[Depends(require_permission(Permission.WORKER_CONTROL))])
 async def cancel_job(job_id: str) -> dict[str, str]:
     """Cancel a queued job."""
     if not api_state.check_redis():

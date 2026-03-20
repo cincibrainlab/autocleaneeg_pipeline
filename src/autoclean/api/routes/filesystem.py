@@ -26,9 +26,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from autoclean.api.auth.dependencies import require_permission
+from autoclean.api.auth.models import Permission
 from autoclean.api.state import api_state
 
 router = APIRouter()
@@ -78,7 +80,7 @@ class BrowseResponse(BaseModel):
 # ── Endpoint ──────────────────────────────────────────────────────────────────
 
 
-@router.get("/browse", response_model=BrowseResponse)
+@router.get("/browse", response_model=BrowseResponse, dependencies=[Depends(require_permission(Permission.FILESYSTEM_BROWSE))])
 async def browse_directory(
     path: Optional[str] = Query(default=None, description="Absolute path to browse"),
 ) -> BrowseResponse:

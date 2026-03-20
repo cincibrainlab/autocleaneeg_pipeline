@@ -15,8 +15,10 @@ import sys
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from autoclean.api.auth.dependencies import require_permission
+from autoclean.api.auth.models import Permission
 
 logger = logging.getLogger(__name__)
 
@@ -277,7 +279,7 @@ def _build_task_detail(discovered_task: Any) -> Optional[TaskDetail]:
 
 # ── Endpoints ──────────────────────────────────────────────────────
 
-@router.get("", response_model=list[TaskDetail])
+@router.get("", response_model=list[TaskDetail], dependencies=[Depends(require_permission(Permission.TASKS_READ))])
 async def list_task_details() -> list[TaskDetail]:
     """Return detailed info for all discovered tasks.
 
@@ -302,7 +304,7 @@ async def list_task_details() -> list[TaskDetail]:
     return results
 
 
-@router.get("/{task_name}", response_model=TaskDetail)
+@router.get("/{task_name}", response_model=TaskDetail, dependencies=[Depends(require_permission(Permission.TASKS_READ))])
 async def get_task_detail(task_name: str) -> TaskDetail:
     """Return detailed info for a single task by name."""
     try:

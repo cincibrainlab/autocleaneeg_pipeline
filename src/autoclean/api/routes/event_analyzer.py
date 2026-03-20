@@ -12,10 +12,12 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from autoclean.api.auth.dependencies import require_permission
+from autoclean.api.auth.models import Permission
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -189,7 +191,7 @@ def _analyze_file(file_path: Path) -> dict[str, Any]:
     }
 
 
-@router.post("/analyze")
+@router.post("/analyze", dependencies=[Depends(require_permission(Permission.EVENT_ANALYZE))])
 async def analyze_events(body: AnalyzeRequest) -> JSONResponse:
     """Analyze events in a raw EEG file. Heavy operation — runs in thread pool."""
     file_path = Path(body.file_path).expanduser().resolve()

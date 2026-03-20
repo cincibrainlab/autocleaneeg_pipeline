@@ -18,10 +18,14 @@ import time
 from collections import deque
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from autoclean.api.auth.dependencies import require_permission
+from autoclean.api.auth.models import Permission
 from autoclean.api.models import ServiceActionResponse, ServiceStatusResponse
+from autoclean.api.notifications.models import NotificationEventKey
+from autoclean.api.notifications.service import try_send_email
 from autoclean.api.state import api_state
 
 logger = logging.getLogger(__name__)
@@ -110,13 +114,21 @@ def get_service_status() -> dict:
 
 # ── Endpoints ────────────────────────────────────────────────────────
 
-@router.get("/status", response_model=ServiceStatusResponse)
+@router.get(
+    "/status",
+    response_model=ServiceStatusResponse,
+    dependencies=[Depends(require_permission(Permission.DASHBOARD_READ))],
+)
 async def status():
     """Get the current service dispatcher status."""
     return get_service_status()
 
 
-@router.post("/start", response_model=ServiceActionResponse)
+@router.post(
+    "/start",
+    response_model=ServiceActionResponse,
+    dependencies=[Depends(require_permission(Permission.SERVICE_CONTROL))],
+)
 async def start_service(settings: ServiceStartRequest | None = None):
     """Start the serve-run dispatcher subprocess."""
     global _process, _start_time, _log_thread
@@ -186,6 +198,12 @@ async def start_service(settings: ServiceStartRequest | None = None):
         _log_thread.start()
 
         logger.info("Started serve dispatcher pid=%d cmd=%s", proc.pid, cmd)
+        try_send_email(
+            event_key=NotificationEventKey.SERVICE,
+            subject=f"AutoClean Serve started ({api_state.mode})",
+            text=f"Serve dispatcher started in {api_state.mode} mode with pid {proc.pid}.",
+            dedupe_key=f"service:{api_state.mode}:started",
+        )
         return ServiceActionResponse(
             success=True,
             message=f"Service started (pid {proc.pid})",
@@ -225,7 +243,11 @@ def _stop_service_blocking() -> tuple[bool, int]:
     return True, pid
 
 
-@router.post("/stop", response_model=ServiceActionResponse)
+@router.post(
+    "/stop",
+    response_model=ServiceActionResponse,
+    dependencies=[Depends(require_permission(Permission.SERVICE_CONTROL))],
+)
 async def stop_service():
     """Stop the serve-run dispatcher subprocess (SIGTERM)."""
     info = get_service_status()
@@ -245,13 +267,22 @@ async def stop_service():
         return ServiceActionResponse(success=False, message="Service is not running")
 
     logger.info("Stopped serve dispatcher pid=%d", pid)
+    try_send_email(
+        event_key=NotificationEventKey.SERVICE,
+        subject=f"AutoClean Serve stopped ({api_state.mode})",
+        text=f"Serve dispatcher stopped in {api_state.mode} mode for pid {pid}.",
+        dedupe_key=f"service:{api_state.mode}:stopped",
+    )
     return ServiceActionResponse(
         success=True,
         message=f"Service stopped (pid {pid})",
     )
 
 
-@router.get("/logs")
+@router.get(
+    "/logs",
+    dependencies=[Depends(require_permission(Permission.DASHBOARD_READ))],
+)
 async def get_service_logs(lines: int = Query(default=100, ge=1, le=500)):
     """Get recent service log output."""
     with _service_lock:

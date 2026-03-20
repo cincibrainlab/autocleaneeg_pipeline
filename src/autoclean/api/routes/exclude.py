@@ -17,14 +17,16 @@ from pathlib import Path
 from typing import Any, Optional
 
 import mne
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
+from autoclean.api.auth.dependencies import require_permission
+from autoclean.api.auth.models import Permission
 from autoclean.api.pdf_extractor import extract_ica_full
 from autoclean.api.state import api_state
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_permission(Permission.EXCLUDE_READ))])
 
 _SUFFIXES = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw", "_clean"]
 _REPROCESS_JOBS: dict[str, dict[str, Any]] = {}
@@ -1244,7 +1246,7 @@ async def get_epoch_review(file_key: str, route_id: str | None = Query(default=N
     }
 
 
-@router.put("/files/{file_key:path}/epoch-review")
+@router.put("/files/{file_key:path}/epoch-review", dependencies=[Depends(require_permission(Permission.EXCLUDE_WRITE))])
 async def save_epoch_review(
     file_key: str, body: EpochReviewUpdate, route_id: str | None = Query(default=None)
 ) -> dict[str, Any]:
@@ -1360,7 +1362,7 @@ async def get_exclude_file_detail(file_key: str, route_id: str | None = Query(de
     )
 
 
-@router.put("/files/{file_key:path}/notes")
+@router.put("/files/{file_key:path}/notes", dependencies=[Depends(require_permission(Permission.EXCLUDE_WRITE))])
 async def save_notes(file_key: str, body: NotesUpdate, route_id: str | None = Query(default=None)) -> dict[str, Any]:
     from datetime import datetime
 
@@ -1376,7 +1378,7 @@ async def save_notes(file_key: str, body: NotesUpdate, route_id: str | None = Qu
     return {"saved": True, "last_updated": record["last_updated"], "server_revision": record["revision"]}
 
 
-@router.put("/files/{file_key:path}/overrides")
+@router.put("/files/{file_key:path}/overrides", dependencies=[Depends(require_permission(Permission.EXCLUDE_WRITE))])
 async def save_overrides(file_key: str, body: OverridesUpdate, route_id: str | None = Query(default=None)) -> dict[str, Any]:
     from datetime import datetime
 
@@ -1425,7 +1427,7 @@ async def save_overrides(file_key: str, body: OverridesUpdate, route_id: str | N
     }
 
 
-@router.post("/files/{file_key:path}/reprocess", response_model=ReprocessResponse)
+@router.post("/files/{file_key:path}/reprocess", response_model=ReprocessResponse, dependencies=[Depends(require_permission(Permission.EXCLUDE_WRITE))])
 async def start_reprocess(
     file_key: str, body: ReprocessRequest, route_id: str | None = Query(default=None)
 ) -> ReprocessResponse:
@@ -1561,7 +1563,7 @@ async def get_reprocess_status(job_id: str) -> dict[str, Any]:
     }
 
 
-@router.post("/qa/export")
+@router.post("/qa/export", dependencies=[Depends(require_permission(Permission.EXCLUDE_WRITE))])
 async def export_to_qa(body: QaExportRequest) -> dict[str, Any]:
     root = _resolve_exports_root()
     task_root = root.parent

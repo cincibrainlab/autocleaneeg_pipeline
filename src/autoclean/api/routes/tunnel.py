@@ -28,9 +28,12 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from autoclean.api.auth.dependencies import require_permission
+from autoclean.api.auth.models import Permission
+from autoclean.api.auth.service import auth_is_enforced
 from autoclean.api.state import api_state
 
 logger = logging.getLogger(__name__)
@@ -172,7 +175,11 @@ class TunnelConfigInput(BaseModel):
 # ── Config endpoints ──────────────────────────────────────────────────
 
 
-@router.get("/config", response_model=TunnelConfigResponse)
+@router.get(
+    "/config",
+    response_model=TunnelConfigResponse,
+    dependencies=[Depends(require_permission(Permission.TUNNEL_ADMIN))],
+)
 async def get_tunnel_config():
     """Return whether a named tunnel is configured (never exposes the token)."""
     config = _load_config()
@@ -183,7 +190,10 @@ async def get_tunnel_config():
     )
 
 
-@router.put("/config")
+@router.put(
+    "/config",
+    dependencies=[Depends(require_permission(Permission.TUNNEL_ADMIN))],
+)
 async def set_tunnel_config(body: TunnelConfigInput):
     """Save a named tunnel token and URL.
 
@@ -210,7 +220,10 @@ async def set_tunnel_config(body: TunnelConfigInput):
     return {"success": True, "message": "Tunnel configuration saved"}
 
 
-@router.delete("/config")
+@router.delete(
+    "/config",
+    dependencies=[Depends(require_permission(Permission.TUNNEL_ADMIN))],
+)
 async def clear_tunnel_config():
     """Remove named tunnel configuration, reverting to Quick Tunnel mode."""
     path = _config_path()
@@ -223,7 +236,11 @@ async def clear_tunnel_config():
 # ── Start / Stop endpoints ────────────────────────────────────────────
 
 
-@router.get("/status", response_model=TunnelStatusResponse)
+@router.get(
+    "/status",
+    response_model=TunnelStatusResponse,
+    dependencies=[Depends(require_permission(Permission.TUNNEL_ADMIN))],
+)
 async def tunnel_status():
     """Get current tunnel status."""
     state = get_tunnel_state()
@@ -373,7 +390,11 @@ def _clear_tunnel_state() -> None:
         _tunnel_mode = None
 
 
-@router.post("/start", response_model=TunnelStartResponse)
+@router.post(
+    "/start",
+    response_model=TunnelStartResponse,
+    dependencies=[Depends(require_permission(Permission.TUNNEL_ADMIN))],
+)
 async def start_tunnel():
     """Start a Cloudflare Tunnel to expose the local server.
 
@@ -384,6 +405,12 @@ async def start_tunnel():
     import os as _os
 
     port: int = int(_os.environ.get("AUTOCLEAN_API_PORT", "8000"))
+
+    if not auth_is_enforced():
+        raise HTTPException(
+            status_code=400,
+            detail="Tunnel sharing requires authentication to be enabled",
+        )
 
     # Already running?
     state = get_tunnel_state()
@@ -445,7 +472,11 @@ def _stop_tunnel_blocking() -> tuple[bool, int]:
     return True, pid
 
 
-@router.post("/stop", response_model=TunnelStopResponse)
+@router.post(
+    "/stop",
+    response_model=TunnelStopResponse,
+    dependencies=[Depends(require_permission(Permission.TUNNEL_ADMIN))],
+)
 async def stop_tunnel():
     """Stop the active tunnel."""
     try:

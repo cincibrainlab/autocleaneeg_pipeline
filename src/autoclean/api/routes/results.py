@@ -22,10 +22,12 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
+from autoclean.api.auth.dependencies import require_permission
+from autoclean.api.auth.models import Permission
 from autoclean.api.state import api_state
 
 logger = logging.getLogger(__name__)
@@ -403,7 +405,11 @@ def _get_stem_and_asset(
 
 # ── Endpoints ────────────────────────────────────────────────────────
 
-@router.get("", response_model=ResultsListResponse)
+@router.get(
+    "",
+    response_model=ResultsListResponse,
+    dependencies=[Depends(require_permission(Permission.RESULTS_READ))],
+)
 async def list_results(
     route_id: str | None = Query(default=None, description="Filter by route ID"),
 ) -> ResultsListResponse:
@@ -417,7 +423,11 @@ async def list_results(
     return ResultsListResponse(runs=summaries, total=len(summaries))
 
 
-@router.get("/{run_id}", response_model=RunDetail)
+@router.get(
+    "/{run_id}",
+    response_model=RunDetail,
+    dependencies=[Depends(require_permission(Permission.RESULTS_READ))],
+)
 async def get_run_detail(run_id: str) -> RunDetail:
     """Full run detail with extracted processing metrics and asset availability."""
     workspace = _require_workspace()
@@ -478,7 +488,10 @@ async def get_run_detail(run_id: str) -> RunDetail:
     )
 
 
-@router.get("/{run_id}/report")
+@router.get(
+    "/{run_id}/report",
+    dependencies=[Depends(require_permission(Permission.RESULTS_READ))],
+)
 async def get_report(run_id: str) -> FileResponse:
     """Serve the autoclean PDF report for a run."""
     workspace = _require_workspace()
@@ -490,7 +503,10 @@ async def get_report(run_id: str) -> FileResponse:
     )
 
 
-@router.get("/{run_id}/ica-report")
+@router.get(
+    "/{run_id}/ica-report",
+    dependencies=[Depends(require_permission(Permission.RESULTS_READ))],
+)
 async def get_ica_report(run_id: str) -> FileResponse:
     """Serve the ICA components PDF report for a run."""
     workspace = _require_workspace()
@@ -502,7 +518,10 @@ async def get_ica_report(run_id: str) -> FileResponse:
     )
 
 
-@router.get("/{run_id}/psd")
+@router.get(
+    "/{run_id}/psd",
+    dependencies=[Depends(require_permission(Permission.RESULTS_READ))],
+)
 async def get_psd(run_id: str) -> FileResponse:
     """Serve the PSD topomap PNG for a run."""
     workspace = _require_workspace()
@@ -514,7 +533,10 @@ async def get_psd(run_id: str) -> FileResponse:
     )
 
 
-@router.get("/{run_id}/overlay")
+@router.get(
+    "/{run_id}/overlay",
+    dependencies=[Depends(require_permission(Permission.RESULTS_READ))],
+)
 async def get_overlay(run_id: str) -> FileResponse:
     """Serve the raw-vs-cleaned overlay PNG for a run."""
     workspace = _require_workspace()
@@ -526,7 +548,10 @@ async def get_overlay(run_id: str) -> FileResponse:
     )
 
 
-@router.get("/{run_id}/metadata")
+@router.get(
+    "/{run_id}/metadata",
+    dependencies=[Depends(require_permission(Permission.RESULTS_READ))],
+)
 async def get_metadata(run_id: str) -> JSONResponse:
     """Return the full autoclean metadata JSON for a run."""
     workspace = _require_workspace()
@@ -556,7 +581,10 @@ async def get_metadata(run_id: str) -> JSONResponse:
     raise HTTPException(status_code=404, detail=f"Metadata not available for run '{run_id}'")
 
 
-@router.get("/{run_id}/channels")
+@router.get(
+    "/{run_id}/channels",
+    dependencies=[Depends(require_permission(Permission.RESULTS_READ))],
+)
 async def get_channels(run_id: str) -> JSONResponse:
     """Return flagged channels as a JSON array, parsed from the TSV file."""
     workspace = _require_workspace()
@@ -599,7 +627,10 @@ async def get_channels(run_id: str) -> JSONResponse:
 # ── ICA PDF endpoints ─────────────────────────────────────────────
 
 
-@router.get("/{run_id}/events")
+@router.get(
+    "/{run_id}/events",
+    dependencies=[Depends(require_permission(Permission.RESULTS_READ))],
+)
 async def get_run_events(run_id: str) -> JSONResponse:
     """Return event analysis for a processed run."""
     workspace = _require_workspace()
@@ -700,7 +731,10 @@ async def get_run_events(run_id: str) -> JSONResponse:
     })
 
 
-@router.get("/export/csv")
+@router.get(
+    "/export/csv",
+    dependencies=[Depends(require_permission(Permission.RESULTS_READ))],
+)
 async def export_results_csv() -> Response:
     """Export all run summaries as a downloadable CSV file."""
     workspace = _require_workspace()
@@ -728,7 +762,10 @@ async def export_results_csv() -> Response:
     )
 
 
-@router.get("/{run_id}/download")
+@router.get(
+    "/{run_id}/download",
+    dependencies=[Depends(require_permission(Permission.RESULTS_READ))],
+)
 async def download_run_artifacts(run_id: str) -> Response:
     """Download all available artifacts for a run as a ZIP archive."""
     import zipfile  # noqa: PLC0415
@@ -754,7 +791,10 @@ async def download_run_artifacts(run_id: str) -> Response:
     )
 
 
-@router.get("/{run_id}/ica/summary")
+@router.get(
+    "/{run_id}/ica/summary",
+    dependencies=[Depends(require_permission(Permission.RESULTS_READ))],
+)
 async def get_ica_summary(run_id: str) -> JSONResponse:
     """Return structured ICA component classification data and PDF page structure."""
     workspace = _require_workspace()
@@ -783,7 +823,10 @@ async def get_ica_summary(run_id: str) -> JSONResponse:
     return JSONResponse(content={"components": components, "structure": structure})
 
 
-@router.get("/{run_id}/ica/page/{page_num}")
+@router.get(
+    "/{run_id}/ica/page/{page_num}",
+    dependencies=[Depends(require_permission(Permission.RESULTS_READ))],
+)
 async def get_ica_page(
     run_id: str,
     page_num: int,
@@ -882,7 +925,10 @@ def _save_decisions(workspace: Path, decisions: dict[str, Any]) -> None:
     path.write_text(json.dumps(decisions, indent=2), encoding="utf-8")
 
 
-@router.get("/decisions")
+@router.get(
+    "/decisions",
+    dependencies=[Depends(require_permission(Permission.RESULTS_READ))],
+)
 async def get_decisions() -> DecisionsResponse:
     """Return all review decisions for the current workspace."""
     workspace = _require_workspace()
@@ -893,7 +939,10 @@ async def get_decisions() -> DecisionsResponse:
     return DecisionsResponse(decisions=records, total=len(records))
 
 
-@router.put("/{run_id}/decision")
+@router.put(
+    "/{run_id}/decision",
+    dependencies=[Depends(require_permission(Permission.RESULTS_WRITE))],
+)
 async def set_decision(run_id: str, body: DecisionInput) -> JSONResponse:
     """Set or update the review decision for a run."""
     from datetime import datetime, timezone  # noqa: PLC0415
@@ -923,7 +972,10 @@ async def set_decision(run_id: str, body: DecisionInput) -> JSONResponse:
     return JSONResponse(content={"success": True, "run_id": run_id, "decision": body.decision})
 
 
-@router.get("/decisions/export/csv")
+@router.get(
+    "/decisions/export/csv",
+    dependencies=[Depends(require_permission(Permission.RESULTS_READ))],
+)
 async def export_decisions_csv() -> Response:
     """Export decisions as a downloadable CSV file."""
     workspace = _require_workspace()

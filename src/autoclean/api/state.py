@@ -63,6 +63,15 @@ class APIState:
             raise HTTPException(status_code=500, detail="Workspace not configured")
         return self.workspace_dir / f"queue-{self.mode}.json"
 
+    def get_serve_state_dir(self, create: bool = False) -> Path:
+        """Return the workspace-local directory for Serve runtime state."""
+        if not self.workspace_dir:
+            raise HTTPException(status_code=500, detail="Workspace not configured")
+        path = self.workspace_dir / ".serve"
+        if create:
+            path.mkdir(parents=True, exist_ok=True)
+        return path
+
     def get_config_path(self, deployed: bool = False) -> Path:
         """Get the config path for current mode."""
         if not self.workspace_dir:
@@ -70,6 +79,22 @@ class APIState:
         if deployed:
             return self.workspace_dir / "deploy" / f"serve-{self.mode}.yaml"
         return self.workspace_dir / f"serve-{self.mode}.yaml"
+
+    def get_auth_config_path(self) -> Path:
+        """Return the workspace-scoped Serve auth config path."""
+        if not self.workspace_dir:
+            raise HTTPException(status_code=500, detail="Workspace not configured")
+        return self.workspace_dir / "serve-auth.json"
+
+    def get_auth_db_path(self, create_parent: bool = False) -> Path:
+        """Return the SQLite path reserved for Serve auth/runtime state."""
+        return self.get_serve_state_dir(create=create_parent) / "serve_state.db"
+
+    def get_notifications_config_path(self) -> Path:
+        """Return the workspace-scoped Serve notifications config path."""
+        if not self.workspace_dir:
+            raise HTTPException(status_code=500, detail="Workspace not configured")
+        return self.workspace_dir / "notifications.json"
 
     def check_redis(self) -> bool:
         """Check if Redis is connected."""

@@ -9,12 +9,14 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import Response
 
 from autoclean.api.state import APIState, api_state
+from autoclean.api.auth.dependencies import require_permission
+from autoclean.api.auth.models import Permission
 
 
 # OpenAPI tag metadata for better documentation
@@ -153,6 +155,11 @@ Connect to `/ws/events` for live updates:
 """,
     },
 ]
+
+
+def _is_local_request(request: Request) -> bool:
+    client_host = request.client.host if request.client else "127.0.0.1"
+    return client_host in {"127.0.0.1", "::1", "testclient"}
 
 
 # ── Recent workspaces helpers ─────────────────────────────────────────────────
@@ -327,9 +334,14 @@ REST API for managing automated EEG file processing pipelines.
 
     # Import routes here to avoid circular imports
     from autoclean.api import events
-    from autoclean.api.routes import config, event_analyzer, exclude, filesystem, montage_browser, queue, results, serve_routes, service, task_browser, task_manager, tunnel, tutorial, worker
+    from autoclean.api.routes import admin_audit, admin_auth, admin_notifications, admin_users, auth, config, event_analyzer, exclude, filesystem, montage_browser, queue, results, serve_routes, service, task_browser, task_manager, tunnel, tutorial, worker
 
     # Include routers
+    app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
+    app.include_router(admin_audit.router, prefix="/api/admin", tags=["Admin"])
+    app.include_router(admin_auth.router, prefix="/api/admin", tags=["Admin"])
+    app.include_router(admin_notifications.router, prefix="/api/admin", tags=["Admin"])
+    app.include_router(admin_users.router, prefix="/api/admin", tags=["Admin"])
     app.include_router(queue.router, prefix="/api/queue", tags=["Queue"])
     app.include_router(worker.router, prefix="/api/worker", tags=["Worker"])
     app.include_router(config.router, prefix="/api/config", tags=["Config"])
@@ -399,7 +411,10 @@ REST API for managing automated EEG file processing pipelines.
             content="Authentication required",
         )
 
-    @app.post("/api/mode/switch")
+    @app.post(
+        "/api/mode/switch",
+        dependencies=[Depends(require_permission(Permission.CONFIG_DEPLOY))],
+    )
     async def switch_mode(body: dict[str, str]) -> dict[str, Any]:
         """Switch between test and live mode (Stripe-style toggle).
 
@@ -434,7 +449,7 @@ REST API for managing automated EEG file processing pipelines.
         }
 
     @app.post("/api/setup/workspace")
-    async def setup_workspace(body: dict) -> dict[str, Any]:
+    async def setup_workspace(body: dict, request: Request) -> dict[str, Any]:
         """Configure or switch the serve workspace.
 
         Called by the workspace picker to open an existing workspace or create
@@ -442,6 +457,9 @@ REST API for managing automated EEG file processing pipelines.
         api_state in-place — no server restart required.
         """
         from fastapi import HTTPException as _HTTPException
+
+        if not _is_local_request(request):
+            raise _HTTPException(status_code=403, detail="Workspace setup is only allowed from localhost")
 
         path = body.get("path", "")
         create_new = body.get("create_new", False)
@@ -509,8 +527,11 @@ REST API for managing automated EEG file processing pipelines.
         }
 
     @app.get("/api/workspaces/recent")
-    async def get_recent_workspaces() -> dict[str, Any]:
+    async def get_recent_workspaces(request: Request) -> dict[str, Any]:
         """Return list of recently used workspaces with health info."""
+        if not _is_local_request(request):
+            from fastapi import HTTPException as _HTTPException
+            raise _HTTPException(status_code=403, detail="Recent workspaces are only available from localhost")
         recent = _load_recent_workspaces()
         results = []
         for path_str in recent[:10]:
@@ -550,7 +571,10 @@ REST API for managing automated EEG file processing pipelines.
             "pipeline_version": pipeline_version,
         }
 
-    @app.get("/api/status")
+    @app.get(
+        "/api/status",
+        dependencies=[Depends(require_permission(Permission.DASHBOARD_READ))],
+    )
     async def get_status() -> dict[str, Any]:
         """Full workspace status snapshot for the dashboard."""
         from autoclean.utils.serve_routes import load_route_specs

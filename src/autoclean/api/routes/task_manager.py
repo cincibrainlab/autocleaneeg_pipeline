@@ -10,9 +10,11 @@ import logging
 from pathlib import Path
 from typing import Any, Literal, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from autoclean.api.auth.dependencies import require_permission
+from autoclean.api.auth.models import Permission
 from autoclean.api.routes.task_browser import TaskConfig
 
 logger = logging.getLogger(__name__)
@@ -144,7 +146,7 @@ def _sync_status_for_builtin(name: str, workspace_dir: Optional[Path]) -> tuple[
 
 # ── GET /api/task-manager ────────────────────────────────────────────
 
-@router.get("", response_model=TaskManagerResponse)
+@router.get("", response_model=TaskManagerResponse, dependencies=[Depends(require_permission(Permission.TASKS_READ))])
 async def get_task_manager() -> TaskManagerResponse:
     """Return unified task catalog merging library, builtin, and workspace tasks."""
 
@@ -260,7 +262,7 @@ async def get_task_manager() -> TaskManagerResponse:
 
 # ── POST /api/task-manager/install ──────────────────────────────────
 
-@router.post("/install", response_model=TaskActionResponse)
+@router.post("/install", response_model=TaskActionResponse, dependencies=[Depends(require_permission(Permission.TASKS_WRITE))])
 async def install_task(body: InstallRequest) -> TaskActionResponse:
     """Install a task from the library/builtin registry into the workspace."""
 
@@ -288,7 +290,7 @@ async def install_task(body: InstallRequest) -> TaskActionResponse:
 
 # ── POST /api/task-manager/create ───────────────────────────────────
 
-@router.post("/create", response_model=TaskActionResponse)
+@router.post("/create", response_model=TaskActionResponse, dependencies=[Depends(require_permission(Permission.TASKS_WRITE))])
 async def create_task(body: CreateRequest) -> TaskActionResponse:
     """Create a new task from the custom task template."""
 
@@ -346,7 +348,7 @@ async def create_task(body: CreateRequest) -> TaskActionResponse:
 
 # ── POST /api/task-manager/refresh-library ──────────────────────────
 
-@router.post("/refresh-library", response_model=TaskActionResponse)
+@router.post("/refresh-library", response_model=TaskActionResponse, dependencies=[Depends(require_permission(Permission.TASKS_WRITE))])
 async def refresh_library() -> TaskActionResponse:
     """Refresh the GitHub registry cache."""
 
@@ -368,7 +370,7 @@ async def refresh_library() -> TaskActionResponse:
 
 # ── POST /api/task-manager/{task_name}/update ───────────────────────
 
-@router.post("/{task_name}/update", response_model=TaskActionResponse)
+@router.post("/{task_name}/update", response_model=TaskActionResponse, dependencies=[Depends(require_permission(Permission.TASKS_WRITE))])
 async def update_task(task_name: str) -> TaskActionResponse:
     """Re-materialize a task from the registry to pick up the latest version."""
 
@@ -399,7 +401,7 @@ async def update_task(task_name: str) -> TaskActionResponse:
 
 # ── DELETE /api/task-manager/{task_name} ────────────────────────────
 
-@router.delete("/{task_name}", response_model=TaskActionResponse)
+@router.delete("/{task_name}", response_model=TaskActionResponse, dependencies=[Depends(require_permission(Permission.TASKS_WRITE))])
 async def remove_task(task_name: str) -> TaskActionResponse:
     """Remove a task file from the workspace tasks directory."""
 

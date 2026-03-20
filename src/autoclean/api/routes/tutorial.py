@@ -12,8 +12,10 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from autoclean.api.auth.dependencies import require_permission
+from autoclean.api.auth.models import Permission
 from autoclean.api.state import api_state
 
 logger = logging.getLogger(__name__)
@@ -106,7 +108,7 @@ def _generate_tutorial_data(tutorial_dir: Path) -> Path:
     raise RuntimeError("Could not export synthetic EEG file in any format")
 
 
-@router.post("/setup")
+@router.post("/setup", dependencies=[Depends(require_permission(Permission.TUTORIAL_WRITE))])
 async def tutorial_setup() -> dict[str, Any]:
     """Generate a synthetic EEG .set file for the tutorial.
 
@@ -153,7 +155,7 @@ async def tutorial_setup() -> dict[str, Any]:
     }
 
 
-@router.post("/cleanup")
+@router.post("/cleanup", dependencies=[Depends(require_permission(Permission.TUTORIAL_WRITE))])
 async def tutorial_cleanup() -> dict[str, Any]:
     """Remove tutorial artifacts.
 

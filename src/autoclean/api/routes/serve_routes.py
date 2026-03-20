@@ -11,8 +11,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from autoclean.api.auth.dependencies import require_permission
+from autoclean.api.auth.models import Permission
 from autoclean.api.models import (
     MontageOption,
     RouteActionResponse,
@@ -36,7 +38,11 @@ def _require_workspace():
 
 # ── List / Read ──────────────────────────────────────────────────────
 
-@router.get("/discovery/tasks", response_model=list[TaskOption])
+@router.get(
+    "/discovery/tasks",
+    response_model=list[TaskOption],
+    dependencies=[Depends(require_permission(Permission.ROUTES_READ))],
+)
 async def list_tasks():
     """Return available task files that can be assigned to routes."""
     _require_workspace()
@@ -57,7 +63,11 @@ async def list_tasks():
         return []
 
 
-@router.get("/discovery/montages", response_model=list[MontageOption])
+@router.get(
+    "/discovery/montages",
+    response_model=list[MontageOption],
+    dependencies=[Depends(require_permission(Permission.ROUTES_READ))],
+)
 async def list_montages():
     """Return available montage configurations."""
     _require_workspace()
@@ -77,7 +87,11 @@ async def list_montages():
         return []
 
 
-@router.get("", response_model=list[RouteSpecResponse])
+@router.get(
+    "",
+    response_model=list[RouteSpecResponse],
+    dependencies=[Depends(require_permission(Permission.ROUTES_READ))],
+)
 async def list_routes():
     """List route specs filtered by the current mode."""
     _require_workspace()
@@ -94,7 +108,11 @@ async def list_routes():
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@router.get("/{route_id}", response_model=RouteSpecResponse)
+@router.get(
+    "/{route_id}",
+    response_model=RouteSpecResponse,
+    dependencies=[Depends(require_permission(Permission.ROUTES_READ))],
+)
 async def get_route(route_id: str):
     """Get a single route spec by ID."""
     _require_workspace()
@@ -111,7 +129,11 @@ async def get_route(route_id: str):
 
 # ── Create / Update ─────────────────────────────────────────────────
 
-@router.post("", response_model=RouteActionResponse)
+@router.post(
+    "",
+    response_model=RouteActionResponse,
+    dependencies=[Depends(require_permission(Permission.ROUTES_WRITE))],
+)
 async def upsert_route(body: RouteUpsertRequest):
     """Create or update a route spec."""
     _require_workspace()
@@ -134,7 +156,11 @@ async def upsert_route(body: RouteUpsertRequest):
 
 # ── Delete ───────────────────────────────────────────────────────────
 
-@router.delete("/{route_id}", response_model=RouteActionResponse)
+@router.delete(
+    "/{route_id}",
+    response_model=RouteActionResponse,
+    dependencies=[Depends(require_permission(Permission.ROUTES_WRITE))],
+)
 async def delete_route(route_id: str):
     """Delete a route spec (must be archived first)."""
     _require_workspace()
@@ -152,7 +178,11 @@ async def delete_route(route_id: str):
 
 # ── Lifecycle actions ────────────────────────────────────────────────
 
-@router.post("/{route_id}/promote", response_model=RouteActionResponse)
+@router.post(
+    "/{route_id}/promote",
+    response_model=RouteActionResponse,
+    dependencies=[Depends(require_permission(Permission.ROUTES_WRITE))],
+)
 async def promote_route(route_id: str):
     """Promote a route to include the 'live' mode."""
     _require_workspace()
@@ -170,7 +200,11 @@ async def promote_route(route_id: str):
         raise HTTPException(status_code=400, detail=str(exc))
 
 
-@router.post("/{route_id}/archive", response_model=RouteActionResponse)
+@router.post(
+    "/{route_id}/archive",
+    response_model=RouteActionResponse,
+    dependencies=[Depends(require_permission(Permission.ROUTES_WRITE))],
+)
 async def archive_route(route_id: str):
     """Set a route's archived flag to True."""
     _require_workspace()
@@ -188,7 +222,11 @@ async def archive_route(route_id: str):
         raise HTTPException(status_code=400, detail=str(exc))
 
 
-@router.post("/{route_id}/unarchive", response_model=RouteActionResponse)
+@router.post(
+    "/{route_id}/unarchive",
+    response_model=RouteActionResponse,
+    dependencies=[Depends(require_permission(Permission.ROUTES_WRITE))],
+)
 async def unarchive_route(route_id: str):
     """Set a route's archived flag to False."""
     _require_workspace()
@@ -206,7 +244,11 @@ async def unarchive_route(route_id: str):
         raise HTTPException(status_code=400, detail=str(exc))
 
 
-@router.post("/{route_id}/enable", response_model=RouteActionResponse)
+@router.post(
+    "/{route_id}/enable",
+    response_model=RouteActionResponse,
+    dependencies=[Depends(require_permission(Permission.ROUTES_WRITE))],
+)
 async def enable_route(route_id: str):
     """Set a route's enabled flag to True."""
     _require_workspace()
@@ -224,7 +266,11 @@ async def enable_route(route_id: str):
         raise HTTPException(status_code=400, detail=str(exc))
 
 
-@router.post("/{route_id}/disable", response_model=RouteActionResponse)
+@router.post(
+    "/{route_id}/disable",
+    response_model=RouteActionResponse,
+    dependencies=[Depends(require_permission(Permission.ROUTES_WRITE))],
+)
 async def disable_route(route_id: str):
     """Set a route's enabled flag to False."""
     _require_workspace()
@@ -244,7 +290,11 @@ async def disable_route(route_id: str):
 
 # ── Sync ─────────────────────────────────────────────────────────────
 
-@router.post("/sync", response_model=SyncResponse)
+@router.post(
+    "/sync",
+    response_model=SyncResponse,
+    dependencies=[Depends(require_permission(Permission.ROUTES_WRITE))],
+)
 async def sync_routes():
     """Recompile route spec files into serve-*.yaml configs."""
     _require_workspace()

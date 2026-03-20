@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from autoclean.api.auth.dependencies import require_permission
+from autoclean.api.auth.models import Permission
 from autoclean.api.models import (
     ClearResponse,
     EnqueueRequest,
@@ -30,7 +32,11 @@ def _load_queue():
     return IngestionQueue(queue_path)
 
 
-@router.get("/stats", response_model=QueueStats)
+@router.get(
+    "/stats",
+    response_model=QueueStats,
+    dependencies=[Depends(require_permission(Permission.DASHBOARD_READ))],
+)
 async def get_queue_stats() -> QueueStats:
     """Get queue statistics."""
     queue = _load_queue()
@@ -52,7 +58,11 @@ async def get_queue_stats() -> QueueStats:
     )
 
 
-@router.get("/entries", response_model=QueueEntriesResponse)
+@router.get(
+    "/entries",
+    response_model=QueueEntriesResponse,
+    dependencies=[Depends(require_permission(Permission.DASHBOARD_READ))],
+)
 async def get_queue_entries(
     status: Optional[QueueStatus] = Query(default=None, description="Filter by status"),
     route_id: Optional[str] = Query(default=None, description="Filter by route ID"),
@@ -108,7 +118,11 @@ async def get_queue_entries(
     return QueueEntriesResponse(entries=result, total=total, filters=filters)
 
 
-@router.post("/enqueue", response_model=EnqueueResponse)
+@router.post(
+    "/enqueue",
+    response_model=EnqueueResponse,
+    dependencies=[Depends(require_permission(Permission.QUEUE_CONTROL))],
+)
 async def enqueue_files(request: EnqueueRequest) -> EnqueueResponse:
     """Add files to the queue."""
     from pathlib import Path
@@ -133,7 +147,11 @@ async def enqueue_files(request: EnqueueRequest) -> EnqueueResponse:
     return EnqueueResponse(enqueued=enqueued, skipped=skipped)
 
 
-@router.post("/retry", response_model=RetryResponse)
+@router.post(
+    "/retry",
+    response_model=RetryResponse,
+    dependencies=[Depends(require_permission(Permission.QUEUE_CONTROL))],
+)
 async def retry_failed(request: RetryRequest) -> RetryResponse:
     """Retry failed queue entries."""
     queue = _load_queue()
@@ -160,7 +178,11 @@ async def retry_failed(request: RetryRequest) -> RetryResponse:
     return RetryResponse(retried=retried)
 
 
-@router.delete("/entry/{path:path}", response_model=ClearResponse)
+@router.delete(
+    "/entry/{path:path}",
+    response_model=ClearResponse,
+    dependencies=[Depends(require_permission(Permission.QUEUE_CONTROL))],
+)
 async def remove_entry(path: str) -> ClearResponse:
     """Remove a specific entry from the queue."""
     queue = _load_queue()
@@ -180,7 +202,11 @@ async def remove_entry(path: str) -> ClearResponse:
     return ClearResponse(cleared=1)
 
 
-@router.delete("/processed", response_model=ClearResponse)
+@router.delete(
+    "/processed",
+    response_model=ClearResponse,
+    dependencies=[Depends(require_permission(Permission.QUEUE_CONTROL))],
+)
 async def clear_processed() -> ClearResponse:
     """Clear all processed entries from the queue."""
     queue = _load_queue()
@@ -199,7 +225,11 @@ async def clear_processed() -> ClearResponse:
     return ClearResponse(cleared=len(to_remove))
 
 
-@router.delete("/failed", response_model=ClearResponse)
+@router.delete(
+    "/failed",
+    response_model=ClearResponse,
+    dependencies=[Depends(require_permission(Permission.QUEUE_CONTROL))],
+)
 async def clear_failed() -> ClearResponse:
     """Clear all failed entries from the queue."""
     queue = _load_queue()
@@ -218,7 +248,11 @@ async def clear_failed() -> ClearResponse:
     return ClearResponse(cleared=len(to_remove))
 
 
-@router.delete("/all", response_model=ClearResponse)
+@router.delete(
+    "/all",
+    response_model=ClearResponse,
+    dependencies=[Depends(require_permission(Permission.QUEUE_CONTROL))],
+)
 async def clear_all() -> ClearResponse:
     """Clear all entries from the queue."""
     queue = _load_queue()

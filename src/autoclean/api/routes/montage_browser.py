@@ -19,8 +19,10 @@ if matplotlib.get_backend() != "Agg":
     matplotlib.use("Agg")  # Non-interactive backend — only set if not already Agg
 import matplotlib.pyplot as plt
 import numpy as np
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from autoclean.api.auth.dependencies import require_permission
+from autoclean.api.auth.models import Permission
 
 logger = logging.getLogger(__name__)
 
@@ -283,7 +285,7 @@ class MontageDetail(BaseModel):
 
 # ── Endpoints ───────────────────────────────────────────────────────
 
-@router.get("", response_model=MontageListResponse)
+@router.get("", response_model=MontageListResponse, dependencies=[Depends(require_permission(Permission.MONTAGES_READ))])
 async def list_montages() -> MontageListResponse:
     """Return summary info for all montages listed in configs/montages.yaml.
 
@@ -324,7 +326,7 @@ async def list_montages() -> MontageListResponse:
     return MontageListResponse(montages=results, total=len(results))
 
 
-@router.get("/{name:path}", response_model=MontageDetail)
+@router.get("/{name:path}", response_model=MontageDetail, dependencies=[Depends(require_permission(Permission.MONTAGES_READ))])
 async def get_montage_detail(name: str) -> MontageDetail:
     """Return full channel positions, landmarks, and a topomap PNG for one montage.
 

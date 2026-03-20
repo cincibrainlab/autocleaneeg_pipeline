@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import shutil
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from autoclean.api.auth.dependencies import require_permission
+from autoclean.api.auth.models import Permission
 from autoclean.api.models import (
     ConfigResponse,
     DeployResponse,
     RouteInfo,
     ValidateResponse,
 )
+from autoclean.api.notifications.models import NotificationEventKey
+from autoclean.api.notifications.service import try_send_email
 from autoclean.api.state import api_state
 
 router = APIRouter()
@@ -36,7 +40,11 @@ def _load_config():
     return raw_config, config_path
 
 
-@router.get("", response_model=ConfigResponse)
+@router.get(
+    "",
+    response_model=ConfigResponse,
+    dependencies=[Depends(require_permission(Permission.CONFIG_READ))],
+)
 async def get_config() -> ConfigResponse:
     """Get current configuration."""
     from autoclean.utils.ingestion import ServeConfigError, parse_serve_config
@@ -87,7 +95,10 @@ async def get_config() -> ConfigResponse:
     )
 
 
-@router.get("/yaml")
+@router.get(
+    "/yaml",
+    dependencies=[Depends(require_permission(Permission.CONFIG_READ))],
+)
 async def get_config_yaml() -> dict[str, str]:
     """Get raw YAML configuration content."""
     config_path = api_state.get_config_path(deployed=False)
@@ -101,7 +112,11 @@ async def get_config_yaml() -> dict[str, str]:
     return {"content": content, "path": str(config_path)}
 
 
-@router.post("/validate", response_model=ValidateResponse)
+@router.post(
+    "/validate",
+    response_model=ValidateResponse,
+    dependencies=[Depends(require_permission(Permission.CONFIG_READ))],
+)
 async def validate_config() -> ValidateResponse:
     """Validate the current configuration."""
     from autoclean.utils.ingestion import ServeConfigError, parse_serve_config
@@ -121,7 +136,11 @@ async def validate_config() -> ValidateResponse:
         return ValidateResponse(valid=False, errors=[str(exc)], warnings=[])
 
 
-@router.post("/deploy", response_model=DeployResponse)
+@router.post(
+    "/deploy",
+    response_model=DeployResponse,
+    dependencies=[Depends(require_permission(Permission.CONFIG_DEPLOY))],
+)
 async def deploy_config() -> DeployResponse:
     """Deploy configuration from operator to deployed directory."""
     from autoclean.utils.ingestion import ServeConfigError, parse_serve_config
@@ -140,6 +159,13 @@ async def deploy_config() -> DeployResponse:
     try:
         parse_serve_config(raw_config, api_state.workspace_dir, strict=True)
     except ServeConfigError as exc:
+        try_send_email(
+            event_key=NotificationEventKey.CONFIG_FAILURE,
+            subject=f"AutoClean Serve deploy blocked ({api_state.mode})",
+            text="Configuration deploy was blocked because validation failed:\n\n"
+            + "\n".join(f"- {error}" for error in exc.errors),
+            dedupe_key=f"config:{api_state.mode}:deploy-failure:{'|'.join(exc.errors)}",
+        )
         raise HTTPException(
             status_code=400,
             detail=f"Cannot deploy invalid config: {'; '.join(exc.errors)}",
@@ -152,6 +178,12 @@ async def deploy_config() -> DeployResponse:
     try:
         shutil.copy2(source_path, target_path)
     except Exception as exc:
+        try_send_email(
+            event_key=NotificationEventKey.CONFIG_FAILURE,
+            subject=f"AutoClean Serve deploy failed ({api_state.mode})",
+            text=f"Configuration deploy failed while copying {source_path.name} to {target_path.name}:\n\n{exc}",
+            dedupe_key=f"config:{api_state.mode}:copy-failure",
+        )
         raise HTTPException(status_code=500, detail=f"Deploy failed: {exc}")
 
     return DeployResponse(
@@ -162,7 +194,11 @@ async def deploy_config() -> DeployResponse:
     )
 
 
-@router.get("/routes", response_model=list[RouteInfo])
+@router.get(
+    "/routes",
+    response_model=list[RouteInfo],
+    dependencies=[Depends(require_permission(Permission.CONFIG_READ))],
+)
 async def get_routes() -> list[RouteInfo]:
     """Get list of configured routes."""
     from autoclean.utils.ingestion import parse_serve_config
@@ -197,7 +233,11 @@ async def get_routes() -> list[RouteInfo]:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@router.get("/routes/{route_id}", response_model=RouteInfo)
+@router.get(
+    "/routes/{route_id}",
+    response_model=RouteInfo,
+    dependencies=[Depends(require_permission(Permission.CONFIG_READ))],
+)
 async def get_route(route_id: str) -> RouteInfo:
     """Get a specific route by ID."""
     routes = await get_routes()

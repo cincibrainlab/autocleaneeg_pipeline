@@ -8,7 +8,18 @@ from typing import Any, Optional, Set
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from autoclean.api.auth.models import Permission
+from autoclean.api.notifications.models import NotificationEventKey
+from autoclean.api.notifications.service import try_send_email
+from autoclean.api.auth.service import (
+    auth_is_enforced,
+    get_current_user_permissions,
+    load_current_auth_config,
+    utc_now_iso,
+)
+from autoclean.api.auth.store import get_session, revoke_session, touch_session
 from autoclean.api.models import Event, EventType
+from autoclean.api.state import api_state
 
 router = APIRouter()
 
@@ -79,6 +90,39 @@ async def websocket_events(websocket: WebSocket) -> None:
     - Worker status (started, stopped)
     - Config changes (deployed)
     """
+    if auth_is_enforced():
+        config = load_current_auth_config()
+        session_id = websocket.cookies.get(config.session.cookie_name)
+        if not session_id:
+            await websocket.close(code=4401)
+            return
+
+        session = get_session(api_state.get_auth_db_path(create_parent=True), session_id)
+        if session is None or session.revoked_at:
+            await websocket.close(code=4401)
+            return
+
+        expires_at = datetime.fromisoformat(session.expires_at)
+        if expires_at <= datetime.now(timezone.utc):
+            revoke_session(
+                api_state.get_auth_db_path(create_parent=True),
+                session.id,
+                revoked_at=utc_now_iso(),
+            )
+            await websocket.close(code=4401)
+            return
+
+        permissions = get_current_user_permissions(session.user_id)
+        if Permission.EVENTS_READ.value not in permissions:
+            await websocket.close(code=4403)
+            return
+
+        touch_session(
+            api_state.get_auth_db_path(create_parent=True),
+            session.id,
+            last_seen_at=utc_now_iso(),
+        )
+
     await broadcaster.connect(websocket)
 
     try:
@@ -136,6 +180,13 @@ async def emit_queue_update(
             "route_id": route_id,
         },
     )
+    if status == "failed" or action == "failed":
+        try_send_email(
+            event_key=NotificationEventKey.QUEUE_FAILURE,
+            subject="AutoClean Serve queue failure",
+            text=f"Queue entry failed.\n\nPath: {path}\nRoute: {route_id or 'unknown'}\nStatus: {status or 'failed'}",
+            dedupe_key=f"queue-failure:{path}",
+        )
 
 
 async def emit_job_started(job_id: str, task_name: str, args: dict[str, Any]) -> None:
@@ -169,6 +220,12 @@ async def emit_job_failed(job_id: str, error: str) -> None:
             "job_id": job_id,
             "error": error,
         },
+    )
+    try_send_email(
+        event_key=NotificationEventKey.JOB_FAILURE,
+        subject="AutoClean Serve job failure",
+        text=f"Job {job_id} failed.\n\n{error}",
+        dedupe_key=f"job-failure:{job_id}",
     )
 
 
