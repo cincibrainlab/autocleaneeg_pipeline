@@ -185,4 +185,4 @@ If you encounter issues during migration:
 
 - [Changelog](docs/development/changelog.rst) - Detailed version history
 - [Contributing Guide](CONTRIBUTING.md) - For developers
-- [MNE pick_types() Migration](docs/MNE_PICK_TYPES_MIGRATION.md) - Technical migration guide for developers
+- [MNE pick_types() Migration](plans/archive/imported-docs/MNE_PICK_TYPES_MIGRATION.md) - Technical migration guide for developers

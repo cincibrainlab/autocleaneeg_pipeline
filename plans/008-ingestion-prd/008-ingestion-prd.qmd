@@ -6,7 +6,7 @@ date: 2026-01-19
 
 ## Executive Summary
 
-This PRD defines the next implementation stage for ingestion in AutoCleanEEG automation. Building on RFC 007, it specifies per‑file readiness, hash‑based deduplication, provenance subfolders, and JSON receipts, then maps these requirements to the existing codebase structure documented in `docs/CODEBASE_MAP.md`. The outcome is a detailed, test‑first execution plan that is sufficiently precise for end‑to‑end implementation while preserving auditability, uptime, and reproducibility.
+This PRD defines the next implementation stage for ingestion in AutoCleanEEG automation. Building on RFC 007, it specifies per‑file readiness, hash‑based deduplication, provenance subfolders, and JSON receipts, then maps these requirements to the existing codebase structure documented in `plans/archive/imported-docs/CODEBASE_MAP.md`. The outcome is a detailed, test‑first execution plan that is sufficiently precise for end‑to‑end implementation while preserving auditability, uptime, and reproducibility.
 
 ## Background and Context
 
@@ -96,7 +96,7 @@ flowchart TD
 
 ## Codebase Alignment (from CODEBASE_MAP)
 
-The ingestion system should integrate with existing modules rather than creating a parallel stack. The table below maps requirements to current code areas identified in `docs/CODEBASE_MAP.md`.
+The ingestion system should integrate with existing modules rather than creating a parallel stack. The table below maps requirements to current code areas identified in `plans/archive/imported-docs/CODEBASE_MAP.md`.
 
 | Requirement | Primary Module | Supporting Modules |
 |---|---|---|

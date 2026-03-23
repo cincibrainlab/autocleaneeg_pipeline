@@ -40,7 +40,7 @@ The report correctly lists manually detected bad channels, but the channel total
   - Implement a shared helper (likely in `mixins/base.py` or new utility) that appends removal entries to run metadata.
   - Update channel-removal steps (`drop_eog_channels`, outer-layer drop, manual exclude hooks) to call the helper.
 - **Deliverables**
-  - Schema documented in code comments and `docs/channel_count_accuracy_plan.md`.
+  - Schema documented in code comments and `plans/archive/imported-docs/channel_count_accuracy_plan.md`.
   - Helper function with unit tests verifying serialization and deduplication.
 - **Validation**
   - Run targeted unit tests for the helper.
@@ -221,5 +221,5 @@ Tested with existing Chirp run (`128_SteadyState_D3158`):
 2. `src/autoclean/mixins/signal_processing/channels.py` - Track EOG/manual drops
 3. `src/autoclean/mixins/signal_processing/basic_steps.py` - Track outer layer
 4. `src/autoclean/step_functions/reports.py` - Enhanced TSV generation + **metadata passthrough fix**
-5. `docs/channel_count_accuracy_plan.md` - Implementation documentation
+5. `plans/archive/imported-docs/channel_count_accuracy_plan.md` - Implementation documentation
 6. `tests/unit/test_channel_removal_tracking.py` - Comprehensive tests

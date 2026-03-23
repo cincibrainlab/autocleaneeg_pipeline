@@ -8,7 +8,7 @@ Produce a full product requirements document (PRD) for ingestion readiness and a
 
 1. Summarize context and goals from RFC 007, emphasizing per‑file readiness and hashing.
 2. Translate ingestion planning into functional/non‑functional requirements and user journeys.
-3. Map requirements to codebase modules using `docs/CODEBASE_MAP.md`.
+3. Map requirements to codebase modules using `plans/archive/imported-docs/CODEBASE_MAP.md`.
 4. Specify data models, receipt schema, and ingestion state transitions.
 5. Provide a TDD execution plan with phases, tests, and rollout considerations.
 

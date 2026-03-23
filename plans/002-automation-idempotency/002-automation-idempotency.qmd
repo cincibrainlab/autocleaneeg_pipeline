@@ -259,4 +259,4 @@ Idempotency requires that a run can be repeated without corrupting or fragmentin
 - `src/autoclean/core/pipeline.py`
 - `src/autoclean/utils/path_resolution.py`
 - `src/autoclean/utils/config.py`
-- `docs/CODEBASE_MAP.md`
+- `plans/archive/imported-docs/CODEBASE_MAP.md`

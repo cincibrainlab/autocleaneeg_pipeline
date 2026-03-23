@@ -7,7 +7,7 @@ for automation we need to keep adding to the same folder
 investigate the most surgical way to toggle this when we are running automation mode
 examine downstream artifacts and outputs how many would be affected by this
 ultimately the pipeline has to become ideopotent
-we have build a robust code map here  docs/CODEBASE_MAP.md  for your reference and planning
+we have build a robust code map here  plans/archive/imported-docs/CODEBASE_MAP.md  for your reference and planning
 write out a careful analysis, plan, and discussion for this first important step
 
 updates to plan:
@@ -42,4 +42,3 @@ defines the taskfile montage combination to define the automation workspace fold
 and as you think about it whatever else would be helpful
 
 please incorporate thisinto your current planning for 002
-
