@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Play, Square, ChevronDown, ChevronRight } from "lucide-react";
 import { usePolling } from "../hooks/usePolling";
 import { api } from "../lib/api";
-import type { ServiceStartSettings } from "../lib/api";
+import type { DashboardStatus, ServiceStartSettings } from "../lib/api";
 import StatusBadge from "../components/StatusBadge";
 import ErrorBanner from "../components/ErrorBanner";
 import { useTutorial } from "../contexts/TutorialContext";
@@ -12,6 +12,10 @@ import { formatUptime } from "../lib/format";
 export default function Service() {
   const { data: service, error, refresh } = usePolling(
     api.getServiceStatus,
+    3000
+  );
+  const { data: status, refresh: refreshStatus } = usePolling<DashboardStatus>(
+    api.getStatus,
     3000
   );
   const [acting, setActing] = useState(false);
@@ -68,8 +72,22 @@ export default function Service() {
   const [sleepSeconds, setSleepSeconds] = useState(1.0);
   const [noWatch, setNoWatch] = useState(false);
   const [noSentinel, setNoSentinel] = useState(false);
+  const startBlockedReason =
+    service?.blocked_reason ??
+    (status?.operational_state === "needs_apply"
+      ? "Apply the latest configuration changes in Settings before starting the service."
+      : status?.operational_state === "blocked"
+        ? status.next_step ?? "Fix configuration errors before starting the service."
+        : status?.operational_state === "setup_incomplete"
+          ? status.next_step ?? "Create a route before starting the service."
+          : null);
+  const canStart = Boolean(service?.can_start ?? !startBlockedReason);
 
   const handleStart = async () => {
+    if (!canStart) {
+      setActionResult(startBlockedReason ?? "Service cannot be started yet.");
+      return;
+    }
     setActing(true);
     setActionResult(null);
     try {
@@ -83,6 +101,7 @@ export default function Service() {
       const res = await api.startService(settings);
       setActionResult(res.message);
       refresh();
+      refreshStatus();
       // Advance tutorial from start-service (step 5) to watch-queue (step 6)
       if (isActive && currentStep === 5) {
         nextStep();
@@ -103,6 +122,7 @@ export default function Service() {
       const res = await api.stopService();
       setActionResult(res.message);
       refresh();
+      refreshStatus();
     } catch (err) {
       setActionResult(err instanceof Error ? err.message : String(err));
     } finally {
@@ -124,6 +144,12 @@ export default function Service() {
         <code className="mx-1 rounded bg-surface-50 px-1.5 py-0.5 text-xs text-zinc-200">serve up</code>
         should already bring this online when the workspace is ready.
       </div>
+
+      {!service?.running && startBlockedReason && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-5 py-3 text-sm text-amber-200">
+          {startBlockedReason}
+        </div>
+      )}
 
       {/* ── Control bar ──────────────────────────────────────────── */}
       <div ref={serviceControlRef} className="flex items-center justify-between rounded-lg border border-border bg-surface-100 px-5 py-3 flex-shrink-0">
@@ -165,7 +191,8 @@ export default function Service() {
           ) : (
             <button
               onClick={handleStart}
-              disabled={acting}
+              disabled={acting || !canStart}
+              title={!canStart ? startBlockedReason ?? "Service cannot be started yet." : undefined}
               className="rounded-md px-5 py-2 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500 transition-colors duration-150 flex items-center gap-2 disabled:opacity-50"
             >
               <Play className="w-4 h-4" />
@@ -215,10 +242,12 @@ export default function Service() {
                 <>
                   <Play className="w-8 h-8 text-zinc-700 mb-3" />
                   <p className="text-sm text-zinc-500">
-                    Start the service to begin processing
+                    {startBlockedReason ?? "Start the service to begin processing"}
                   </p>
                   <p className="text-xs text-zinc-700 mt-1">
-                    Logs will stream here in real time
+                    {startBlockedReason
+                      ? "Apply or fix the workspace configuration first"
+                      : "Logs will stream here in real time"}
                   </p>
                 </>
               )}

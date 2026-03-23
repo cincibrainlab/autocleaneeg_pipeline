@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 from autoclean.api.models import ServiceActionResponse, ServiceStatusResponse
 from autoclean.api.state import api_state
+from autoclean.utils.ingestion import load_serve_config, parse_serve_config
 
 logger = logging.getLogger(__name__)
 
@@ -87,10 +88,45 @@ def _require_workspace():
         raise HTTPException(status_code=409, detail="Workspace not configured")
 
 
+def _get_start_blocker() -> str | None:
+    """Return a user-facing reason the dispatcher cannot start."""
+    _require_workspace()
+
+    workspace_dir = api_state.workspace_dir
+    assert workspace_dir is not None
+
+    config_path = api_state.get_config_path(deployed=False)
+    deployed_path = api_state.get_config_path(deployed=True)
+
+    try:
+        raw = load_serve_config(config_path)
+        parse_serve_config(raw, workspace_dir, strict=True)
+    except Exception as exc:
+        return f"Fix configuration errors before starting the service: {exc}"
+
+    if not deployed_path.exists():
+        return "Apply the current configuration before starting the service."
+
+    try:
+        deployed_raw = load_serve_config(deployed_path)
+        parse_serve_config(deployed_raw, workspace_dir, strict=True)
+    except Exception as exc:
+        return f"Re-apply the configuration before starting the service: {exc}"
+
+    try:
+        if config_path.read_text() != deployed_path.read_text():
+            return "Apply the latest configuration changes before starting the service."
+    except OSError as exc:
+        return f"Unable to verify deployed configuration: {exc}"
+
+    return None
+
+
 def get_service_status() -> dict:
     """Return service status as a plain dict (used by /api/status too)."""
     global _process, _start_time
 
+    blocker = _get_start_blocker()
     with _service_lock:
         if _process is not None:
             retcode = _process.poll()
@@ -105,6 +141,8 @@ def get_service_status() -> dict:
             "pid": _process.pid if running else None,
             "mode": api_state.mode,
             "uptime_seconds": (time.time() - _start_time) if running and _start_time else None,
+            "can_start": blocker is None,
+            "blocked_reason": blocker,
         }
 
 
@@ -134,10 +172,9 @@ async def start_service(settings: ServiceStartRequest | None = None):
             message=f"Service already running (pid {info['pid']})",
         )
 
-    # Determine which config to use: deployed (deploy/) if it exists,
-    # otherwise the operator config at workspace root.
-    deploy_config = api_state.workspace_dir / "deploy" / f"serve-{api_state.mode}.yaml"
-    use_operator = not deploy_config.exists()
+    blocker = _get_start_blocker()
+    if blocker:
+        raise HTTPException(status_code=409, detail=blocker)
 
     cmd = [
         sys.executable,
@@ -150,8 +187,6 @@ async def start_service(settings: ServiceStartRequest | None = None):
         "--mode",
         api_state.mode,
     ]
-    if use_operator:
-        cmd.append("--use-operator")
 
     # Append optional settings to command
     if settings.max_cycles > 0:

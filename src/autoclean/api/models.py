@@ -342,6 +342,14 @@ class ServiceStatusResponse(BaseModel):
     pid: Optional[int] = Field(default=None, description="Dispatcher PID")
     mode: str = Field(description="Current serve mode")
     uptime_seconds: Optional[float] = Field(default=None, description="Dispatcher uptime in seconds")
+    can_start: bool = Field(
+        default=True,
+        description="Whether the dispatcher can be started with the current workspace state",
+    )
+    blocked_reason: Optional[str] = Field(
+        default=None,
+        description="Reason the dispatcher cannot be started",
+    )
 
 
 class ServiceActionResponse(BaseModel):

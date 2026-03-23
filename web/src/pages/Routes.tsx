@@ -51,6 +51,14 @@ function truncatePath(p: string, max = 40) {
   return "..." + p.slice(-(max - 3));
 }
 
+function getRouteFormError(form: RouteFormData) {
+  if (!form.id.trim()) return "Route ID is required.";
+  if (!form.taskfile.trim()) return "Task is required.";
+  if (!form.montage.trim()) return "Montage is required.";
+  if (form.ingestion_folders.length === 0) return "Add at least one input folder.";
+  return null;
+}
+
 const emptyForm: RouteFormData = {
   id: "",
   taskfile: "",
@@ -252,8 +260,14 @@ export default function RoutesPage() {
 
   const isFiltered = search.length > 0 || viewFilter !== "active";
   const totalRoutes = routes?.length ?? 0;
+  const formError = getRouteFormError(form);
 
   const handleSave = async () => {
+    const validationError = getRouteFormError(form);
+    if (validationError) {
+      setSaveError(validationError);
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -909,7 +923,8 @@ export default function RoutesPage() {
                 </button>
                 <button
                   onClick={handleSave}
-                  disabled={saving || !form.id || !form.taskfile}
+                  disabled={saving || formError !== null}
+                  title={formError ?? undefined}
                   className="rounded-md px-4 py-2 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving

@@ -198,6 +198,84 @@ class TestSetupWorkspaceRoute:
         assert (workspace / "automations").exists()
 
 
+class TestServiceApi:
+    """Tests for Serve service API preflight behavior."""
+
+    def test_service_status_reports_apply_required_when_deploy_missing(
+        self, tmp_path: Path
+    ) -> None:
+        app = create_app(workspace_dir=tmp_path, mode="test")
+        client = TestClient(app)
+        (tmp_path / "serve-test.yaml").write_text("routes: []\n", encoding="utf-8")
+
+        with patch("autoclean.api.routes.service.parse_serve_config"):
+            response = client.get("/api/service/status")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["running"] is False
+        assert payload["can_start"] is False
+        assert "Apply the current configuration" in payload["blocked_reason"]
+
+    def test_service_start_requires_deployed_config(self, tmp_path: Path) -> None:
+        app = create_app(workspace_dir=tmp_path, mode="test")
+        client = TestClient(app)
+        (tmp_path / "serve-test.yaml").write_text("routes: []\n", encoding="utf-8")
+
+        with patch("autoclean.api.routes.service.parse_serve_config"):
+            response = client.post("/api/service/start", json={})
+
+        assert response.status_code == 409
+        assert "Apply the current configuration" in response.json()["detail"]
+
+    def test_service_start_requires_latest_applied_config(self, tmp_path: Path) -> None:
+        app = create_app(workspace_dir=tmp_path, mode="test")
+        client = TestClient(app)
+        (tmp_path / "deploy").mkdir()
+        (tmp_path / "serve-test.yaml").write_text("routes:\n- id: route-a\n", encoding="utf-8")
+        (tmp_path / "deploy" / "serve-test.yaml").write_text(
+            "routes:\n- id: route-b\n", encoding="utf-8"
+        )
+
+        with patch("autoclean.api.routes.service.parse_serve_config"):
+            response = client.post("/api/service/start", json={})
+
+        assert response.status_code == 409
+        assert "Apply the latest configuration changes" in response.json()["detail"]
+
+    def test_service_start_uses_deployed_config_only(self, tmp_path: Path) -> None:
+        app = create_app(workspace_dir=tmp_path, mode="live")
+        client = TestClient(app)
+        (tmp_path / "deploy").mkdir()
+        (tmp_path / "serve-live.yaml").write_text("routes:\n- id: route-a\n", encoding="utf-8")
+        (tmp_path / "deploy" / "serve-live.yaml").write_text(
+            "routes:\n- id: route-a\n", encoding="utf-8"
+        )
+
+        from autoclean.api.routes import service as service_routes
+
+        proc = MagicMock()
+        proc.pid = 4321
+        proc.poll.return_value = None
+        proc.stdout = None
+
+        with patch("autoclean.api.routes.service.parse_serve_config") as mock_parse:
+            with patch("autoclean.api.routes.service.subprocess.Popen", return_value=proc) as mock_popen:
+                response = client.post("/api/service/start", json={})
+
+        try:
+            assert response.status_code == 200
+            payload = response.json()
+            assert payload["success"] is True
+            assert "4321" in payload["message"]
+            cmd = mock_popen.call_args.args[0]
+            assert "--use-operator" not in cmd
+            assert mock_parse.call_count >= 2
+        finally:
+            service_routes._process = None
+            service_routes._start_time = None
+
+
 class TestQueueModels:
     """Tests for queue-related Pydantic models."""
 

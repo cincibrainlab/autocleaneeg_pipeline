@@ -137,6 +137,15 @@ export interface ServiceStartSettings {
   [key: string]: unknown;
 }
 
+export interface ServiceStatus {
+  running: boolean;
+  pid?: number | null;
+  mode: string;
+  uptime_seconds?: number | null;
+  can_start?: boolean;
+  blocked_reason?: string | null;
+}
+
 export interface ValidationResponse {
   valid: boolean;
   errors: string[];
@@ -474,7 +483,7 @@ export const api = {
   validateConfig: () => json<ValidationResponse>("/api/config/validate", "POST", {}),
   deployConfig: () => json<{ success: boolean; message: string }>("/api/config/deploy", "POST", {}),
 
-  getServiceStatus: () => json<Record<string, any>>("/api/service/status"),
+  getServiceStatus: () => json<ServiceStatus>("/api/service/status"),
   getServiceLogs: () => json<{ lines: string[]; total: number }>("/api/service/logs"),
   startService: (settings: ServiceStartSettings) => json<Record<string, any>>("/api/service/start", "POST", settings),
   stopService: () => json<Record<string, any>>("/api/service/stop", "POST", {}),
