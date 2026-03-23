@@ -72,12 +72,7 @@ examples/batch_run.py
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
-.vscode/
-.cursor/
-scripts/
-/scripts
 2502_rest_autoclean_metadata.json
-examples/single_file.py
 /autoclean_icvision_results
 src/.DS_Store
 # coverage artifacts
@@ -92,6 +87,5 @@ test_outputs/
 web/node_modules/
 web/dist/
 web/tsconfig.app.tsbuildinfo
-src/autoclean/api/static/assets/
-src/autoclean/api/static/index.html
 .serve-run.pid
+session-ses_*.md
