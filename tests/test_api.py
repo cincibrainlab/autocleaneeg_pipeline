@@ -114,6 +114,50 @@ class TestTaskManagerWorkspaceResolution:
             mgr.tasks_dir = legacy_tasks_dir
             assert _get_workspace_dir() == serve_tasks_dir
 
+    def test_task_manager_install_accepts_legacy_name_field(self, tmp_path: Path) -> None:
+        app = create_app()
+        client = TestClient(app)
+
+        workspace = tmp_path / "workspace" / "tasks"
+        workspace.mkdir(parents=True)
+
+        dest_path = workspace / "RestingEyesClosed.py"
+
+        with patch("autoclean.api.routes.task_manager._get_workspace_dir", return_value=workspace):
+            with patch("autoclean.utils.builtins.BuiltinRegistry") as mock_registry:
+                mock_registry.return_value.materialize_task_to.return_value = dest_path
+
+                response = client.post(
+                    "/api/task-manager/install",
+                    json={"name": "RestingEyesClosed"},
+                )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["success"] is True
+        assert payload["task_name"] == "RestingEyesClosed"
+        assert payload["path"] == str(dest_path)
+
+    def test_task_manager_create_accepts_legacy_name_field(self, tmp_path: Path) -> None:
+        app = create_app()
+        client = TestClient(app)
+
+        workspace = tmp_path / "workspace" / "tasks"
+        workspace.mkdir(parents=True)
+
+        with patch("autoclean.api.routes.task_manager._get_workspace_dir", return_value=workspace):
+            response = client.post(
+                "/api/task-manager/create",
+                json={"name": "CustomServeTask"},
+            )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["success"] is True
+        assert payload["task_name"] == "CustomServeTask"
+        assert payload["path"] == str(workspace / "CustomServeTask.py")
+        assert (workspace / "CustomServeTask.py").exists()
+
 
 class TestSetupWorkspaceRoute:
     """Tests for API workspace setup behavior."""

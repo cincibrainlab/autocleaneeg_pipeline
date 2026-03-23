@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, Field
 
 from autoclean.api.routes.task_browser import TaskConfig
 
@@ -52,11 +52,11 @@ class TaskManagerResponse(BaseModel):
 
 
 class InstallRequest(BaseModel):
-    task_name: str
+    task_name: str = Field(validation_alias=AliasChoices("task_name", "name"))
 
 
 class CreateRequest(BaseModel):
-    class_name: str
+    class_name: str = Field(validation_alias=AliasChoices("class_name", "name"))
 
 
 class TaskActionResponse(BaseModel):

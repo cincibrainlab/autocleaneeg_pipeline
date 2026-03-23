@@ -489,10 +489,10 @@ export const api = {
   browseFolders: (path?: string) => json<BrowseResponse>(`/api/filesystem/browse${path ? `?path=${encodeURIComponent(path)}` : ""}`),
 
   getTaskManager: () => json<TaskManagerResponse>("/api/task-manager"),
-  installTask: (name: string) => json<TaskActionResponse>("/api/task-manager/install", "POST", { name }),
+  installTask: (name: string) => json<TaskActionResponse>("/api/task-manager/install", "POST", { task_name: name }),
   updateTask: (name: string) => json<TaskActionResponse>(`/api/task-manager/${encodeURIComponent(name)}/update`, "POST", {}),
   removeTask: (name: string) => json<TaskActionResponse>(`/api/task-manager/${encodeURIComponent(name)}`, "DELETE"),
-  createTask: (name: string) => json<TaskActionResponse>("/api/task-manager/create", "POST", { name }),
+  createTask: (name: string) => json<TaskActionResponse>("/api/task-manager/create", "POST", { class_name: name }),
   refreshLibrary: () => json<TaskActionResponse>("/api/task-manager/refresh-library", "POST", {}),
 
   getMontages: () => json<MontageListResponse>("/api/montages"),
