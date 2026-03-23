@@ -6,6 +6,7 @@ import RoutesPage from "./pages/Routes";
 import Queue from "./pages/Queue";
 import Service from "./pages/Service";
 import Settings from "./pages/Settings";
+import Utilities from "./pages/Utilities";
 import TasksPage from "./pages/Tasks";
 import MontagesPage from "./pages/Montages";
 import ResultsPage from "./pages/Results";
@@ -63,6 +64,7 @@ export default function App() {
               <Route path="/queue" element={<Queue />} />
               <Route path="/service" element={<Service />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/utilities" element={<Utilities />} />
               <Route path="/tasks" element={<TasksPage />} />
               <Route path="/montages" element={<MontagesPage />} />
               <Route path="/results" element={<ResultsPage />} />

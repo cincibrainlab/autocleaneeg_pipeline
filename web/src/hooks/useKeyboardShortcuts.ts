@@ -11,6 +11,7 @@ const PAGE_SHORTCUTS: Record<string, string> = {
   "7": "/results",
   "8": "/events",
   "9": "/settings",
+  "0": "/utilities",
 };
 
 export function useKeyboardShortcuts(onToggleHelp: () => void) {
@@ -45,7 +46,7 @@ export function useKeyboardShortcuts(onToggleHelp: () => void) {
 }
 
 export const SHORTCUT_HELP = [
-  { keys: "1-9", description: "Navigate to page" },
+  { keys: "0-9", description: "Navigate to page" },
   { keys: "?", description: "Show keyboard shortcuts" },
   { keys: "Esc", description: "Close dialogs / overlays" },
 ];

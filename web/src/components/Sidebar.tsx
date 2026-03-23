@@ -6,6 +6,7 @@ import {
   MapPin,
   Play,
   Settings,
+  Wrench,
   Github,
   BookOpen,
   FileJson,
@@ -31,6 +32,7 @@ const primaryNavItems = [
 ];
 
 const utilityNavItems = [
+  { to: "/utilities", label: "Utilities", icon: Wrench },
   { to: "/tasks", label: "Tasks", icon: Cpu },
   { to: "/montages", label: "Montages", icon: MapPin },
   { to: "/events", label: "Events", icon: Zap },

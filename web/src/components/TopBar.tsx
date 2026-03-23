@@ -18,6 +18,7 @@ const pageTitles: Record<string, string> = {
   "/exclude": "Exclude",
   "/events": "Events",
   "/settings": "Settings",
+  "/utilities": "Utilities",
   "/setup": "Setup",
 };
 

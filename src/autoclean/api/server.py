@@ -158,6 +158,7 @@ Connect to `/ws/events` for live updates:
 # ── Recent workspaces helpers ─────────────────────────────────────────────────
 
 _RECENT_FILE = Path.home() / ".autoclean" / "recent_workspaces.json"
+_WORKSPACE_META_FILE = ".serve-workspace.json"
 
 
 def _load_recent_workspaces() -> list[str]:
@@ -188,6 +189,115 @@ def _load_persisted_serve_workspace() -> Optional[Path]:
     if not workspace:
         return None
     return Path(workspace).expanduser().resolve()
+
+
+def _workspace_meta_path(workspace_dir: Path) -> Path:
+    """Return the workspace metadata file path."""
+    return workspace_dir / _WORKSPACE_META_FILE
+
+
+def _read_workspace_metadata(workspace_dir: Path) -> dict[str, Any]:
+    """Load lightweight Serve metadata for the workspace."""
+    try:
+        raw = json.loads(_workspace_meta_path(workspace_dir).read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def _write_workspace_metadata(workspace_dir: Path, metadata: dict[str, Any]) -> None:
+    """Persist lightweight Serve metadata for the workspace."""
+    path = _workspace_meta_path(workspace_dir)
+    path.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _serve_workspace_paths(workspace_dir: Path) -> dict[str, Path]:
+    """Return the standard Serve workspace paths."""
+    return {
+        "serve_test": workspace_dir / "serve-test.yaml",
+        "serve_live": workspace_dir / "serve-live.yaml",
+        "routes": workspace_dir / "routes",
+        "automations": workspace_dir / "automations",
+        "runtimes_test": workspace_dir / "runtimes" / "test",
+        "runtimes_live": workspace_dir / "runtimes" / "live",
+        "deploy": workspace_dir / "deploy",
+    }
+
+
+def _workspace_bootstrap_origin(workspace_dir: Path) -> str:
+    """Infer how the current Serve workspace was created."""
+    metadata = _read_workspace_metadata(workspace_dir)
+    origin = metadata.get("origin")
+    if origin in {"bootstrapped_autoclean", "new_serve_workspace"}:
+        return origin
+
+    looks_like_shared_workspace = _looks_like_workspace_root(workspace_dir)
+    if looks_like_shared_workspace:
+        return "bootstrapped_autoclean"
+    return "unknown"
+
+
+def _workspace_checklist(workspace_dir: Path) -> list[dict[str, Any]]:
+    """Return the workspace status checklist used by doctor/status views."""
+    paths = _serve_workspace_paths(workspace_dir)
+    checks: list[dict[str, Any]] = []
+
+    required_items = [
+        ("serve-test.yaml", paths["serve_test"]),
+        ("serve-live.yaml", paths["serve_live"]),
+        ("deploy/", paths["deploy"]),
+        ("runtimes/test", paths["runtimes_test"]),
+        ("runtimes/live", paths["runtimes_live"]),
+    ]
+    for label, path in required_items:
+        checks.append({"label": label, "ok": path.exists(), "detail": str(path)})
+
+    for mode in ("test", "live"):
+        runtime_dir = paths[f"runtimes_{mode}"]
+        venv_dir = runtime_dir / ".venv"
+        python_candidates = [venv_dir / "bin" / "python", venv_dir / "Scripts" / "python.exe"]
+        checks.append(
+            {
+                "label": f"{mode} runtime ready",
+                "ok": any(candidate.exists() for candidate in python_candidates),
+                "detail": str(venv_dir),
+            }
+        )
+
+    return checks
+
+
+def _workspace_doctor(workspace_dir: Path) -> dict[str, Any]:
+    """Return action-oriented workspace diagnostics for the UI."""
+    checks = _workspace_checklist(workspace_dir)
+    blocking_issues: list[dict[str, str]] = []
+    guidance: list[str] = []
+
+    for item in checks:
+        if item["ok"]:
+            continue
+        blocking_issues.append({"label": item["label"], "detail": item["detail"]})
+
+    if any("runtime ready" in issue["label"] for issue in blocking_issues):
+        guidance.append(
+            "Re-run 'autocleaneeg-pipeline serve workspace --mode existing --path <dir>' to rebuild runtimes."
+        )
+    if any(issue["label"].startswith("serve-") for issue in blocking_issues):
+        guidance.append(
+            "Use Setup to open a valid Serve workspace or bootstrap an existing AutoClean workspace."
+        )
+    if any(issue["label"] == "deploy/" for issue in blocking_issues):
+        guidance.append(
+            "Apply the current configuration in Settings or run 'autocleaneeg-pipeline serve deploy --mode <test|live>' after validation."
+        )
+
+    summary = "Workspace looks healthy" if not blocking_issues else f"Found {len(blocking_issues)} blocking issue(s)"
+    return {
+        "ok": not blocking_issues,
+        "summary": summary,
+        "blocking_issues": blocking_issues,
+        "guidance": guidance,
+    }
 
 
 def _looks_like_workspace_root(workspace_dir: Path) -> bool:
@@ -449,6 +559,7 @@ REST API for managing automated EEG file processing pipelines.
             raise _HTTPException(status_code=400, detail="Path is required")
 
         workspace_dir = Path(path).expanduser().resolve()
+        bootstrapped_existing_workspace = False
 
         # Stop running service before switching workspaces
         try:
@@ -486,6 +597,25 @@ REST API for managing automated EEG file processing pipelines.
                         detail="Workspace must already be a valid Serve workspace or an AutoClean workspace with tasks/output.",
                     )
                 _bootstrap_workspace_for_serve(workspace_dir)
+                bootstrapped_existing_workspace = True
+
+        origin: str | None = None
+        if bootstrapped_existing_workspace:
+            origin = "bootstrapped_autoclean"
+        elif create_new:
+            origin = "new_serve_workspace"
+
+        if origin is not None:
+            try:
+                _write_workspace_metadata(
+                    workspace_dir,
+                    {
+                        "origin": origin,
+                        "workspace_dir": str(workspace_dir),
+                    },
+                )
+            except Exception:
+                pass
 
         # Configure API state in-place — no restart required
         api_state.configure(workspace_dir, api_state.mode or "test", api_state.redis_url)
@@ -506,6 +636,39 @@ REST API for managing automated EEG file processing pipelines.
             "success": True,
             "workspace_dir": str(workspace_dir),
             "message": f"Workspace configured: {workspace_dir}",
+        }
+
+    @app.get("/api/workspace/utilities")
+    async def get_workspace_utilities() -> dict[str, Any]:
+        """Return workspace status and doctor diagnostics for the Utilities page."""
+        if not api_state.workspace_dir:
+            return {"configured": False}
+
+        workspace_dir = api_state.workspace_dir
+        paths = _serve_workspace_paths(workspace_dir)
+        metadata = _read_workspace_metadata(workspace_dir)
+        status_checks = _workspace_checklist(workspace_dir)
+        doctor = _workspace_doctor(workspace_dir)
+        checks_by_label = {item["label"]: item for item in status_checks}
+
+        return {
+            "configured": True,
+            "workspace_dir": str(workspace_dir),
+            "selected_workspace_path": str(workspace_dir),
+            "bootstrap_origin": _workspace_bootstrap_origin(workspace_dir),
+            "bootstrapped_from_autoclean": _workspace_bootstrap_origin(workspace_dir) == "bootstrapped_autoclean",
+            "workspace_details": {
+                "serve_test_exists": paths["serve_test"].exists(),
+                "serve_live_exists": paths["serve_live"].exists(),
+                "deploy_exists": paths["deploy"].exists(),
+                "runtimes_test_exists": paths["runtimes_test"].exists(),
+                "runtimes_live_exists": paths["runtimes_live"].exists(),
+                "test_runtime_ready": checks_by_label["test runtime ready"]["ok"],
+                "live_runtime_ready": checks_by_label["live runtime ready"]["ok"],
+            },
+            "status_checks": status_checks,
+            "doctor": doctor,
+            "metadata": metadata,
         }
 
     @app.get("/api/workspaces/recent")

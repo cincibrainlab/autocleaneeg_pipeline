@@ -196,6 +196,99 @@ class TestSetupWorkspaceRoute:
         assert (workspace / "serve-live.yaml").exists()
         assert (workspace / "routes").exists()
         assert (workspace / "automations").exists()
+        metadata = json.loads((workspace / ".serve-workspace.json").read_text(encoding="utf-8"))
+        assert metadata["origin"] == "bootstrapped_autoclean"
+
+    def test_setup_workspace_marks_new_serve_workspace_origin(self, tmp_path: Path) -> None:
+        app = create_app()
+        client = TestClient(app)
+
+        workspace = tmp_path / "new-workspace"
+
+        response = client.post(
+            "/api/setup/workspace",
+            json={"path": str(workspace), "create_new": True},
+        )
+
+        assert response.status_code == 200
+        metadata = json.loads((workspace / ".serve-workspace.json").read_text(encoding="utf-8"))
+        assert metadata["origin"] == "new_serve_workspace"
+
+
+class TestWorkspaceUtilitiesApi:
+    """Tests for workspace diagnostics exposed to the UI."""
+
+    def test_workspace_utilities_reports_workspace_status_and_doctor(
+        self, tmp_path: Path
+    ) -> None:
+        app = create_app(workspace_dir=tmp_path, mode="test")
+        client = TestClient(app)
+
+        (tmp_path / "serve-test.yaml").write_text("routes: []\n", encoding="utf-8")
+        (tmp_path / "serve-live.yaml").write_text("routes: []\n", encoding="utf-8")
+        (tmp_path / "deploy").mkdir()
+        (tmp_path / "runtimes" / "test" / ".venv" / "bin").mkdir(parents=True)
+        (tmp_path / "runtimes" / "live").mkdir(parents=True)
+        (tmp_path / "runtimes" / "test" / ".venv" / "bin" / "python").write_text(
+            "",
+            encoding="utf-8",
+        )
+        (tmp_path / "tasks").mkdir()
+        (tmp_path / "output").mkdir()
+        (tmp_path / ".serve-workspace.json").write_text(
+            json.dumps({"origin": "bootstrapped_autoclean"}),
+            encoding="utf-8",
+        )
+
+        response = client.get("/api/workspace/utilities")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["configured"] is True
+        assert payload["selected_workspace_path"] == str(tmp_path)
+        assert payload["bootstrapped_from_autoclean"] is True
+        assert payload["workspace_details"]["serve_test_exists"] is True
+        assert payload["workspace_details"]["serve_live_exists"] is True
+        assert payload["workspace_details"]["deploy_exists"] is True
+        assert payload["workspace_details"]["runtimes_test_exists"] is True
+        assert payload["workspace_details"]["runtimes_live_exists"] is True
+        assert payload["workspace_details"]["test_runtime_ready"] is True
+        assert payload["workspace_details"]["live_runtime_ready"] is False
+        assert payload["doctor"]["ok"] is False
+        assert any(
+            issue["label"] == "live runtime ready"
+            for issue in payload["doctor"]["blocking_issues"]
+        )
+        assert any(
+            check["label"] == "serve-test.yaml" and check["ok"] is True
+            for check in payload["status_checks"]
+        )
+
+
+class TestConfigDeployApi:
+    """Tests for Serve config deployment through the API."""
+
+    def test_deploy_overwrites_existing_read_only_target(self, tmp_path: Path) -> None:
+        app = create_app(workspace_dir=tmp_path, mode="live")
+        client = TestClient(app)
+
+        source = tmp_path / "serve-live.yaml"
+        source.write_text("routes: []\n", encoding="utf-8")
+        deploy_dir = tmp_path / "deploy"
+        deploy_dir.mkdir()
+        target = deploy_dir / "serve-live.yaml"
+        target.write_text("routes:\n- id: old\n", encoding="utf-8")
+        target.chmod(0o444)
+
+        with patch("autoclean.utils.ingestion.parse_serve_config"):
+            response = client.post("/api/config/deploy", json={})
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["success"] is True
+        assert payload["target"] == str(target)
+        assert target.read_text(encoding="utf-8") == "routes: []\n"
+        assert oct(target.stat().st_mode & 0o777) == "0o444"
 
 
 class TestServiceApi:

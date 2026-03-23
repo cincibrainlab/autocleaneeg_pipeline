@@ -82,6 +82,42 @@ export interface RecentWorkspace {
   exists?: boolean;
 }
 
+export interface WorkspaceStatusCheck {
+  label: string;
+  ok: boolean;
+  detail: string;
+}
+
+export interface WorkspaceDoctorIssue {
+  label: string;
+  detail: string;
+}
+
+export interface WorkspaceUtilitiesStatus {
+  configured: boolean;
+  workspace_dir?: string;
+  selected_workspace_path?: string;
+  bootstrap_origin?: "bootstrapped_autoclean" | "new_serve_workspace" | "unknown" | string;
+  bootstrapped_from_autoclean?: boolean;
+  workspace_details?: {
+    serve_test_exists: boolean;
+    serve_live_exists: boolean;
+    deploy_exists: boolean;
+    runtimes_test_exists: boolean;
+    runtimes_live_exists: boolean;
+    test_runtime_ready: boolean;
+    live_runtime_ready: boolean;
+  };
+  status_checks?: WorkspaceStatusCheck[];
+  doctor?: {
+    ok: boolean;
+    summary: string;
+    blocking_issues: WorkspaceDoctorIssue[];
+    guidance: string[];
+  };
+  metadata?: Record<string, unknown>;
+}
+
 export interface RouteSpec {
   id: string;
   enabled: boolean;
@@ -464,6 +500,7 @@ export const api = {
   removeEntry: (path: string) => json<{ cleared?: number }>(`/api/queue/entry/${encodeURIComponent(path)}`, "DELETE"),
 
   getRecentWorkspaces: () => json<{ workspaces: RecentWorkspace[]; current?: string | null }>("/api/workspaces/recent"),
+  getWorkspaceUtilities: () => json<WorkspaceUtilitiesStatus>("/api/workspace/utilities"),
   setupWorkspace: (path: string, createNew: boolean) => json<Record<string, any>>("/api/setup/workspace", "POST", { path, create_new: createNew }),
 
   getRoutes: () => json<RouteSpec[]>("/api/routes"),
