@@ -92,16 +92,13 @@ def _ensure_operational_service(port: int) -> tuple[bool, list[str]]:
         return False, messages
 
     if config.get("needs_deploy"):
-        try:
-            result = _api_request(port, "/api/config/deploy", method="POST", body={}, timeout=30)
-            if result.get("success"):
-                messages.append("Applied the latest Serve configuration before starting processing.")
-            else:
-                messages.append(result.get("message", "Failed to apply the latest Serve configuration."))
-                return False, messages
-        except Exception as exc:
-            messages.append(f"Serve UI started, but auto-deploy failed: {exc}")
-            return False, messages
+        messages.append(
+            "Serve UI started, but processing was not started because unapplied configuration changes exist."
+        )
+        messages.append(
+            "Apply the latest config from Settings or run 'autocleaneeg-pipeline serve deploy --mode <test|live>' before starting processing."
+        )
+        return False, messages
 
     try:
         result = _api_request(

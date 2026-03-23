@@ -150,7 +150,10 @@ async def deploy_config() -> DeployResponse:
 
     # Copy config
     try:
+        if target_path.exists():
+            target_path.chmod(0o644)
         shutil.copy2(source_path, target_path)
+        target_path.chmod(0o444)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Deploy failed: {exc}")
 

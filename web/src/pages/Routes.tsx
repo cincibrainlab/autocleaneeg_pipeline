@@ -305,10 +305,16 @@ export default function RoutesPage() {
           id,
           title: `Archive route '${id}'?`,
           message: (
-            <span>
-              This will archive route <strong className="text-zinc-200">'{id}'</strong> and stop
-              watching its input folders. Files already in the queue will not be affected.
-            </span>
+            <div className="space-y-2">
+              <p>
+                This will archive route <strong className="text-zinc-200">'{id}'</strong> in the
+                draft configuration.
+              </p>
+              <p>
+                Apply the latest config in Settings before processing stops watching its input
+                folders. Files already in the queue will not be affected.
+              </p>
+            </div>
           ),
         });
         break;
@@ -324,8 +330,8 @@ export default function RoutesPage() {
                 route <strong className="text-zinc-200">'{id}'</strong>.
               </p>
               <p className="text-red-400/80">
-                Real clinical data will be processed. Files in the queue will begin processing
-                immediately.
+                This updates the draft configuration only. Apply the latest config in Settings
+                before live processing changes take effect.
               </p>
             </div>
           ),
@@ -363,7 +369,9 @@ export default function RoutesPage() {
         enable: "enabled",
         disable: "disabled",
       };
-      showNotice(`Route '${id}' ${labels[action] || action}`);
+      showNotice(
+        `Route '${id}' ${labels[action] || action}. Open Settings and click Apply to publish this change for processing.`
+      );
       refresh();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Route action failed");
@@ -479,6 +487,8 @@ export default function RoutesPage() {
                 actionMenu?.id === r.id ? null : { id: r.id, trigger: e.currentTarget }
               );
             }}
+            aria-label={`Open actions for route ${r.id}`}
+            title={`Open actions for route ${r.id}`}
             className="p-1 rounded hover:bg-surface-50 text-zinc-500 hover:text-zinc-300 transition-colors duration-150"
           >
             <MoreVertical className="w-4 h-4" />

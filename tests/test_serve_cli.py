@@ -681,7 +681,7 @@ class TestServeLauncherOperationalStartup:
         assert running is False
         assert any("no routes" in message.lower() for message in messages)
 
-    def test_operational_service_deploys_then_starts(self) -> None:
+    def test_operational_service_blocks_on_unapplied_config(self) -> None:
         from autoclean.serve_launcher import _ensure_operational_service
 
         status = {
@@ -696,23 +696,14 @@ class TestServeLauncherOperationalStartup:
         def fake_request(port: int, path: str, method: str = "GET", body: dict | None = None, timeout: int = 20):
             if path == "/api/status":
                 return status
-            if path == "/api/config/deploy":
-                assert method == "POST"
-                return {"success": True, "message": "Deployed"}
-            if path == "/api/service/start":
-                assert method == "POST"
-                assert body is not None
-                assert body["max_cycles"] == 0
-                assert body["idle_limit"] == 0
-                return {"success": True, "message": "Service started (pid 123)"}
             raise AssertionError(f"Unexpected path: {path}")
 
         with patch("autoclean.serve_launcher._api_request", side_effect=fake_request):
             running, messages = _ensure_operational_service(8000)
 
-        assert running is True
-        assert any("Applied the latest Serve configuration" in message for message in messages)
-        assert any("Service started" in message for message in messages)
+        assert running is False
+        assert any("unapplied configuration changes exist" in message for message in messages)
+        assert any("serve deploy" in message for message in messages)
 
     def test_operational_service_reports_invalid_config(self) -> None:
         from autoclean.serve_launcher import _ensure_operational_service
