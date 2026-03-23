@@ -72,9 +72,7 @@ autocleaneeg-pipeline review --output /path/to/output
 ## Documentation
 
 - published docs: <https://cincibrainlab.github.io/autoclean_pipeline/>
-- docs tree index: [docs/INDEX.md](/Users/sueo8x/Documents/Github/autoclean_pipeline/docs/INDEX.md)
-- planning artifacts: [plans/README.md](/Users/sueo8x/Documents/Github/autoclean_pipeline/plans/README.md)
-- repo cleanup plan: [plans/REPO_CLEANUP_PLAN.md](/Users/sueo8x/Documents/Github/autoclean_pipeline/plans/REPO_CLEANUP_PLAN.md)
+- docs tree index: [docs/INDEX.md](docs/INDEX.md)
 
 ## Development
 
@@ -90,7 +88,7 @@ make test-cov
 make ci-check
 ```
 
-Frontend work lives in [web/package.json](/Users/sueo8x/Documents/Github/autoclean_pipeline/web/package.json). Run frontend build and test commands from the `web/` directory.
+Frontend work lives in [web/package.json](web/package.json). Run frontend build and test commands from the `web/` directory.
 
 ## Contributing
 

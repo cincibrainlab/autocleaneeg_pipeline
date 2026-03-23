@@ -4,9 +4,9 @@ This directory contains the main project documentation tree.
 
 ## Canonical Contributor Docs
 
-- [CONTRIBUTING.md](/Users/sueo8x/Documents/Github/autoclean_pipeline/CONTRIBUTING.md)
-- [README.md](/Users/sueo8x/Documents/Github/autoclean_pipeline/README.md)
-- [BRANCHING.md](/Users/sueo8x/Documents/Github/autoclean_pipeline/BRANCHING.md)
+- [CONTRIBUTING.md](../CONTRIBUTING.md)
+- [README.md](../README.md)
+- [BRANCHING.md](../BRANCHING.md)
 
 ## Documentation Areas
 
@@ -18,9 +18,9 @@ This directory contains the main project documentation tree.
 
 ## Planning Areas
 
-- [plans/README.md](/Users/sueo8x/Documents/Github/autoclean_pipeline/plans/README.md)
+- [plans/README.md](../plans/README.md)
 
 ## Notes
 
-- Prefer the root [CONTRIBUTING.md](/Users/sueo8x/Documents/Github/autoclean_pipeline/CONTRIBUTING.md) as the canonical contributor guide.
+- Prefer the root [CONTRIBUTING.md](../CONTRIBUTING.md) as the canonical contributor guide.
 - Use `plans/` for larger, structured planning artifacts.
