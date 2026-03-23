@@ -81,6 +81,52 @@ function detail(fileKey: string) {
   };
 }
 
+function buildEpochWindow() {
+  return {
+    file_key: "subject01_comp_epo",
+    start_epoch: 0,
+    count: 6,
+    channel_names: ["FP1", "FP2"],
+    sampling_rate: 250,
+    epoch_duration_seconds: 1,
+    epochs: Array.from({ length: 6 }, (_, epochIndex) => ({
+      epoch_index: epochIndex,
+      event_code: String(101 + epochIndex),
+      start_time_seconds: epochIndex,
+      is_bad: epochIndex === 0,
+      traces_uv: { FP1: [0, 1, 0], FP2: [0, -1, 0] },
+    })),
+  };
+}
+
+function setCanvasRect(canvas: HTMLCanvasElement) {
+  canvas.getBoundingClientRect = vi.fn(() => ({
+    x: 0,
+    y: 0,
+    left: 0,
+    top: 0,
+    right: 1198,
+    bottom: 120,
+    width: 1198,
+    height: 120,
+    toJSON: () => ({}),
+  })) as unknown as typeof canvas.getBoundingClientRect;
+}
+
+async function getBodyCanvas() {
+  await waitFor(() => {
+    expect(document.querySelectorAll("canvas").length).toBeGreaterThan(1);
+  });
+  const canvas = document.querySelectorAll("canvas").item(1) as HTMLCanvasElement | null;
+  expect(canvas).not.toBeNull();
+  return canvas as HTMLCanvasElement;
+}
+
+async function waitForNoSave() {
+  await new Promise((resolve) => window.setTimeout(resolve, 550));
+  expect(api.saveExcludeEpochReview).not.toHaveBeenCalled();
+}
+
 beforeEach(() => {
   vi.useRealTimers();
   vi.clearAllMocks();
@@ -116,21 +162,7 @@ beforeEach(() => {
     visible_epoch_count: 10,
   });
   api.getExcludeEpochWindow.mockResolvedValue({
-    file_key: "subject01_comp_epo",
-    start_epoch: 0,
-    count: 1,
-    channel_names: ["FP1", "FP2"],
-    sampling_rate: 250,
-    epoch_duration_seconds: 1,
-    epochs: [
-      {
-        epoch_index: 0,
-        event_code: "101",
-        start_time_seconds: 0,
-        is_bad: true,
-        traces_uv: { FP1: [0, 1, 0], FP2: [0, -1, 0] },
-      },
-    ],
+    ...buildEpochWindow(),
   });
   api.getExcludeIcaSummary.mockResolvedValue({ components: [], structure: {} });
   api.saveExcludeEpochReview.mockResolvedValue({ saved: true });
@@ -179,6 +211,82 @@ describe("ExcludePage", () => {
     await waitFor(() => {
       expect(api.saveExcludeEpochReview).toHaveBeenCalled();
     }, { timeout: 1500 });
+  });
+
+  it("drag-selects a clean epoch range and saves once", async () => {
+    renderPage();
+
+    await screen.findByText("Focused epoch: 1");
+    const canvas = await getBodyCanvas();
+    setCanvasRect(canvas);
+
+    fireEvent.pointerDown(canvas, { button: 0, clientX: 300, pointerId: 1, pointerType: "mouse" });
+    fireEvent.pointerMove(canvas, { buttons: 1, clientX: 700, pointerId: 1, pointerType: "mouse" });
+    fireEvent.pointerUp(canvas, { clientX: 700, pointerId: 1, pointerType: "mouse" });
+
+    await waitFor(() => {
+      expect(api.saveExcludeEpochReview).toHaveBeenCalledWith("subject01_comp_epo", [0, 1, 2, 3], "route-1");
+    }, { timeout: 1500 });
+    expect(api.saveExcludeEpochReview).toHaveBeenCalledTimes(1);
+  });
+
+  it("single click focuses without autosaving", async () => {
+    renderPage();
+
+    await screen.findByText("Focused epoch: 1");
+    const canvas = await getBodyCanvas();
+    setCanvasRect(canvas);
+
+    fireEvent.pointerDown(canvas, { button: 0, clientX: 500, pointerId: 3, pointerType: "mouse" });
+    fireEvent.pointerUp(canvas, { clientX: 500, pointerId: 3, pointerType: "mouse" });
+
+    await screen.findByText("Focused epoch: 3");
+    await waitForNoSave();
+  });
+
+  it("drag-selects a rejected epoch range to restore it", async () => {
+    const rejectedDetail = detail("subject01_comp_epo");
+    api.getExcludeFile.mockResolvedValue({
+      ...rejectedDetail,
+      epoch_review: {
+        ...rejectedDetail.epoch_review,
+        bad_epochs_count: 3,
+        bad_epoch_indices: [0, 1, 2],
+      },
+    });
+    renderPage();
+
+    await screen.findByText("Focused epoch: 1");
+    const canvas = await getBodyCanvas();
+    setCanvasRect(canvas);
+
+    fireEvent.pointerDown(canvas, { button: 0, clientX: 100, pointerId: 2, pointerType: "mouse" });
+    fireEvent.pointerMove(canvas, { buttons: 1, clientX: 500, pointerId: 2, pointerType: "mouse" });
+    fireEvent.pointerUp(canvas, { clientX: 500, pointerId: 2, pointerType: "mouse" });
+
+    await waitFor(() => {
+      expect(api.saveExcludeEpochReview).toHaveBeenCalledWith("subject01_comp_epo", [], "route-1");
+    }, { timeout: 1500 });
+  });
+
+  it("does not save when a drag is cancelled", async () => {
+    renderPage();
+
+    await screen.findByText("Focused epoch: 1");
+    const canvas = await getBodyCanvas();
+    setCanvasRect(canvas);
+
+    fireEvent.pointerDown(canvas, { button: 0, clientX: 300, pointerId: 4, pointerType: "mouse" });
+    fireEvent.pointerMove(canvas, { buttons: 1, clientX: 700, pointerId: 4, pointerType: "mouse" });
+    fireEvent.pointerCancel(canvas, { pointerId: 4, pointerType: "mouse" });
+
+    await waitForNoSave();
+  });
+
+  it("shows drag instructions in the EEG panel", async () => {
+    renderPage();
+
+    expect(await screen.findByText(/Drag across epochs to reject or restore a contiguous range/i)).toBeInTheDocument();
   });
 
   it("persists notes edits", async () => {

@@ -16,6 +16,7 @@ import ErrorBanner from "../components/ErrorBanner";
 import { usePolling } from "../hooks/usePolling";
 
 type TabKey = "eeg" | "psd" | "report" | "ica";
+type DragMode = "reject" | "restore";
 type TopographyRequest = {
   epochIndex: number;
   sampleIndex: number;
@@ -58,6 +59,12 @@ function MetricRow({ label, value }: { label: string; value: string }) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function buildEpochRange(start: number, end: number) {
+  const lower = Math.min(start, end);
+  const upper = Math.max(start, end);
+  return Array.from({ length: upper - lower + 1 }, (_, index) => lower + index);
 }
 
 function normalizeBadChannelInput(value: string) {
@@ -134,6 +141,7 @@ function EegBrowser({
   epochStart,
   onFocusEpoch,
   onToggleEpoch,
+  onApplyEpochRange,
   onEpochStartChange,
   onOpenTopography,
 }: {
@@ -147,6 +155,7 @@ function EegBrowser({
   epochStart: number;
   onFocusEpoch: (epochIndex: number) => void;
   onToggleEpoch: (epochIndex: number) => void;
+  onApplyEpochRange: (startEpoch: number, endEpoch: number, mode: DragMode) => void;
   onEpochStartChange: (epochStart: number) => void;
   onOpenTopography: (request: TopographyRequest) => void;
 }) {
@@ -158,6 +167,26 @@ function EegBrowser({
   const footerHeight = 26;
   const labelWidth = 88;
   const [frameWidth, setFrameWidth] = useState(1200);
+  const [dragAnchorEpoch, setDragAnchorEpoch] = useState<number | null>(null);
+  const [dragHoverEpoch, setDragHoverEpoch] = useState<number | null>(null);
+  const [dragMode, setDragMode] = useState<DragMode | null>(null);
+  const [isDraggingEpochRange, setIsDraggingEpochRange] = useState(false);
+  const dragAnchorRef = useRef<number | null>(null);
+  const dragHoverRef = useRef<number | null>(null);
+  const dragModeRef = useRef<DragMode | null>(null);
+  const channels = epochWindow?.channel_names ?? [];
+  const startIndex = clamp(epochStart, 0, Math.max(0, (epochWindow?.epochs.length ?? 0) - visibleEpochCount));
+  const visibleEpochs = epochWindow?.epochs.slice(startIndex, startIndex + visibleEpochCount) ?? [];
+  const canvasWidth = Math.max(360, frameWidth - 2);
+  const traceWidth = Math.max(220, canvasWidth - labelWidth);
+  const epochWidth = traceWidth / Math.max(1, visibleEpochCount);
+  const bodyCanvasHeight = channels.length * channelHeight;
+  const maxStart = Math.max(0, (manifest?.n_epochs ?? 0) - visibleEpochCount);
+  const previewEpochRange = useMemo(() => {
+    if (!isDraggingEpochRange || dragAnchorEpoch == null || dragHoverEpoch == null) return [];
+    return buildEpochRange(dragAnchorEpoch, dragHoverEpoch);
+  }, [dragAnchorEpoch, dragHoverEpoch, isDraggingEpochRange]);
+  const previewEpochSet = useMemo(() => new Set(previewEpochRange), [previewEpochRange]);
 
   useEffect(() => {
     const updateWidth = () => {
@@ -223,9 +252,24 @@ function EegBrowser({
       const x0 = labelWidth + epochIdx * epochWidth;
       const isBad = badEpochs.includes(epoch.epoch_index);
       const isFocused = focusedEpoch === epoch.epoch_index;
-      headerCtx.fillStyle = isBad ? "rgba(248,113,113,0.18)" : isFocused ? "rgba(96,165,250,0.18)" : "rgba(255,255,255,0.02)";
+      const isPreview = previewEpochSet.has(epoch.epoch_index);
+      const previewFill = dragMode === "restore" ? "rgba(45,212,191,0.18)" : "rgba(251,191,36,0.2)";
+      const previewText = dragMode === "restore" ? "#5eead4" : "#fcd34d";
+      headerCtx.fillStyle = isPreview
+        ? previewFill
+        : isBad
+        ? "rgba(248,113,113,0.18)"
+        : isFocused
+        ? "rgba(96,165,250,0.18)"
+        : "rgba(255,255,255,0.02)";
       headerCtx.fillRect(x0, 0, epochWidth, headerHeight);
-      headerCtx.fillStyle = isBad ? "#fca5a5" : isFocused ? "#93c5fd" : "#cbd5e1";
+      headerCtx.fillStyle = isPreview
+        ? previewText
+        : isBad
+        ? "#fca5a5"
+        : isFocused
+        ? "#93c5fd"
+        : "#cbd5e1";
       headerCtx.fillText(`Epoch ${epoch.epoch_index + 1}`, x0 + 8, headerHeight / 2);
 
       if ("setLineDash" in bodyCtx) bodyCtx.setLineDash([4, 4]);
@@ -276,6 +320,7 @@ function EegBrowser({
         if (!values.length) return;
         const xStep = epochWidth / Math.max(1, values.length - 1);
         const isBad = badEpochs.includes(epoch.epoch_index);
+        const isPreview = previewEpochSet.has(epoch.epoch_index);
         bodyCtx.beginPath();
         values.forEach((value, sampleIdx) => {
           const x = x0 + sampleIdx * xStep;
@@ -284,33 +329,32 @@ function EegBrowser({
           if (sampleIdx === 0) bodyCtx.moveTo(x, y);
           else bodyCtx.lineTo(x, y);
         });
-        bodyCtx.strokeStyle = isBad ? "#f87171" : focusedEpoch === epoch.epoch_index ? "#e2e8f0" : "#60a5fa";
-        bodyCtx.lineWidth = focusedEpoch === epoch.epoch_index ? 1.35 : 1;
+        bodyCtx.strokeStyle = isPreview
+          ? dragMode === "restore"
+            ? "#2dd4bf"
+            : "#fbbf24"
+          : isBad
+          ? "#f87171"
+          : focusedEpoch === epoch.epoch_index
+          ? "#e2e8f0"
+          : "#60a5fa";
+        bodyCtx.lineWidth = isPreview ? 1.5 : focusedEpoch === epoch.epoch_index ? 1.35 : 1;
         bodyCtx.stroke();
       });
     });
-  }, [badEpochs, channelHeight, epochStart, epochWindow, focusedEpoch, frameWidth, manifest, scaleUv, visibleEpochCount]);
+  }, [badEpochs, channelHeight, dragMode, epochStart, epochWindow, focusedEpoch, frameWidth, manifest, previewEpochSet, scaleUv, visibleEpochCount]);
 
-  const channels = epochWindow?.channel_names ?? [];
-  const startIndex = clamp(epochStart, 0, Math.max(0, (epochWindow?.epochs.length ?? 0) - visibleEpochCount));
-  const visibleEpochs = epochWindow?.epochs.slice(startIndex, startIndex + visibleEpochCount) ?? [];
-  const canvasWidth = Math.max(360, frameWidth - 2);
-  const traceWidth = Math.max(220, canvasWidth - labelWidth);
-  const epochWidth = traceWidth / Math.max(1, visibleEpochCount);
-  const bodyCanvasHeight = channels.length * channelHeight;
-  const maxStart = Math.max(0, (manifest?.n_epochs ?? 0) - visibleEpochCount);
-
-  const getEpochIndexFromPointer = (event: React.MouseEvent<HTMLCanvasElement>) => {
+  const getEpochIndexFromPosition = (clientX: number, target: HTMLCanvasElement) => {
     if (!epochWindow) return null;
-    const rect = event.currentTarget.getBoundingClientRect();
+    const rect = target.getBoundingClientRect();
     const scaleX = rect.width > 0 ? canvasWidth / rect.width : 1;
-    const localX = (event.clientX - rect.left) * scaleX;
+    const localX = (clientX - rect.left) * scaleX;
     if (localX < labelWidth) return null;
     return Math.max(0, Math.min(visibleEpochs.length - 1, Math.floor((localX - labelWidth) / epochWidth)));
   };
 
   const getTopographyRequestFromPointer = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    const epochIdx = getEpochIndexFromPointer(event);
+    const epochIdx = getEpochIndexFromPosition(event.clientX, event.currentTarget);
     if (epochIdx == null || !manifest) return null;
     const rect = event.currentTarget.getBoundingClientRect();
     const scaleX = rect.width > 0 ? canvasWidth / rect.width : 1;
@@ -329,6 +373,24 @@ function EegBrowser({
     };
   };
 
+  const resetDragSelection = () => {
+    dragAnchorRef.current = null;
+    dragHoverRef.current = null;
+    dragModeRef.current = null;
+    setDragAnchorEpoch(null);
+    setDragHoverEpoch(null);
+    setDragMode(null);
+    setIsDraggingEpochRange(false);
+  };
+
+  useEffect(() => resetDragSelection(), [epochStart, epochWindow]);
+
+  useEffect(() => {
+    const handleWindowBlur = () => resetDragSelection();
+    window.addEventListener("blur", handleWindowBlur);
+    return () => window.removeEventListener("blur", handleWindowBlur);
+  }, []);
+
   if (!epochWindow || !manifest) {
     return <div className="py-16 text-center text-sm text-zinc-500">Loading EEG…</div>;
   }
@@ -345,14 +407,59 @@ function EegBrowser({
             width={canvasWidth}
             height={bodyCanvasHeight}
             className="block w-full"
-            onClick={(event) => {
-              const epochIdx = getEpochIndexFromPointer(event);
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              const canvas = event.currentTarget;
+              const epochIdx = getEpochIndexFromPosition(event.clientX, canvas);
               if (epochIdx == null) return;
               const epoch = visibleEpochs[epochIdx];
-              if (epoch) onFocusEpoch(epoch.epoch_index);
+              if (!epoch) return;
+              canvas.setPointerCapture(event.pointerId);
+              onFocusEpoch(epoch.epoch_index);
+              dragAnchorRef.current = epoch.epoch_index;
+              dragHoverRef.current = epoch.epoch_index;
+              dragModeRef.current = badEpochs.includes(epoch.epoch_index) ? "restore" : "reject";
+              setDragAnchorEpoch(epoch.epoch_index);
+              setDragHoverEpoch(epoch.epoch_index);
+              setDragMode(dragModeRef.current);
+              setIsDraggingEpochRange(true);
+            }}
+            onPointerMove={(event) => {
+              if (!isDraggingEpochRange) return;
+              const epochIdx = getEpochIndexFromPosition(event.clientX, event.currentTarget);
+              if (epochIdx == null) return;
+              const epoch = visibleEpochs[epochIdx];
+              if (!epoch) return;
+              dragHoverRef.current = epoch.epoch_index;
+              setDragHoverEpoch((current) => (current === epoch.epoch_index ? current : epoch.epoch_index));
+              onFocusEpoch(epoch.epoch_index);
+            }}
+            onPointerUp={(event) => {
+              const anchorEpoch = dragAnchorRef.current;
+              if (!isDraggingEpochRange || anchorEpoch == null) return;
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                event.currentTarget.releasePointerCapture(event.pointerId);
+              }
+              const epochIdx = getEpochIndexFromPosition(event.clientX, event.currentTarget);
+              const epoch = epochIdx == null ? null : visibleEpochs[epochIdx];
+              const endEpoch = epoch?.epoch_index ?? dragHoverRef.current ?? anchorEpoch;
+              const nextMode = dragModeRef.current;
+              if (endEpoch !== anchorEpoch && nextMode) {
+                onApplyEpochRange(anchorEpoch, endEpoch, nextMode);
+              } else {
+                onFocusEpoch(endEpoch);
+              }
+              resetDragSelection();
+            }}
+            onPointerCancel={() => {
+              resetDragSelection();
+            }}
+            onPointerLeave={() => {
+              if (!isDraggingEpochRange) return;
+              setDragHoverEpoch((current) => current ?? dragAnchorEpoch);
             }}
             onDoubleClick={(event) => {
-              const epochIdx = getEpochIndexFromPointer(event);
+              const epochIdx = getEpochIndexFromPosition(event.clientX, event.currentTarget);
               if (epochIdx == null) return;
               const epoch = visibleEpochs[epochIdx];
               if (epoch) onToggleEpoch(epoch.epoch_index);
@@ -390,7 +497,10 @@ function EegBrowser({
         />
       </div>
       <div className="flex items-center justify-between text-[11px] text-zinc-500">
-        <span>Use the bottom scrollbar for file position and scroll vertically for channels. Click to focus, double-click or press Space to reject or restore, and right-click for a scalp map at that latency.</span>
+        <span>
+          Use the bottom scrollbar for file position and scroll vertically for channels. Click to focus, drag across epochs to reject or
+          restore a range, double-click or press Space for one-off changes, and right-click for a scalp map at that latency.
+        </span>
         <span>{manifest.n_channels} channels · {visibleEpochs.length} visible epochs</span>
       </div>
     </div>
@@ -921,6 +1031,16 @@ export default function ExcludePage() {
     scheduleEpochSave(next);
   }
 
+  function applyEpochRangeAction(startEpoch: number, endEpoch: number, mode: DragMode) {
+    const epochRange = buildEpochRange(startEpoch, endEpoch);
+    const next = mode === "reject"
+      ? Array.from(new Set([...badEpochs, ...epochRange])).sort((a, b) => a - b)
+      : badEpochs.filter((epochIndex) => !epochRange.includes(epochIndex));
+    setFocusedEpoch(endEpoch);
+    setBadEpochs(next);
+    scheduleEpochSave(next);
+  }
+
   function scheduleNotesSave(nextNotes: string, nextStatus: string) {
     if (!selectedKey) return;
     setSaveState("saving");
@@ -1290,7 +1410,7 @@ export default function ExcludePage() {
                 ) : null}
 
                 <div className="rounded-md border border-border bg-surface-50/40 px-3 py-2 text-xs text-zinc-300">
-                  Click to focus. Double-click or press <span className="font-medium text-zinc-100">Space</span> to reject or restore. Right-click for a scalp map at the clicked latency.
+                  Click to focus. Drag across epochs to reject or restore a contiguous range. Double-click or press <span className="font-medium text-zinc-100">Space</span> for one-off changes. Right-click for a scalp map at the clicked latency.
                 </div>
 
                 <div className="space-y-3">
@@ -1310,6 +1430,7 @@ export default function ExcludePage() {
                           setFocusedEpoch(epochIndex);
                           toggleEpoch(epochIndex);
                         }}
+                        onApplyEpochRange={applyEpochRangeAction}
                         onEpochStartChange={setEpochStart}
                         onOpenTopography={openTopography}
                       />

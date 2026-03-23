@@ -16,3 +16,7 @@ HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
   font: "",
   textBaseline: "alphabetic",
 })) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+
+HTMLCanvasElement.prototype.setPointerCapture = vi.fn();
+HTMLCanvasElement.prototype.releasePointerCapture = vi.fn();
+HTMLCanvasElement.prototype.hasPointerCapture = vi.fn(() => true);
