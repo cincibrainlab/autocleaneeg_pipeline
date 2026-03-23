@@ -1,75 +1,107 @@
 # AutoCleanEEG Pipeline
 
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-A modular framework for automated EEG data processing, built on MNE‑Python.
+AutoCleanEEG Pipeline is a modular framework for automated EEG preprocessing, review, and operational workflows built on MNE-Python.
 
-## Features
+It is designed for research settings that need reproducible task-driven processing, quality-control outputs, and a path from single-file validation to larger-scale batch or serve-style operation.
 
-- Framework for automated EEG preprocessing with "lego block" modularity
-- Support for multiple EEG paradigms (ASSR, Chirp, MMN, Resting State) 
-- BIDS-compatible data organization and comprehensive quality control
-- Extensible plugin system for file formats, montages, and event processing
-- Research-focused workflow: single file testing → parameter tuning → batch processing
-- Detailed output: BIDS‑compatible derivatives, single task log file, stage files, exports, and QA visualizations
+## What It Includes
 
-## Installation (uv)
+- Modular EEG preprocessing with task-based configuration
+- Support for multiple paradigms including ASSR, Chirp, MMN, and resting state
+- BIDS-aligned outputs and quality-control artifacts
+- Plugin-based extensibility for formats, montages, and event handling
+- Review tooling for inspecting outputs and exclusions
+- Serve/TUI/web tooling in this repository for operational workflows
 
-Use Astral's uv for fast, isolated installs. If you don't have uv yet, see https://docs.astral.sh/uv/
+## Requirements
 
-- Install CLI (recommended for users):
+- Python `3.11` to `3.13`
+- `uv` for the recommended install workflow: <https://docs.astral.sh/uv/>
+
+## Installation
+
+### Install The CLI
 
 ```bash
 uv tool install autocleaneeg-pipeline
 autocleaneeg-pipeline --help
 ```
 
-- Upgrade or remove:
+### Upgrade Or Remove
 
 ```bash
 uv tool upgrade autocleaneeg-pipeline
 uv tool uninstall autocleaneeg-pipeline
 ```
 
-- Development install from source (editable install):
+### Install From Source For Development
 
 ```bash
-git clone https://github.com/cincibrainlab/autocleaneeg_pipeline.git
-cd autocleaneeg_pipeline
+git clone https://github.com/cincibrainlab/autoclean_pipeline.git
+cd autoclean_pipeline
 uv tool install -e --upgrade . --force
-autocleaneeg-pipeline --help # Slow on first run!
+autocleaneeg-pipeline --help
+```
+
+For contributor workflow, testing, linting, and local docs commands, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Quick Start
+
+List available tasks:
+
+```bash
+autocleaneeg-pipeline list-tasks
+```
+
+Process a file with a built-in task:
+
+```bash
+autocleaneeg-pipeline process RestingEyesOpen /path/to/data.raw
+```
+
+Review pipeline output:
+
+```bash
+autocleaneeg-pipeline review --output /path/to/output
 ```
 
 ## Documentation
 
-Full documentation is available at [https://docs.autocleaneeg.org](https://docs.autocleaneeg.org)
+- published docs: <https://cincibrainlab.github.io/autoclean_pipeline/>
+- docs tree index: [docs/INDEX.md](/Users/sueo8x/Documents/Github/autoclean_pipeline/docs/INDEX.md)
+- planning artifacts: [plans/README.md](/Users/sueo8x/Documents/Github/autoclean_pipeline/plans/README.md)
+- repo cleanup plan: [plans/REPO_CLEANUP_PLAN.md](/Users/sueo8x/Documents/Github/autoclean_pipeline/plans/REPO_CLEANUP_PLAN.md)
 
 ## Development
 
-For contributors, we provide a Makefile with convenient development commands:
+Common contributor commands:
 
 ```bash
-make help          # Show all available commands
-make check         # Run code quality checks
-make format        # Auto-format code
-make lint          # Run linting and type checking
-make test          # Run unit tests
-make test-cov      # Run tests with coverage
-make ci-check      # Run CI-equivalent checks locally
+make help
+make check
+make format
+make lint
+make test
+make test-cov
+make ci-check
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for full development guidelines.
+Frontend work lives in [web/package.json](/Users/sueo8x/Documents/Github/autoclean_pipeline/web/package.json). Run frontend build and test commands from the `web/` directory.
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-For branch workflow and cleanup expectations, see [BRANCHING.md](BRANCHING.md).
+See:
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow
+- [BRANCHING.md](BRANCHING.md) for branch and merge conventions
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) file for details.
+This project is licensed under the MIT License. See [LICENSE.md](LICENSE.md).
 
 ## Acknowledgments
 

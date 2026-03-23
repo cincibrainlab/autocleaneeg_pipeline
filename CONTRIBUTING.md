@@ -96,6 +96,17 @@ Or build directly:
 make -C docs html
 ```
 
+Documentation navigation:
+
+- main docs tree: [docs/INDEX.md](/Users/sueo8x/Documents/Github/autoclean_pipeline/docs/INDEX.md)
+- structured planning artifacts: [plans/README.md](/Users/sueo8x/Documents/Github/autoclean_pipeline/plans/README.md)
+- cleanup and repo-structure plan: [REPO_CLEANUP_PLAN.md](/Users/sueo8x/Documents/Github/autoclean_pipeline/plans/REPO_CLEANUP_PLAN.md)
+
+Frontend workflow:
+
+- the Serve frontend lives under `web/`
+- run frontend build and test commands from that directory via [web/package.json](/Users/sueo8x/Documents/Github/autoclean_pipeline/web/package.json)
+
 ## Submitting Changes
 
 1. Create a feature branch from `main`
