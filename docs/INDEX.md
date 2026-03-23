@@ -16,10 +16,6 @@ This directory contains the main project documentation tree.
 - `docs/archive/`: archived documentation and older implementation notes
 - `docs/from-root/`: root-level engineering notes and implementation plans
 
-## Planning Areas
-
-- [plans/README.md](../plans/README.md)
-
 ## Notes
 
 - Prefer the root [CONTRIBUTING.md](../CONTRIBUTING.md) as the canonical contributor guide.

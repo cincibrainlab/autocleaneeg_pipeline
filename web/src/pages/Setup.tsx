@@ -103,6 +103,19 @@ export default function Setup() {
         <code className="mx-1 rounded bg-surface-50 px-1.5 py-0.5 text-xs text-zinc-200">autocleaneeg-pipeline serve workspace --mode existing --path &lt;dir&gt;</code>
       </div>
 
+      <div className="rounded-lg border border-border bg-surface-100 px-5 py-3 text-sm text-zinc-400 space-y-2">
+        <p>
+          <span className="font-medium text-zinc-200">Open Workspace</span> for an existing Serve workspace, or for an existing AutoClean workspace that already has normal project folders such as
+          <code className="mx-1 rounded bg-surface-50 px-1.5 py-0.5 text-xs text-zinc-200">tasks/</code>
+          and
+          <code className="mx-1 rounded bg-surface-50 px-1.5 py-0.5 text-xs text-zinc-200">output/</code>.
+          Serve will bootstrap the missing Serve-specific files in place when that is valid.
+        </p>
+        <p>
+          <span className="font-medium text-zinc-200">Create New Workspace</span> only for a new, empty directory that Serve should initialize from scratch.
+        </p>
+      </div>
+
       {/* Recent workspaces list */}
       <div className="rounded-lg border border-border bg-surface-100 overflow-hidden">
         {/* List header */}
@@ -245,34 +258,44 @@ export default function Setup() {
 
       {/* Action buttons */}
       <div className="flex gap-3">
-        <button
-          onClick={handleOpen}
-          disabled={opening || !workspacePath.trim()}
-          className="flex-1 rounded-md py-2.5 text-sm font-semibold bg-brand text-surface-500 hover:bg-brand-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          {opening ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Opening...
-            </>
-          ) : (
-            "Open Workspace"
-          )}
-        </button>
-        <button
-          onClick={handleCreateNew}
-          disabled={opening || !workspacePath.trim()}
-          className="flex-1 rounded-md py-2.5 text-sm font-semibold border border-border text-zinc-300 hover:bg-surface-50 hover:text-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          {opening ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Creating...
-            </>
-          ) : (
-            "Create New Workspace"
-          )}
-        </button>
+        <div className="flex-1 space-y-1.5">
+          <button
+            onClick={handleOpen}
+            disabled={opening || !workspacePath.trim()}
+            className="w-full rounded-md py-2.5 text-sm font-semibold bg-brand text-surface-500 hover:bg-brand-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {opening ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Opening...
+              </>
+            ) : (
+              "Open Workspace"
+            )}
+          </button>
+          <p className="text-xs text-zinc-600">
+            Use this for existing Serve workspaces and existing AutoClean workspaces.
+          </p>
+        </div>
+        <div className="flex-1 space-y-1.5">
+          <button
+            onClick={handleCreateNew}
+            disabled={opening || !workspacePath.trim()}
+            className="w-full rounded-md py-2.5 text-sm font-semibold border border-border text-zinc-300 hover:bg-surface-50 hover:text-zinc-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {opening ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              "Create New Workspace"
+            )}
+          </button>
+          <p className="text-xs text-zinc-600">
+            Use this only when the target directory is empty.
+          </p>
+        </div>
       </div>
 
       {/* Folder browser modal */}

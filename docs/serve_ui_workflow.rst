@@ -125,9 +125,12 @@ If you want explicit control, you can validate from the CLI:
 
    autocleaneeg-pipeline serve validate --mode test
 
-In normal operator use, ``serve up`` may apply valid unapplied config automatically when it is safe to do so.
+Validation checks whether the current draft config is usable. It does not publish the draft for processing.
 
-In the web UI, the equivalent path is the Apply action in Settings.
+To make processing use the current config, you must apply or deploy it explicitly:
+
+* in the web UI, use the Apply action in Settings
+* in the CLI, use the config deployment path that publishes the current draft into ``deploy/``
 
 Step 5: Confirm dispatcher and queue state
 ------------------------------------------
@@ -203,11 +206,13 @@ Run:
 
 If routes are missing, create one.
 
-If config is not applied, validate it:
+If config is not applied, validate it and then apply or deploy it:
 
 .. code-block:: bash
 
    autocleaneeg-pipeline serve validate --mode test
+
+Validation alone does not make processing operational. The dispatcher should only run from the deployed config.
 
 I am not sure which workspace Serve is using
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
