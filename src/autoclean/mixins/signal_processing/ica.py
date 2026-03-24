@@ -15,7 +15,9 @@ from autoclean.utils.logging import message
 
 # Import cache invalidation function if available
 try:
-    from autoclean.mixins.viz._ica_sources_cache import invalidate_ica_cache
+    from autoclean.functions.visualization._ica_sources_cache import (
+        invalidate_ica_cache,
+    )
 
     CACHE_AVAILABLE = True
 except ImportError:

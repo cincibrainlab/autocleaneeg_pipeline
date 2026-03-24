@@ -27,14 +27,16 @@ from scipy.ndimage import uniform_filter1d
 
 # Import caching functions (optional to avoid circular imports)
 try:
-    from autoclean.mixins.viz._ica_sources_cache import get_cached_ica_sources
+    from autoclean.functions.visualization._ica_sources_cache import (
+        get_cached_ica_sources,
+    )
 
     SOURCES_CACHE_AVAILABLE = True
 except ImportError:
     SOURCES_CACHE_AVAILABLE = False
 
 try:
-    from autoclean.mixins.viz._ica_topography_cache import (
+    from autoclean.functions.visualization._ica_topography_cache import (
         apply_cached_topography,
         get_cached_topographies,
     )
@@ -44,7 +46,9 @@ except ImportError:
     TOPOGRAPHY_CACHE_AVAILABLE = False
 
 try:
-    from autoclean.mixins.viz._ica_psd_cache import get_cached_component_psds
+    from autoclean.functions.visualization._ica_psd_cache import (
+        get_cached_component_psds,
+    )
 
     PSD_CACHE_AVAILABLE = True
 except ImportError:

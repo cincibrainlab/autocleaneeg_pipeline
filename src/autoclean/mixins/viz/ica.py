@@ -30,7 +30,7 @@ from autoclean.functions.visualization.icvision_layouts import (
     plot_component_for_classification,
     plot_ica_topographies_overview,
 )
-from autoclean.mixins.viz._ica_sources_cache import (
+from autoclean.functions.visualization._ica_sources_cache import (
     get_cached_ica_sources,
     get_ica_cache_stats,
     invalidate_ica_cache,
@@ -491,8 +491,10 @@ class ICAReportingMixin:
             source_name = Path(self.config["unprocessed_file"]).stem
 
             # Pre-compute batch data for better performance
-            from autoclean.mixins.viz._ica_psd_cache import get_cached_component_psds
-            from autoclean.mixins.viz._ica_topography_cache import (
+            from autoclean.functions.visualization._ica_psd_cache import (
+                get_cached_component_psds,
+            )
+            from autoclean.functions.visualization._ica_topography_cache import (
                 get_cached_topographies,
             )
 
