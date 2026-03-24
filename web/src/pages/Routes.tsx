@@ -147,6 +147,13 @@ function ActionMenu({
           Restore
         </button>
       )}
+      <div className="my-1 border-t border-border" />
+      <button
+        onClick={() => onAction("delete", route.id)}
+        className={`${item} text-red-300 hover:bg-red-500/10 hover:text-red-200`}
+      >
+        Delete
+      </button>
     </div>,
     document.body
   );
@@ -294,7 +301,7 @@ export default function RoutesPage() {
   };
 
   const requestAction = (
-    action: "promote" | "archive" | "unarchive" | "enable" | "disable",
+    action: "promote" | "archive" | "unarchive" | "enable" | "disable" | "delete",
     id: string
   ) => {
     setActionMenu(null);
@@ -337,6 +344,25 @@ export default function RoutesPage() {
           ),
         });
         break;
+      case "delete":
+        setConfirmAction({
+          type: "delete",
+          id,
+          title: `Delete route '${id}'?`,
+          message: (
+            <div className="space-y-2">
+              <p>
+                This will remove route <strong className="text-zinc-200">'{id}'</strong> from the
+                draft configuration.
+              </p>
+              <p className="text-red-400/80">
+                Apply the latest config in Settings before processing stops using this route.
+                Files already in the queue will not be affected.
+              </p>
+            </div>
+          ),
+        });
+        break;
       default:
         executeAction(action, id);
     }
@@ -360,6 +386,9 @@ export default function RoutesPage() {
         case "disable":
           await api.disableRoute(id);
           break;
+        case "delete":
+          await api.deleteRoute(id);
+          break;
       }
       await api.syncRoutes();
       const labels: Record<string, string> = {
@@ -368,6 +397,7 @@ export default function RoutesPage() {
         unarchive: "restored",
         enable: "enabled",
         disable: "disabled",
+        delete: "deleted",
       };
       showNotice(
         `Route '${id}' ${labels[action] || action}. Open Settings and click Apply to publish this change for processing.`
@@ -497,7 +527,7 @@ export default function RoutesPage() {
             <ActionMenu
               route={r}
               triggerRef={actionMenu.trigger}
-              onAction={(action, id) => requestAction(action as "promote" | "archive" | "unarchive" | "enable" | "disable", id)}
+              onAction={(action, id) => requestAction(action as "promote" | "archive" | "unarchive" | "enable" | "disable" | "delete", id)}
               onEdit={openEditModal}
               onClose={() => setActionMenu(null)}
             />
@@ -672,10 +702,12 @@ export default function RoutesPage() {
               ? "Archive"
               : confirmAction?.type === "promote"
                 ? "Enable Live"
+                : confirmAction?.type === "delete"
+                  ? "Delete Route"
                 : "Confirm"
         }
         confirmVariant={
-          confirmAction?.type === "promote" ? "danger"
+          confirmAction?.type === "promote" || confirmAction?.type === "delete" ? "danger"
               : "primary"
         }
         onConfirm={handleConfirm}

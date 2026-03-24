@@ -8,6 +8,7 @@ const { api } = vi.hoisted(() => ({
     getTaskOptions: vi.fn(),
     getMontageOptions: vi.fn(),
     createRoute: vi.fn(),
+    deleteRoute: vi.fn(),
     syncRoutes: vi.fn(),
     promoteRoute: vi.fn(),
     archiveRoute: vi.fn(),
@@ -60,6 +61,7 @@ describe("Routes page actions", () => {
     api.getTaskOptions.mockResolvedValue([]);
     api.getMontageOptions.mockResolvedValue([]);
     api.syncRoutes.mockResolvedValue({ success: true });
+    api.deleteRoute.mockResolvedValue({ success: true });
     api.promoteRoute.mockResolvedValue({ success: true });
     api.archiveRoute.mockResolvedValue({ success: true });
     api.unarchiveRoute.mockResolvedValue({ success: true });
@@ -121,6 +123,31 @@ describe("Routes page actions", () => {
 
     expect(
       screen.getByText("Route 'route-1' archived. Open Settings and click Apply to publish this change for processing."),
+    ).toBeInTheDocument();
+  });
+
+  it("requires confirmation for delete and explains Apply semantics", async () => {
+    renderPage();
+
+    await openActionMenu();
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+
+    expect(
+      await screen.findByText("Delete route 'route-1'?"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Apply the latest config in Settings before processing stops using this route/i),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete Route" }));
+
+    await waitFor(() => {
+      expect(api.deleteRoute).toHaveBeenCalledWith("route-1");
+      expect(api.syncRoutes).toHaveBeenCalled();
+    });
+
+    expect(
+      screen.getByText("Route 'route-1' deleted. Open Settings and click Apply to publish this change for processing."),
     ).toBeInTheDocument();
   });
 
