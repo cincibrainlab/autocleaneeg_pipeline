@@ -229,14 +229,9 @@ class TestTSVGeneration:
 class TestBackwardCompatibility:
     """Test backward compatibility with existing workflows."""
 
-    @patch("autoclean.step_functions.reports.Path")
-    def test_legacy_tsv_format_preserved(self, mock_path):
+    def test_legacy_tsv_format_preserved(self, tmp_path):
         """Test that TSV file format remains backward compatible."""
         from autoclean.step_functions.reports import generate_bad_channels_tsv
-
-        # Setup mock
-        mock_file = MagicMock()
-        mock_path.return_value.open.return_value.__enter__.return_value = mock_file
 
         summary_dict = {
             "channel_dict": {},
@@ -250,17 +245,16 @@ class TestBackwardCompatibility:
                     }
                 ]
             },
-            "reports_dir": "/tmp/reports",
+            "reports_dir": str(tmp_path / "reports"),
             "run_id": "test_run",
         }
 
         # Execute
         generate_bad_channels_tsv(summary_dict)
 
-        # Verify header format (tab-separated, two columns)
-        calls = [str(call) for call in mock_file.write.call_args_list]
-        header_call = calls[0]
-        assert "label\\tchannel\\n" in header_call
+        flagged_path = Path(summary_dict["flagged_channels_file"])
+        assert flagged_path.exists()
+        assert flagged_path.read_text(encoding="utf8").startswith("label\tchannel\n")
 
     def test_fallback_to_legacy_detection(self):
         """Test fallback to legacy detection when unified removals absent."""

@@ -18,6 +18,9 @@ def mock_raw():
     """Create a mock raw object for testing."""
     raw = MagicMock(spec=mne.io.BaseRaw)
     raw.info = {"sfreq": 500.0}
+    raw.times = np.linspace(0, 20, 10000)
+    raw.first_samp = 0
+    raw.ch_names = [f"EEG_{i:03d}" for i in range(64)]
     raw.get_data.return_value = (
         np.random.randn(64, 10000),  # 64 channels, 10000 samples
         np.linspace(0, 20, 10000),  # 20 seconds of data
@@ -25,6 +28,7 @@ def mock_raw():
     raw.copy.return_value = raw
     raw.annotations = MagicMock()
     raw.annotations.append = MagicMock()
+    raw.annotations.orig_time = None
     return raw
 
 
@@ -233,7 +237,7 @@ class TestAnnotateUncorrelatedSegments:
         mock_epochs.__len__.return_value = 1
         mock_epochs.get_montage.return_value = None  # No montage
 
-        with pytest.raises(ValueError, match="montage"):
+        with pytest.raises(RuntimeError, match="montage"):
             annotate_uncorrelated_segments(mock_raw)
 
 

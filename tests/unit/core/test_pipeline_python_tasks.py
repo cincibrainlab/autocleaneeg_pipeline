@@ -254,9 +254,10 @@ class SecondTask(Task):
             task_file.write_text(multi_task_content)
 
             # Should pick the first one found
-            task_class = pipeline._load_python_task(task_file)
+            task_class, task_config = pipeline._load_python_task(task_file)
             assert issubclass(task_class, Task)
             assert task_class.__name__ in ["FirstTask", "SecondTask"]
+            assert task_config == {}
 
 
 @pytest.mark.skipif(

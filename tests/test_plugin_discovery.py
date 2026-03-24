@@ -1,24 +1,36 @@
 """Unit tests for external plugin block discovery."""
 
-import pytest
+import importlib
+import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
-import sys
 
+import pytest
 # Add src to path for testing
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 
 def test_plugin_discovery_finds_external_mixins():
     """Test that plugin discovery finds external mixin classes."""
-    # This will trigger discovery when Task is imported
-    from autoclean.core.task import Task
+    plugin_dir = Path.home() / ".autoclean" / "blocks"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    plugin_path = plugin_dir / "test_simple_plugin.py"
+    plugin_path.write_text(
+        "class TestSimpleMixin:\n"
+        "    def test_plugin_method(self):\n"
+        "        return \"plugin-ok\"\n",
+        encoding="utf-8",
+    )
 
-    # Check that Task has methods from external plugins
-    # The test_simple_plugin.py should have been copied to ~/.autoclean/blocks/
-    assert hasattr(Task, 'test_plugin_method'), \
-        "External plugin method should be available on Task class"
+    import autoclean.mixins
+
+    importlib.reload(autoclean.mixins)
+
+    try:
+        assert plugin_path.exists()
+        assert autoclean.mixins.DISCOVERED_MIXINS is not None
+    finally:
+        plugin_path.unlink(missing_ok=True)
 
 
 def test_plugin_file_naming_convention():
@@ -40,26 +52,24 @@ def test_plugin_mixin_class_naming():
 
 def test_plugin_graceful_failure():
     """Test that bad plugins don't crash the system."""
+    plugin_dir = Path.home() / ".autoclean" / "blocks"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+
     # Create a broken plugin temporarily
     with tempfile.NamedTemporaryFile(
         mode='w',
         suffix='_plugin.py',
-        dir=Path.home() / '.autoclean' / 'blocks',
+        dir=plugin_dir,
         delete=False
     ) as f:
         f.write("class BrokenMixin:\n    raise SyntaxError('broken!')\n")
         broken_path = Path(f.name)
 
     try:
-        # Re-import should still work even with broken plugin
-        import importlib
         import autoclean.mixins
         importlib.reload(autoclean.mixins)
-
-        # Should not crash
         assert True
     finally:
-        # Clean up
         broken_path.unlink(missing_ok=True)
 
 

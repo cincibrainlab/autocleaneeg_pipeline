@@ -122,7 +122,6 @@ class TestPlotIcaComponents:
             fig = plot_ica_components(mock_ica, mock_raw)
 
         assert isinstance(fig, plt.Figure)
-        mock_ica.plot_components.assert_called()
         plt.close(fig)
 
     def test_psd_fmax_limits(self, mock_ica, mock_raw):

@@ -10,13 +10,13 @@ from tests.fixtures.test_utils import EEGAssertions, MockOperations
 # Import will be mocked for tests that don't need full functionality
 try:
     from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
-    from autoclean.mixins.signal_processing.ica import ICAMixin
+    from autoclean.mixins.signal_processing.ica import IcaMixin
 
     SIGNAL_PROCESSING_AVAILABLE = True
 except ImportError:
     SIGNAL_PROCESSING_AVAILABLE = False
     BasicStepsMixin = None
-    ICAMixin = None
+    IcaMixin = None
 
 
 @pytest.mark.skipif(
@@ -58,32 +58,33 @@ class TestBasicStepsMixin:
 
     def test_basic_steps_mixin_inheritance(self):
         """Test BasicStepsMixin can be inherited."""
+        from autoclean.core.task import Task
 
-        class TestClass(BasicStepsMixin):
+        class TestClass(Task):
             def __init__(self):
                 self.raw = create_synthetic_raw()
-                self.config = self.config
+                self.config = {
+                    "task": "test_task",
+                    "tasks": {
+                        "test_task": {
+                            "settings": {
+                                "resample_step": {"enabled": True, "value": 250},
+                                "filtering": {"enabled": True, "value": None},
+                                "drop_outerlayer": {"enabled": True, "value": []},
+                                "eog_step": {"enabled": True, "value": []},
+                                "trim_step": {"enabled": True, "value": 0},
+                                "crop_step": {
+                                    "enabled": True,
+                                    "value": {"start": 0, "end": None},
+                                },
+                            }
+                        }
+                    },
+                }
+                self.epochs = None
 
-            def _get_data_object(self, data=None, use_epochs=False):
-                return data if data is not None else self.raw
-
-            def resample_data(self, data=None, use_epochs=False):
-                return data if data is not None else self.raw
-
-            def filter_data(self, data=None, use_epochs=False):
-                return data if data is not None else self.raw
-
-            def drop_outerlayer_channels(self, data=None, use_epochs=False):
-                return data if data is not None else self.raw
-
-            def assign_eog_channels(self, data=None, use_epochs=False):
-                return data if data is not None else self.raw
-
-            def trim_edges(self, data=None, use_epochs=False):
-                return data if data is not None else self.raw
-
-            def crop_duration(self, data=None, use_epochs=False):
-                return data if data is not None else self.raw
+            def run(self):
+                return None
 
         test_instance = TestClass()
 
@@ -94,9 +95,7 @@ class TestBasicStepsMixin:
         with (
             patch.object(test_instance, "resample_data", return_value=self.raw),
             patch.object(test_instance, "filter_data", return_value=self.raw),
-            patch.object(
-                test_instance, "drop_outerlayer_channels", return_value=self.raw
-            ),
+            patch.object(test_instance, "drop_outer_layer", return_value=self.raw),
             patch.object(test_instance, "assign_eog_channels", return_value=self.raw),
             patch.object(test_instance, "trim_edges", return_value=self.raw),
             patch.object(test_instance, "crop_duration", return_value=self.raw),
@@ -108,14 +107,37 @@ class TestBasicStepsMixin:
     @patch("autoclean.utils.logging.message")
     def test_basic_steps_sequential_execution(self, mock_message):
         """Test that basic steps execute in correct sequence."""
+        from autoclean.core.task import Task
 
-        class TestClass(BasicStepsMixin):
+        class TestClass(Task):
             def __init__(self):
                 self.raw = create_synthetic_raw()
                 self.execution_order = []
+                self.config = {
+                    "task": "test_task",
+                    "tasks": {
+                        "test_task": {
+                            "settings": {
+                                "resample_step": {"enabled": True, "value": 250},
+                                "filtering": {
+                                    "enabled": True,
+                                    "value": {"l_freq": 1, "h_freq": 40},
+                                },
+                                "drop_outerlayer": {"enabled": True, "value": []},
+                                "eog_step": {"enabled": True, "value": []},
+                                "trim_step": {"enabled": True, "value": 0},
+                                "crop_step": {
+                                    "enabled": True,
+                                    "value": {"start": 0, "end": None},
+                                },
+                            }
+                        }
+                    },
+                }
+                self.epochs = None
 
-            def _get_data_object(self, data=None, use_epochs=False):
-                return data if data is not None else self.raw
+            def run(self):
+                return None
 
             def resample_data(self, data=None, use_epochs=False):
                 self.execution_order.append("resample")
@@ -125,7 +147,7 @@ class TestBasicStepsMixin:
                 self.execution_order.append("filter")
                 return data if data is not None else self.raw
 
-            def drop_outerlayer_channels(self, data=None, use_epochs=False):
+            def drop_outer_layer(self, data=None, use_epochs=False):
                 self.execution_order.append("drop_outerlayer")
                 return data if data is not None else self.raw
 
@@ -157,11 +179,34 @@ class TestBasicStepsMixin:
 
     def test_basic_steps_data_parameter_handling(self):
         """Test that BasicStepsMixin handles data parameter correctly."""
+        from autoclean.core.task import Task
 
-        class TestClass(BasicStepsMixin):
+        class TestClass(Task):
             def __init__(self):
                 self.raw = create_synthetic_raw()
                 self.received_data = None
+                self.config = {
+                    "task": "test_task",
+                    "tasks": {
+                        "test_task": {
+                            "settings": {
+                                "resample_step": {"enabled": True, "value": 250},
+                                "filtering": {"enabled": True, "value": None},
+                                "drop_outerlayer": {"enabled": True, "value": []},
+                                "eog_step": {"enabled": True, "value": []},
+                                "trim_step": {"enabled": True, "value": 0},
+                                "crop_step": {
+                                    "enabled": True,
+                                    "value": {"start": 0, "end": None},
+                                },
+                            }
+                        }
+                    },
+                }
+                self.epochs = None
+
+            def run(self):
+                return None
 
             def _get_data_object(self, data=None, use_epochs=False):
                 self.received_data = data
@@ -173,7 +218,7 @@ class TestBasicStepsMixin:
             def filter_data(self, data=None, use_epochs=False):
                 return data
 
-            def drop_outerlayer_channels(self, data=None, use_epochs=False):
+            def drop_outer_layer(self, data=None, use_epochs=False):
                 return data
 
             def assign_eog_channels(self, data=None, use_epochs=False):
@@ -202,11 +247,21 @@ class TestBasicStepsMixin:
             def __init__(self):
                 self.raw = create_synthetic_raw(n_channels=10)
                 self.config = {
-                    "eog_step": {
-                        "enabled": True,
-                        "value": {"eog_indices": [1, 2], "eog_drop": False},
-                    }
+                    "task": "test_task",
+                    "tasks": {
+                        "test_task": {
+                            "settings": {
+                                "eog_step": {
+                                    "enabled": True,
+                                    "value": {"eog_indices": [1, 2], "eog_drop": False},
+                                }
+                            }
+                        }
+                    },
                 }
+
+            def run(self):
+                return None
 
         task = TestTask()
         result = task.assign_eog_channels()
@@ -219,9 +274,10 @@ class TestBasicStepsMixin:
         class TestTask(Task):
             def __init__(self):
                 self.raw = create_synthetic_raw(n_channels=10)
-                self.config = {
-                    "eog_step": {"enabled": True, "value": [1, 2, 3]}
-                }
+                self.config = {"task": "test_task", "tasks": {"test_task": {"settings": {"eog_step": {"enabled": True, "value": [1, 2, 3]}}}}}
+
+            def run(self):
+                return None
 
         task = TestTask()
         result = task.assign_eog_channels()
@@ -234,9 +290,10 @@ class TestBasicStepsMixin:
         class TestTask(Task):
             def __init__(self):
                 self.raw = create_synthetic_raw(n_channels=10)
-                self.config = {
-                    "eog_step": {"enabled": True, "value": None}
-                }
+                self.config = {"task": "test_task", "tasks": {"test_task": {"settings": {"eog_step": {"enabled": True, "value": None}}}}}
+
+            def run(self):
+                return None
 
         task = TestTask()
         result = task.assign_eog_channels()
@@ -250,9 +307,10 @@ class TestBasicStepsMixin:
         class TestTask(Task):
             def __init__(self):
                 self.raw = create_synthetic_raw(n_channels=10)
-                self.config = {
-                    "eog_step": {"enabled": True, "value": []}
-                }
+                self.config = {"task": "test_task", "tasks": {"test_task": {"settings": {"eog_step": {"enabled": True, "value": []}}}}}
+
+            def run(self):
+                return None
 
         task = TestTask()
         result = task.assign_eog_channels()
@@ -266,9 +324,17 @@ class TestBasicStepsMixin:
         class TestTask(Task):
             def __init__(self):
                 self.raw = create_synthetic_raw(sfreq=1000.0)
-                self.config = {
-                    "resample_step": {"enabled": True, "value": 250}
-                }
+                self.config = {"task": "test_task", "tasks": {"test_task": {"settings": {"resample_step": {"enabled": True, "value": 250}}}}}
+                self.flagged = False
+
+            def _save_raw_result(self, result_data, stage_name):
+                return None
+
+            def _update_metadata(self, operation, metadata_dict):
+                return None
+
+            def run(self):
+                return None
 
         task = TestTask()
         result = task.resample_data()
@@ -284,11 +350,28 @@ class TestBasicStepsMixin:
             def __init__(self):
                 self.raw = create_synthetic_raw(sfreq=1000.0)
                 self.config = {
-                    "resample_step": {
-                        "enabled": True,
-                        "value": {"sfreq": 500, "npad": "auto"}
-                    }
+                    "task": "test_task",
+                    "tasks": {
+                        "test_task": {
+                            "settings": {
+                                "resample_step": {
+                                    "enabled": True,
+                                    "value": {"sfreq": 500, "npad": "auto"},
+                                }
+                            }
+                        }
+                    },
                 }
+                self.flagged = False
+
+            def _save_raw_result(self, result_data, stage_name):
+                return None
+
+            def _update_metadata(self, operation, metadata_dict):
+                return None
+
+            def run(self):
+                return None
 
         task = TestTask()
         result = task.resample_data()
@@ -303,15 +386,32 @@ class TestBasicStepsMixin:
             def __init__(self):
                 self.raw = create_synthetic_raw(sfreq=500.0, duration=10.0)
                 self.config = {
-                    "filtering": {
-                        "enabled": True,
-                        "value": {
-                            "l_freq": 1.0,
-                            "h_freq": 100.0,
-                            "notch_freqs": [60],
+                    "task": "test_task",
+                    "tasks": {
+                        "test_task": {
+                            "settings": {
+                                "filtering": {
+                                    "enabled": True,
+                                    "value": {
+                                        "l_freq": 1.0,
+                                        "h_freq": 100.0,
+                                        "notch_freqs": [60],
+                                    },
+                                }
+                            }
                         }
                     }
                 }
+                self.flagged = False
+
+            def _save_raw_result(self, result_data, stage_name):
+                return None
+
+            def _update_metadata(self, operation, metadata_dict):
+                return None
+
+            def run(self):
+                return None
 
         task = TestTask()
         result = task.filter_data()
@@ -328,14 +428,31 @@ class TestBasicStepsMixin:
             def __init__(self):
                 self.raw = create_synthetic_raw(sfreq=500.0, duration=10.0)
                 self.config = {
-                    "filtering": {
-                        "enabled": True,
-                        "value": {
-                            "l_freq": 1.0,
-                            "h_freq": 100.0,
+                    "task": "test_task",
+                    "tasks": {
+                        "test_task": {
+                            "settings": {
+                                "filtering": {
+                                    "enabled": True,
+                                    "value": {
+                                        "l_freq": 1.0,
+                                        "h_freq": 100.0,
+                                    },
+                                }
+                            }
                         }
                     }
                 }
+                self.flagged = False
+
+            def _save_raw_result(self, result_data, stage_name):
+                return None
+
+            def _update_metadata(self, operation, metadata_dict):
+                return None
+
+            def run(self):
+                return None
 
         task = TestTask()
 
@@ -363,19 +480,19 @@ class TestICAMixin:
         # Should have ICA-related methods
         expected_methods = ["run_ica", "apply_ica"]
         for method in expected_methods:
-            if hasattr(ICAMixin, method):
-                assert callable(getattr(ICAMixin, method))
+            if hasattr(IcaMixin, method):
+                assert callable(getattr(IcaMixin, method))
 
     def test_ica_mixin_inheritance(self):
         """Test ICAMixin can be inherited."""
 
-        class TestClass(ICAMixin):
+        class TestClass(IcaMixin):
             def __init__(self):
                 self.raw = create_synthetic_raw()
                 self.ica = None
 
         test_instance = TestClass()
-        assert isinstance(test_instance, ICAMixin)
+        assert isinstance(test_instance, IcaMixin)
 
     @patch("mne.preprocessing.ICA")
     def test_ica_mixin_mock_functionality(self, mock_ica_class):
@@ -385,7 +502,7 @@ class TestICAMixin:
         mock_ica = MockOperations.mock_ica_fit(create_synthetic_raw(), n_components=15)
         mock_ica_class.return_value = mock_ica
 
-        class TestClass(ICAMixin):
+        class TestClass(IcaMixin):
             def __init__(self):
                 self.raw = create_synthetic_raw()
                 self.ica = None
@@ -594,7 +711,7 @@ class TestSignalProcessingMixinsPerformance:
 
         call_count = 0
 
-        def mock_step(data=None, use_epochs=False):
+        def mock_step(self, data=None, use_epochs=False):
             nonlocal call_count
             call_count += 1
             return data if data is not None else mock_raw
@@ -605,13 +722,38 @@ class TestSignalProcessingMixinsPerformance:
             class FastTestClass(BasicStepsMixin):
                 def __init__(self):
                     self.raw = mock_raw
+                    self.original_raw = None
+                    self.config = {
+                        "task": "test_task",
+                        "tasks": {
+                            "test_task": {
+                                "settings": {
+                                    "resample_step": {"enabled": True, "value": 250},
+                                    "filtering": {"enabled": True, "value": None},
+                                    "drop_outerlayer": {"enabled": True, "value": []},
+                                    "eog_step": {"enabled": True, "value": []},
+                                    "trim_step": {"enabled": True, "value": 0},
+                                    "crop_step": {
+                                        "enabled": True,
+                                        "value": {"start": 0, "end": None},
+                                    },
+                                }
+                            }
+                        },
+                    }
 
                 def _get_data_object(self, data=None, use_epochs=False):
                     return data if data is not None else self.raw
 
+                def _update_instance_data(self, original_data, processed_data, use_epochs):
+                    self.raw = processed_data
+
+                def _auto_export_if_enabled(self, processed_data, stage_name, export):
+                    return None
+
                 resample_data = mock_step
                 filter_data = mock_step
-                drop_outerlayer_channels = mock_step
+                drop_outer_layer = mock_step
                 assign_eog_channels = mock_step
                 trim_edges = mock_step
                 crop_duration = mock_step

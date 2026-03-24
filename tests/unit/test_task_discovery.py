@@ -13,35 +13,25 @@ from autoclean.utils.task_discovery import (
 
 def test_safe_discover_tasks(monkeypatch):
     """Test that safe_discover_tasks correctly identifies good and bad tasks."""
-    # Mock the user_config.tasks_dir to point to our test fixtures
+    tasks_dir = Path("tests/fixtures/tasks")
     monkeypatch.setattr(
         "autoclean.utils.user_config.user_config.tasks_dir",
-        Path("tests/fixtures/tasks"),
+        tasks_dir,
     )
 
-    valid_tasks, invalid_files = safe_discover_tasks()
+    valid_tasks, invalid_files, skipped_files = safe_discover_tasks()
 
     # Check that we have discovered tasks (built-in + custom)
     assert len(valid_tasks) > 0
 
-    # Check that the good task was discovered
-    assert any(task.name == "GoodTask" for task in valid_tasks)
+    # Fixture files are intentionally skipped rather than imported.
+    skipped_sources = {Path(entry.source).name for entry in skipped_files}
+    assert "good_task.py" in skipped_sources
+    assert "bad_syntax_task.py" in skipped_sources
+    assert "bad_import_task.py" in skipped_sources
 
-    # Check that invalid files were identified
-    assert len(invalid_files) >= 2  # At least our two bad test files
-
-    # Check that the bad syntax task was identified as invalid
-    bad_syntax_files = [f for f in invalid_files if "bad_syntax_task.py" in f.source]
-    assert len(bad_syntax_files) > 0
-    assert any("Syntax error" in f.error for f in bad_syntax_files)
-
-    # Check that the bad import task was identified as invalid
-    bad_import_files = [f for f in invalid_files if "bad_import_task.py" in f.source]
-    assert len(bad_import_files) > 0
-    assert any(
-        "Missing dependency" in f.error or "ModuleNotFoundError" in f.error
-        for f in bad_import_files
-    )
+    # Built-in discovery should still be healthy.
+    assert isinstance(invalid_files, list)
 
 
 def test_discovered_task_structure():
@@ -69,15 +59,27 @@ def test_invalid_task_file_structure():
     assert invalid.error == "SyntaxError: invalid syntax"
 
 
-def test_get_task_by_name(monkeypatch):
+def test_get_task_by_name(monkeypatch, tmp_path):
     """Test retrieving a task by name."""
-    # Mock the user_config.tasks_dir
-    monkeypatch.setattr(
-        "autoclean.utils.user_config.user_config.tasks_dir",
-        Path("tests/fixtures/tasks"),
+    tasks_dir = tmp_path / "tasks"
+    tasks_dir.mkdir()
+    task_file = tasks_dir / "custom_task.py"
+    task_file.write_text(
+        """
+from autoclean.core.task import Task
+
+class GoodTask(Task):
+    def run(self):
+        pass
+""",
+        encoding="utf-8",
     )
 
-    # Try to get the GoodTask
+    monkeypatch.setattr(
+        "autoclean.utils.user_config.user_config.tasks_dir",
+        tasks_dir,
+    )
+
     task_class = get_task_by_name("GoodTask")
     assert task_class is not None
     assert task_class.__name__ == "GoodTask"
@@ -123,12 +125,14 @@ class DuplicateTask(Task):
         tasks_dir,
     )
 
-    valid_tasks, _ = safe_discover_tasks()
+    valid_tasks, invalid_files, _ = safe_discover_tasks()
 
-    # Should only have one DuplicateTask (the first one found)
+    # Duplicate workspace task definitions are now rejected rather than silently
+    # picking an arbitrary file.
     duplicate_tasks = [t for t in valid_tasks if t.name == "DuplicateTask"]
-    assert len(duplicate_tasks) == 1
-    assert duplicate_tasks[0].description == "First duplicate task."
+    assert duplicate_tasks == []
+    duplicate_errors = [f for f in invalid_files if "Duplicate task definition" in f.error]
+    assert len(duplicate_errors) >= 2
 
 
 def test_template_and_private_files_skipped(monkeypatch, tmp_path):
@@ -176,7 +180,7 @@ class NormalTask(Task):
         tasks_dir,
     )
 
-    valid_tasks, _ = safe_discover_tasks()
+    valid_tasks, _, _ = safe_discover_tasks()
 
     # Filter out built-in tasks
     custom_tasks = [t for t in valid_tasks if str(tasks_dir) in t.source]
@@ -213,7 +217,7 @@ class SyntaxErrorTask(Task):
         tasks_dir,
     )
 
-    _, invalid_files = safe_discover_tasks()
+    _, invalid_files, _ = safe_discover_tasks()
 
     # Find the syntax error file
     syntax_errors = [f for f in invalid_files if "syntax_error.py" in f.source]

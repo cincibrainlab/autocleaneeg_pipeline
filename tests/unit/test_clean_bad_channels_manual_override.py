@@ -74,12 +74,14 @@ def test_manual_override_skips_detection(monkeypatch, dummy_raw):
 
     detect_mock.assert_not_called()
     assert set(result.info["bads"]) == {"E1", "E5"}
-    assert set(task.raw.bad_channels) == {"E1", "E5"}
+    assert set(task.raw.info["bads"]) == {"E1", "E5"}
 
-    assert task.tracked_removals == [
-        {"channel": "E1", "reason": "MANUAL_OVERRIDE", "source_step": "clean_bad_channels"},
-        {"channel": "E5", "reason": "MANUAL_OVERRIDE", "source_step": "clean_bad_channels"},
-    ]
+    assert {entry["channel"] for entry in task.tracked_removals} == {"E1", "E5"}
+    assert all(
+        entry["reason"] == "MANUAL_OVERRIDE"
+        and entry["source_step"] == "clean_bad_channels"
+        for entry in task.tracked_removals
+    )
 
     assert task.metadata_log
     operation, metadata = task.metadata_log[-1]

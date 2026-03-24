@@ -30,12 +30,21 @@ def test_sync_status_roundtrip(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
-    _make_registry(registry_root)
+    task_file = _make_registry(registry_root)
 
     registry = BuiltinRegistry(
         raw_base=registry_root.as_uri(),
         cache_root=cache_root,
     )
+
+    def _fake_fetch_bytes(url: str) -> bytes:
+        if "registry.json" in url:
+            return (registry_root / "registry.json").read_bytes()
+        if "tasks/resting/DemoTask.py" in url:
+            return task_file.read_bytes()
+        raise AssertionError(f"Unexpected registry fetch URL: {url}")
+
+    registry._fetch_bytes = _fake_fetch_bytes  # type: ignore[method-assign]
 
     # Before update, we should be able to skip network cleanly.
     offline_msg = registry.update_cache(allow_network=False)
@@ -43,7 +52,7 @@ def test_sync_status_roundtrip(tmp_path: Path) -> None:
 
     # Perform actual update from local file URI.
     message = registry.update_cache()
-    assert "local-snapshot" in message
+    assert "Task Library refreshed" in message
     status = registry.registry_status()
     assert status["commit"] == "local-snapshot"
 

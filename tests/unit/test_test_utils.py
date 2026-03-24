@@ -25,10 +25,10 @@ class TestBaseTestCase(BaseTestCase):
 
     def test_create_test_pipeline(self):
         """Test pipeline creation with test configuration."""
-        # Skip this test for now since it requires the full autoclean module to be importable
-        pytest.skip(
-            "Pipeline creation test requires full autoclean import - to be implemented in integration tests"
-        )
+        pipeline = self.create_test_pipeline()
+        assert pipeline.output_dir.samefile(self.autoclean_dir)
+        assert isinstance(pipeline.session_task_registry, dict)
+        assert len(pipeline.session_task_registry) > 0
 
     def test_minimal_config_structure(self):
         """Test that minimal config has required structure."""

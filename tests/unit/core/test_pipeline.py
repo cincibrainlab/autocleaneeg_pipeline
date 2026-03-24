@@ -220,6 +220,118 @@ class TestPipelineValidation:
         with pytest.raises(FileNotFoundError, match="File not found"):
             pipeline._validate_file("/nonexistent/file.fif")
 
+    @patch("autoclean.core.pipeline.manage_database")
+    @patch("autoclean.core.pipeline.set_database_path")
+    @patch("autoclean.core.pipeline.configure_logger")
+    @patch("autoclean.core.pipeline.mne.set_log_level")
+    @patch("autoclean.utils.task_discovery.extract_config_from_task")
+    def test_resolve_automation_mode_cli_override_wins(
+        self,
+        mock_extract_config,
+        mock_mne_log,
+        mock_logger,
+        mock_set_db,
+        mock_manage_db,
+        tmp_path,
+    ):
+        """CLI automation override should take precedence over task settings."""
+        pipeline = Pipeline(output_dir=str(tmp_path / "output"), automation_mode=True)
+        pipeline.session_task_configs["testtask"] = {"automation_mode": False}
+
+        resolved, source = pipeline._resolve_automation_mode("TestTask")
+
+        assert resolved is True
+        assert source == "cli"
+        mock_extract_config.assert_not_called()
+
+    @patch("autoclean.core.pipeline.manage_database")
+    @patch("autoclean.core.pipeline.set_database_path")
+    @patch("autoclean.core.pipeline.configure_logger")
+    @patch("autoclean.core.pipeline.mne.set_log_level")
+    @patch("autoclean.utils.task_discovery.extract_config_from_task")
+    def test_resolve_automation_mode_prefers_session_task_config(
+        self,
+        mock_extract_config,
+        mock_mne_log,
+        mock_logger,
+        mock_set_db,
+        mock_manage_db,
+        tmp_path,
+    ):
+        """Loaded Python task config should beat discovery-based defaults."""
+        pipeline = Pipeline(output_dir=str(tmp_path / "output"))
+        pipeline.session_task_configs["testtask"] = {"automation_mode": "yes"}
+
+        resolved, source = pipeline._resolve_automation_mode("TestTask")
+
+        assert resolved is True
+        assert source == "task_config"
+        mock_extract_config.assert_not_called()
+
+    @patch("autoclean.core.pipeline.manage_database")
+    @patch("autoclean.core.pipeline.set_database_path")
+    @patch("autoclean.core.pipeline.configure_logger")
+    @patch("autoclean.core.pipeline.mne.set_log_level")
+    @patch("autoclean.utils.task_discovery.extract_config_from_task")
+    def test_resolve_automation_mode_falls_back_to_discovery(
+        self,
+        mock_extract_config,
+        mock_mne_log,
+        mock_logger,
+        mock_set_db,
+        mock_manage_db,
+        tmp_path,
+    ):
+        """Discovery config should be used when no session task config exists."""
+        mock_extract_config.return_value = "true"
+        pipeline = Pipeline(output_dir=str(tmp_path / "output"))
+
+        resolved, source = pipeline._resolve_automation_mode("DiscoveryTask")
+
+        assert resolved is True
+        assert source == "task_config"
+        mock_extract_config.assert_called_once_with("DiscoveryTask", "automation_mode")
+
+    @patch("autoclean.core.pipeline.manage_database")
+    @patch("autoclean.core.pipeline.set_database_path")
+    @patch("autoclean.core.pipeline.configure_logger")
+    @patch("autoclean.core.pipeline.mne.set_log_level")
+    @patch("autoclean.core.pipeline.load_user_config")
+    def test_resolve_auto_backup_disables_backups_in_automation_mode(
+        self,
+        mock_load_user_config,
+        mock_mne_log,
+        mock_logger,
+        mock_set_db,
+        mock_manage_db,
+        tmp_path,
+    ):
+        """Automation mode should always disable backups regardless of workspace config."""
+        mock_load_user_config.return_value = {"workspace": {"auto_backup": True}}
+        pipeline = Pipeline(output_dir=str(tmp_path / "output"))
+
+        assert pipeline._resolve_auto_backup(automation_mode=True) is False
+
+    @patch("autoclean.core.pipeline.manage_database")
+    @patch("autoclean.core.pipeline.set_database_path")
+    @patch("autoclean.core.pipeline.configure_logger")
+    @patch("autoclean.core.pipeline.mne.set_log_level")
+    @patch("autoclean.core.pipeline.load_user_config")
+    def test_resolve_auto_backup_uses_workspace_config_when_not_automated(
+        self,
+        mock_load_user_config,
+        mock_mne_log,
+        mock_logger,
+        mock_set_db,
+        mock_manage_db,
+        tmp_path,
+    ):
+        """Manual runs should respect the workspace auto-backup setting."""
+        mock_load_user_config.return_value = {"workspace": {"auto_backup": False}}
+        pipeline = Pipeline(output_dir=str(tmp_path / "output"))
+
+        assert pipeline._resolve_auto_backup(automation_mode=False) is False
+
 
 @pytest.mark.skipif(
     not PIPELINE_AVAILABLE, reason="Pipeline module not available for import"

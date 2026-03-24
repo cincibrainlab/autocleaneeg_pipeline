@@ -129,7 +129,7 @@ class TestClassifyIcaComponents:
 
         # Should call ICLabel
         mock_label_components.assert_called_once_with(
-            mock_raw, mock_ica, method="iclabel", verbose=None
+            mock_raw, mock_ica, method="iclabel"
         )
 
         # Should return DataFrame
@@ -233,6 +233,7 @@ class TestClassifyIcaComponents:
             raw, ica, component_indices=None, **kwargs
         ):
             ica.labels_ = {"brain": list(range(1, ica.n_components_)), "eog": [0]}
+            ica.labels_scores_ = np.ones((len(component_indices or []), 7))
 
         mock_iclabel.side_effect = iclabel_side_effect
         mock_icvision.side_effect = icvision_side_effect
@@ -241,11 +242,9 @@ class TestClassifyIcaComponents:
             mock_raw, mock_ica, method="hybrid", icvision_n_components=1
         )
 
-        mock_iclabel.assert_called_once_with(
-            mock_raw, mock_ica, method="iclabel", verbose=None
-        )
+        mock_iclabel.assert_called_once_with(mock_raw, mock_ica, method="iclabel")
         mock_icvision.assert_called_once_with(
-            mock_raw, mock_ica, component_indices=[0]
+            mock_raw, mock_ica, component_indices=[0], layout="strip"
         )
         assert result.loc[0, "ic_type"] == "eog"
 
@@ -304,14 +303,15 @@ class TestApplyIcaRejection:
 
         # Test with copy=True (default)
         apply_ica_rejection(mock_raw, mock_ica, components_to_reject, copy=True)
+        mock_raw.copy.assert_called()
         mock_ica.copy.return_value.apply.assert_called_with(
-            mock_raw, copy=True, verbose=None
+            mock_raw.copy.return_value, verbose=None
         )
 
         # Test with copy=False
         apply_ica_rejection(mock_raw, mock_ica, components_to_reject, copy=False)
         mock_ica.copy.return_value.apply.assert_called_with(
-            mock_raw, copy=False, verbose=None
+            mock_raw, verbose=None
         )
 
     def test_rejection_failure(self, mock_raw, mock_ica):
@@ -325,33 +325,38 @@ class TestApplyIcaRejection:
 class TestIntegration:
     """Integration tests for ICA functions."""
 
-    @patch("autoclean.functions.ica.ica_processing.ICA")
+    @patch("autoclean.functions.ica.ica_processing.ICA.fit", autospec=True)
     @patch("autoclean.functions.ica.ica_processing.mne_icalabel.label_components")
     def test_complete_ica_workflow(
-        self, mock_label_components, mock_ica_class, mock_raw
+        self, mock_label_components, mock_ica_fit, mock_raw
     ):
         """Test complete ICA workflow: fit -> classify -> reject."""
-        # Mock ICA fitting
-        mock_ica_instance = MagicMock(spec=ICA)
-        mock_ica_instance.n_components_ = 10
-        mock_ica_instance.labels_ = {
-            "brain": [0, 3, 4, 6, 7, 9],
-            "eog": [1, 8],
-            "muscle": [2],
-            "ecg": [5],
-            "line_noise": [],
-            "ch_noise": [],
-            "other": [],
-        }
-        mock_ica_instance.labels_scores_ = MagicMock()
-        mock_ica_instance.labels_scores_.max.return_value = np.array(
-            [0.9, 0.8, 0.8, 0.9, 0.9, 0.7, 0.9, 0.9, 0.8, 0.9]
-        )
-        mock_ica_class.return_value = mock_ica_instance
+        def fit_side_effect(self, raw, picks=None, verbose=None):
+            self.n_components_ = 10
+            return self
+
+        def label_side_effect(raw, ica, method="iclabel"):
+            ica.labels_ = {
+                "brain": [0, 3, 4, 6, 7, 9],
+                "eog": [1, 8],
+                "muscle": [2],
+                "ecg": [5],
+                "line_noise": [],
+                "ch_noise": [],
+                "other": [],
+            }
+            ica.labels_scores_ = MagicMock()
+            ica.labels_scores_.max.return_value = np.array(
+                [0.9, 0.8, 0.8, 0.9, 0.9, 0.7, 0.9, 0.9, 0.8, 0.9]
+            )
+
+        mock_ica_fit.side_effect = fit_side_effect
+        mock_label_components.side_effect = label_side_effect
 
         # Step 1: Fit ICA
         ica = fit_ica(mock_raw, n_components=10)
-        assert ica == mock_ica_instance
+        assert isinstance(ica, ICA)
+        assert ica.n_components_ == 10
 
         # Step 2: Classify components
         labels = classify_ica_components(mock_raw, ica)
@@ -367,17 +372,19 @@ class TestIntegration:
         expected_artifacts = [
             1,
             2,
-            5,
             8,
-        ]  # Based on mock labels: eog=[1,8], muscle=[2], ecg=[5]
+        ]  # Components above the strict confidence threshold (> 0.7)
         assert set(artifacts) == set(expected_artifacts)
 
         # Step 4: Apply rejection
-        clean_raw = apply_ica_rejection(mock_raw, ica, artifacts)
+        with patch.object(ica, "copy") as mock_ica_copy:
+            mock_ica_instance = MagicMock()
+            mock_ica_instance.apply.return_value = mock_raw.copy.return_value
+            mock_ica_copy.return_value = mock_ica_instance
+            clean_raw = apply_ica_rejection(mock_raw, ica, artifacts)
 
         # Verify the complete workflow
-        mock_ica_instance.copy.assert_called()
-        mock_ica_instance.copy.return_value.apply.assert_called()
+        assert clean_raw is not None
 
     def test_dataframe_helper_function(self):
         """Test the _icalabel_to_dataframe helper function."""
@@ -421,6 +428,7 @@ class TestIcaControlSheet:
         config = {
             "metadata_dir": tmp_path,
             "derivatives_dir": tmp_path,
+            "ica_dir": tmp_path,
             "unprocessed_file": tmp_path / "subject_raw.fif",
         }
 

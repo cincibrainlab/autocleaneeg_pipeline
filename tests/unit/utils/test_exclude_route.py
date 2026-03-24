@@ -120,6 +120,7 @@ async def test_save_overrides_sets_reprocess_metadata(workspace, monkeypatch):
     result = await save_overrides(
         "subject01_comp_epo",
         OverridesUpdate(manual_bad_channels=["Fp1"], manual_rejected_ica=[]),
+        route_id=None,
     )
 
     assert result["saved"] is True
@@ -207,8 +208,12 @@ async def test_epoch_review_save_and_load(workspace, monkeypatch):
     set_file.write_text("", encoding="utf-8")
     monkeypatch.setattr(exclude, "_load_epochs", lambda _path: _FakeEpochs())
 
-    save_result = await save_epoch_review("subject01_comp_epo", EpochReviewUpdate(bad_epoch_indices=[1, 3]))
-    load_result = await get_epoch_review("subject01_comp_epo")
+    save_result = await save_epoch_review(
+        "subject01_comp_epo",
+        EpochReviewUpdate(bad_epoch_indices=[1, 3]),
+        route_id=None,
+    )
+    load_result = await get_epoch_review("subject01_comp_epo", route_id=None)
 
     assert save_result["saved"] is True
     assert load_result["bad_epoch_indices"] == [1, 3]
@@ -224,8 +229,8 @@ async def test_eeg_manifest_and_epoch_window(workspace, monkeypatch):
     set_file.write_text("", encoding="utf-8")
     monkeypatch.setattr(exclude, "_load_epochs", lambda _path: _FakeEpochs())
 
-    manifest = await get_eeg_manifest("subject01_comp_epo")
-    window = await get_eeg_epochs("subject01_comp_epo", start=0, count=2)
+    manifest = await get_eeg_manifest("subject01_comp_epo", route_id=None)
+    window = await get_eeg_epochs("subject01_comp_epo", start=0, count=2, route_id=None)
 
     assert manifest.n_epochs == 4
     assert manifest.n_channels == 2
@@ -245,7 +250,7 @@ async def test_get_file_detail_includes_postedit_artifact(workspace):
     postedit_dir.mkdir()
     (postedit_dir / "subject01_postedit.set").write_text("edited", encoding="utf-8")
 
-    detail = await get_exclude_file_detail("subject01_comp_epo")
+    detail = await get_exclude_file_detail("subject01_comp_epo", route_id=None)
 
     assert detail.artifacts["postedit"] == "/api/exclude/files/subject01_comp_epo/artifacts/postedit"
 
@@ -260,7 +265,7 @@ async def test_get_exclude_ica_summary_uses_pdf_extractor(workspace, monkeypatch
     (ica_dir / "subject01_ica_components_all.pdf").write_text("pdf", encoding="utf-8")
     monkeypatch.setattr(exclude, "extract_ica_full", lambda _path: {"components": [{"component": "IC1"}], "structure": {"detail_page_map": {"IC1": 3}}})
 
-    result = await get_exclude_ica_summary("subject01_comp_epo")
+    result = await get_exclude_ica_summary("subject01_comp_epo", route_id=None)
 
     assert result["components"][0]["component"] == "IC1"
     assert result["structure"]["detail_page_map"]["IC1"] == 3
@@ -331,7 +336,11 @@ async def test_reprocess_start_and_status(workspace, monkeypatch):
     }
     _save_decisions(exports_dir, decisions)
 
-    response = await start_reprocess("subject01_comp_epo", exclude.ReprocessRequest(manual_bad_channels=["FP1"], manual_rejected_ica=[]))
+    response = await start_reprocess(
+        "subject01_comp_epo",
+        exclude.ReprocessRequest(manual_bad_channels=["FP1"], manual_rejected_ica=[]),
+        route_id=None,
+    )
     status = await get_reprocess_status(response.job_id)
     payload = json.loads((task_root / "qa" / "manual_fixes" / "subject01_manual_fix.json").read_text(encoding="utf-8"))
 
@@ -351,8 +360,8 @@ async def test_missing_workspace_edge_cases_raise_http_exception(monkeypatch):
     api_state.workspace_dir = None
     try:
         with pytest.raises(HTTPException):
-            await get_exclude_root()
+            await get_exclude_root(route_id=None)
         with pytest.raises(HTTPException):
-            await list_exclude_files()
+            await list_exclude_files(route_id=None)
     finally:
         api_state.workspace_dir = old_workspace

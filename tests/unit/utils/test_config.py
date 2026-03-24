@@ -525,8 +525,8 @@ class TestConfigErrorHandling:
             config_file = Path(f.name)
 
         try:
-            result = load_config(config_file)
-            assert "tasks" in result
+            with pytest.raises(RuntimeError, match="YAML-based pipeline configs are removed"):
+                load_config(config_file)
         finally:
             config_file.unlink()
 
@@ -593,8 +593,7 @@ class TestConfigErrorHandling:
             config_file = Path(f.name)
 
         try:
-            result = load_config(config_file)
-            assert "tasks" in result
-            assert "äöü" in result["tasks"]["UnicodeTask"]["description"]
+            with pytest.raises(RuntimeError, match="YAML-based pipeline configs are removed"):
+                load_config(config_file)
         finally:
             config_file.unlink()

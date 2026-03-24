@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import numpy as np
-import yaml
+import pandas as pd
 from mne.io import Raw
 
 from autoclean.core.pipeline import Pipeline
@@ -42,12 +42,8 @@ class BaseTestCase:
         """
         if config is None:
             config = self.get_minimal_config()
-
-        # Save config to temporary file
-        config_file = self.temp_dir / "test_config.yaml"
-        with open(config_file, "w") as f:
-            yaml.dump(config, f)
-
+        # Keep the config parameter for compatibility with older tests even
+        # though the pipeline no longer consumes YAML config files directly.
         return Pipeline(output_dir=str(self.autoclean_dir))
 
     def get_minimal_config(self) -> Dict[str, Any]:
@@ -309,6 +305,21 @@ class MockOperations:
     def mock_apply_ica(raw: Raw, ica_object=None, exclude=None):
         """Mock ICA application."""
         return raw.copy()
+
+    @staticmethod
+    def mock_classify_ica(self, method=None, reject=True, **kwargs):
+        """Mock ICA classification for mixin-level integration tests."""
+        labels = pd.DataFrame(
+            {
+                "component": [0],
+                "ic_type": ["brain"],
+                "confidence": [1.0],
+                "annotator": ["iclabel"],
+            }
+        )
+        self.ica_flags = labels
+        self.ica_vision_flags = None
+        return labels
 
     @staticmethod
     def mock_autoreject(epochs, verbose=False):

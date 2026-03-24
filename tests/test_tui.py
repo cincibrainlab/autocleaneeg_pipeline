@@ -479,10 +479,10 @@ class TestAutoCleanTUIActions:
         app = AutoCleanTUI()
         assert app.state.mode == "test"
 
-        # Mock the methods that would normally require UI
-        app._update_status_bar = MagicMock()
-        app._load_workspace_data = MagicMock()
-        app._refresh_current_screen = MagicMock()
+        # Mock the methods that would normally require a composed screen
+        app.refresh_snapshot = MagicMock()
+        app._set_last_action = MagicMock()
+        app._add_activity_event = MagicMock()
         app.notify = MagicMock()
 
         app.action_toggle_mode()
@@ -491,24 +491,26 @@ class TestAutoCleanTUIActions:
         app.action_toggle_mode()
         assert app.state.mode == "test"
 
-    def test_stop_service_not_running(self) -> None:
-        """Test stopping service when not running."""
-        app = AutoCleanTUI()
-        app.notify = MagicMock()
-
-        app.action_stop_service()
-        app.notify.assert_called_once()
-        assert "not running" in str(app.notify.call_args)
-
-    def test_start_service_already_running(self) -> None:
-        """Test starting service when already running."""
+    def test_toggle_service_stops_when_running(self) -> None:
+        """Test toggling service delegates to stop when running."""
         app = AutoCleanTUI()
         app.state.service_running = True
-        app.notify = MagicMock()
+        app._stop_service = MagicMock()
 
-        app.action_start_service()
-        app.notify.assert_called_once()
-        assert "already running" in str(app.notify.call_args)
+        app.action_toggle_service()
+        app._stop_service.assert_called_once()
+
+    def test_toggle_service_starts_when_stopped(self) -> None:
+        """Test toggling service delegates to start when stopped."""
+        app = AutoCleanTUI()
+        app.state.service_running = False
+        app._read_service_form = MagicMock(return_value={})
+        app.configure_service = MagicMock()
+        app._start_service = MagicMock()
+
+        app.action_toggle_service()
+        app.configure_service.assert_called_once_with({})
+        app._start_service.assert_called_once()
 
     def test_build_service_command_uses_configured_settings(self, tmp_path: Path) -> None:
         """Test service command reflects configured screen settings."""
@@ -598,25 +600,26 @@ class TestMainEntry:
     """Tests for the main entry point."""
 
     def test_main_no_workspace(self) -> None:
-        """Test main with no workspace specified."""
+        """Test main delegates to the v2 TUI runner with default args."""
         from autoclean.tui.app import main
 
         with patch("sys.argv", ["autocleaneeg-tui"]):
-            with patch("autoclean.utils.user_config.user_config") as mock_config:
-                mock_config.get_serve_workspace.return_value = None
-
-                result = main()
-                assert result == 1
+            with patch("autoclean.tui.v2_app.run_tui") as mock_run_tui:
+                main()
+                mock_run_tui.assert_called_once_with(workspace_path=None, mode="test")
 
     def test_main_workspace_not_found(self, tmp_path: Path) -> None:
-        """Test main with non-existent workspace."""
+        """Test main passes through an explicit workspace path."""
         from autoclean.tui.app import main
 
         missing_path = tmp_path / "missing"
 
         with patch("sys.argv", ["autocleaneeg-tui", "--path", str(missing_path)]):
-            result = main()
-            assert result == 1
+            with patch("autoclean.tui.v2_app.run_tui") as mock_run_tui:
+                main()
+                mock_run_tui.assert_called_once_with(
+                    workspace_path=missing_path, mode="test"
+                )
 
 
 class TestWidgets:
@@ -737,28 +740,28 @@ class TestStatusBar:
     """Tests for StatusBar widget."""
 
     def test_status_bar_render_stopped(self) -> None:
-        """Test StatusBar renders stopped state."""
+        """Test StatusBar renders draft lane and hint text."""
         from autoclean.tui.app import StatusBar
 
         bar = StatusBar()
         bar.mode = "test"
-        bar.service_running = False
+        bar.hint_text = "Config not applied"
 
         rendered = bar.render()
         assert "Draft" in rendered
-        assert "Stopped" in rendered
+        assert "Config not applied" in rendered
 
     def test_status_bar_render_running(self) -> None:
-        """Test StatusBar renders running state."""
+        """Test StatusBar renders production lane and last action."""
         from autoclean.tui.app import StatusBar
 
         bar = StatusBar()
         bar.mode = "live"
-        bar.service_running = True
+        bar.last_action = "Applied config"
 
         rendered = bar.render()
         assert "Production" in rendered
-        assert "Running" in rendered
+        assert "Applied config" in rendered
 
 
 class TestConfigHighlighting:

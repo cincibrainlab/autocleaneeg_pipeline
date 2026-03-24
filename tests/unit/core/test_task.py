@@ -2,6 +2,7 @@
 
 from abc import ABC
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -316,6 +317,119 @@ class TestTaskConcrete:
 
         # Task should be properly constructed
         assert isinstance(result, dict)
+
+    @pytest.mark.skipif(
+        not TASK_AVAILABLE, reason="Task module not available for import"
+    )
+    def test_task_propagates_montage_and_flagged_file_defaults(self):
+        """Task settings should populate runtime config with EEG system and move policy."""
+
+        class TestTask(Task):
+            def __init__(self, config):
+                self.settings = {
+                    "montage": {"enabled": True, "value": "standard_1020"},
+                    "move_flagged_files": False,
+                }
+                super().__init__(config)
+
+            def run(self):
+                pass
+
+        config = {
+            "run_id": "test_run_123",
+            "unprocessed_file": Path("/path/to/test.fif"),
+            "task": "test_task",
+        }
+
+        task = TestTask(config)
+
+        assert task.config["eeg_system"] == "standard_1020"
+        assert task.config["move_flagged_files"] is False
+
+    @pytest.mark.skipif(
+        not TASK_AVAILABLE, reason="Task module not available for import"
+    )
+    def test_task_defaults_move_flagged_files_to_true_without_setting(self):
+        """Tasks without explicit move_flagged_files should default to True."""
+
+        class TestTask(Task):
+            def __init__(self, config):
+                self.settings = {"montage": {"enabled": False}}
+                super().__init__(config)
+
+            def run(self):
+                pass
+
+        config = {
+            "run_id": "test_run_124",
+            "unprocessed_file": Path("/path/to/test.fif"),
+            "task": "test_task",
+        }
+
+        task = TestTask(config)
+
+        assert task.config["eeg_system"] == "auto"
+        assert task.config["move_flagged_files"] is True
+
+    @pytest.mark.skipif(
+        not TASK_AVAILABLE, reason="Task module not available for import"
+    )
+    @patch("autoclean.core.task.save_raw_to_set")
+    @patch("autoclean.core.task.import_eeg")
+    def test_import_raw_flags_short_recordings_and_saves_stage(
+        self, mock_import_eeg, mock_save_raw_to_set
+    ):
+        """Short imports should be flagged and exported as the post-import stage."""
+
+        class TestTask(Task):
+            def run(self):
+                pass
+
+        config = {
+            "run_id": "test_run_125",
+            "unprocessed_file": Path("/path/to/test.fif"),
+            "task": "test_task",
+        }
+        task = TestTask(config)
+        task.create_bids_path = lambda *args, **kwargs: None
+
+        mock_raw = SimpleNamespace(duration=30.0)
+        mock_import_eeg.return_value = mock_raw
+
+        task.import_raw()
+
+        assert task.raw is mock_raw
+        assert task.flagged is True
+        assert "less than 1 minute" in task.flagged_reasons[0]
+        mock_save_raw_to_set.assert_called_once_with(
+            raw=mock_raw,
+            autoclean_dict=task.config,
+            stage="post_import",
+            flagged=True,
+        )
+
+    @pytest.mark.skipif(
+        not TASK_AVAILABLE, reason="Task module not available for import"
+    )
+    def test_get_raw_and_get_epochs_raise_when_not_initialized(self):
+        """Accessors should fail clearly before data has been imported."""
+
+        class TestTask(Task):
+            def run(self):
+                pass
+
+        config = {
+            "run_id": "test_run_126",
+            "unprocessed_file": Path("/path/to/test.fif"),
+            "task": "test_task",
+        }
+        task = TestTask(config)
+
+        with pytest.raises(ValueError, match="Raw data is not available"):
+            task.get_raw()
+
+        with pytest.raises(ValueError, match="Epochs are not available"):
+            task.get_epochs()
 
 
 class TestTaskMocked:
