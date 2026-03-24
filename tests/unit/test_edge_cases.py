@@ -8,7 +8,7 @@ Test edge cases for BDF channel validation:
 
 from pathlib import Path
 import mne
-from test_bdf_visual_v5 import (
+from tests.manual.test_bdf_visual import (
     extract_file_metadata,
     extract_channel_info,
     analyze_channels,
@@ -22,7 +22,7 @@ from rich.table import Table
 
 console = Console()
 
-def test_montage(bdf_file: str, montage_name: str, output_dir: Path):
+def run_montage_validation(bdf_file: str, montage_name: str, output_dir: Path):
     """Test a single montage against the BDF file."""
 
     console.print(f"\n[bold cyan]Testing: {montage_name}[/bold cyan]")
@@ -118,7 +118,7 @@ def main():
     for montage_name, description in test_cases:
         try:
             console.print(f"\n[bold]Test: {description}[/bold]")
-            analysis = test_montage(bdf_file, montage_name, output_dir)
+            analysis = run_montage_validation(bdf_file, montage_name, output_dir)
             results[montage_name] = {
                 'match_pct': analysis['match_pct'],
                 'matched': len(analysis['matched']),
