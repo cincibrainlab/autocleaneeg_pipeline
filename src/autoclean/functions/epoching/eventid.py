@@ -11,6 +11,18 @@ import mne
 import numpy as np
 
 
+def _empty_epochs_like(data: mne.io.BaseRaw, tmin: float, tmax: float) -> mne.Epochs:
+    """Return an empty epochs object without tripping MNE edge cases."""
+    n_samples = max(1, int(round((tmax - tmin) * data.info["sfreq"])) + 1)
+    prototype = mne.EpochsArray(
+        np.zeros((1, data.info["nchan"], n_samples)),
+        data.info.copy(),
+        tmin=tmin,
+        verbose=False,
+    )
+    return prototype[:0]
+
+
 def create_eventid_epochs(
     data: mne.io.BaseRaw,
     event_id: Union[Dict[str, int], List[int], int],
@@ -206,19 +218,9 @@ def create_eventid_epochs(
                 raise ValueError(f"No events found in data: {str(e)}") from e
             elif on_missing == "warn":
                 warnings.warn(f"No events found in data: {str(e)}")
-                # Create empty epochs object - return early
-                n_samples = int((tmax - tmin) * data.info["sfreq"])
-                empty_epochs = mne.EpochsArray(
-                    np.empty((0, data.info["nchan"], n_samples)), data.info, tmin=tmin
-                )
-                return empty_epochs
+                return _empty_epochs_like(data, tmin, tmax)
             else:  # on_missing == 'ignore'
-                # Create empty epochs object - return early
-                n_samples = int((tmax - tmin) * data.info["sfreq"])
-                empty_epochs = mne.EpochsArray(
-                    np.empty((0, data.info["nchan"], n_samples)), data.info, tmin=tmin
-                )
-                return empty_epochs
+                return _empty_epochs_like(data, tmin, tmax)
 
         # Filter events for requested event IDs
         requested_events = []
@@ -252,19 +254,9 @@ def create_eventid_epochs(
                     f"No events found for specified event_id: {event_id}. "
                     f"Available events: {list(event_id_all.keys())}"
                 )
-                # Create empty epochs object - return early
-                n_samples = int((tmax - tmin) * data.info["sfreq"])
-                empty_epochs = mne.EpochsArray(
-                    np.empty((0, data.info["nchan"], n_samples)), data.info, tmin=tmin
-                )
-                return empty_epochs
+                return _empty_epochs_like(data, tmin, tmax)
             else:  # on_missing == 'ignore'
-                # Create empty epochs object - return early
-                n_samples = int((tmax - tmin) * data.info["sfreq"])
-                empty_epochs = mne.EpochsArray(
-                    np.empty((0, data.info["nchan"], n_samples)), data.info, tmin=tmin
-                )
-                return empty_epochs
+                return _empty_epochs_like(data, tmin, tmax)
 
         # Create epochs
         # Set verbose=False by default to suppress MNE's verbose epoch-by-epoch messages
