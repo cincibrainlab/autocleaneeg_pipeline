@@ -73,7 +73,7 @@ class WaveletReportResult:
 def _resolve_decomposition_level(
     signal_length: int,
     wavelet: str,
-    level: int,
+    level: Union[int, str],
 ) -> int:
     """Return a safe decomposition level for the requested wavelet."""
 
@@ -81,6 +81,10 @@ def _resolve_decomposition_level(
     max_level = pywt.dwt_max_level(signal_length, wavelet_obj.dec_len)
     if max_level <= 0:
         return 0
+    if isinstance(level, str):
+        if level.lower() != "auto":
+            raise ValueError("level must be an integer or 'auto'")
+        return max_level
     return min(level, max_level)
 
 

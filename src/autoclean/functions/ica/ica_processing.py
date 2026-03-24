@@ -458,8 +458,9 @@ def apply_ica_rejection(
         ica_copy = ica.copy()
         ica_copy.exclude = components_to_reject
 
-        # Apply ICA
-        raw_cleaned = ica_copy.apply(raw, copy=copy, verbose=verbose)
+        # MNE's ICA.apply mutates the passed object; handle copy behavior here.
+        raw_target = raw.copy() if copy else raw
+        raw_cleaned = ica_copy.apply(raw_target, verbose=verbose)
 
         return raw_cleaned
 
