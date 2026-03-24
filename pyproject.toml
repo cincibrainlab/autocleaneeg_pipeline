@@ -90,6 +90,7 @@ dependencies = [
     # AI dependencies
     "openai==1.109.0",
     "onnxruntime==1.22.1",
+    "fastmcp>=3.1,<4",
     # API and queue dependencies
     "fastapi>=0.115.0",
     "uvicorn>=0.32.0",
@@ -142,6 +143,7 @@ Issues = "https://github.com/cincibrainlab/autoclean_pipeline/issues"
 [project.scripts]
 autocleaneeg-pipeline = "autoclean.__main__:main"
 autocleaneeg-tui = "autoclean.tui.app:main"
+autocleaneeg-mcp = "autoclean_mcp.server:main"
 
 [tool.hatch.version]
 path = "src/autoclean/__init__.py"
@@ -150,11 +152,12 @@ path = "src/autoclean/__init__.py"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/autoclean", "configs"]
+packages = ["src/autoclean", "configs", "autoclean_mcp"]
 
 [tool.hatch.build.targets.sdist]
 include = [
     "src/autoclean/**",
+    "autoclean_mcp/**",
     "configs/**",
 ]
 
