@@ -172,10 +172,9 @@ class TestTaskInitialization:
         task = FlexibleTask(minimal_config)
         assert task.config == minimal_config
 
-    def test_task_config_validation(self):
-        """Test Task configuration validation."""
+    def test_task_config_validation_raises_on_empty_config(self):
+        """Task should reject an empty config dict with a clear error."""
 
-        # Create concrete Task for testing
         class ConcreteTask(Task):
             def __init__(self, config):
                 super().__init__(config)
@@ -183,28 +182,50 @@ class TestTaskInitialization:
             def run(self):
                 pass
 
-        # Test with missing required fields (only run_id, unprocessed_file, task are required)
-        invalid_configs = [
-            {},  # Empty config
-            {"run_id": "test"},  # Missing unprocessed_file
-            {"run_id": "test", "unprocessed_file": Path("/test.fif")},  # Missing task
-        ]
+        with pytest.raises(ValueError, match="Missing required field"):
+            ConcreteTask({})
 
-        # Test a valid config that should NOT raise an error
+    def test_task_config_validation_raises_on_missing_unprocessed_file(self):
+        """Task should reject config that has run_id but no unprocessed_file."""
+
+        class ConcreteTask(Task):
+            def __init__(self, config):
+                super().__init__(config)
+
+            def run(self):
+                pass
+
+        with pytest.raises(ValueError, match="Missing required field"):
+            ConcreteTask({"run_id": "test"})
+
+    def test_task_config_validation_raises_on_missing_task_field(self):
+        """Task should reject config that is missing the task name field."""
+
+        class ConcreteTask(Task):
+            def __init__(self, config):
+                super().__init__(config)
+
+            def run(self):
+                pass
+
+        with pytest.raises(ValueError, match="Missing required field"):
+            ConcreteTask({"run_id": "test", "unprocessed_file": Path("/test.fif")})
+
+    def test_task_config_validation_accepts_minimal_valid_config(self):
+        """Task should accept a config with only the three required fields."""
+
+        class ConcreteTask(Task):
+            def __init__(self, config):
+                super().__init__(config)
+
+            def run(self):
+                pass
+
         valid_config = {
             "run_id": "test",
             "unprocessed_file": Path("/test.fif"),
             "task": "test_task",
-            # stage_files no longer required in simplified implementation
         }
-
-        # Test invalid configs
-        for invalid_config in invalid_configs:
-            # Task should validate config in __init__ and raise ValueError
-            with pytest.raises(ValueError, match="Missing required field"):
-                ConcreteTask(invalid_config)
-
-        # Test valid config should NOT raise error
         task = ConcreteTask(valid_config)
         assert task.config == valid_config
 
@@ -212,20 +233,6 @@ class TestTaskInitialization:
 @pytest.mark.skipif(not TASK_AVAILABLE, reason="Task module not available for import")
 class TestTaskInterface:
     """Test Task interface and method signatures."""
-
-    def test_task_has_expected_methods(self):
-        """Test that Task has expected methods from mixins."""
-
-        # Should have methods from mixins (these will be tested in mixin tests)
-        # Here we just verify the interface exists
-        expected_mixin_methods = [
-            # These come from mixins and should be available
-            # Actual method names depend on mixin implementation
-        ]
-
-        # Verify Task class has the abstract interface
-        assert hasattr(Task, "__init__")
-        assert hasattr(Task, "run")  # Abstract method
 
     def test_task_mro_consistency(self):
         """Test that Task's method resolution order is consistent."""
@@ -432,121 +439,31 @@ class TestTaskConcrete:
             task.get_epochs()
 
 
-class TestTaskMocked:
-    """Test Task functionality with heavy mocking."""
-
-    @patch("autoclean.mixins.DISCOVERED_MIXINS", [])
-    def test_task_without_mixins(self):
-        """Test Task behavior when no mixins are discovered."""
-        # This tests the fallback behavior
-        with patch("autoclean.core.task.DISCOVERED_MIXINS", []):
-            # Import with no mixins already available at module level
-
-            # Task should still be an ABC
-            assert issubclass(Task, ABC)
-
-    def test_task_mixin_discovery_failure(self):
-        """Test Task behavior when mixin discovery fails."""
-        with patch(
-            "autoclean.core.task.DISCOVERED_MIXINS",
-            side_effect=ImportError("Mixin discovery failed"),
-        ):
-            # Should handle mixin discovery failure gracefully
-            # or raise appropriate error
-            # Task is already imported at module level
-            # If import succeeded at module level, it handled any errors
-            assert True
 
 
-class TestTaskConceptual:
-    """Conceptual tests for Task design patterns."""
 
-    def test_task_design_patterns(self):
-        """Test that Task follows expected design patterns."""
-        if not TASK_AVAILABLE:
-            pytest.skip("Task not importable, testing design conceptually")
+@pytest.mark.skipif(not TASK_AVAILABLE, reason="Task module not available for import")
+class TestTaskMixinIntegration:
+    """Test that Task correctly integrates with the mixin system."""
 
-        # Task already imported at module level
+    def test_task_inherits_from_all_discovered_mixins(self):
+        """Task should be a subclass of every mixin returned by the discovery system."""
+        for mixin in DISCOVERED_MIXINS:
+            assert issubclass(Task, mixin), f"Task should inherit from discovered mixin {mixin}"
 
-        # Abstract Base Class pattern
-        assert issubclass(Task, ABC)
-
-        # Multiple inheritance pattern (with mixins)
-        assert len(Task.__mro__) > 2
-
-        # Template method pattern (abstract run method)
-        assert hasattr(Task, "run")
-        assert Task.run.__qualname__.startswith("Task.")
-
-    def test_task_configuration_interface(self):
-        """Test Task configuration interface design."""
-        if not TASK_AVAILABLE:
-            pytest.skip("Task not importable, testing interface conceptually")
-
-        # Task already imported at module level
-
-        # Should accept config in __init__
-        init_signature = Task.__init__.__annotations__
-        # Note: annotations might not be available in all Python versions
-
-        # Should store config
-        assert hasattr(Task, "__init__")
-
-    def test_task_mixin_integration_concept(self):
-        """Test conceptual Task-mixin integration."""
-        if not TASK_AVAILABLE:
-            pytest.skip("Task not importable, testing integration conceptually")
-
-        # Task and DISCOVERED_MIXINS already imported at module level
-
-        # Task should integrate with discovered mixins
-        if DISCOVERED_MIXINS:
-            for mixin in DISCOVERED_MIXINS:
-                assert issubclass(
-                    Task, mixin
-                ), f"Task should inherit from discovered mixin {mixin}"
-
-        # Task should maintain its primary interface
-        assert hasattr(Task, "run")
-
-    def test_task_extensibility_concept(self):
-        """Test Task extensibility concept."""
-        if not TASK_AVAILABLE:
-            pytest.skip("Task not importable, testing extensibility conceptually")
-
-        # Task already imported at module level
-
-        # Should be extensible through inheritance
+    def test_subclass_run_override_is_called(self):
+        """A concrete subclass's run() should be what gets invoked, not Task.run."""
         class CustomTask(Task):
-            def __init__(self, config):
-                super().__init__(config)
-
             def run(self):
                 return "custom implementation"
 
-        # Should be able to create custom tasks
-        assert issubclass(CustomTask, Task)
-        assert CustomTask.run != Task.run  # Override
-
-        # Test that custom task can be instantiated
         config = {
             "run_id": "test",
             "unprocessed_file": Path("/test.fif"),
             "task": "custom",
-            "tasks": {
-                "custom": {"mne_task": "test", "description": "Test", "settings": {}}
-            },
-            "stage_files": {"post_import": {"enabled": True, "suffix": "_test"}},
         }
-
-        # Should be able to instantiate custom task with proper config
-        if TASK_AVAILABLE:
-            try:
-                task = CustomTask(config)
-                assert task.run() == "custom implementation"
-            except Exception:
-                # If there are dependency issues, that's okay for this test
-                pass
+        task = CustomTask(config)
+        assert task.run() == "custom implementation"
 
 
 # Error condition tests
@@ -557,7 +474,7 @@ class TestTaskErrorHandling:
         not TASK_AVAILABLE, reason="Task module not available for import"
     )
     def test_task_with_none_config(self):
-        """Test Task behavior with None config."""
+        """Task should raise TypeError when initialized with None instead of a dict."""
 
         class TestTask(Task):
             def __init__(self, config):
@@ -566,16 +483,108 @@ class TestTaskErrorHandling:
             def run(self):
                 return "test"
 
-        # Should handle None config appropriately
-        # (should raise error for None config)
-        with pytest.raises((TypeError, ValueError)):
-            task = TestTask(None)
+        with pytest.raises(TypeError):
+            TestTask(None)
 
     @pytest.mark.skipif(
         not TASK_AVAILABLE, reason="Task module not available for import"
     )
-    def test_task_with_invalid_config_types(self):
-        """Test Task behavior with invalid config types."""
+    @patch("autoclean.core.task.save_raw_to_set")
+    @patch("autoclean.core.task.import_eeg")
+    def test_import_raw_stores_raw_on_task(self, mock_import_eeg, mock_save_raw_to_set):
+        """import_raw() sets self.raw to the object returned by import_eeg."""
+
+        class TestTask(Task):
+            def run(self):
+                pass
+
+        config = {
+            "run_id": "test_store",
+            "unprocessed_file": Path("/path/to/test.fif"),
+            "task": "test_task",
+        }
+        task = TestTask(config)
+        task.create_bids_path = lambda *args, **kwargs: None
+
+        mock_raw = SimpleNamespace(duration=120.0)
+        mock_import_eeg.return_value = mock_raw
+
+        task.import_raw()
+
+        assert task.raw is mock_raw
+
+    @pytest.mark.skipif(
+        not TASK_AVAILABLE, reason="Task module not available for import"
+    )
+    def test_get_raw_returns_raw_after_set(self):
+        """get_raw() returns self.raw once it has been populated."""
+
+        class TestTask(Task):
+            def run(self):
+                pass
+
+        config = {
+            "run_id": "test_get",
+            "unprocessed_file": Path("/test.fif"),
+            "task": "test_task",
+        }
+        task = TestTask(config)
+        sentinel = object()
+        task.raw = sentinel
+
+        assert task.get_raw() is sentinel
+
+    @pytest.mark.skipif(
+        not TASK_AVAILABLE, reason="Task module not available for import"
+    )
+    def test_get_epochs_returns_epochs_after_set(self):
+        """get_epochs() returns self.epochs once it has been populated."""
+
+        class TestTask(Task):
+            def run(self):
+                pass
+
+        config = {
+            "run_id": "test_epochs",
+            "unprocessed_file": Path("/test.fif"),
+            "task": "test_task",
+        }
+        task = TestTask(config)
+        sentinel = object()
+        task.epochs = sentinel
+
+        assert task.get_epochs() is sentinel
+
+    @pytest.mark.skipif(
+        not TASK_AVAILABLE, reason="Task module not available for import"
+    )
+    def test_flagged_reasons_accumulate(self):
+        """Multiple assignments to flagged_reasons append, not overwrite."""
+
+        class TestTask(Task):
+            def run(self):
+                pass
+
+        config = {
+            "run_id": "test_flags",
+            "unprocessed_file": Path("/test.fif"),
+            "task": "test_task",
+        }
+        task = TestTask(config)
+        task.flagged = True
+        task.flagged_reasons.append("reason one")
+        task.flagged_reasons.append("reason two")
+
+        assert len(task.flagged_reasons) == 2
+        assert "reason one" in task.flagged_reasons
+        assert "reason two" in task.flagged_reasons
+
+    @pytest.mark.skipif(
+        not TASK_AVAILABLE, reason="Task module not available for import"
+    )
+    @pytest.mark.parametrize("invalid_config", ["string", 123, [1, 2, 3], True])
+    def test_task_with_invalid_config_types_raises(self, invalid_config):
+        """Task should raise TypeError for any non-dict config value."""
 
         class TestTask(Task):
             def __init__(self, config):
@@ -584,10 +593,5 @@ class TestTaskErrorHandling:
             def run(self):
                 return "test"
 
-        invalid_configs = ["string", 123, [1, 2, 3], True]
-
-        for invalid_config in invalid_configs:
-            # Should handle invalid config types appropriately
-            # (should raise error for invalid config types)
-            with pytest.raises((TypeError, ValueError)):
-                task = TestTask(invalid_config)
+        with pytest.raises(TypeError):
+            TestTask(invalid_config)

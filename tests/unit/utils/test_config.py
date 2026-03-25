@@ -26,8 +26,8 @@ except ImportError:
 class TestConfigLoading(BaseTestCase):
     """Test configuration loading functionality."""
 
-    def test_load_valid_config(self):
-        """Test loading a valid configuration file."""
+    def test_load_yaml_config_raises_removed_error(self):
+        """YAML-based configs are deprecated — load_config should always raise RuntimeError."""
         valid_config = {
             "tasks": {
                 "TestTask": {
@@ -133,8 +133,8 @@ class TestConfigLoading(BaseTestCase):
         with pytest.raises(RuntimeError):
             load_config(config_file)
 
-    def test_load_config_with_optional_fields(self):
-        """Test loading config with optional None values."""
+    def test_load_yaml_config_with_optional_fields_still_raises(self):
+        """YAML configs with optional None values should still be rejected."""
         config_with_optionals = {
             "tasks": {
                 "TestTaskOptional": {
@@ -251,33 +251,23 @@ class TestConfigUtilities:
         assert isinstance(file_hash, str)
         assert isinstance(encoded, str)
 
-    def test_validate_eeg_system(self):
-        """Test EEG system validation."""
-        valid_systems = [
-            "GSN-HydroCel-129",
-            "GSN-HydroCel-124",
-            "standard_1020",
-            "biosemi64",
-        ]
-
-        for system in valid_systems:
-            # Create a mock config dict with the EEG system
-            mock_config = {
-                "tasks": {
-                    "TestTask": {
-                        "settings": {"montage": {"enabled": True, "value": system}}
-                    }
+    @pytest.mark.parametrize("system", [
+        "GSN-HydroCel-129",
+        "GSN-HydroCel-124",
+        "standard_1020",
+        "biosemi64",
+    ])
+    def test_validate_eeg_system_returns_montage_name(self, system):
+        """validate_eeg_system should return the montage name for a valid EEG system."""
+        mock_config = {
+            "tasks": {
+                "TestTask": {
+                    "settings": {"montage": {"enabled": True, "value": system}}
                 }
             }
-
-            # Should not raise an exception
-            try:
-                result = validate_eeg_system(mock_config, "TestTask")
-                assert result == system
-            except Exception as e:
-                pytest.fail(
-                    f"validate_eeg_system raised exception for valid system {system}: {e}"
-                )
+        }
+        result = validate_eeg_system(mock_config, "TestTask")
+        assert result == system
 
 
 @pytest.mark.skipif(not CONFIG_AVAILABLE, reason="Config module not available")
@@ -367,8 +357,8 @@ class TestConfigMocked:
 class TestConfigConceptual:
     """Conceptual tests for config design patterns."""
 
-    def test_config_schema_structure(self):
-        """Test that config follows expected schema structure."""
+    def test_yaml_config_always_raises_removed_error(self):
+        """Any YAML config file passed to load_config should raise RuntimeError (v2.0+ removed YAML support)."""
         if not CONFIG_AVAILABLE:
             pytest.skip("Config not available for schema testing")
 
@@ -433,35 +423,11 @@ class TestConfigConceptual:
         finally:
             config_file.unlink()
 
-    def test_config_extensibility_concept(self):
-        """Test config extensibility concept."""
-        # Config should support multiple tasks
-        assert CONFIG_AVAILABLE  # Basic availability check
-
-        # Config loading should be deterministic
-        # (Tested via other test cases)
-
-    def test_config_validation_concept(self):
-        """Test config validation concept."""
-        if not CONFIG_AVAILABLE:
-            pytest.skip("Config not available for validation testing")
-
-        # Should have hash_and_encode_yaml function
-        assert callable(hash_and_encode_yaml)
-
-        # Should have validate_eeg_system function
-        assert callable(validate_eeg_system)
 
 
 @pytest.mark.skipif(not CONFIG_AVAILABLE, reason="Config module not available")
 class TestConfigErrorHandling:
     """Test config error handling and edge cases."""
-
-    def test_config_with_circular_references(self):
-        """Test handling of circular references (if applicable)."""
-        # YAML doesn't naturally support circular references in Python
-        # This is more of a conceptual test
-        pass
 
     def test_config_with_very_large_values(self):
         """Test config with very large values."""

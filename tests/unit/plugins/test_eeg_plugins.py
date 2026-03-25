@@ -258,13 +258,10 @@ class TestStandard1020Plugin:
         """Test standard 10-20 montage characteristics."""
         raw = create_synthetic_raw(montage="standard_1020", n_channels=32)
 
-        # Should have standard channel names
-        standard_channels = ["Fp1", "Fp2", "F7", "F3", "Fz", "F4", "F8", "Cz"]
-        for ch in standard_channels:
-            if ch in raw.ch_names:  # Some might not be included in smaller montages
-                assert ch in raw.ch_names
+        # Cz is present in virtually all standard 10-20 configurations
+        assert "Cz" in raw.ch_names
 
-        # Should be EEG type
+        # All channels should be EEG type
         assert all(ch_type == "eeg" for ch_type in raw.get_channel_types())
 
 
@@ -301,14 +298,8 @@ class TestMEA30Plugin:
         """Test MEA30 montage characteristics."""
         raw = create_synthetic_raw(montage="MEA30", n_channels=30)
 
-        # Should have 30 channels
         assert len(raw.ch_names) == 30
-
-        # Should have CH naming convention for mouse EEG
-        expected_names = [f"CH{i}" for i in range(1, 31)]
-        for expected_name in expected_names:
-            if expected_name in raw.ch_names:  # Depending on implementation
-                assert expected_name in raw.ch_names
+        assert all(ch.startswith("CH") for ch in raw.ch_names)
 
 
 class TestPluginErrorHandling:
@@ -395,11 +386,7 @@ class TestPluginIntegration:
         plugin = MockPlugin()
         result = plugin.import_and_configure(Path("/test/data.fif"), {})
 
-        # Should return valid Raw object
         EEGAssertions.assert_raw_properties(result)
-        assert hasattr(result, "info")
-        assert hasattr(result, "get_data")
-        assert hasattr(result, "ch_names")
 
     @pytest.mark.skipif(not PLUGIN_BASE_AVAILABLE, reason="Plugin base not available")
     def test_plugin_configuration_handling(self):
@@ -430,53 +417,3 @@ class TestPluginIntegration:
         EEGAssertions.assert_raw_properties(result)
 
 
-class TestPluginMocked:
-    """Test plugin functionality with heavy mocking."""
-
-    def test_plugin_interface_mocked(self):
-        """Test plugin interface with complete mocking."""
-        # Mock the entire plugin system
-        mock_plugin = Mock()
-        mock_plugin.supports_format_montage.return_value = True
-        mock_plugin.import_and_configure.return_value = create_synthetic_raw()
-
-        # Test interface calls
-        assert mock_plugin.supports_format_montage("TEST", "TEST") is True
-        result = mock_plugin.import_and_configure(Path("/test"), {})
-
-        # Verify mock was called
-        mock_plugin.supports_format_montage.assert_called_once()
-        mock_plugin.import_and_configure.assert_called_once()
-
-        # Verify result
-        EEGAssertions.assert_raw_properties(result)
-
-    def test_multiple_plugins_mocked(self):
-        """Test multiple plugin coordination with mocking."""
-        # Mock multiple plugins
-        plugin1 = Mock()
-        plugin1.supports_format_montage.side_effect = lambda f, m: f == "FORMAT1"
-
-        plugin2 = Mock()
-        plugin2.supports_format_montage.side_effect = lambda f, m: f == "FORMAT2"
-
-        # Test plugin selection logic
-        plugins = [plugin1, plugin2]
-
-        # Find plugin for FORMAT1
-        selected_plugin = None
-        for plugin in plugins:
-            if plugin.supports_format_montage("FORMAT1", "TEST"):
-                selected_plugin = plugin
-                break
-
-        assert selected_plugin == plugin1
-
-        # Find plugin for FORMAT2
-        selected_plugin = None
-        for plugin in plugins:
-            if plugin.supports_format_montage("FORMAT2", "TEST"):
-                selected_plugin = plugin
-                break
-
-        assert selected_plugin == plugin2

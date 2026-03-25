@@ -271,83 +271,7 @@ class TestPluginRegistry:
             )
 
 
-@pytest.mark.skipif(not IMPORT_AVAILABLE, reason="Import module not available")
-class TestPluginDiscovery:
-    """Test automatic plugin discovery."""
 
-    @patch("autoclean.io.import_.pkgutil.iter_modules")
-    @patch("autoclean.io.import_.importlib.import_module")
-    def test_plugin_discovery_mechanism(self, mock_import, mock_iter):
-        """Test that plugin discovery mechanism works."""
-        # Mock module discovery
-        mock_module_info = Mock()
-        mock_module_info.name = "test_plugin"
-        mock_iter.return_value = [mock_module_info]
-
-        # Mock module import
-        mock_module = Mock()
-        mock_plugin_class = Mock()
-        mock_plugin_class.__name__ = "TestPlugin"
-        mock_module.TestPlugin = mock_plugin_class
-        mock_import.return_value = mock_module
-
-        # The actual discovery would happen in the __init__ or import process
-        # Here we just test that the mechanism can work
-        assert mock_iter.called or not mock_iter.called  # Placeholder test
-
-    def test_plugin_discovery_error_handling(self):
-        """Test plugin discovery handles import errors gracefully."""
-        with patch("autoclean.io.import_.importlib.import_module") as mock_import:
-            mock_import.side_effect = ImportError("Module not found")
-
-            # Plugin discovery should handle import errors gracefully
-            # This would be tested in the actual discovery code
-            assert True  # Placeholder - actual discovery code would be tested
-
-
-class TestPluginSystemMocked:
-    """Test plugin system with heavy mocking."""
-
-    def test_plugin_system_interface(self):
-        """Test plugin system interface with mocks."""
-        # Mock the entire plugin system
-        with patch("autoclean.io.import_.BaseEEGPlugin") as MockBasePlugin:
-            MockBasePlugin.__abstractmethods__ = {
-                "supports_format_montage",
-                "import_and_configure",
-            }
-
-            # Test interface expectations
-            assert hasattr(MockBasePlugin, "__abstractmethods__")
-            expected_methods = {"supports_format_montage", "import_and_configure"}
-            assert MockBasePlugin.__abstractmethods__ == expected_methods
-
-    def test_format_registry_operations_mocked(self):
-        """Test format registry operations with mocking."""
-        mock_registry = {}
-
-        with patch("autoclean.io.import_._FORMAT_REGISTRY", mock_registry):
-            # Mock format registration
-            mock_registry["test"] = "TEST_FORMAT"
-
-            assert "test" in mock_registry
-            assert mock_registry["test"] == "TEST_FORMAT"
-
-    def test_plugin_registration_mocked(self):
-        """Test plugin registration with mocking."""
-        mock_plugin_registry = {}
-        mock_plugin_class = Mock()
-        mock_plugin_class.supports_format_montage.return_value = True
-
-        with patch("autoclean.io.import_._PLUGIN_REGISTRY", mock_plugin_registry):
-            # Mock plugin registration
-            mock_plugin_registry[("TEST_FORMAT", "TEST_MONTAGE")] = mock_plugin_class
-
-            assert ("TEST_FORMAT", "TEST_MONTAGE") in mock_plugin_registry
-            assert (
-                mock_plugin_registry[("TEST_FORMAT", "TEST_MONTAGE")]
-                == mock_plugin_class
-            )
 
 
 class TestPluginSystemConceptual:
@@ -391,20 +315,6 @@ class TestPluginSystemConceptual:
         plugin = CustomPlugin()
         assert plugin.supports_format_montage("any", "any") is True
 
-    def test_format_registry_concept(self):
-        """Test format registry concept."""
-        if not IMPORT_AVAILABLE:
-            pytest.skip("Import module not available for registry testing")
-
-        # Registry should support:
-        # 1. Format registration
-        # 2. Format lookup
-        # 3. Extension mapping
-        # 4. Override capability
-
-        # These concepts are tested in the actual registry tests above
-        # This is a placeholder for design validation
-        assert True
 
 
 # Error handling tests

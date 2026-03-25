@@ -20,17 +20,6 @@ except ImportError:
 class TestPipelinePythonTasks:
     """Test Pipeline functionality for Python task files."""
 
-    def test_pipeline_init_without_yaml(self):
-        """Test Pipeline initialization with simplified API (no YAML config needed)."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            pipeline = Pipeline(output_dir=temp_dir)
-
-            # In the new simplified API, we don't use YAML configs
-            assert hasattr(pipeline, "output_dir")
-            assert hasattr(pipeline, "session_task_registry")
-            assert isinstance(pipeline.session_task_registry, dict)
-            assert hasattr(pipeline, "add_task")
-
     def test_pipeline_init_with_default_config(self):
         """Test Pipeline initialization uses default configuration approach."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -68,10 +57,7 @@ class MockTestTask(Task):
             task_file = Path(temp_dir) / "mock_task.py"
             task_file.write_text(task_content)
 
-            # Test adding the task
-            pipeline.add_task(str(task_file))
-
-            # Test adding the task returns the task name
+            # add_task should return the registered task name
             task_name = pipeline.add_task(str(task_file))
             assert task_name == "MockTestTask"
 
@@ -197,8 +183,15 @@ class PythonTask(Task):
             result = pipeline._validate_task("MockPythonTask")
             assert result == "MockPythonTask"
 
-    def test_validate_task_case_insensitive(self):
-        """Test that task validation is case-insensitive."""
+    @pytest.mark.parametrize("lookup,expected", [
+        ("CamelCaseTask", "CamelCaseTask"),
+        ("camelcasetask", "camelcasetask"),
+        ("CAMELCASETASK", "CAMELCASETASK"),
+    ])
+    def test_validate_task_preserves_input_case_while_matching_case_insensitively(
+        self, lookup, expected
+    ):
+        """_validate_task should find the task regardless of case and return the original input."""
         with tempfile.TemporaryDirectory() as temp_dir:
             pipeline = Pipeline(output_dir=temp_dir)
 
@@ -207,11 +200,7 @@ class PythonTask(Task):
                     pass
 
             pipeline.session_task_registry["camelcasetask"] = CamelCaseTask
-
-            # Should work with different cases
-            assert pipeline._validate_task("CamelCaseTask") == "CamelCaseTask"
-            assert pipeline._validate_task("camelcasetask") == "camelcasetask"
-            assert pipeline._validate_task("CAMELCASETASK") == "CAMELCASETASK"
+            assert pipeline._validate_task(lookup) == expected
 
     def test_session_task_registry_initialization(self):
         """Test that session task registry is properly initialized."""
@@ -299,19 +288,6 @@ class PythonTask(Task):
             for task in initial_tasks:
                 assert task in final_tasks
 
-    def test_simplified_configuration_approach(self):
-        """Test that pipeline works without external YAML configuration."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            pipeline = Pipeline(output_dir=temp_dir)
-
-            # Pipeline should work with embedded task configurations
-            # No external YAML files are needed
-            assert hasattr(pipeline, "output_dir")
-            assert hasattr(pipeline, "session_task_registry")
-
-            # Should be able to process with built-in tasks
-            tasks = pipeline.list_tasks()
-            assert len(tasks) > 0
 
 
 @pytest.mark.skipif(

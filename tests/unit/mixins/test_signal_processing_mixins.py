@@ -49,12 +49,6 @@ class TestBasicStepsMixin:
             }
         }
 
-    def test_basic_steps_mixin_interface(self):
-        """Test that BasicStepsMixin has expected interface."""
-
-        # Should have run_basic_steps method
-        assert hasattr(BasicStepsMixin, "run_basic_steps")
-        assert callable(getattr(BasicStepsMixin, "run_basic_steps"))
 
     def test_basic_steps_mixin_inheritance(self):
         """Test BasicStepsMixin can be inherited."""
@@ -239,8 +233,14 @@ class TestBasicStepsMixin:
         assert test_instance.received_data == custom_raw
         assert result == custom_raw
 
-    def test_assign_eog_channels_dict_format(self):
-        """Test assign_eog_channels with dict format value."""
+    @pytest.mark.parametrize("eog_value,expected_eog_indices", [
+        ({"eog_indices": [1, 2], "eog_drop": False}, [0, 1]),  # dict: 1-based indices 1,2 → positions 0,1
+        ([1, 2, 3], [0, 1, 2]),                                 # list: 1-based indices 1,2,3 → positions 0,1,2
+        (None, []),                                              # None → no eog channels set
+        ([], []),                                                # empty list → no eog channels set
+    ])
+    def test_assign_eog_channels_marks_correct_channels_as_eog(self, eog_value, expected_eog_indices):
+        """assign_eog_channels should set the correct channels to EOG type for each config format."""
         from autoclean.core.task import Task
 
         class TestTask(Task):
@@ -248,74 +248,24 @@ class TestBasicStepsMixin:
                 self.raw = create_synthetic_raw(n_channels=10)
                 self.config = {
                     "task": "test_task",
-                    "tasks": {
-                        "test_task": {
-                            "settings": {
-                                "eog_step": {
-                                    "enabled": True,
-                                    "value": {"eog_indices": [1, 2], "eog_drop": False},
-                                }
-                            }
-                        }
-                    },
+                    "tasks": {"test_task": {"settings": {"eog_step": {"enabled": True, "value": eog_value}}}},
                 }
 
             def run(self):
                 return None
 
         task = TestTask()
+        original_types = task.raw.get_channel_types()
         result = task.assign_eog_channels()
-        assert result is not None
 
-    def test_assign_eog_channels_list_format(self):
-        """Test assign_eog_channels with bare list format value."""
-        from autoclean.core.task import Task
-
-        class TestTask(Task):
-            def __init__(self):
-                self.raw = create_synthetic_raw(n_channels=10)
-                self.config = {"task": "test_task", "tasks": {"test_task": {"settings": {"eog_step": {"enabled": True, "value": [1, 2, 3]}}}}}
-
-            def run(self):
-                return None
-
-        task = TestTask()
-        result = task.assign_eog_channels()
-        assert result is not None
-
-    def test_assign_eog_channels_none_format(self):
-        """Test assign_eog_channels with None value."""
-        from autoclean.core.task import Task
-
-        class TestTask(Task):
-            def __init__(self):
-                self.raw = create_synthetic_raw(n_channels=10)
-                self.config = {"task": "test_task", "tasks": {"test_task": {"settings": {"eog_step": {"enabled": True, "value": None}}}}}
-
-            def run(self):
-                return None
-
-        task = TestTask()
-        result = task.assign_eog_channels()
-        # Should return data unchanged when value is None
-        assert result is not None
-
-    def test_assign_eog_channels_empty_list(self):
-        """Test assign_eog_channels with empty list."""
-        from autoclean.core.task import Task
-
-        class TestTask(Task):
-            def __init__(self):
-                self.raw = create_synthetic_raw(n_channels=10)
-                self.config = {"task": "test_task", "tasks": {"test_task": {"settings": {"eog_step": {"enabled": True, "value": []}}}}}
-
-            def run(self):
-                return None
-
-        task = TestTask()
-        result = task.assign_eog_channels()
-        # Should return data unchanged when value is empty
-        assert result is not None
+        result_types = result.get_channel_types()
+        for idx in expected_eog_indices:
+            assert result_types[idx] == "eog", f"Channel at position {idx} should be 'eog' type"
+        for idx in range(10):
+            if idx not in expected_eog_indices:
+                assert result_types[idx] == original_types[idx], (
+                    f"Channel at position {idx} should be unchanged"
+                )
 
     def test_resample_data_simple_number(self):
         """Test resample_data with simple number format (schema-compliant)."""
@@ -474,168 +424,16 @@ class TestBasicStepsMixin:
 class TestICAMixin:
     """Test the ICAMixin functionality."""
 
-    def test_ica_mixin_interface(self):
-        """Test that ICAMixin has expected interface."""
-
-        # Should have ICA-related methods
-        expected_methods = ["run_ica", "apply_ica"]
-        for method in expected_methods:
-            if hasattr(IcaMixin, method):
-                assert callable(getattr(IcaMixin, method))
-
-    def test_ica_mixin_inheritance(self):
-        """Test ICAMixin can be inherited."""
-
-        class TestClass(IcaMixin):
-            def __init__(self):
-                self.raw = create_synthetic_raw()
-                self.ica = None
-
-        test_instance = TestClass()
-        assert isinstance(test_instance, IcaMixin)
-
-    @patch("mne.preprocessing.ICA")
-    def test_ica_mixin_mock_functionality(self, mock_ica_class):
-        """Test ICAMixin functionality with mocked ICA."""
-
-        # Mock ICA object
-        mock_ica = MockOperations.mock_ica_fit(create_synthetic_raw(), n_components=15)
-        mock_ica_class.return_value = mock_ica
-
-        class TestClass(IcaMixin):
-            def __init__(self):
-                self.raw = create_synthetic_raw()
-                self.ica = None
-                self.config = {
-                    "tasks": {
-                        "test": {
-                            "settings": {
-                                "ICA": {
-                                    "enabled": True,
-                                    "value": {"method": "infomax", "n_components": 15},
-                                }
-                            }
-                        }
-                    }
-                }
-
-        test_instance = TestClass()
-
-        # Test that ICA methods exist and can be mocked
-        if hasattr(test_instance, "run_ica"):
-            # Mock the method to avoid heavy computation
-            with patch.object(
-                test_instance, "run_ica", return_value=test_instance
-            ) as mock_run:
-                result = test_instance.run_ica()
-                mock_run.assert_called_once()
+    def test_ica_mixin_exposes_run_ica_and_component_rejection(self):
+        """IcaMixin should expose run_ica and apply_ica_component_rejection as callable methods."""
+        assert callable(getattr(IcaMixin, "run_ica", None)), "IcaMixin missing run_ica"
+        assert callable(getattr(IcaMixin, "apply_ica_component_rejection", None)), (
+            "IcaMixin missing apply_ica_component_rejection"
+        )
 
 
-class TestSignalProcessingMixinsMocked:
-    """Test signal processing mixins with heavy mocking."""
-
-    def test_basic_steps_mixin_mocked(self):
-        """Test BasicStepsMixin with complete mocking."""
-        # Mock the entire mixin
-        mock_mixin = Mock()
-        mock_mixin.run_basic_steps.return_value = create_synthetic_raw()
-
-        # Test interface
-        result = mock_mixin.run_basic_steps()
-        mock_mixin.run_basic_steps.assert_called_once()
-        EEGAssertions.assert_raw_properties(result)
-
-    def test_ica_mixin_mocked(self):
-        """Test ICAMixin with complete mocking."""
-        # Mock the entire mixin
-        mock_mixin = Mock()
-        mock_mixin.run_ica.return_value = Mock()
-        mock_mixin.apply_ica.return_value = create_synthetic_raw()
-
-        # Test interface
-        mock_mixin.run_ica()
-        result = mock_mixin.apply_ica()
-
-        mock_mixin.run_ica.assert_called_once()
-        mock_mixin.apply_ica.assert_called_once()
-        EEGAssertions.assert_raw_properties(result)
-
-    def test_signal_processing_pipeline_mocked(self):
-        """Test signal processing pipeline with mocked components."""
-        # Mock a complete signal processing pipeline
-        mock_pipeline = Mock()
-
-        # Mock sequential processing
-        raw_data = create_synthetic_raw()
-        mock_pipeline.run_basic_steps.return_value = raw_data
-        mock_pipeline.run_ica.return_value = mock_pipeline
-        mock_pipeline.apply_ica.return_value = raw_data
-
-        # Test pipeline execution
-        result = mock_pipeline.run_basic_steps()
-        mock_pipeline.run_ica()
-        final_result = mock_pipeline.apply_ica()
-
-        # Verify calls
-        mock_pipeline.run_basic_steps.assert_called_once()
-        mock_pipeline.run_ica.assert_called_once()
-        mock_pipeline.apply_ica.assert_called_once()
-
-        # Verify results
-        EEGAssertions.assert_raw_properties(result)
-        EEGAssertions.assert_raw_properties(final_result)
 
 
-class TestSignalProcessingMixinsConceptual:
-    """Conceptual tests for signal processing mixins design."""
-
-    def test_signal_processing_design_patterns(self):
-        """Test that signal processing mixins follow good design patterns."""
-        if not SIGNAL_PROCESSING_AVAILABLE:
-            pytest.skip("Signal processing mixins not available")
-
-        # BasicStepsMixin already imported at module level
-
-        # Mixin pattern - should not be instantiated directly
-        # but should provide functionality when mixed in
-        assert hasattr(BasicStepsMixin, "run_basic_steps")
-
-        # Should be designed for composition
-        class ComposedClass(BasicStepsMixin):
-            pass
-
-        assert issubclass(ComposedClass, BasicStepsMixin)
-
-    def test_signal_processing_modularity(self):
-        """Test signal processing modularity concept."""
-        if not SIGNAL_PROCESSING_AVAILABLE:
-            pytest.skip("Signal processing mixins not available")
-
-        # Different mixins should handle different concerns
-        # BasicStepsMixin already imported at module level
-
-        # BasicStepsMixin should handle basic preprocessing
-        assert "basic_steps" in BasicStepsMixin.__module__
-
-        # Each mixin should be focused on its domain
-        assert "BasicSteps" in BasicStepsMixin.__name__
-
-    def test_signal_processing_extensibility(self):
-        """Test signal processing extensibility concept."""
-        if not SIGNAL_PROCESSING_AVAILABLE:
-            pytest.skip("Signal processing mixins not available")
-
-        # BasicStepsMixin already imported at module level
-
-        # Should be extensible through inheritance
-        class CustomBasicSteps(BasicStepsMixin):
-            def custom_step(self):
-                return "custom processing"
-
-        # Should maintain original functionality
-        assert hasattr(CustomBasicSteps, "run_basic_steps")
-        # Should add new functionality
-        assert hasattr(CustomBasicSteps, "custom_step")
 
 
 # Error handling tests
@@ -765,19 +563,3 @@ class TestSignalProcessingMixinsPerformance:
             assert call_count == 6  # 6 basic steps
             assert result == mock_raw
 
-    def test_mixin_memory_efficiency(self):
-        """Test that mixins don't create memory leaks."""
-        # Test that mixin instances can be garbage collected
-        if SIGNAL_PROCESSING_AVAILABLE:
-            # BasicStepsMixin already imported at module level
-
-            class TestClass(BasicStepsMixin):
-                def __init__(self):
-                    self.raw = create_synthetic_raw()
-
-            # Create and delete instances
-            instances = [TestClass() for _ in range(10)]
-            del instances
-
-            # Should not cause memory issues
-            assert True  # If we get here, no memory errors occurred

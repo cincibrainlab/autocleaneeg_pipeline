@@ -229,95 +229,8 @@ class TestBaseMixin:
         assert issubclass(combined_mixin, BaseMixin)
 
 
-class TestMixinDiscoveryMocked:
-    """Test mixin discovery with heavy mocking."""
-
-    @patch("autoclean.mixins.pkgutil.iter_modules")
-    @patch("autoclean.mixins.importlib.import_module")
-    def test_mixin_discovery_mechanism(self, mock_import, mock_iter_modules):
-        """Test the mixin discovery mechanism with mocks."""
-        # Mock module discovery
-        mock_module_info = Mock()
-        mock_module_info.name = "test_module"
-        mock_module_info.ispkg = False
-        mock_iter_modules.return_value = [mock_module_info]
-
-        # Mock module import
-        mock_module = Mock()
-        mock_mixin_class = type("TestMixin", (), {"test_method": lambda self: None})
-        mock_module.TestMixin = mock_mixin_class
-        mock_import.return_value = mock_module
-
-        # The discovery mechanism should work with these mocks
-        # (This tests the pattern, actual discovery is tested above)
-        assert mock_iter_modules.called or not mock_iter_modules.called  # Placeholder
-
-    def test_mixin_discovery_error_handling(self):
-        """Test mixin discovery error handling."""
-        with patch("autoclean.mixins.importlib.import_module") as mock_import:
-            mock_import.side_effect = ImportError("Module not found")
-
-            # Discovery should handle import errors gracefully
-            # (Actual error handling tested in integration)
-            assert True  # Placeholder
-
-    def test_base_mixin_fallback_mechanism(self):
-        """Test BaseMixin fallback mechanism."""
-        with patch(
-            "autoclean.mixins.base.BaseMixin",
-            side_effect=ImportError("BaseMixin not found"),
-        ):
-            # Should use placeholder when BaseMixin unavailable
-            # This would be tested in actual import scenarios
-            assert True  # Placeholder
 
 
-class TestMixinSystemConceptual:
-    """Conceptual tests for mixin system design."""
-
-    def test_mixin_system_design_principles(self):
-        """Test that mixin system follows good design principles."""
-        if not MIXINS_AVAILABLE:
-            pytest.skip("Mixins not available for design testing")
-
-        # DISCOVERED_MIXINS already imported at module level
-
-        # Composition principle: single effective mixin that combines multiple mixins
-        assert len(DISCOVERED_MIXINS) == 1  # Single combined mixin
-
-        # The combined mixin should have multiple parent classes
-        combined_mixin = DISCOVERED_MIXINS[0]
-        assert (
-            len(combined_mixin.__mro__) > 2
-        )  # More than just object and the class itself
-
-        # Single responsibility principle (each mixin should be focused)
-        for mixin in DISCOVERED_MIXINS:
-            # Mixin names should indicate their purpose
-            assert "Mixin" in mixin.__name__
-
-    def test_mixin_extensibility_concept(self):
-        """Test mixin system extensibility concept."""
-        if not MIXINS_AVAILABLE:
-            pytest.skip("Mixins not available for extensibility testing")
-
-        # DISCOVERED_MIXINS already imported at module level
-
-        # Should be extensible by adding new mixins
-        # New mixins should be discoverable
-        # This is tested through the discovery mechanism
-        assert len(DISCOVERED_MIXINS) >= 1  # At least BaseMixin
-
-    def test_mixin_conflict_resolution_concept(self):
-        """Test mixin conflict resolution concept."""
-        if not MIXINS_AVAILABLE:
-            pytest.skip("Mixins not available for conflict testing")
-
-        # _warn_on_method_collisions already imported at module level
-
-        # System should detect and warn about conflicts
-        # MRO should resolve conflicts predictably
-        assert callable(_warn_on_method_collisions)
 
 
 # Error handling and edge cases
@@ -325,67 +238,44 @@ class TestMixinDiscoveryEdgeCases:
     """Test mixin discovery edge cases and error conditions."""
 
     @pytest.mark.skipif(not MIXINS_AVAILABLE, reason="Mixins module not available")
-    def test_empty_mixin_discovery(self):
-        """Test behavior when no mixins are discovered."""
-        # Note: This test is harder to mock due to the way the module loads
-        # In reality, the mixin system always has at least BaseMixin
-        # DISCOVERED_MIXINS already imported at module level
-
-        # Should always have at least one effective mixin
-        assert len(DISCOVERED_MIXINS) >= 1
-        # The mixin should be usable (have some methods)
-        combined_mixin = DISCOVERED_MIXINS[0]
-        assert hasattr(combined_mixin, "__mro__")
+    def test_base_mixin_was_found_during_discovery(self):
+        """BaseMixin should always be located by the discovery system in a healthy install."""
+        assert _base_mixin_found is True
 
     @pytest.mark.skipif(not MIXINS_AVAILABLE, reason="Mixins module not available")
-    def test_base_mixin_import_failure_fallback(self):
-        """Test fallback when BaseMixin import fails."""
-        # This would be tested by temporarily moving base.py
-        # Or mocking the import failure
-        # For now, test that the fallback mechanism exists
-        # _base_mixin_found already imported at module level
-
-        # Should indicate whether BaseMixin was found
-        assert isinstance(_base_mixin_found, bool)
-
-    def test_mixin_discovery_with_invalid_modules(self):
-        """Test mixin discovery with invalid modules."""
-        with patch("autoclean.mixins.importlib.import_module") as mock_import:
-            mock_import.side_effect = [ImportError("Invalid module"), None]
-
-            # Should handle invalid modules gracefully
-            # (Actual behavior depends on implementation)
-            assert True  # Placeholder for graceful handling test
-
-    def test_mixin_with_no_methods(self):
-        """Test behavior with mixins that have no methods."""
+    def test_collision_detection_ignores_empty_mixins(self):
+        """_warn_on_method_collisions should not warn for mixins with no methods."""
 
         class EmptyMixin:
             pass
 
-        # Should handle empty mixins without errors
         with patch("builtins.print") as mock_print:
-            if MIXINS_AVAILABLE:
-                # _warn_on_method_collisions already imported at module level
-                _warn_on_method_collisions((EmptyMixin,))
+            _warn_on_method_collisions((EmptyMixin,))
+            collision_warnings = [
+                call for call in mock_print.call_args_list if "WARNING:" in str(call)
+            ]
+            assert len(collision_warnings) == 0
 
-            # Should not crash on empty mixins
-            assert True
+    @pytest.mark.skipif(not MIXINS_AVAILABLE, reason="Mixins module not available")
+    def test_collision_detection_ignores_non_callable_attributes(self):
+        """_warn_on_method_collisions should not treat class variables as collision candidates."""
 
-    def test_mixin_with_non_callable_attributes(self):
-        """Test behavior with mixins that have non-callable attributes."""
-
-        class MixinWithAttributes:
+        class MixinA:
             class_variable = "test"
-            instance_variable = 42
 
-            def actual_method(self):
+            def real_method(self):
                 pass
 
-        # Should handle non-callable attributes without issues
-        if MIXINS_AVAILABLE:
-            # _warn_on_method_collisions already imported at module level
-            _warn_on_method_collisions((MixinWithAttributes,))
+        class MixinB:
+            class_variable = "other"
 
-        # Should not crash on non-callable attributes
-        assert True
+            def other_method(self):
+                pass
+
+        with patch("builtins.print") as mock_print:
+            _warn_on_method_collisions((MixinA, MixinB))
+            collision_warnings = [
+                call for call in mock_print.call_args_list if "WARNING:" in str(call)
+            ]
+            # class_variable should not trigger a collision warning
+            assert not any("class_variable" in str(c) for c in collision_warnings)
