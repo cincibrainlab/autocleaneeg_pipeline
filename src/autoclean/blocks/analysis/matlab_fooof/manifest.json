@@ -1,0 +1,68 @@
+{
+  "name": "matlab_fooof",
+  "version": "1.0.0",
+  "category": "analysis",
+  "subcategory": "matlab",
+  "description": "MATLAB EEGLAB/vhtp FOOOF analysis for epoched .set exports with per-subject aperiodic and summary CSV artifacts",
+  "author": "AutoClean EEG Team",
+  "created": "2026-03-26",
+  "dependencies": {
+    "required": [],
+    "optional": ["matlabengine"]
+  },
+  "inputs": {
+    "data_type": "EEGLAB .set file",
+    "requirements": [
+      "MATLAB-capable Python environment",
+      "compatible MATLAB installation and license",
+      "EEGLAB installation path",
+      "vhtp repository path with eeg_htpCalcFooof.m"
+    ],
+    "preferred_source": "AutoClean exported *_rest_comp_epo.set files"
+  },
+  "outputs": {
+    "files": [
+      "{subject}_fooof_summary.csv",
+      "{subject}_fooof_aperiodic.csv",
+      "{subject}_fooof_manifest.json"
+    ],
+    "data_format": {
+      "summary_columns": ["chan", "key", "value"],
+      "aperiodic_subset": "Rows where key contains 'aperiodic'",
+      "matlab_sidecar_dir": "eeg_htpCalcFooof"
+    }
+  },
+  "parameters": {
+    "vhtp_path": {
+      "type": "string",
+      "description": "Path to the vhtp repo or MATLAB folder containing eeg_htpCalcFooof.m"
+    },
+    "eeglab_path": {
+      "type": "string",
+      "description": "Path to the EEGLAB installation root"
+    },
+    "spect_freqs": {
+      "type": "list[float,float]",
+      "default": [1, 55],
+      "description": "Frequency range passed to eeg_htpCalcFooof"
+    },
+    "save_fooof_img": {
+      "type": "bool",
+      "default": false,
+      "description": "Whether MATLAB should write FOOOF figures"
+    },
+    "parallel": {
+      "type": "bool",
+      "default": false,
+      "description": "Whether eeg_htpCalcFooof should use MATLAB-side parallel execution"
+    }
+  },
+  "pipeline_integration": {
+    "typical_order": [
+      "epoch export to .set",
+      "apply_matlab_fooof"
+    ],
+    "can_run_standalone": true,
+    "requires_matlab": true
+  }
+}

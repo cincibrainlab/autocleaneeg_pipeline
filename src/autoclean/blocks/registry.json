@@ -25,6 +25,13 @@
       "description": "Zapline DSS-based line noise removal using Denoising Source Separation for removing power line artifacts from EEG/MEG data"
     },
     {
+      "name": "matlab_fooof",
+      "category": "analysis",
+      "path": "blocks/analysis/matlab_fooof",
+      "version": "1.0.0",
+      "description": "MATLAB EEGLAB/vhtp FOOOF analysis for epoched .set exports with per-subject summary and aperiodic CSV artifacts"
+    },
+    {
       "name": "fooof_periodic",
       "category": "analysis",
       "path": "blocks/analysis/fooof_analysis",
