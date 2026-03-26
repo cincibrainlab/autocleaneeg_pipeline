@@ -28,6 +28,7 @@ _ROUTE_SPEC_KEYS = (
     "sentinel_ext",
     "automation_root",
     "workspace_name",
+    "requires_matlab",
 )
 
 _COMPILED_ROUTE_KEYS = (
@@ -44,6 +45,7 @@ _COMPILED_ROUTE_KEYS = (
     "sentinel_ext",
     "automation_root",
     "workspace_name",
+    "requires_matlab",
 )
 
 _LEGACY_TOP_LEVEL_ROUTE_KEYS = {

@@ -1652,16 +1652,118 @@ class TestProcessFileTaskfileEdgeCases:
 
         runtime_dir = tmp_path / "runtimes" / "test"
         runtime_dir.mkdir(parents=True)
+        taskfile = tmp_path / "custom_task.py"
+        taskfile.write_text("config = {}\n", encoding="utf-8")
 
         result = process_file(
             file_path="/data/test.bdf",
             workspace_dir=str(tmp_path),
             mode="test",
             route_id="route-1",
-            taskfile="custom_task.py",
+            taskfile=str(taskfile),
             montage="biosemi64",
             dry_run=True,
         )
 
         assert result["status"] == "dry_run"
         assert "custom_task.py" in str(result["command"])
+        assert "--task-file" in result["command"]
+
+    def test_process_file_runs_matlab_preflight_for_matlab_taskfile(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """Test MATLAB-backed taskfiles trigger doctor preflight before processing."""
+        from autoclean.api.tasks import process_file
+
+        taskfile = tmp_path / "custom_task.py"
+        taskfile.write_text(
+            """
+from autoclean.functions.matlab import call_matlab
+""".strip()
+            + "\n",
+            encoding="utf-8",
+        )
+
+        cli_path = tmp_path / "runtime-cli"
+        cli_path.write_text("#!/bin/sh\n", encoding="utf-8")
+
+        calls: list[list[str]] = []
+
+        def _fake_run(cmd, capture_output=False, text=False, timeout=None, check=False):
+            calls.append(list(cmd))
+
+            class _Result:
+                def __init__(self, returncode: int = 0) -> None:
+                    self.returncode = returncode
+                    self.stdout = "ok"
+                    self.stderr = ""
+
+            return _Result()
+
+        monkeypatch.setattr("autoclean.utils.ingestion.resolve_runtime_cli", lambda _runtime: cli_path)
+        monkeypatch.setattr("subprocess.run", _fake_run)
+
+        result = process_file(
+            file_path="/data/test.bdf",
+            workspace_dir=str(tmp_path),
+            mode="test",
+            route_id="route-1",
+            taskfile=str(taskfile),
+            montage="biosemi64",
+            dry_run=False,
+        )
+
+        assert result["status"] == "completed"
+        assert len(calls) == 2
+        assert calls[0][:3] == [str(cli_path), "matlab", "doctor"]
+        assert calls[1][0:2] == [str(cli_path), "process"]
+        assert "--task-file" in calls[1]
+        assert result["matlab_preflight"]["required"] is True
+
+    def test_process_file_fails_fast_when_matlab_preflight_fails(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """Test MATLAB-backed taskfiles stop before processing on preflight failure."""
+        from autoclean.api.tasks import process_file
+
+        taskfile = tmp_path / "custom_task.py"
+        taskfile.write_text(
+            """
+from autoclean.functions.matlab import call_matlab
+""".strip()
+            + "\n",
+            encoding="utf-8",
+        )
+
+        cli_path = tmp_path / "runtime-cli"
+        cli_path.write_text("#!/bin/sh\n", encoding="utf-8")
+
+        calls: list[list[str]] = []
+
+        def _fake_run(cmd, capture_output=False, text=False, timeout=None, check=False):
+            calls.append(list(cmd))
+
+            class _Result:
+                def __init__(self, returncode: int) -> None:
+                    self.returncode = returncode
+                    self.stdout = ""
+                    self.stderr = "license error"
+
+            return _Result(returncode=1)
+
+        monkeypatch.setattr("autoclean.utils.ingestion.resolve_runtime_cli", lambda _runtime: cli_path)
+        monkeypatch.setattr("subprocess.run", _fake_run)
+
+        result = process_file(
+            file_path="/data/test.bdf",
+            workspace_dir=str(tmp_path),
+            mode="test",
+            route_id="route-1",
+            taskfile=str(taskfile),
+            montage="biosemi64",
+            dry_run=False,
+        )
+
+        assert result["status"] == "failed"
+        assert "MATLAB preflight failed" in result["error"]
+        assert len(calls) == 1

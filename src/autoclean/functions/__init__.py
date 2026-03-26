@@ -34,6 +34,12 @@ from .advanced import (
     autoreject_epochs,
 )
 
+from .matlab import (
+    call_matlab,
+    execute_matlab_config,
+    run_matlab_file,
+)
+
 # Analysis functions
 from .analysis import (
     compute_statistical_learning_itc,
@@ -112,6 +118,10 @@ __all__ = [
     "interpolate_bad_channels",
     # Advanced functions
     "autoreject_epochs",
+    # MATLAB helpers
+    "call_matlab",
+    "execute_matlab_config",
+    "run_matlab_file",
     # Segment rejection functions
     "detect_dense_oscillatory_artifacts",
     "annotate_noisy_segments",
