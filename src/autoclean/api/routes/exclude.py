@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ast
 import base64
 import csv
 import hashlib
@@ -23,6 +22,10 @@ from pydantic import BaseModel, Field
 
 from autoclean.api.pdf_extractor import extract_ica_full
 from autoclean.api.state import api_state
+from autoclean.utils.reprocess_overrides import (
+    epoch_review_override_from_record,
+    generate_reprocess_task_from_original,
+)
 
 router = APIRouter()
 
@@ -390,30 +393,14 @@ def _build_manual_fix_payload(
 
     fix_type = str((record or {}).get("reprocess_fix_type", "") or "none")
 
+    epoch_review = epoch_review_override_from_record(record)
     payload = {
         "file_key": file_key,
         "file_stem": stem,
         "fix_type": fix_type,
         "timestamp": datetime.now().isoformat(),
         "modifications": {
-            "epoch_review": {
-                "count": int((record or {}).get("bad_epochs_count", 0) or 0),
-                "indices": [
-                    int(v)
-                    for v in str((record or {}).get("bad_epoch_indices", "")).split(",")
-                    if v.strip()
-                ],
-                "times": [
-                    v
-                    for v in str((record or {}).get("bad_epoch_times", "")).split(",")
-                    if v
-                ],
-                "events": [
-                    v
-                    for v in str((record or {}).get("bad_epoch_events", "")).split(",")
-                    if v
-                ],
-            },
+            "epoch_review": epoch_review,
             "bad_channels": {
                 "original": [],
                 "modified": manual_bad_channels,
@@ -434,8 +421,12 @@ def _build_manual_fix_payload(
         "task_file_path": task_file_relative,
         "task_file_hash": task_file_hash,
         "validation": {
-            "can_apply_ica_fix": bool(manual_rejected_ica) and not bool(manual_bad_channels) and ica_file_path.exists(),
-            "requires_full_reprocess": bool(manual_bad_channels),
+            "can_apply_ica_fix": bool(manual_rejected_ica)
+            and not bool(manual_bad_channels)
+            and int(epoch_review.get("count", 0) or 0) == 0
+            and ica_file_path.exists(),
+            "requires_full_reprocess": bool(manual_bad_channels)
+            or int(epoch_review.get("count", 0) or 0) > 0,
             "ica_file_exists": ica_file_path.exists(),
             "task_file_exists": bool(task_file and task_file.exists()),
         },
@@ -480,6 +471,28 @@ def _resolve_override_fix_type(
         return "channel"
     if ica_changed:
         return "ica"
+    return ""
+
+
+def _resolve_reprocess_fix_type_with_epochs(
+    *,
+    existing_bad_channels: list[str],
+    existing_rejected_ica: list[int],
+    next_bad_channels: list[str],
+    next_rejected_ica: list[int],
+    manual_bad_epoch_count: int,
+) -> str:
+    """Resolve fix type including saved manual epoch-review selections."""
+    base_fix_type = _resolve_override_fix_type(
+        existing_bad_channels,
+        existing_rejected_ica,
+        next_bad_channels,
+        next_rejected_ica,
+    )
+    if base_fix_type:
+        return base_fix_type
+    if manual_bad_epoch_count > 0:
+        return "epoch"
     return ""
 
 
@@ -736,80 +749,6 @@ def _save_manual_fix_payload(task_root: Path, stem: str, payload: dict[str, Any]
     payload_path = payload_dir / f"{stem}_manual_fix.json"
     payload_path.write_text(json.dumps(payload, indent=2, sort_keys=True))
     return payload_path
-
-
-def _generate_reprocess_task_from_original(
-    original_task_path: Path,
-    payload: dict[str, Any],
-    new_class_name: str,
-    timestamp: str,
-) -> str:
-    original_source = original_task_path.read_text(encoding="utf-8")
-    tree = ast.parse(original_source)
-    bad_channels = payload["modifications"]["bad_channels"]["modified"]
-    rejected_ica = payload["modifications"]["rejected_ica"]["modified"]
-    file_stem = payload.get("file_stem", "unknown")
-    dataset_name = _reprocess_dataset_name(file_stem, timestamp)
-
-    class ConfigModifier(ast.NodeTransformer):
-        def visit_Assign(self, node: ast.Assign):  # type: ignore[override]
-            if (
-                len(node.targets) == 1
-                and isinstance(node.targets[0], ast.Name)
-                and node.targets[0].id == "config"
-                and isinstance(node.value, ast.Dict)
-            ):
-                node.value.keys.append(ast.Constant(value="dataset_name"))
-                node.value.values.append(ast.Constant(value=dataset_name))
-            return node
-
-    class ClassRenamer(ast.NodeTransformer):
-        def visit_ClassDef(self, node: ast.ClassDef):  # type: ignore[override]
-            node.name = new_class_name
-            return node
-
-    class MethodModifier(ast.NodeTransformer):
-        def __init__(self) -> None:
-            self.in_run = False
-
-        def visit_FunctionDef(self, node: ast.FunctionDef):  # type: ignore[override]
-            if node.name == "run":
-                self.in_run = True
-                node.body = [self.visit(stmt) for stmt in node.body]  # type: ignore[assignment]
-                self.in_run = False
-            return node
-
-        def visit_Call(self, node: ast.Call):  # type: ignore[override]
-            if not self.in_run:
-                return node
-            if isinstance(node.func, ast.Attribute) and node.func.attr == "clean_bad_channels" and bad_channels:
-                node.keywords.append(
-                    ast.keyword(
-                        arg="manual_bad_channels",
-                        value=ast.List(elts=[ast.Constant(value=ch) for ch in bad_channels], ctx=ast.Load()),
-                    )
-                )
-            if isinstance(node.func, ast.Attribute) and node.func.attr == "apply_ica_component_rejection" and rejected_ica:
-                found = False
-                for kw in node.keywords:
-                    if kw.arg == "manual_rejected_components":
-                        kw.value = ast.List(elts=[ast.Constant(value=v) for v in rejected_ica], ctx=ast.Load())
-                        found = True
-                        break
-                if not found:
-                    node.keywords.append(
-                        ast.keyword(
-                            arg="manual_rejected_components",
-                            value=ast.List(elts=[ast.Constant(value=v) for v in rejected_ica], ctx=ast.Load()),
-                        )
-                    )
-            return node
-
-    tree = ConfigModifier().visit(tree)
-    tree = ClassRenamer().visit(tree)
-    tree = MethodModifier().visit(tree)
-    ast.fix_missing_locations(tree)
-    return ast.unparse(tree) + "\n"
 
 
 def _reprocess_dataset_name(file_stem: str, timestamp: str) -> str:
@@ -1470,11 +1409,13 @@ async def start_reprocess(
     record = _record_for(decisions, file_key, relative_path)
     existing_bad_channels = [str(v) for v in record.get("manual_bad_channels", [])]
     existing_rejected_ica = [int(v) for v in record.get("manual_rejected_ica", [])]
-    payload_fix_type = _resolve_override_fix_type(
-        existing_bad_channels,
-        existing_rejected_ica,
-        manual_bad_channels,
-        manual_rejected_ica,
+    epoch_review = epoch_review_override_from_record(record)
+    payload_fix_type = _resolve_reprocess_fix_type_with_epochs(
+        existing_bad_channels=existing_bad_channels,
+        existing_rejected_ica=existing_rejected_ica,
+        next_bad_channels=manual_bad_channels,
+        next_rejected_ica=manual_rejected_ica,
+        manual_bad_epoch_count=int(epoch_review.get("count", 0) or 0),
     )
     record["manual_bad_channels"] = manual_bad_channels
     record["manual_rejected_ica"] = manual_rejected_ica
@@ -1501,7 +1442,9 @@ async def start_reprocess(
     sanitized = "".join(c if c.isalnum() or c == "_" else "_" for c in sanitized)
     class_name = f"Task_{sanitized}_Reprocess" if sanitized and sanitized[0].isdigit() else f"{sanitized}_Reprocess"
     task_output_path = task_root / "status" / f"{stem}_Reprocess.py"
-    rendered_task = _generate_reprocess_task_from_original(task_file, payload, class_name, timestamp)
+    rendered_task = generate_reprocess_task_from_original(
+        task_file, payload, class_name, timestamp
+    )
     task_output_path.write_text(rendered_task, encoding="utf-8")
 
     reprocess_dir = task_root / "reprocess"

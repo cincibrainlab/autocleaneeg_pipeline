@@ -98,6 +98,12 @@ from autoclean.io.export import save_epochs_to_set  # noqa: E402
 from autoclean.utils.database import get_run_record  # noqa: E402
 from autoclean.utils.logging import message  # noqa: E402
 from autoclean.utils.path_resolution import resolve_moved_path  # noqa: E402
+from autoclean.utils.reprocess_overrides import (  # noqa: E402
+    epoch_review_override_from_record as _epoch_review_override_from_record,
+)
+from autoclean.utils.reprocess_overrides import (  # noqa: E402
+    generate_reprocess_task_from_original as _generate_reprocess_task_from_original,
+)
 from autoclean.utils.user_config import user_config  # noqa: E402
 
 pyqtRemoveInputHook()
@@ -288,279 +294,6 @@ def _parse_task_file_config(task_file_path: Path) -> Optional[dict]:
     except Exception as e:
         print(f"Warning: Failed to parse task file {task_file_path}: {e}")
         return None
-
-
-def _generate_reprocess_task_from_original(
-    original_task_path: Path, payload: dict, new_class_name: str, timestamp: str
-) -> str:
-    """Generate reprocess task by modifying the original task file's AST.
-
-    Parameters
-    ----------
-    original_task_path : Path
-        Path to the original task file
-    payload : dict
-        Manual fix payload with modifications and metadata
-    new_class_name : str
-        Name for the reprocess task class
-    timestamp : str
-        Timestamp string to use for dataset_name
-
-    Returns
-    -------
-    str
-        Complete reprocess task file content
-    """
-    # Read original task file
-    with open(original_task_path, "r", encoding="utf-8") as f:
-        original_source = f.read()
-
-    # Parse AST
-    tree = ast.parse(original_source)
-
-    # Extract override data from payload
-    fix_type = payload.get("fix_type", "both")
-    bad_channels_raw = payload["modifications"]["bad_channels"]["modified"]
-    rejected_ica = payload["modifications"]["rejected_ica"]["modified"]
-    file_stem = payload.get("file_stem", "unknown")
-
-    # Filter out EOG channels that will be dropped before clean_bad_channels runs
-    # Common EOG channel names that are typically dropped early in pipeline
-    eog_channel_patterns = ["EOG", "HEOG", "VEOG", "hEOG", "vEOG", "REOG", "LEOG"]
-    bad_channels = [ch for ch in bad_channels_raw if ch not in eog_channel_patterns]
-
-    if len(bad_channels) != len(bad_channels_raw):
-        filtered_out = [ch for ch in bad_channels_raw if ch not in bad_channels]
-        print(
-            f"[AST DEBUG] Filtered out EOG channels from bad channel list: {filtered_out}"
-        )
-        print(
-            "[AST DEBUG] These channels are dropped earlier in the pipeline and cannot be marked as bad"
-        )
-
-    print(f"[AST DEBUG] fix_type from payload: '{fix_type}'")
-    print(f"[AST DEBUG] bad_channels (after EOG filter): {bad_channels}")
-    print(f"[AST DEBUG] rejected_ica: {rejected_ica}")
-
-    # Use provided timestamp to create dataset_name
-    dataset_name = f"{file_stem}_{timestamp}"
-    print(f"[AST DEBUG] Setting dataset_name in config: {dataset_name}")
-
-    # Add dataset_name to config dictionary
-    class ConfigModifier(ast.NodeTransformer):
-        def visit_Assign(self, node):
-            # Look for 'config = {...}' assignment
-            if (
-                len(node.targets) == 1
-                and isinstance(node.targets[0], ast.Name)
-                and node.targets[0].id == "config"
-                and isinstance(node.value, ast.Dict)
-            ):
-                # Add dataset_name to the config dict
-                node.value.keys.append(ast.Constant(value="dataset_name"))
-                node.value.values.append(ast.Constant(value=dataset_name))
-                print("[AST DEBUG] Added dataset_name to config dict")
-            return node
-
-    tree = ConfigModifier().visit(tree)
-
-    # Find and rename class, update docstring
-    class ClassRenamer(ast.NodeTransformer):
-        def visit_ClassDef(self, node):
-            # Rename class
-            node.name = new_class_name
-
-            # Update docstring with override info
-            if len(bad_channels) != len(bad_channels_raw):
-                docstring = f"""
-    Reprocessing task with manual bad channel and ICA component overrides.
-
-    This task reprocesses the original raw data from the beginning with:
-    - Manual bad channel list: {bad_channels} (EOG channels excluded, dropped earlier in pipeline)
-    - Manual ICA component rejection: {rejected_ica}
-    """
-            else:
-                docstring = f"""
-    Reprocessing task with manual bad channel and ICA component overrides.
-
-    This task reprocesses the original raw data from the beginning with:
-    - Manual bad channel list: {bad_channels}
-    - Manual ICA component rejection: {rejected_ica}
-    """
-            new_docstring = ast.Expr(value=ast.Constant(value=docstring.strip()))
-
-            # Check if the first element is already a docstring (Expr with string Constant)
-            # If so, replace it; otherwise insert the docstring at the beginning
-            if (
-                node.body
-                and isinstance(node.body[0], ast.Expr)
-                and isinstance(node.body[0].value, ast.Constant)
-                and isinstance(node.body[0].value.value, str)
-            ):
-                # Replace existing docstring
-                node.body[0] = new_docstring
-            else:
-                # No docstring exists - insert at beginning (don't replace methods!)
-                node.body.insert(0, new_docstring)
-
-            return node
-
-    tree = ClassRenamer().visit(tree)
-
-    # Modify run() method based on fix_type
-    class MethodModifier(ast.NodeTransformer):
-        def __init__(self):
-            self.in_run_method = False
-            self.ica_classify_modified = False
-
-        def visit_FunctionDef(self, node):
-            if node.name == "run":
-                print("[AST DEBUG] Entering run() method, setting in_run_method=True")
-                self.in_run_method = True
-
-                # Manually visit each statement and build new body with modifications
-                new_body = []
-                for i, stmt in enumerate(node.body):
-                    print(f"[AST DEBUG] Visiting statement {i}: {type(stmt).__name__}")
-                    # Visit the statement to apply modifications from visit_Call
-                    modified_stmt = self.visit(stmt)
-                    new_body.append(modified_stmt)
-
-                    # If ICA fix and this is the classify_ica_components call, insert apply after it
-                    if (
-                        fix_type in ("ica", "both")
-                        and isinstance(modified_stmt, ast.Expr)
-                        and isinstance(modified_stmt.value, ast.Call)
-                        and isinstance(modified_stmt.value.func, ast.Attribute)
-                        and modified_stmt.value.func.attr == "classify_ica_components"
-                    ):
-                        # Insert apply_ica_component_rejection call after this
-                        print(
-                            "[AST DEBUG] Inserting apply_ica_component_rejection after classify_ica_components"
-                        )
-                        apply_call = ast.Expr(
-                            value=ast.Call(
-                                func=ast.Attribute(
-                                    value=ast.Name(id="self", ctx=ast.Load()),
-                                    attr="apply_ica_component_rejection",
-                                    ctx=ast.Load(),
-                                ),
-                                args=[],
-                                keywords=[
-                                    ast.keyword(
-                                        arg="manual_rejected_components",
-                                        value=ast.List(
-                                            elts=[
-                                                ast.Constant(value=comp)
-                                                for comp in rejected_ica
-                                            ],
-                                            ctx=ast.Load(),
-                                        ),
-                                    )
-                                ],
-                            )
-                        )
-                        new_body.append(apply_call)
-
-                node.body = new_body
-                self.in_run_method = False
-            return node
-
-        def visit_Call(self, node):
-            func_name = node.func.attr if isinstance(node.func, ast.Attribute) else "?"
-            print(
-                f"[AST DEBUG] visit_Call: func={func_name}, in_run_method={self.in_run_method}"
-            )
-
-            if not self.in_run_method:
-                print(f"[AST DEBUG] Skipping {func_name} (not in run method)")
-                return node
-
-            # Modify clean_bad_channels() for channel fixes
-            # Support both 'channel' and 'channels' variants
-            if (
-                fix_type in ("channel", "channels", "both")
-                and isinstance(node.func, ast.Attribute)
-                and node.func.attr == "clean_bad_channels"
-            ):
-                # Only add parameter if there are non-EOG bad channels
-                if bad_channels:
-                    print(
-                        f"[AST DEBUG] Adding manual_bad_channels parameter: {bad_channels}"
-                    )
-                    # Add manual_bad_channels parameter
-                    node.keywords.append(
-                        ast.keyword(
-                            arg="manual_bad_channels",
-                            value=ast.List(
-                                elts=[ast.Constant(value=ch) for ch in bad_channels],
-                                ctx=ast.Load(),
-                            ),
-                        )
-                    )
-                else:
-                    print(
-                        "[AST DEBUG] Skipping manual_bad_channels parameter (empty after filtering EOG channels)"
-                    )
-
-            # Modify classify_ica_components() for ICA fixes
-            if (
-                fix_type in ("ica", "both")
-                and isinstance(node.func, ast.Attribute)
-                and node.func.attr == "classify_ica_components"
-            ):
-                print("[AST DEBUG] Modifying classify_ica_components to reject=False")
-                self.ica_classify_modified = True
-                # Set reject=False
-                found_reject = False
-                for kw in node.keywords:
-                    if kw.arg == "reject":
-                        kw.value = ast.Constant(value=False)
-                        found_reject = True
-                        break
-                if not found_reject:
-                    node.keywords.append(
-                        ast.keyword(arg="reject", value=ast.Constant(value=False))
-                    )
-
-            return node
-
-    tree = MethodModifier().visit(tree)
-
-    # Fix missing locations in AST
-    ast.fix_missing_locations(tree)
-
-    # Unparse back to Python code
-    modified_code = ast.unparse(tree)
-
-    # Create header comment
-    timestamp = payload.get("timestamp", "")
-    file_stem = payload.get("file_stem", "unknown")
-
-    # Build header with EOG filter note if applicable
-    eog_note = ""
-    if len(bad_channels) != len(bad_channels_raw):
-        filtered_out = [ch for ch in bad_channels_raw if ch not in bad_channels]
-        eog_note = f"\n# Note: EOG channels {filtered_out} excluded (dropped earlier in pipeline)"
-
-    header = f"""# =============================================================================
-#  REPROCESSING TASK WITH MANUAL OVERRIDES
-# =============================================================================
-# This task was automatically generated to reprocess EEG data with manual
-# bad channel and ICA component overrides from the review GUI.
-#
-# Generated: {timestamp}
-# Original file: {file_stem}
-# Fix type: {fix_type}
-#
-# Manual Overrides:
-# - Bad channels: {len(bad_channels)} channels{eog_note}
-# - ICA components: {len(rejected_ica)} components
-# =============================================================================
-
-"""
-
-    return header + modified_code
 
 
 def strip_suffixes(stem: str, asset_type: str = None, config: dict = None) -> str:
@@ -1791,6 +1524,9 @@ class ReprocessWidget(QWidget):
         self.max_components: int = 0
         self.original_bad_channels: list[str] = []
         self.original_rejected_ica: list[int] = []
+        self.manual_bad_epoch_indices: list[int] = []
+        self.manual_bad_epoch_times: list[str] = []
+        self.manual_bad_epoch_events: list[str] = []
         self._suppress_change_signal: bool = False
         self._modification_mode: Optional[str] = (
             None  # 'channels', 'components', or None
@@ -2019,6 +1755,29 @@ class ReprocessWidget(QWidget):
 
         self.changes_summary_layout.addWidget(self.ica_changes_widget)
 
+        # Manual epoch-review section
+        self.epoch_changes_widget = QWidget()
+        self.epoch_changes_layout = QVBoxLayout()
+        self.epoch_changes_layout.setContentsMargins(0, 2, 0, 2)
+        self.epoch_changes_layout.setSpacing(2)
+        self.epoch_changes_widget.setLayout(self.epoch_changes_layout)
+
+        self.epoch_summary_label = QLabel()
+        self.epoch_summary_label.setStyleSheet(
+            "font-size: 12px; font-weight: 600; color: #34495e;"
+        )
+        self.epoch_changes_layout.addWidget(self.epoch_summary_label)
+
+        self.epoch_chips_widget = QWidget()
+        self.epoch_chips_layout = QHBoxLayout()
+        self.epoch_chips_layout.setContentsMargins(0, 0, 0, 0)
+        self.epoch_chips_layout.setSpacing(4)
+        self.epoch_chips_layout.setAlignment(Qt.AlignLeft)
+        self.epoch_chips_widget.setLayout(self.epoch_chips_layout)
+        self.epoch_changes_layout.addWidget(self.epoch_chips_widget)
+
+        self.changes_summary_layout.addWidget(self.epoch_changes_widget)
+
         # Message label for empty state
         self.message_label = QLabel("Select a file to edit reprocessing parameters")
         self.message_label.setAlignment(Qt.AlignCenter)
@@ -2105,10 +1864,16 @@ class ReprocessWidget(QWidget):
         rejected_ica = metadata.get("rejected_ica", [])
         valid_channels = metadata.get("valid_channels", [])
         max_components = metadata.get("max_components", 0)
+        manual_bad_epoch_indices = metadata.get("manual_bad_epoch_indices", [])
+        manual_bad_epoch_times = metadata.get("manual_bad_epoch_times", [])
+        manual_bad_epoch_events = metadata.get("manual_bad_epoch_events", [])
 
         # Store original values and validation data
         self.original_bad_channels = bad_channels.copy()
         self.original_rejected_ica = rejected_ica.copy()
+        self.manual_bad_epoch_indices = list(manual_bad_epoch_indices)
+        self.manual_bad_epoch_times = [str(v) for v in manual_bad_epoch_times]
+        self.manual_bad_epoch_events = [str(v) for v in manual_bad_epoch_events]
         self.valid_channels = valid_channels
         self.max_components = max_components
 
@@ -2260,9 +2025,11 @@ class ReprocessWidget(QWidget):
     def has_changes(self) -> bool:
         """Check if current values differ from original values."""
         current = self.get_current_values()
-        return set(current["bad_channels"]) != set(self.original_bad_channels) or set(
-            current["rejected_ica"]
-        ) != set(self.original_rejected_ica)
+        return (
+            set(current["bad_channels"]) != set(self.original_bad_channels)
+            or set(current["rejected_ica"]) != set(self.original_rejected_ica)
+            or bool(self.manual_bad_epoch_indices)
+        )
 
     def get_changes_diff(self) -> dict:
         """Get a diff of changes from original values.
@@ -2308,7 +2075,12 @@ class ReprocessWidget(QWidget):
             return
 
         diff = self.get_changes_diff()
-        has_any_changes = diff["has_channel_changes"] or diff["has_ica_changes"]
+        has_manual_epoch_changes = bool(self.manual_bad_epoch_indices)
+        has_any_changes = (
+            diff["has_channel_changes"]
+            or diff["has_ica_changes"]
+            or has_manual_epoch_changes
+        )
 
         if not has_any_changes:
             # No changes - show message
@@ -2445,6 +2217,43 @@ class ReprocessWidget(QWidget):
 
         else:
             self.ica_changes_widget.hide()
+
+        if has_manual_epoch_changes:
+            self.epoch_summary_label.setText(
+                f"Manual Epoch Exclusions: {len(self.manual_bad_epoch_indices)}"
+            )
+            self.epoch_changes_widget.show()
+
+            while self.epoch_chips_layout.count():
+                child = self.epoch_chips_layout.takeAt(0)
+                if child.widget():
+                    child.widget().deleteLater()
+
+            for idx in self.manual_bad_epoch_indices[:10]:
+                chip = QLabel(f"Epoch {idx}")
+                chip.setStyleSheet(
+                    """
+                    background-color: #fff3cd;
+                    color: #856404;
+                    border: 1px solid #ffeeba;
+                    border-radius: 4px;
+                    padding: 3px 8px;
+                    font-size: 11px;
+                    font-weight: 600;
+                """
+                )
+                self.epoch_chips_layout.addWidget(chip)
+
+            if len(self.manual_bad_epoch_indices) > 10:
+                more_label = QLabel(
+                    f"... +{len(self.manual_bad_epoch_indices) - 10} more"
+                )
+                more_label.setStyleSheet(
+                    "color: #7f8c8d; font-size: 11px; padding: 3px 8px;"
+                )
+                self.epoch_chips_layout.addWidget(more_label)
+        else:
+            self.epoch_changes_widget.hide()
 
     def _emit_change_signal(self) -> None:
         """Emit values_changed signal if not suppressed."""
@@ -3953,6 +3762,9 @@ class ExclusionFileSelector(ReviewBase):
             max_components = int(ica_components_str) if ica_components_str else 0
 
             # Load data into widget
+            epoch_review = _epoch_review_override_from_record(
+                self.decisions.get(self.current_key) if self.current_key else None
+            )
             self.reprocess_widget.load_from_metadata(
                 {
                     "bad_channels": bad_channels,
@@ -3960,6 +3772,9 @@ class ExclusionFileSelector(ReviewBase):
                     "valid_channels": valid_channels,
                     "max_components": max_components,
                     "channel_removals": channel_removals,  # Pass unified metadata
+                    "manual_bad_epoch_indices": epoch_review["indices"],
+                    "manual_bad_epoch_times": epoch_review["times"],
+                    "manual_bad_epoch_events": epoch_review["events"],
                 }
             )
 
@@ -4724,6 +4539,8 @@ class ExclusionFileSelector(ReviewBase):
         # Schedule save to persist the epoch information
         print("[EPOCH DEBUG] Scheduling save for epoch data")
         self._schedule_save()
+        if hasattr(self, "selected_file_path") and self.selected_file_path:
+            self._update_reprocess_for_file(Path(self.selected_file_path))
 
     def _capture_bad_epochs_for_key(self, key: str) -> None:
         """Capture bad epoch information for a specific file key."""
@@ -4835,6 +4652,12 @@ class ExclusionFileSelector(ReviewBase):
         # Schedule save to persist the epoch information
         print(f"[EPOCH DEBUG] Scheduling save for epoch data for key {key}")
         self._schedule_save()
+        if (
+            hasattr(self, "selected_file_path")
+            and self.selected_file_path
+            and key == self.current_key
+        ):
+            self._update_reprocess_for_file(Path(self.selected_file_path))
 
     def _call_base_plotFile_with_restoration(self) -> None:
         """Call the base class plotFile method but ensure our restoration is used."""
@@ -5092,6 +4915,9 @@ class ExclusionFileSelector(ReviewBase):
         diff = self.reprocess_widget.get_changes_diff()
         has_channel_changes = diff["has_channel_changes"]
         has_ica_changes = diff["has_ica_changes"]
+        epoch_review = _epoch_review_override_from_record(
+            self.decisions.get(self.current_key)
+        )
 
         # Determine fix type
         if has_channel_changes and has_ica_changes:
@@ -5100,6 +4926,8 @@ class ExclusionFileSelector(ReviewBase):
             fix_type = "channel"
         elif has_ica_changes:
             fix_type = "ica"
+        elif epoch_review["count"] > 0:
+            fix_type = "epoch"
         else:
             fix_type = ""
 
@@ -5149,6 +4977,9 @@ class ExclusionFileSelector(ReviewBase):
         # Determine fix type
         has_channel_changes = diff["has_channel_changes"]
         has_ica_changes = diff["has_ica_changes"]
+        epoch_review = _epoch_review_override_from_record(
+            self.decisions.get(self.current_key)
+        )
 
         if has_channel_changes and has_ica_changes:
             fix_type = "both"
@@ -5156,8 +4987,10 @@ class ExclusionFileSelector(ReviewBase):
             fix_type = "channel"
         elif has_ica_changes:
             fix_type = "ica"
+        elif epoch_review["count"] > 0:
+            fix_type = "epoch"
         else:
-            return  # No changes, shouldn't happen
+            return
 
         # Check if ICA file exists
         ica_file_path = self.task_root / "ica" / f"{stem}-ica.fif"
@@ -5166,10 +4999,12 @@ class ExclusionFileSelector(ReviewBase):
 
         # Validation: can we apply ICA-only fix?
         # Only if no channel changes and ICA file exists
-        can_apply_ica_fix = (not has_channel_changes) and ica_file_exists
+        can_apply_ica_fix = (
+            has_ica_changes and not has_channel_changes and epoch_review["count"] == 0
+        ) and ica_file_exists
 
-        # Requires full reprocess if channels changed
-        requires_full_reprocess = has_channel_changes
+        # Requires full reprocess for channel or epoch overrides
+        requires_full_reprocess = has_channel_changes or epoch_review["count"] > 0
 
         # Find task file in status directory
         task_file_path = None
@@ -5196,6 +5031,7 @@ class ExclusionFileSelector(ReviewBase):
             "fix_type": fix_type,
             "timestamp": datetime.now().isoformat(),
             "modifications": {
+                "epoch_review": epoch_review,
                 "bad_channels": diff["bad_channels"],
                 "rejected_ica": diff["rejected_ica"],
             },
@@ -5253,6 +5089,9 @@ class ExclusionFileSelector(ReviewBase):
         file_path = Path(self.selected_file_path)
         stem = strip_suffixes(file_path.stem, config=self.config)
 
+        if self.reprocess_widget is not None:
+            self._save_reprocess_payload(self.reprocess_widget.get_changes_diff())
+
         # Check if manual fix payload exists
         payload_path = (
             self.task_root / "qa" / "manual_fixes" / f"{stem}_manual_fix.json"
@@ -5309,12 +5148,18 @@ class ExclusionFileSelector(ReviewBase):
             fix_type = payload.get("fix_type", "unknown")
             bad_ch_count = len(payload["modifications"]["bad_channels"]["modified"])
             ica_count = len(payload["modifications"]["rejected_ica"]["modified"])
+            epoch_count = int(
+                payload.get("modifications", {})
+                .get("epoch_review", {})
+                .get("count", 0)
+            )
 
             confirm_msg = (
                 f"<b>Reprocess: {stem}</b><br><br>"
                 f"<b>Fix Type:</b> {fix_type}<br>"
                 f"<b>Bad Channels:</b> {bad_ch_count}<br>"
                 f"<b>ICA Components:</b> {ica_count}<br><br>"
+                f"<b>Manual Bad Epochs:</b> {epoch_count}<br><br>"
                 f"<b>Raw File:</b><br>{raw_file_path}<br><br>"
                 "This will generate a new reprocessing task and run the pipeline.<br>"
                 "Do you want to continue?"

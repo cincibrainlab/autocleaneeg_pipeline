@@ -23,6 +23,7 @@ from autoclean.api.routes.exclude import (
     _create_qa_preprocessing_log,
     _default_record,
     _load_decisions,
+    _resolve_reprocess_fix_type_with_epochs,
     _save_decisions,
     export_to_qa,
     list_exclude_files,
@@ -108,6 +109,18 @@ def test_create_qa_preprocessing_log_merges_manual_review_data(tmp_path: Path):
     assert rows[0]["manual_bad_epoch_indices"] == "1,4"
     assert rows[0]["manual_review_notes"] == "manual review note"
     assert rows[0]["epoch_badtrials"] in {"3", "3.0"}
+
+
+def test_resolve_reprocess_fix_type_with_epochs_returns_epoch_for_epoch_only():
+    result = _resolve_reprocess_fix_type_with_epochs(
+        existing_bad_channels=[],
+        existing_rejected_ica=[],
+        next_bad_channels=[],
+        next_rejected_ica=[],
+        manual_bad_epoch_count=2,
+    )
+
+    assert result == "epoch"
 
 
 @pytest.mark.asyncio
