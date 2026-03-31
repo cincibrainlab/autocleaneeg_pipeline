@@ -8,9 +8,108 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+
+MATLAB_PREFLIGHT_TIMEOUT_SECONDS = 120
+MATLAB_STARTUP_TIMEOUT_SECONDS = 60.0
+
 def _timestamp() -> str:
     """Get current ISO timestamp."""
     return datetime.now(timezone.utc).isoformat()
+
+
+def _resolve_cli_path(runtime_dir: Path, *, dry_run: bool) -> Path:
+    """Resolve the CLI path for the target runtime."""
+    if dry_run:
+        if Path("/.dockerenv").exists():
+            return Path(sys.executable).parent / "autocleaneeg-pipeline"
+        if sys.platform.startswith("win"):
+            return runtime_dir / ".venv" / "Scripts" / "autocleaneeg-pipeline.exe"
+        return runtime_dir / ".venv" / "bin" / "autocleaneeg-pipeline"
+
+    from autoclean.utils.ingestion import resolve_runtime_cli
+
+    if Path("/.dockerenv").exists():
+        return Path(sys.executable).parent / "autocleaneeg-pipeline"
+    return resolve_runtime_cli(runtime_dir)
+
+
+def _build_process_command(
+    *,
+    cli_path: Path,
+    file_path: Path,
+    workspace: Path,
+    route_id: str,
+    taskfile: str,
+) -> list[str]:
+    """Build the process command for one queued file."""
+    from autoclean.utils.ingestion import resolve_taskfile_path
+
+    cmd = [str(cli_path), "process"]
+    taskfile_path = resolve_taskfile_path(taskfile, workspace)
+    if taskfile_path:
+        cmd.extend(["--task-file", str(taskfile_path)])
+    else:
+        cmd.extend(["--task", taskfile])
+
+    cmd.extend(
+        [
+            "--file",
+            str(file_path),
+            "--output",
+            str(workspace / "automations" / route_id),
+            "--automation",
+            "--yes",
+        ]
+    )
+    return cmd
+
+
+def _run_matlab_preflight(cli_path: Path, taskfile: str, workspace: Path) -> dict[str, Any]:
+    """Run MATLAB readiness checks for MATLAB-backed Python task files."""
+    from autoclean.utils.ingestion import resolve_taskfile_path
+    from autoclean.utils.matlab_runtime import inspect_taskfile_for_matlab
+
+    taskfile_path = resolve_taskfile_path(taskfile, workspace)
+    if taskfile_path is None:
+        return {"required": False, "taskfile": taskfile}
+
+    inspection = inspect_taskfile_for_matlab(taskfile_path)
+    result = {
+        "required": inspection.requires_matlab,
+        "taskfile": str(taskfile_path),
+        "reasons": inspection.reasons,
+        "warnings": inspection.warnings,
+    }
+    if not inspection.requires_matlab:
+        return result
+
+    cmd = [
+        str(cli_path),
+        "matlab",
+        "doctor",
+        "--startup-timeout",
+        str(MATLAB_STARTUP_TIMEOUT_SECONDS),
+    ]
+    proc = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=MATLAB_PREFLIGHT_TIMEOUT_SECONDS,
+    )
+    result["returncode"] = proc.returncode
+    result["stdout"] = proc.stdout[-5000:] if proc.stdout else ""
+    result["stderr"] = proc.stderr[-5000:] if proc.stderr else ""
+
+    if proc.returncode != 0:
+        reason_text = ", ".join(inspection.reasons) or "taskfile inspection"
+        raise RuntimeError(
+            "MATLAB preflight failed for route taskfile "
+            f"{taskfile_path} ({reason_text}). "
+            "Run 'autocleaneeg-pipeline matlab doctor' in the runtime environment."
+        )
+
+    result["ok"] = True
+    return result
 
 
 def process_file(
@@ -50,53 +149,24 @@ def process_file(
 
     try:
         runtime_dir = workspace / "runtimes" / mode
-
-        # Dry runs should be able to render the command even if the runtime
-        # has not been installed yet.
-        if dry_run:
-            if Path("/.dockerenv").exists():
-                cli_path = Path(sys.executable).parent / "autocleaneeg-pipeline"
-            elif sys.platform.startswith("win"):
-                cli_path = (
-                    runtime_dir
-                    / ".venv"
-                    / "Scripts"
-                    / "autocleaneeg-pipeline.exe"
-                )
-            else:
-                cli_path = (
-                    runtime_dir
-                    / ".venv"
-                    / "bin"
-                    / "autocleaneeg-pipeline"
-                )
-        else:
-            # Find the runtime CLI
-            from autoclean.utils.ingestion import resolve_runtime_cli
-
-            # In container: use container's venv (installed from mounted source)
-            # On host: use configured runtime
-            if Path("/.dockerenv").exists():
-                cli_path = Path(sys.executable).parent / "autocleaneeg-pipeline"
-            else:
-                cli_path = resolve_runtime_cli(runtime_dir)
-
-        # Build command
-        cmd = [
-            str(cli_path),
-            "process",
-            "--task", taskfile,
-            "--file", str(file_path_obj),
-            "--output", str(workspace / "automations" / route_id),
-            "--automation",
-            "--yes",
-        ]
+        cli_path = _resolve_cli_path(runtime_dir, dry_run=dry_run)
+        cmd = _build_process_command(
+            cli_path=cli_path,
+            file_path=file_path_obj,
+            workspace=workspace,
+            route_id=route_id,
+            taskfile=taskfile,
+        )
 
         if dry_run:
             result["command"] = cmd
             result["status"] = "dry_run"
             result["ended_at"] = _timestamp()
             return result
+
+        matlab_preflight = _run_matlab_preflight(cli_path, taskfile, workspace)
+        if matlab_preflight.get("required"):
+            result["matlab_preflight"] = matlab_preflight
 
         # Execute
         proc = subprocess.run(

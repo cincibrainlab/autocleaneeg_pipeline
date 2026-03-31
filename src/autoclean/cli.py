@@ -60,6 +60,7 @@ from autoclean.utils.console import get_console, make_console
 from autoclean.utils.database import DB_PATH
 from autoclean.utils.file_system import update_status_marker
 from autoclean.utils.logging import has_logged_errors, message
+from autoclean.utils.matlab_runtime import detect_matlab_engine, start_matlab_engine
 from autoclean.utils.montage import load_valid_montages
 from autoclean.utils.montage_validation import (
     analyze_channels,
@@ -2802,6 +2803,68 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "version", help="Show version information", add_help=False
     )  # Help command (for consistency)
     attach_rich_help(_version)
+
+    matlab_parser = subparsers.add_parser(
+        "matlab",
+        help="Inspect and test MATLAB runtime support",
+        add_help=False,
+    )
+    attach_rich_help(matlab_parser)
+    matlab_subparsers = matlab_parser.add_subparsers(
+        dest="matlab_action", help="MATLAB actions"
+    )
+    matlab_doctor = matlab_subparsers.add_parser(
+        "doctor", help="Validate MATLAB runtime readiness", add_help=False
+    )
+    attach_rich_help(matlab_doctor)
+    matlab_doctor.add_argument(
+        "--license-file",
+        type=Path,
+        default=None,
+        help="Explicit MATLAB license file or server path to use during checks",
+    )
+    matlab_doctor.add_argument(
+        "--startup-options",
+        type=str,
+        default="-nodesktop",
+        help="Options passed to matlab.engine.start_matlab()",
+    )
+    matlab_doctor.add_argument(
+        "--startup-timeout",
+        type=float,
+        default=60.0,
+        help="Maximum seconds to wait for MATLAB engine startup",
+    )
+    matlab_doctor.add_argument(
+        "--skip-start",
+        action="store_true",
+        help="Only inspect the environment; do not attempt engine startup",
+    )
+    matlab_test = matlab_subparsers.add_parser(
+        "test-engine",
+        help="Start the MATLAB engine and run a smoke test",
+        add_help=False,
+    )
+    attach_rich_help(matlab_test)
+    matlab_test.add_argument(
+        "--license-file",
+        type=Path,
+        default=None,
+        help="Explicit MATLAB license file or server path to use during the smoke test",
+    )
+    matlab_test.add_argument(
+        "--startup-options",
+        type=str,
+        default="-nodesktop",
+        help="Options passed to matlab.engine.start_matlab()",
+    )
+    matlab_test.add_argument(
+        "--startup-timeout",
+        type=float,
+        default=60.0,
+        help="Maximum seconds to wait for MATLAB engine startup",
+    )
+
     _help = subparsers.add_parser(
         "help", help="Show detailed help information", add_help=False
     )
@@ -6572,6 +6635,181 @@ def cmd_version(args) -> int:
     except ImportError:
         print("AutoClean EEG (version unknown)")
         return 0
+
+
+def cmd_matlab(args) -> int:
+    """Execute MATLAB diagnostics and smoke tests."""
+    if not getattr(args, "matlab_action", None):
+        console = get_console(args)
+        _simple_header(console)
+        _print_startup_context(console)
+        _print_root_help(console, "matlab")
+        return 0
+
+    if args.matlab_action == "doctor":
+        return cmd_matlab_doctor(args)
+    if args.matlab_action == "test-engine":
+        return cmd_matlab_test_engine(args)
+
+    message("error", f"Unknown matlab action: {args.matlab_action}")
+    return 1
+
+
+def _matlab_install_mode(python_executable: str, engine_installed: bool) -> str:
+    """Classify the current interpreter from an operator perspective."""
+    executable = str(python_executable)
+    if ".venv" in executable:
+        return "matlab-capable .venv" if engine_installed else "base .venv (MATLAB not enabled)"
+    if "/uv/tools/" in executable or "\\uv\\tools\\" in executable:
+        return (
+            "uv tool install with MATLAB enabled"
+            if engine_installed
+            else "uv tool install (MATLAB not enabled)"
+        )
+    if engine_installed:
+        return "custom interpreter with MATLAB enabled"
+    return "base install (MATLAB not enabled)"
+
+
+def _matlab_route_support_label(
+    *,
+    route_environment_supported: bool,
+    skip_start: bool,
+    engine_installed: bool,
+) -> str:
+    """Summarize whether this interpreter is suitable for MATLAB-backed routes."""
+    if route_environment_supported:
+        return "yes"
+    if skip_start and engine_installed:
+        return "not verified"
+    return "no"
+
+
+def _matlab_remediation_guidance(report, *, skip_start: bool) -> list[str]:
+    """Return actionable next steps for common MATLAB setup failures."""
+    guidance: list[str] = []
+    error_text = " | ".join(report.errors).lower()
+
+    if not report.is_64_bit:
+        guidance.append("Use a 64-bit Python interpreter that matches the MATLAB architecture.")
+    if "could not find directory" in error_text or "maca64" in error_text or "maci64" in error_text:
+        guidance.append(
+            "Rebuild the MATLAB engine in an interpreter whose architecture matches the installed MATLAB build."
+        )
+    if "matlab engine api unavailable" in error_text or not report.engine_package_installed:
+        guidance.append(
+            "Install MATLAB Engine into this environment from matlabroot/extern/engines/python or a compatible matlabengine wheel."
+        )
+    if "remote mvms are disabled" in error_text:
+        guidance.append(
+            "Run the MATLAB engine from the validated x86_64 .venv Python with MATLAB runtime paths configured, not via mwpython."
+        )
+    if "license" in error_text:
+        guidance.append(
+            "Verify MATLAB licensing in this environment, or rerun with --license-file pointing at the correct network or local license."
+        )
+    if "timed out" in error_text:
+        guidance.append("Increase --startup-timeout or resolve slow MATLAB startup before running routes.")
+    if skip_start and report.engine_package_installed:
+        guidance.append("Rerun without --skip-start to verify that this interpreter can actually launch MATLAB.")
+    if "uv tool" in _matlab_install_mode(report.python_executable, report.engine_package_installed):
+        guidance.append(
+            "For MATLAB-backed routes, prefer a dedicated project .venv so the CLI, worker, and engine use the same interpreter."
+        )
+    if not guidance and not report.errors:
+        guidance.append("This interpreter is ready for MATLAB-backed routes.")
+    return list(dict.fromkeys(guidance))
+
+
+def cmd_matlab_doctor(args) -> int:
+    """Inspect MATLAB support in the current interpreter."""
+    console = get_console(args)
+    license_file = (
+        str(args.license_file) if getattr(args, "license_file", None) else None
+    )
+    report = detect_matlab_engine(
+        license_file=license_file,
+        check_engine_start=not bool(getattr(args, "skip_start", False)),
+        startup_options=getattr(args, "startup_options", "-nodesktop"),
+        startup_timeout_seconds=float(getattr(args, "startup_timeout", 60.0)),
+    )
+
+    console.print("\n[title]MATLAB Runtime Doctor[/title]")
+    table = Table(show_header=True, header_style="header")
+    table.add_column("Check", style="accent")
+    table.add_column("Value", style="info")
+    table.add_row("Python", report.python_version)
+    table.add_row("Executable", report.python_executable)
+    table.add_row("64-bit", "yes" if report.is_64_bit else "no")
+    table.add_row("Platform", report.platform)
+    table.add_row(
+        "Install Mode",
+        _matlab_install_mode(report.python_executable, report.engine_package_installed),
+    )
+    table.add_row(
+        "Engine Installed", "yes" if report.engine_package_installed else "no"
+    )
+    table.add_row("Engine Version", report.engine_package_version or "unknown")
+    table.add_row("MATLAB Root", report.matlab_root or "unknown")
+    table.add_row("MATLAB Binary", report.matlab_binary or "not found")
+    table.add_row("License File", report.license_file or "default")
+    table.add_row(
+        "Engine Start",
+        "ok" if report.engine_start_ok else "not verified" if args.skip_start else "failed",
+    )
+    table.add_row(
+        "Route Environment Supported",
+        _matlab_route_support_label(
+            route_environment_supported=report.route_environment_supported,
+            skip_start=bool(getattr(args, "skip_start", False)),
+            engine_installed=report.engine_package_installed,
+        ),
+    )
+    console.print(table)
+
+    for warning in report.warnings:
+        console.print(f"[warning]Warning:[/warning] {warning}")
+    for error in report.errors:
+        console.print(f"[error]Error:[/error] {error}")
+
+    guidance = _matlab_remediation_guidance(
+        report,
+        skip_start=bool(getattr(args, "skip_start", False)),
+    )
+    if guidance:
+        console.print("\n[title]Next Steps[/title]")
+        for item in guidance:
+            console.print(f"- {item}")
+
+    return 0 if not report.errors else 1
+
+
+def cmd_matlab_test_engine(args) -> int:
+    """Start the MATLAB engine and run a minimal smoke test."""
+    console = get_console(args)
+    license_file = (
+        str(args.license_file) if getattr(args, "license_file", None) else None
+    )
+
+    try:
+        eng = start_matlab_engine(
+            startup_options=getattr(args, "startup_options", "-nodesktop"),
+            license_file=license_file,
+            startup_timeout_seconds=float(getattr(args, "startup_timeout", 60.0)),
+        )
+        version = eng.version()
+        sqrt_49 = eng.sqrt(49.0)
+        plus_result = eng.plus(10.0, 5.0)
+        eng.quit()
+    except Exception as exc:
+        message("error", f"MATLAB engine smoke test failed: {exc}")
+        return 1
+
+    console.print("\n[title]MATLAB Engine Smoke Test[/title]")
+    console.print(f"[success]Version:[/success] {version}")
+    console.print(f"[success]sqrt(49):[/success] {sqrt_49}")
+    console.print(f"[success]plus(10,5):[/success] {plus_result}")
+    return 0
 
 
 def cmd_task(args) -> int:
@@ -11097,10 +11335,11 @@ def cmd_serve_route_list(args) -> int:
         folders = len(spec.get("ingestion_folders", []))
         state = "archived" if spec.get("archived", False) else "active"
         enabled = "enabled" if spec.get("enabled", True) else "disabled"
+        matlab_hint = " matlab=yes" if spec.get("requires_matlab") else ""
         message(
             "info",
             f"- {spec['id']} [{modes}] {state}/{enabled} "
-            f"taskfile={spec['taskfile']} montage={spec['montage']} folders={folders}",
+            f"taskfile={spec['taskfile']} montage={spec['montage']} folders={folders}{matlab_hint}",
         )
     return 0
 
@@ -12991,6 +13230,8 @@ def main(argv: Optional[list] = None) -> int:
             return _finish(cmd_view(args))
         if args.command == "serve":
             return _finish(cmd_serve(args))
+        if args.command == "matlab":
+            return _finish(cmd_matlab(args))
         if args.command == "report":
             return _finish(cmd_report(args))
         if args.command == "version":

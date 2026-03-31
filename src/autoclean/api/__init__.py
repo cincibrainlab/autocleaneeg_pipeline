@@ -1,9 +1,17 @@
-"""AutoClean API for serve workspace administration.
+"""Lazy API exports for serve workspace administration."""
 
-Provides a FastAPI-based REST API and RQ job queue for managing
-the automation system remotely.
-"""
+from __future__ import annotations
 
-from autoclean.api.server import create_app
+from importlib import import_module
 
 __all__ = ["create_app"]
+
+
+def __getattr__(name: str):
+    if name != "create_app":
+        raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+    module = import_module("autoclean.api.server")
+    value = module.create_app
+    globals()[name] = value
+    return value

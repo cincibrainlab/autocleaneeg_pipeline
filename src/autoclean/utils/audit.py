@@ -309,17 +309,39 @@ def log_database_access(
         if not table_exists:
             return  # Table not created yet, skip logging
 
-        # Create log entry for database storage (optimized for size)
-        log_entry = {
-            # Use Unix timestamp to save ~15 characters vs ISO string
-            "timestamp": int(datetime.now().timestamp()),
-            "operation": operation,
-            "user_context": user_context,
-            "details": details or {},
-        }
+        timestamp = datetime.now().isoformat()
+        details_payload = details or {}
 
-        # Store in tamper-proof database table with hash chain
-        manage_database(operation="add_access_log", run_record=log_entry)
+        previous_hash = get_last_access_log_hash()
+        log_hash = calculate_access_log_hash(
+            timestamp,
+            operation,
+            user_context,
+            "",
+            details_payload,
+            previous_hash,
+        )
+
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO database_access_log (
+                timestamp, operation, user_context,
+                details, log_hash, previous_hash
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                timestamp,
+                operation,
+                json.dumps(user_context),
+                json.dumps(details_payload),
+                log_hash,
+                previous_hash,
+            ),
+        )
+        conn.commit()
+        conn.close()
 
     except Exception as e:
         # Fallback: log to stderr if database logging fails

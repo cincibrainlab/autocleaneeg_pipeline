@@ -768,6 +768,52 @@ def test_parse_serve_config_non_strict_missing_file_globs(tmp_path: Path) -> Non
     assert serve_config.routes[0].file_globs == ["*"]
 
 
+def test_parse_serve_config_marks_matlab_backed_route(tmp_path: Path) -> None:
+    """Python taskfiles using MATLAB config are flagged on the route."""
+    runtime_dir = tmp_path / "runtimes" / "test"
+    runtime_dir.mkdir(parents=True)
+    automation_root = tmp_path / "automations"
+    automation_root.mkdir()
+    ingestion_root = tmp_path / "ingest"
+    ingestion_root.mkdir()
+    taskfile = tmp_path / "matlab_task.py"
+    taskfile.write_text(
+        """
+config = {
+    "apply_matlab_fooof": {
+        "enabled": True,
+        "value": {
+            "vhtp_path": "/opt/vhtp",
+            "eeglab_path": "/opt/eeglab"
+        }
+    }
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    config = {
+        "mode": "test",
+        "runtime": "runtimes/test",
+        "automation_mode": True,
+        "automations": [
+            {
+                "taskfile": str(taskfile),
+                "montage": "standard_1020",
+                "automation_root": "automations",
+                "workspace_name": "taskfile-montage",
+                "ingestion_folders": ["ingest"],
+                "file_globs": ["*.set"],
+            }
+        ],
+    }
+
+    serve_config, warnings = parse_serve_config(config, tmp_path, strict=False)
+
+    assert serve_config.routes[0].requires_matlab is True
+    assert any("uses MATLAB-backed taskfile" in warning for warning in warnings)
+
+
 def test_parse_serve_config_strict_missing_file_globs(tmp_path: Path) -> None:
     """file_globs is required error in strict mode."""
     runtime_dir = tmp_path / "runtimes" / "test"

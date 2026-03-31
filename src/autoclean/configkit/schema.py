@@ -10,6 +10,7 @@ from schema import And, Optional, Or, Schema
 from autoclean.utils.montage import VALID_MONTAGES
 
 SCHEMA_VERSION = "2025.09"
+MATLAB_ENTRYPOINT_KINDS = ("function", "script")
 
 # Optional: wavelet validation via PyWavelets
 try:  # pragma: no cover - optional dep
@@ -226,6 +227,58 @@ def _component_rejection_descriptor() -> dict:
     }
 
 
+def _is_non_negative_number(value: object) -> bool:
+    try:
+        return float(value) >= 0
+    except Exception:
+        return False
+
+
+def _is_non_negative_int(value: object) -> bool:
+    try:
+        return int(value) >= 0 and float(value) == int(value)
+    except Exception:
+        return False
+
+
+def _matlab_step_descriptor() -> dict:
+    return {
+        "enabled": "bool",
+        "value": {
+            "kind": "'function'|'script'",
+            "entrypoint": "string",
+            "args": "list|None",
+            "paths": "list[str]|None",
+            "startup_options": "string",
+            "startup_timeout_seconds": "number>=0",
+            "license_file": "string|None",
+            "nargout": "integer>=0 (function only)",
+            "toolbox_requirements": "list[str]|None",
+            "outputs": {
+                "artifacts_subdir": "string|None",
+                "capture_stdout": "bool|None",
+            },
+        },
+    }
+
+
+def _matlab_fooof_descriptor() -> dict:
+    return {
+        "enabled": "bool",
+        "value": {
+            "vhtp_path": "string",
+            "eeglab_path": "string",
+            "spect_freqs": "[fmin, fmax]",
+            "save_fooof_img": "bool",
+            "parallel": "bool",
+            "startup_options": "string",
+            "startup_timeout_seconds": "number>=0",
+            "license_file": "string|None",
+            "artifacts_subdir": "string|None",
+        },
+    }
+
+
 def _autoreject_descriptor() -> dict:
     return {
         "enabled": "bool",
@@ -275,6 +328,39 @@ def _build_task_settings_schema() -> Schema:
         list,
         None,
     )
+    matlab_step_value = {
+        "kind": Or(*MATLAB_ENTRYPOINT_KINDS),
+        "entrypoint": And(str, len),
+        Optional("args"): Or(list, tuple, None),
+        Optional("paths"): Or(list[str], tuple[str, ...], None),
+        Optional("startup_options"): str,
+        Optional("startup_timeout_seconds"): And(
+            Or(int, float), _is_non_negative_number
+        ),
+        Optional("license_file"): Or(str, None),
+        Optional("nargout"): And(int, _is_non_negative_int),
+        Optional("toolbox_requirements"): Or(list[str], tuple[str, ...], None),
+        Optional("outputs"): {
+            Optional("artifacts_subdir"): Or(str, None),
+            Optional("capture_stdout"): Or(bool, None),
+        },
+    }
+    matlab_fooof_value = {
+        "vhtp_path": And(str, len),
+        "eeglab_path": And(str, len),
+        Optional("spect_freqs"): Or(
+            [Or(int, float), Or(int, float)],
+            (Or(int, float), Or(int, float)),
+        ),
+        Optional("save_fooof_img"): bool,
+        Optional("parallel"): bool,
+        Optional("startup_options"): str,
+        Optional("startup_timeout_seconds"): And(
+            Or(int, float), _is_non_negative_number
+        ),
+        Optional("license_file"): Or(str, None),
+        Optional("artifacts_subdir"): Or(str, None),
+    }
 
     return Schema(
         {
@@ -446,6 +532,18 @@ def _build_task_settings_schema() -> Schema:
                     Optional("aperiodic_mode"): str,
                 },
             },
+            Optional("apply_matlab"): {
+                "enabled": bool,
+                "value": matlab_step_value,
+            },
+            Optional("run_matlab"): {
+                "enabled": bool,
+                "value": matlab_step_value,
+            },
+            Optional("apply_matlab_fooof"): {
+                "enabled": bool,
+                "value": matlab_fooof_value,
+            },
             # Flexible processing block keys (apply_*, clean_*, run_*)
             # Allows dynamically discovered blocks to add their own config keys
             Optional(_is_processing_block_key): {
@@ -495,6 +593,9 @@ def export_task_schema_layout() -> dict:
             "apply_source_connectivity": _source_connectivity_descriptor(),
             "apply_fooof_aperiodic": _fooof_aperiodic_descriptor(),
             "apply_fooof_periodic": _fooof_periodic_descriptor(),
+            "apply_matlab": _matlab_step_descriptor(),
+            "run_matlab": _matlab_step_descriptor(),
+            "apply_matlab_fooof": _matlab_fooof_descriptor(),
         },
     }
 

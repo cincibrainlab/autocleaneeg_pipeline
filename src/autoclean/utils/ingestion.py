@@ -230,6 +230,7 @@ class ServeRoute:
     sentinel_ext: str
     automation_root: Path
     workspace_name: str
+    requires_matlab: bool = False
 
 
 @dataclass
@@ -579,6 +580,23 @@ def parse_serve_config(
             route_id = _normalize_route_id(str(taskfile_value), str(montage_value), version_value)
         route_id = _normalize_workspace_name(str(route_id))
 
+        requires_matlab = False
+        taskfile_path = resolve_taskfile_path(str(taskfile_value), workspace_dir, strict=False)
+        if taskfile_path is not None:
+            try:
+                from autoclean.utils.matlab_runtime import inspect_taskfile_for_matlab
+
+                inspection = inspect_taskfile_for_matlab(taskfile_path)
+                requires_matlab = inspection.requires_matlab
+                if inspection.requires_matlab:
+                    warnings.append(
+                        f"Route '{route_id}' uses MATLAB-backed taskfile '{taskfile_path.name}'"
+                    )
+            except Exception as exc:
+                warnings.append(
+                    f"Could not inspect taskfile for route '{route_id}' for MATLAB usage: {exc}"
+                )
+
         routes.append(
             ServeRoute(
                 id=route_id,
@@ -594,6 +612,7 @@ def parse_serve_config(
                 sentinel_ext=sentinel_value,
                 automation_root=automation_root_path,
                 workspace_name=workspace_name,
+                requires_matlab=requires_matlab,
             )
         )
 

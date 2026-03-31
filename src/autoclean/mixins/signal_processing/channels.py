@@ -320,7 +320,7 @@ class ChannelsMixin:
 
         # Type checking
         if not isinstance(
-            data, (mne.io.Raw, mne.Epochs)
+            data, (mne.io.base.BaseRaw, mne.BaseEpochs)
         ):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError(
                 "Data must be an MNE Raw or Epochs object for dropping channels"

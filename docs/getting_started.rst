@@ -12,6 +12,8 @@ Install AutoClean using Python's package manager:
 
    pip install autocleaneeg-pipeline
 
+MATLAB-backed workflows are optional. If you need MATLAB routes or MATLAB-backed blocks, continue with :doc:`tutorials/matlab_integration` after the base install.
+
 Workspace Setup
 ---------------
 

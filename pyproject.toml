@@ -27,7 +27,7 @@ classifiers = [
 ]
 dependencies = [
     # Core scientific computing
-    "numpy==2.3.3",
+    "numpy==1.26.4",
     "scipy==1.16.2",
     "pandas==2.3.3",
     "matplotlib==3.10.6",
@@ -50,7 +50,7 @@ dependencies = [
     "bctpy==0.6.1",
     "specparam==2.0.0rc6",
     # Machine learning
-    "torch==2.8.0", 
+    "torch==2.2.2",
     # Utilities and data handling
     "rich==14.1.0",
     "python-dotenv==1.1.1",
@@ -103,6 +103,12 @@ dependencies = [
 # Install with: uv tool install "autocleaneeg-pipeline[blocks-all]"
 # Or individual groups: uv tool install "autocleaneeg-pipeline[blocks-signal]"
 
+# MATLAB support
+# Requires a matching local MATLAB installation and compatible Python architecture.
+matlab = [
+    "matlabengine==25.2.2",
+]
+
 # Signal processing blocks
 blocks-signal = [
     "meegkit==0.1.9",  # Required for zapline DSS-based line noise removal
@@ -120,13 +126,6 @@ blocks-all = [
 #autocleaneeg-mne-qt-browser-fork = { path = "/home/ernie/Documents/Github/autocleaneeg-mne-qt-browser-fork", editable = true }
 #autocleaneeg-mne-qt-browser-fork = { path = "/Volumes/braindata/cincineuro_github/mne-qt-browser", editable = true }
 
-
-torch = [
-  { index = "pytorch-cpu" },
-]
-torchvision = [
-  { index = "pytorch-cpu" },
-]
 
 [[tool.uv.index]]
 name = "pytorch-cpu"

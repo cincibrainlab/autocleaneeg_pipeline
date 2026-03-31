@@ -43,6 +43,7 @@ Advanced customization and development:
 
    creating_custom_task
    creating_a_custom_mixin
+   matlab_integration
    python_integration
    jupyter_notebooks
 
