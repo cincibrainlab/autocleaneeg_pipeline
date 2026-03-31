@@ -1,6 +1,5 @@
 """ICA topography batch computation and caching system."""
 
-import hashlib
 import logging
 import threading
 import time
@@ -8,6 +7,10 @@ from typing import Any, Dict, List, Optional
 
 import matplotlib.pyplot as plt
 from mne.preprocessing import ICA
+
+from autoclean.functions.visualization._ica_cache_utils import (
+    get_ica_mixing_matrix_hash,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +29,7 @@ class ICATopographyCache:
         )
 
     def _generate_cache_key(self, ica: ICA) -> str:
-        mixing_hash = hashlib.md5(ica.mixing_.tobytes()).hexdigest()[:8]
+        mixing_hash = get_ica_mixing_matrix_hash(ica)[:8]
         return f"ica_topo_{mixing_hash}_{ica.n_components_}c_{len(ica.ch_names)}ch"
 
     def _estimate_data_size(self, n_components: int, grid_size: int = 67) -> int:

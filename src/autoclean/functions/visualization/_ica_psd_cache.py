@@ -11,6 +11,9 @@ import numpy as np
 from mne.preprocessing import ICA
 from mne.time_frequency import psd_array_welch
 
+from autoclean.functions.visualization._ica_cache_utils import (
+    get_ica_mixing_matrix_hash,
+)
 from autoclean.functions.visualization._ica_sources_cache import get_cached_ica_sources
 
 logger = logging.getLogger(__name__)
@@ -29,7 +32,7 @@ class ICAPSDCache:
     def _generate_cache_key(
         self, ica: ICA, raw: mne.io.Raw, psd_params: Dict[str, Any]
     ) -> str:
-        ica_hash = hashlib.md5(ica.mixing_.tobytes()).hexdigest()[:8]
+        ica_hash = get_ica_mixing_matrix_hash(ica)[:8]
         raw_data = raw.get_data()
         raw_hash = hashlib.md5(
             f"{raw_data.shape}_{raw_data[0, 0]:.6f}_{raw_data[-1, -1]:.6f}".encode()
