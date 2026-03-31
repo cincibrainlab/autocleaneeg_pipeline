@@ -39,6 +39,33 @@ def test_load_matlab_fooof_manifest_reads_json(tmp_path: Path) -> None:
     assert manifest["subject_id"] == "0006"
 
 
+def test_resolve_matlab_fooof_context_rejects_invalid_freq_range(tmp_path: Path) -> None:
+    try:
+        resolve_matlab_fooof_context(
+            {
+                "unprocessed_file": tmp_path / "0006_rest_comp_epo.set",
+                "derivatives_dir": tmp_path / "derivatives",
+            },
+            {"spect_freqs": [1, 10, 30]},
+            module_dir=Path("src/autoclean/blocks/analysis/matlab_fooof"),
+        )
+    except ValueError as exc:
+        assert "spect_freqs" in str(exc)
+    else:
+        raise AssertionError("Expected invalid spect_freqs to raise ValueError")
+
+
+def test_load_matlab_fooof_manifest_requires_existing_file(tmp_path: Path) -> None:
+    missing_path = tmp_path / "missing.json"
+
+    try:
+        load_matlab_fooof_manifest(missing_path)
+    except FileNotFoundError as exc:
+        assert str(missing_path) in str(exc)
+    else:
+        raise AssertionError("Expected missing manifest to raise FileNotFoundError")
+
+
 def test_apply_matlab_fooof_calls_runtime_and_updates_metadata(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -110,3 +137,48 @@ def test_apply_matlab_fooof_calls_runtime_and_updates_metadata(
     assert captured["function_name"] == "autoclean_eeglab_fooof"
     assert task.metadata_updates
     assert task.metadata_updates[0][0] == "step_apply_matlab_fooof"
+
+
+def test_apply_matlab_fooof_propagates_runtime_errors(
+    tmp_path: Path, monkeypatch
+) -> None:
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("engine startup failed")
+
+    monkeypatch.setattr("autoclean.blocks.analysis.matlab_fooof.mixin.call_matlab", _boom)
+
+    class DummyTask(MatlabFooofBlockMixin):
+        def __init__(self) -> None:
+            self.config = {
+                "run_id": "run-1",
+                "unprocessed_file": tmp_path / "0006_rest_comp_epo.set",
+                "derivatives_dir": tmp_path / "derivatives",
+            }
+            self.settings = {
+                "apply_matlab_fooof": {
+                    "enabled": True,
+                    "value": {
+                        "vhtp_path": str(tmp_path / "vhtp"),
+                        "eeglab_path": str(tmp_path / "eeglab"),
+                    },
+                }
+            }
+
+        def _check_step_enabled(self, step_name):
+            step = self.settings[step_name]
+            return step["enabled"], step
+
+        def _get_block_info(self, block_name: str):
+            return {"block_name": block_name}
+
+        def _update_metadata(self, operation: str, metadata_dict: dict) -> None:
+            raise AssertionError("metadata should not be updated on runtime failure")
+
+    task = DummyTask()
+
+    try:
+        task.apply_matlab_fooof()
+    except RuntimeError as exc:
+        assert "engine startup failed" in str(exc)
+    else:
+        raise AssertionError("Expected MATLAB runtime failure to propagate")

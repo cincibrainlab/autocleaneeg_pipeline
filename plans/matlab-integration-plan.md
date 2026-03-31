@@ -501,12 +501,18 @@ Deliverable:
   - Notes:
     - Current implementation reports interpreter, engine package, MATLAB root/binary, startup status, and route-environment support.
     - Toolbox-specific reporting remains block-specific future work.
-- [ ] Add actionable remediation guidance for common misconfigurations.
-- [ ] Add explicit guidance on whether the current install is:
+- [x] Add actionable remediation guidance for common misconfigurations.
+  - Notes:
+    - `matlab doctor` now reports next-step guidance for architecture mismatch, missing engine install, license failures, timeout failures, and the `mwpython`/remote-MVM trap observed on this machine.
+- [x] Add explicit guidance on whether the current install is:
   - a base install with no MATLAB support
   - a MATLAB-capable `.venv`
   - a `uv tool` install that still needs separate MATLAB enablement
-- [ ] Add explicit output telling the operator whether the current interpreter is a supported environment for MATLAB-backed routes.
+  - Notes:
+    - `matlab doctor` now labels the current interpreter as `base .venv`, `matlab-capable .venv`, `uv tool install`, or custom interpreter with/without MATLAB enabled.
+- [x] Add explicit output telling the operator whether the current interpreter is a supported environment for MATLAB-backed routes.
+  - Notes:
+    - `matlab doctor` now prints a route-environment support label that distinguishes `yes`, `no`, and `not verified`.
 - [ ] Optionally add UI surfacing later in the web/service screens, but do not block backend integration on web UI work.
 
 Deliverable:
@@ -520,26 +526,37 @@ Deliverable:
 - [x] Add schema validation tests for valid and invalid MATLAB step configs.
   - Notes:
     - Added coverage in `tests/config/test_matlab_schema.py`.
-- [ ] Add block-level unit tests for artifact path generation and error propagation.
-- [ ] Add an integration test tier that is gated or skipped unless MATLAB is available.
-- [ ] Add serve/worker integration tests covering:
+- [x] Add block-level unit tests for artifact path generation and error propagation.
+  - Notes:
+    - Added artifact-path, invalid-frequency, missing-manifest, and runtime-error propagation coverage in `tests/unit/blocks/test_matlab_fooof_block.py`.
+- [x] Add an integration test tier that is gated or skipped unless MATLAB is available.
+  - Notes:
+    - Added `tests/integration/test_matlab_engine_integration.py`, gated behind `AUTOCLEAN_RUN_MATLAB_TESTS=1`.
+    - The test now uses real MATLAB Engine via plain x86_64 `.venv/bin/python`, not `mwpython`, because `mwpython` disabled remote MVM startup for engine sessions on this machine.
+- [x] Add serve/worker integration tests covering:
   - runtime missing
   - matlabengine not installed
   - matlabengine install/build impossible because MATLAB is not present
   - startup failure
   - successful route execution
   - output artifact discovery
-- [ ] Avoid making CI hard-fail on environments without MATLAB unless a dedicated MATLAB-capable job exists.
+  - Notes:
+    - Added `tests/integration/test_matlab_serve_worker.py` covering MATLAB preflight failure and successful artifact-producing route execution through the actual worker subprocess path.
+- [x] Avoid making CI hard-fail on environments without MATLAB unless a dedicated MATLAB-capable job exists.
+  - Notes:
+    - The real engine test remains opt-in and gated behind `AUTOCLEAN_RUN_MATLAB_TESTS=1`.
 
 Deliverable:
 - Reliable local coverage without making the base CI matrix unusable.
 
 ### Phase 8. Documentation and Rollout
-- [ ] Add install guide for `matlabengine` in the project docs.
-- [ ] Document compatibility caveats between Python version, MATLAB release, and architecture.
-- [ ] Add task config examples and route examples for MATLAB-backed workflows.
-- [ ] Document output expectations, provenance behavior, and troubleshooting.
-- [ ] Add migration notes if any existing external MATLAB workflow is being replaced.
+- [x] Add install guide for `matlabengine` in the project docs.
+- [x] Document compatibility caveats between Python version, MATLAB release, and architecture.
+- [x] Add task config examples and route examples for MATLAB-backed workflows.
+- [x] Document output expectations, provenance behavior, and troubleshooting.
+- [x] Add migration notes if any existing external MATLAB workflow is being replaced.
+  - Notes:
+    - Added `docs/tutorials/matlab_integration.rst` and linked it from `docs/tutorials/index.rst` and `docs/getting_started.rst`.
 
 Deliverable:
 - Operator-ready docs for installing and using MATLAB-backed routes.

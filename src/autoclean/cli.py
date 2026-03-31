@@ -6655,6 +6655,72 @@ def cmd_matlab(args) -> int:
     return 1
 
 
+def _matlab_install_mode(python_executable: str, engine_installed: bool) -> str:
+    """Classify the current interpreter from an operator perspective."""
+    executable = str(python_executable)
+    if ".venv" in executable:
+        return "matlab-capable .venv" if engine_installed else "base .venv (MATLAB not enabled)"
+    if "/uv/tools/" in executable or "\\uv\\tools\\" in executable:
+        return (
+            "uv tool install with MATLAB enabled"
+            if engine_installed
+            else "uv tool install (MATLAB not enabled)"
+        )
+    if engine_installed:
+        return "custom interpreter with MATLAB enabled"
+    return "base install (MATLAB not enabled)"
+
+
+def _matlab_route_support_label(
+    *,
+    route_environment_supported: bool,
+    skip_start: bool,
+    engine_installed: bool,
+) -> str:
+    """Summarize whether this interpreter is suitable for MATLAB-backed routes."""
+    if route_environment_supported:
+        return "yes"
+    if skip_start and engine_installed:
+        return "not verified"
+    return "no"
+
+
+def _matlab_remediation_guidance(report, *, skip_start: bool) -> list[str]:
+    """Return actionable next steps for common MATLAB setup failures."""
+    guidance: list[str] = []
+    error_text = " | ".join(report.errors).lower()
+
+    if not report.is_64_bit:
+        guidance.append("Use a 64-bit Python interpreter that matches the MATLAB architecture.")
+    if "could not find directory" in error_text or "maca64" in error_text or "maci64" in error_text:
+        guidance.append(
+            "Rebuild the MATLAB engine in an interpreter whose architecture matches the installed MATLAB build."
+        )
+    if "matlab engine api unavailable" in error_text or not report.engine_package_installed:
+        guidance.append(
+            "Install MATLAB Engine into this environment from matlabroot/extern/engines/python or a compatible matlabengine wheel."
+        )
+    if "remote mvms are disabled" in error_text:
+        guidance.append(
+            "Run the MATLAB engine from the validated x86_64 .venv Python with MATLAB runtime paths configured, not via mwpython."
+        )
+    if "license" in error_text:
+        guidance.append(
+            "Verify MATLAB licensing in this environment, or rerun with --license-file pointing at the correct network or local license."
+        )
+    if "timed out" in error_text:
+        guidance.append("Increase --startup-timeout or resolve slow MATLAB startup before running routes.")
+    if skip_start and report.engine_package_installed:
+        guidance.append("Rerun without --skip-start to verify that this interpreter can actually launch MATLAB.")
+    if "uv tool" in _matlab_install_mode(report.python_executable, report.engine_package_installed):
+        guidance.append(
+            "For MATLAB-backed routes, prefer a dedicated project .venv so the CLI, worker, and engine use the same interpreter."
+        )
+    if not guidance and not report.errors:
+        guidance.append("This interpreter is ready for MATLAB-backed routes.")
+    return list(dict.fromkeys(guidance))
+
+
 def cmd_matlab_doctor(args) -> int:
     """Inspect MATLAB support in the current interpreter."""
     console = get_console(args)
@@ -6677,6 +6743,10 @@ def cmd_matlab_doctor(args) -> int:
     table.add_row("64-bit", "yes" if report.is_64_bit else "no")
     table.add_row("Platform", report.platform)
     table.add_row(
+        "Install Mode",
+        _matlab_install_mode(report.python_executable, report.engine_package_installed),
+    )
+    table.add_row(
         "Engine Installed", "yes" if report.engine_package_installed else "no"
     )
     table.add_row("Engine Version", report.engine_package_version or "unknown")
@@ -6689,7 +6759,11 @@ def cmd_matlab_doctor(args) -> int:
     )
     table.add_row(
         "Route Environment Supported",
-        "yes" if report.route_environment_supported else "no",
+        _matlab_route_support_label(
+            route_environment_supported=report.route_environment_supported,
+            skip_start=bool(getattr(args, "skip_start", False)),
+            engine_installed=report.engine_package_installed,
+        ),
     )
     console.print(table)
 
@@ -6697,6 +6771,15 @@ def cmd_matlab_doctor(args) -> int:
         console.print(f"[warning]Warning:[/warning] {warning}")
     for error in report.errors:
         console.print(f"[error]Error:[/error] {error}")
+
+    guidance = _matlab_remediation_guidance(
+        report,
+        skip_start=bool(getattr(args, "skip_start", False)),
+    )
+    if guidance:
+        console.print("\n[title]Next Steps[/title]")
+        for item in guidance:
+            console.print(f"- {item}")
 
     return 0 if not report.errors else 1
 
