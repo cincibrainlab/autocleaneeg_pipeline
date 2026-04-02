@@ -65,7 +65,8 @@ Epoching Functions
    :nosignatures:
 
    regular.create_regular_epochs
-   statistical.create_sl_epochs
+   statistical.create_statistical_learning_epochs
+   create_sl_epochs
    eventid.create_eventid_epochs
    quality.detect_outlier_epochs
    quality.gfp_clean_epochs
@@ -83,7 +84,7 @@ ICA Functions
    ica_processing.fit_ica
    ica_processing.classify_ica_components
    ica_processing.apply_ica_rejection
-   ica_processing.apply_iclabel_rejection
+   ica_processing.apply_ica_component_rejection
 
 Segment Rejection Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

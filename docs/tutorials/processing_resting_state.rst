@@ -300,7 +300,7 @@ Now that you can process resting state data:
 4. **Integration:** Connect AutoClean to your analysis pipeline
 
 **Recommended follow-up tutorials:**
-- :doc:`quality_control_best_practices`
-- :doc:`batch_processing_datasets`  
-- :doc:`python_integration`
+- :doc:`understanding_results`
+- :doc:`compliance_and_audit`
+- :doc:`matlab_integration`
 - :doc:`creating_custom_task`

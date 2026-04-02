@@ -228,7 +228,7 @@
           </div>
           <div class="note watch">
             <h3>TUI help</h3>
-            <p>After the update, use the route screen to inspect the route, verify the details, and sync if needed.</p>
+            <p>After the update, use the route screen to inspect the route, verify the details, and sync if needed. Then open <strong>Settings</strong> and click <strong>Apply</strong> before expecting processing behavior to change.</p>
           </div>
         </div>
       </section>
@@ -245,12 +245,16 @@
         <div class="grid" style="margin-top: 16px;">
           <div class="note safe">
             <h3>Good result</h3>
-            <p>The route validates cleanly and the new folder/glob/task still describe the same job you intended.</p>
+            <p>The route validates cleanly and the new folder/glob/task still describe the same job you intended. Validation does not publish the change by itself.</p>
           </div>
           <div class="note risk">
             <h3>Bad result</h3>
             <p>If validation fails, do not improvise a live edit. Fix the route definition and rerun the same Draft update path until it is clean.</p>
           </div>
+        </div>
+        <div class="note safe" style="margin-top: 16px;">
+          <h3>Publish only when ready</h3>
+          <p>Once the edited Draft route is correct, use <strong>Settings → Apply</strong> to publish that config for processing. If the route also affects Production behavior, keep the apply step explicit.</p>
         </div>
       </section>
 

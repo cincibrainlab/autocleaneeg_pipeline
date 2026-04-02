@@ -272,6 +272,6 @@ Record the following information:
 "EEG data were preprocessed using AutoClean v2.0.0 with the RestingEyesOpen task. Data were filtered (1-100 Hz), bad channels interpolated (mean: 2.3%), and artifacts removed using ICA. On average, 78% of epochs were retained after artifact rejection."
 
 **Recommended tutorials:**
-- :doc:`batch_processing_datasets` - Process multiple files efficiently
-- :doc:`quality_control_best_practices` - Systematic QC procedures
-- :doc:`python_integration` - Advanced analysis workflows
+- :doc:`processing_resting_state` - Apply the review model in a full workflow
+- :doc:`compliance_and_audit` - Capture review outcomes and audit-ready records
+- :doc:`creating_custom_task` - Extend the pipeline when built-in tasks are not enough

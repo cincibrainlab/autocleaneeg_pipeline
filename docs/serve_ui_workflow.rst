@@ -131,6 +131,7 @@ To make processing use the current config, you must apply or deploy it explicitl
 
 * in the web UI, use the Apply action in Settings
 * in the CLI, use the config deployment path that publishes the current draft into ``deploy/``
+* route changes are not live for processing until that apply/deploy step happens
 
 Step 5: Confirm dispatcher and queue state
 ------------------------------------------
@@ -212,7 +213,11 @@ If config is not applied, validate it and then apply or deploy it:
 
    autocleaneeg-pipeline serve validate --mode test
 
-Validation alone does not make processing operational. The dispatcher should only run from the deployed config.
+Validation alone does not make processing operational.
+
+For the normal web UI and API service path, the dispatcher only starts from the deployed config.
+
+The TUI service screen can still run against the operator config for a deliberate Draft-only test path when no deployed config exists yet, but that is an advanced exception rather than the normal operator workflow.
 
 I am not sure which workspace Serve is using
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

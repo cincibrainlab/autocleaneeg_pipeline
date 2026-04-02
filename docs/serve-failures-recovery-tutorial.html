@@ -267,7 +267,7 @@
             <tr>
               <td>Validation fails right after a route change</td>
               <td>Bad folder path, bad task path, wrong glob, or invalid route field</td>
-              <td>Rerun <code class="inline">serve route upsert</code> with the corrected values, then validate again.</td>
+              <td>Rerun <code class="inline">serve route upsert</code> with the corrected values, then validate again. Apply only after the Draft config is clean.</td>
             </tr>
             <tr>
               <td>The route does not show up in the TUI</td>
@@ -282,7 +282,7 @@
             <tr>
               <td>A route should stop running for now</td>
               <td>The route is enabled but should be paused</td>
-              <td>Disable it from the TUI with <code class="inline">T</code> or rerun <code class="inline">serve route upsert</code> with the route disabled.</td>
+              <td>Disable it from the TUI with <code class="inline">T</code> or rerun <code class="inline">serve route upsert</code> with the route disabled, then use <strong>Settings → Apply</strong> before processing stops watching it.</td>
             </tr>
             <tr>
               <td>Production no longer feels trustworthy</td>
@@ -317,6 +317,7 @@
             <li>update the route definition if needed</li>
             <li>sync generated configs if needed</li>
             <li>validate in Draft</li>
+            <li>apply in Settings when you are ready for processing to use the change</li>
             <li>only then think about Production</li>
           </ul>
         </div>

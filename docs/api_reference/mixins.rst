@@ -50,13 +50,14 @@ SignalProcessingMixin
    basic_steps.BasicStepsMixin
    channels.ChannelsMixin
    artifacts.ArtifactsMixin
-   autoreject_epochs.AutoRejectEpochsMixin
-   channels.ChannelsMixin
+   statistical_learning_epochs.StatisticalLearningEpochsMixin
+   statistical_learning_epochs_randomized.StatisticalLearningRandomizedEpochsMixin
    eventid_epochs.EventIDEpochsMixin
    regular_epochs.RegularEpochsMixin
    outlier_detection.OutlierDetectionMixin
    gfp_clean_epochs.GFPCleanEpochsMixin
    ica.IcaMixin
+   manual_epoch_rejection.ManualEpochRejectionMixin
    segment_rejection.SegmentRejectionMixin
 
 .. currentmodule:: autoclean.mixins.viz

@@ -127,7 +127,7 @@ html_theme_options = {
     "icon_links": [
         {
             "name": "GitHub",
-            "url": "https://github.com/cincibrainlab/autoclean_complete",
+            "url": "https://github.com/cincibrainlab/autoclean_pipeline",
             "icon": "fab fa-github-square",
             "type": "fontawesome",
         },
@@ -169,6 +169,8 @@ todo_include_todos = True
 
 # Mock imports for autodoc
 autodoc_mock_imports = [
+    "autoclean.utils.user_config",
+    "autoclean.utils.logging",
     "numpy",
     "pandas",
     "matplotlib",

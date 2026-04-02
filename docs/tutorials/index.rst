@@ -13,9 +13,8 @@ Start here if you're new to EEG processing or AutoClean:
    :caption: Beginner Guides:
 
    command_line_basics
-   first_time_processing  
+   first_time_processing
    understanding_results
-   common_workflows
 
 📊 **For Researchers**
 ---------------------
@@ -27,10 +26,8 @@ Practical guides for common research scenarios:
    :caption: Research Workflows:
 
    processing_resting_state
+   biosemi_bdf_guide
    compliance_and_audit
-   processing_auditory_experiments
-   batch_processing_datasets
-   quality_control_best_practices
 
 🔧 **For Technical Users**
 -------------------------
@@ -44,8 +41,6 @@ Advanced customization and development:
    creating_custom_task
    creating_a_custom_mixin
    matlab_integration
-   python_integration
-   jupyter_notebooks
 
 🐳 **Deployment & Admin**
 ------------------------
@@ -57,5 +52,4 @@ For IT administrators and power users:
    :caption: Advanced Setup:
 
    docker_usage
-   server_deployment
    troubleshooting

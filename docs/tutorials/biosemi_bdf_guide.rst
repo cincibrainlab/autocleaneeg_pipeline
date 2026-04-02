@@ -289,7 +289,7 @@ Further Reading
 
 * MNE-Python BDF documentation: https://mne.tools/stable/generated/mne.io.read_raw_bdf.html
 * BioSemi system documentation: https://www.biosemi.com/
-* AutoClean Pipeline general documentation: https://docs.autocleaneeg.org
+* AutoClean Pipeline general documentation: https://cincibrainlab.github.io/autoclean_pipeline/
 
 Support
 -------
@@ -298,7 +298,7 @@ If you encounter issues with BDF file processing:
 
 1. Check this guide's troubleshooting section
 2. Review the main troubleshooting documentation
-3. Open an issue at: https://github.com/cincibrainlab/autocleaneeg_pipeline/issues
+3. Open an issue at: https://github.com/cincibrainlab/autoclean_pipeline/issues
 
 Include in your issue:
 

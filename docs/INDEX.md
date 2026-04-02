@@ -14,7 +14,6 @@ This directory contains the main project documentation tree.
 - `docs/api_reference/`: API reference sources
 - `docs/development/`: development-oriented published docs
 - `docs/archive/`: archived documentation and older implementation notes
-- `docs/from-root/`: root-level engineering notes and implementation plans
 
 ## Notes
 
