@@ -9,8 +9,10 @@ try:
     from autoclean.utils.database import (
         DatabaseError,
         RecordNotFoundError,
+        _create_isolated_schema,
         _serialize_for_json,
         manage_database,
+        merge_reprocess_database,
         set_database_path,
     )
 
@@ -279,3 +281,172 @@ class TestDataIntegrity:
                 "get_record", run_record={"run_id": f"concurrent_{i}"}
             )
             assert record is not None
+
+
+def _create_run_database(db_path: Path) -> None:
+    conn = sqlite3.connect(str(db_path))
+    try:
+        _create_isolated_schema(conn)
+    finally:
+        conn.close()
+
+
+def test_merge_reprocess_database_reassigns_update_audit_log_ids(tmp_path: Path):
+    original_db_path = tmp_path / "original.db"
+    reprocess_db_path = tmp_path / "reprocess.db"
+    _create_run_database(original_db_path)
+    _create_run_database(reprocess_db_path)
+
+    original_conn = sqlite3.connect(str(original_db_path))
+    reprocess_conn = sqlite3.connect(str(reprocess_db_path))
+
+    try:
+        original_conn.execute(
+            """
+            INSERT INTO pipeline_runs (run_id, created_at, task, unprocessed_file, status)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                "original-run-001",
+                "2026-04-06T10:00:00",
+                "RestingState",
+                "/tmp/subject01_comp_epo.set",
+                "completed",
+            ),
+        )
+        original_conn.execute(
+            """
+            INSERT INTO update_audit_log (
+                id, run_id, timestamp, old_status, new_status, operation_type, user_context
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                1,
+                "original-run-001",
+                "2026-04-06T10:01:00",
+                "processing",
+                "completed",
+                "status_change",
+                "{}",
+            ),
+        )
+        original_conn.execute(
+            """
+            INSERT INTO database_access_log (
+                log_id, timestamp, operation, user_context, details, log_hash, previous_hash, auth0_user_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                1,
+                "2026-04-06T10:00:00",
+                "isolated_database_creation",
+                "{}",
+                "{}",
+                "original-genesis-hash",
+                "genesis_hash_empty_log",
+                None,
+            ),
+        )
+        original_conn.commit()
+
+        reprocess_conn.execute(
+            """
+            INSERT INTO pipeline_runs (run_id, created_at, task, unprocessed_file, status)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                "reprocess-run-001",
+                "2026-04-06T11:00:00",
+                "RestingState",
+                "/tmp/reprocess/subject01_comp_epo.set",
+                "completed",
+            ),
+        )
+        reprocess_conn.execute(
+            """
+            INSERT INTO update_audit_log (
+                id, run_id, timestamp, old_status, new_status, operation_type, user_context
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                1,
+                "reprocess-run-001",
+                "2026-04-06T11:01:00",
+                "processing",
+                "completed",
+                "status_change",
+                "{}",
+            ),
+        )
+        reprocess_conn.execute(
+            """
+            INSERT INTO database_access_log (
+                log_id, timestamp, operation, user_context, details, log_hash, previous_hash, auth0_user_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                1,
+                "2026-04-06T11:00:00",
+                "isolated_database_creation",
+                "{}",
+                "{}",
+                "reprocess-genesis-hash",
+                "genesis_hash_empty_log",
+                None,
+            ),
+        )
+        reprocess_conn.execute(
+            """
+            INSERT INTO database_access_log (
+                log_id, timestamp, operation, user_context, details, log_hash, previous_hash, auth0_user_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                2,
+                "2026-04-06T11:01:00",
+                "merge_candidate",
+                "{}",
+                '{"run_id":"reprocess-run-001"}',
+                "stale-hash",
+                "reprocess-genesis-hash",
+                None,
+            ),
+        )
+        reprocess_conn.commit()
+    finally:
+        original_conn.close()
+        reprocess_conn.close()
+
+    original_run_id, reprocess_run_id = merge_reprocess_database(
+        original_db_path=original_db_path,
+        reprocess_db_path=reprocess_db_path,
+        stem="subject01_comp_epo",
+    )
+
+    assert original_run_id == "original-run-001"
+    assert reprocess_run_id == "reprocess-run-001"
+
+    merged_conn = sqlite3.connect(str(original_db_path))
+    try:
+        audit_rows = merged_conn.execute(
+            """
+            SELECT id, run_id, old_status, new_status
+            FROM update_audit_log
+            ORDER BY id
+            """
+        ).fetchall()
+        assert len(audit_rows) == 2
+        assert audit_rows[0] == (1, "original-run-001", "processing", "completed")
+        assert audit_rows[1] == (2, "reprocess-run-001", "processing", "completed")
+
+        merged_run = merged_conn.execute(
+            """
+            SELECT run_id, supersedes_run_id
+            FROM pipeline_runs
+            WHERE run_id = ?
+            """,
+            ("reprocess-run-001",),
+        ).fetchone()
+        assert merged_run == ("reprocess-run-001", "original-run-001")
+    finally:
+        merged_conn.close()

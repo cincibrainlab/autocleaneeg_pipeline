@@ -109,6 +109,59 @@ def _serialize_for_json(obj: Any) -> Any:
         return str(obj)
 
 
+def _insert_rows_without_primary_key(
+    source_cursor: sqlite3.Cursor,
+    destination_cursor: sqlite3.Cursor,
+    table_name: str,
+    primary_key_column: str,
+    where_clause: Optional[str] = None,
+    params: tuple[Any, ...] = (),
+) -> int:
+    """Copy rows between tables while letting the destination assign PK values.
+
+    Parameters
+    ----------
+    source_cursor : sqlite3.Cursor
+        Cursor for the source database.
+    destination_cursor : sqlite3.Cursor
+        Cursor for the destination database.
+    table_name : str
+        Table name to copy from.
+    primary_key_column : str
+        Surrogate primary key column to exclude from inserts.
+    where_clause : str, optional
+        Optional SQL WHERE clause without the ``WHERE`` keyword.
+    params : tuple, optional
+        Query parameters for ``where_clause``.
+
+    Returns
+    -------
+    int
+        Number of rows copied.
+    """
+    query = f"SELECT * FROM {table_name}"
+    if where_clause:
+        query = f"{query} WHERE {where_clause}"
+
+    source_cursor.execute(query, params)
+    rows = source_cursor.fetchall()
+    if not rows:
+        return 0
+
+    columns = [desc[0] for desc in source_cursor.description]
+    insert_columns = [column for column in columns if column != primary_key_column]
+    placeholders = ", ".join(["?" for _ in insert_columns])
+
+    for row in rows:
+        row_dict = dict(row)
+        destination_cursor.execute(
+            f"INSERT INTO {table_name} ({', '.join(insert_columns)}) VALUES ({placeholders})",
+            tuple(row_dict[column] for column in insert_columns),
+        )
+
+    return len(rows)
+
+
 def get_run_record(run_id: str) -> dict:
     """Get a run record from the database by run ID.
 
@@ -1219,6 +1272,214 @@ def _create_isolated_schema(conn: sqlite3.Connection) -> None:
     )
 
     conn.commit()
+
+
+def merge_reprocess_database(
+    original_db_path: Path,
+    reprocess_db_path: Path,
+    stem: str,
+) -> tuple[Optional[str], Optional[str]]:
+    """Merge a reprocess run database back into the original task database.
+
+    Parameters
+    ----------
+    original_db_path : Path
+        Path to the original task's ``run_database.db``.
+    reprocess_db_path : Path
+        Path to the reprocess run's ``run_database.db``.
+    stem : str
+        File stem used to locate the original run.
+
+    Returns
+    -------
+    tuple[str | None, str | None]
+        ``(original_run_id, reprocess_run_id)`` if successful, otherwise ``(None, None)``.
+    """
+    try:
+        print("[REPROCESS] Merging databases...")
+
+        original_conn = sqlite3.connect(str(original_db_path))
+        original_conn.row_factory = sqlite3.Row
+        reprocess_conn = sqlite3.connect(str(reprocess_db_path))
+        reprocess_conn.row_factory = sqlite3.Row
+
+        try:
+            original_cursor = original_conn.cursor()
+            reprocess_cursor = reprocess_conn.cursor()
+
+            try:
+                original_cursor.execute(
+                    "ALTER TABLE pipeline_runs ADD COLUMN superseded_by TEXT"
+                )
+                print("[REPROCESS] Added superseded_by column")
+            except sqlite3.OperationalError:
+                pass
+
+            try:
+                original_cursor.execute(
+                    "ALTER TABLE pipeline_runs ADD COLUMN supersedes_run_id TEXT"
+                )
+                print("[REPROCESS] Added supersedes_run_id column")
+            except sqlite3.OperationalError:
+                pass
+
+            original_cursor.execute(
+                "SELECT run_id FROM pipeline_runs WHERE unprocessed_file LIKE ? ORDER BY created_at DESC LIMIT 1",
+                (f"%{stem}%",),
+            )
+            original_run = original_cursor.fetchone()
+            original_run_id = original_run["run_id"] if original_run else None
+
+            if not original_run_id:
+                print(f"[REPROCESS] Warning: No original run found for {stem}")
+
+            reprocess_cursor.execute("SELECT * FROM pipeline_runs LIMIT 1")
+            reprocess_run = reprocess_cursor.fetchone()
+
+            if not reprocess_run:
+                print("[REPROCESS] Error: No run found in reprocess database")
+                return None, None
+
+            reprocess_run_id = reprocess_run["run_id"]
+            columns = [desc[0] for desc in reprocess_cursor.description]
+            placeholders = ", ".join(["?" for _ in columns])
+
+            if "supersedes_run_id" in columns:
+                values = list(reprocess_run)
+                supersedes_idx = columns.index("supersedes_run_id")
+                values[supersedes_idx] = original_run_id
+            else:
+                columns.append("supersedes_run_id")
+                values = list(reprocess_run) + [original_run_id]
+                placeholders += ", ?"
+
+            original_cursor.execute(
+                f"INSERT INTO pipeline_runs ({', '.join(columns)}) VALUES ({placeholders})",
+                values,
+            )
+            print(f"[REPROCESS] Inserted reprocess run: {reprocess_run_id}")
+
+            if original_run_id:
+                print(
+                    f"[REPROCESS] Supersession link established: reprocess {reprocess_run_id} supersedes original {original_run_id}"
+                )
+                print(
+                    "[REPROCESS] Original run remains immutable per audit trail requirements"
+                )
+
+            copied_audit_logs = _insert_rows_without_primary_key(
+                reprocess_cursor,
+                original_cursor,
+                "update_audit_log",
+                "id",
+            )
+            if copied_audit_logs:
+                print(f"[REPROCESS] Copied {copied_audit_logs} audit log entries")
+
+            original_cursor.execute(
+                "SELECT log_hash FROM database_access_log ORDER BY log_id DESC LIMIT 1"
+            )
+            last_hash_row = original_cursor.fetchone()
+            previous_hash = (
+                last_hash_row["log_hash"] if last_hash_row else "genesis_hash_empty_log"
+            )
+
+            reprocess_cursor.execute(
+                "SELECT * FROM database_access_log WHERE operation != 'isolated_database_creation' ORDER BY log_id"
+            )
+            access_logs = reprocess_cursor.fetchall()
+
+            if access_logs:
+                for log in access_logs:
+                    log_dict = dict(log)
+                    new_hash = calculate_access_log_hash(
+                        log_dict["timestamp"],
+                        log_dict["operation"],
+                        (
+                            json.loads(log_dict["user_context"])
+                            if log_dict.get("user_context")
+                            else {}
+                        ),
+                        "",
+                        (
+                            json.loads(log_dict["details"])
+                            if log_dict.get("details")
+                            else {}
+                        ),
+                        previous_hash,
+                    )
+
+                    original_cursor.execute(
+                        """
+                        INSERT INTO database_access_log (
+                            timestamp, operation, user_context, details,
+                            log_hash, previous_hash, auth0_user_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            log_dict["timestamp"],
+                            log_dict["operation"],
+                            log_dict["user_context"],
+                            log_dict["details"],
+                            new_hash,
+                            previous_hash,
+                            log_dict.get("auth0_user_id"),
+                        ),
+                    )
+                    previous_hash = new_hash
+
+                print(
+                    f"[REPROCESS] Copied {len(access_logs)} access log entries (re-chained)"
+                )
+
+            reprocess_cursor.execute("SELECT * FROM electronic_signatures")
+            signatures = reprocess_cursor.fetchall()
+            if signatures:
+                columns = [desc[0] for desc in reprocess_cursor.description]
+                placeholders = ", ".join(["?" for _ in columns])
+                for sig in signatures:
+                    original_cursor.execute(
+                        f"INSERT INTO electronic_signatures ({', '.join(columns)}) VALUES ({placeholders})",
+                        tuple(sig),
+                    )
+                print(f"[REPROCESS] Copied {len(signatures)} electronic signatures")
+
+            reprocess_cursor.execute("SELECT * FROM authenticated_users")
+            users = reprocess_cursor.fetchall()
+            if users:
+                columns = [desc[0] for desc in reprocess_cursor.description]
+                placeholders = ", ".join(["?" for _ in columns])
+                copied_users = 0
+                for user in users:
+                    user_dict = dict(user)
+                    auth0_user_id = user_dict["auth0_user_id"]
+                    original_cursor.execute(
+                        "SELECT auth0_user_id FROM authenticated_users WHERE auth0_user_id = ?",
+                        (auth0_user_id,),
+                    )
+                    if original_cursor.fetchone():
+                        continue
+
+                    original_cursor.execute(
+                        f"INSERT INTO authenticated_users ({', '.join(columns)}) VALUES ({placeholders})",
+                        tuple(user),
+                    )
+                    copied_users += 1
+
+                print(f"[REPROCESS] Copied {copied_users} authenticated users")
+
+            original_conn.commit()
+            print("[REPROCESS] Database merge successful")
+            return original_run_id, reprocess_run_id
+        finally:
+            original_conn.close()
+            reprocess_conn.close()
+    except Exception as e:
+        print(f"[REPROCESS] Error merging databases: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return None, None
 
 
 def _copy_run_data(

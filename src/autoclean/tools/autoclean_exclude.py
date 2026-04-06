@@ -95,7 +95,7 @@ from qtpy.QtWidgets import (  # noqa: E402
 )
 
 from autoclean.io.export import save_epochs_to_set  # noqa: E402
-from autoclean.utils.database import get_run_record  # noqa: E402
+from autoclean.utils.database import get_run_record, merge_reprocess_database  # noqa: E402
 from autoclean.utils.logging import message  # noqa: E402
 from autoclean.utils.path_resolution import resolve_moved_path  # noqa: E402
 from autoclean.utils.reprocess_overrides import (  # noqa: E402
@@ -5270,210 +5270,13 @@ class ExclusionFileSelector(ReviewBase):
             (original_run_id, reprocess_run_id) if successful, (None, None) otherwise
         """
         import json
-        import sqlite3
-
-        from autoclean.utils.audit import calculate_access_log_hash
 
         try:
-            print("[REPROCESS] Merging databases...")
-
-            # Connect to both databases
-            original_conn = sqlite3.connect(str(original_db_path))
-            original_conn.row_factory = sqlite3.Row
-            reprocess_conn = sqlite3.connect(str(reprocess_db_path))
-            reprocess_conn.row_factory = sqlite3.Row
-
-            original_cursor = original_conn.cursor()
-            reprocess_cursor = reprocess_conn.cursor()
-
-            # 1. Add supersession columns if they don't exist
-            try:
-                original_cursor.execute(
-                    "ALTER TABLE pipeline_runs ADD COLUMN superseded_by TEXT"
-                )
-                print("[REPROCESS] Added superseded_by column")
-            except sqlite3.OperationalError:
-                pass  # Column already exists
-
-            try:
-                original_cursor.execute(
-                    "ALTER TABLE pipeline_runs ADD COLUMN supersedes_run_id TEXT"
-                )
-                print("[REPROCESS] Added supersedes_run_id column")
-            except sqlite3.OperationalError:
-                pass  # Column already exists
-
-            # 2. Find the original run for this file in original database
-            original_cursor.execute(
-                "SELECT run_id FROM pipeline_runs WHERE unprocessed_file LIKE ? ORDER BY created_at DESC LIMIT 1",
-                (f"%{stem}%",),
+            original_run_id, reprocess_run_id = merge_reprocess_database(
+                original_db_path=original_db_path,
+                reprocess_db_path=reprocess_db_path,
+                stem=stem,
             )
-            original_run = original_cursor.fetchone()
-            original_run_id = original_run["run_id"] if original_run else None
-
-            if not original_run_id:
-                print(f"[REPROCESS] Warning: No original run found for {stem}")
-
-            # 3. Get the reprocess run from reprocess database
-            reprocess_cursor.execute("SELECT * FROM pipeline_runs LIMIT 1")
-            reprocess_run = reprocess_cursor.fetchone()
-
-            if not reprocess_run:
-                print("[REPROCESS] Error: No run found in reprocess database")
-                return None, None
-
-            reprocess_run_id = reprocess_run["run_id"]
-
-            # 4. Insert reprocess run into original database
-            columns = [desc[0] for desc in reprocess_cursor.description]
-            placeholders = ", ".join(["?" for _ in columns])
-
-            # Add supersedes_run_id to the insert
-            if "supersedes_run_id" in columns:
-                values = list(reprocess_run)
-                supersedes_idx = columns.index("supersedes_run_id")
-                values[supersedes_idx] = original_run_id
-            else:
-                columns.append("supersedes_run_id")
-                values = list(reprocess_run) + [original_run_id]
-                placeholders += ", ?"
-
-            original_cursor.execute(
-                f"INSERT INTO pipeline_runs ({', '.join(columns)}) VALUES ({placeholders})",
-                values,
-            )
-            print(f"[REPROCESS] Inserted reprocess run: {reprocess_run_id}")
-
-            # 5. Mark original run as superseded (if found)
-            # NOTE: We can't UPDATE the original run because it's completed and protected by audit triggers
-            # The supersession relationship is stored in the reprocess run via supersedes_run_id
-            if original_run_id:
-                print(
-                    f"[REPROCESS] Supersession link established: reprocess {reprocess_run_id} supersedes original {original_run_id}"
-                )
-                print(
-                    "[REPROCESS] Original run remains immutable per audit trail requirements"
-                )
-
-            # 6. Copy update_audit_log entries
-            reprocess_cursor.execute("SELECT * FROM update_audit_log")
-            audit_logs = reprocess_cursor.fetchall()
-
-            if audit_logs:
-                columns = [desc[0] for desc in reprocess_cursor.description]
-                placeholders = ", ".join(["?" for _ in columns])
-                for log in audit_logs:
-                    original_cursor.execute(
-                        f"INSERT INTO update_audit_log ({', '.join(columns)}) VALUES ({placeholders})",
-                        tuple(log),
-                    )
-                print(f"[REPROCESS] Copied {len(audit_logs)} audit log entries")
-
-            # 7. Re-chain and copy database_access_log entries
-            # Get last hash from original database
-            original_cursor.execute(
-                "SELECT log_hash FROM database_access_log ORDER BY log_id DESC LIMIT 1"
-            )
-            last_hash_row = original_cursor.fetchone()
-            previous_hash = (
-                last_hash_row["log_hash"] if last_hash_row else "genesis_hash_empty_log"
-            )
-
-            # Get access logs from reprocess database (skip genesis entry)
-            reprocess_cursor.execute(
-                "SELECT * FROM database_access_log WHERE operation != 'isolated_database_creation' ORDER BY log_id"
-            )
-            access_logs = reprocess_cursor.fetchall()
-
-            if access_logs:
-                for log in access_logs:
-                    log_dict = dict(log)
-
-                    # Recalculate hash with new previous_hash for chain integrity
-                    new_hash = calculate_access_log_hash(
-                        log_dict["timestamp"],
-                        log_dict["operation"],
-                        (
-                            json.loads(log_dict["user_context"])
-                            if log_dict.get("user_context")
-                            else {}
-                        ),
-                        "",
-                        (
-                            json.loads(log_dict["details"])
-                            if log_dict.get("details")
-                            else {}
-                        ),
-                        previous_hash,
-                    )
-
-                    # Insert with recalculated hash
-                    original_cursor.execute(
-                        """
-                        INSERT INTO database_access_log (
-                            timestamp, operation, user_context, details,
-                            log_hash, previous_hash, auth0_user_id
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            log_dict["timestamp"],
-                            log_dict["operation"],
-                            log_dict["user_context"],
-                            log_dict["details"],
-                            new_hash,
-                            previous_hash,
-                            log_dict.get("auth0_user_id"),
-                        ),
-                    )
-                    previous_hash = new_hash
-
-                print(
-                    f"[REPROCESS] Copied {len(access_logs)} access log entries (re-chained)"
-                )
-
-            # 8. Copy electronic_signatures if any
-            reprocess_cursor.execute("SELECT * FROM electronic_signatures")
-            signatures = reprocess_cursor.fetchall()
-
-            if signatures:
-                columns = [desc[0] for desc in reprocess_cursor.description]
-                placeholders = ", ".join(["?" for _ in columns])
-                for sig in signatures:
-                    original_cursor.execute(
-                        f"INSERT INTO electronic_signatures ({', '.join(columns)}) VALUES ({placeholders})",
-                        tuple(sig),
-                    )
-                print(f"[REPROCESS] Copied {len(signatures)} electronic signatures")
-
-            # 9. Copy authenticated_users if any
-            reprocess_cursor.execute("SELECT * FROM authenticated_users")
-            users = reprocess_cursor.fetchall()
-
-            if users:
-                for user in users:
-                    user_dict = dict(user)
-                    auth0_user_id = user_dict["auth0_user_id"]
-
-                    # Check if user already exists
-                    original_cursor.execute(
-                        "SELECT auth0_user_id FROM authenticated_users WHERE auth0_user_id = ?",
-                        (auth0_user_id,),
-                    )
-                    if original_cursor.fetchone():
-                        continue  # Skip existing users
-
-                    columns = [desc[0] for desc in reprocess_cursor.description]
-                    placeholders = ", ".join(["?" for _ in columns])
-                    original_cursor.execute(
-                        f"INSERT INTO authenticated_users ({', '.join(columns)}) VALUES ({placeholders})",
-                        tuple(user),
-                    )
-                print(f"[REPROCESS] Copied {len(users)} authenticated users")
-
-            # 10. Commit and close
-            original_conn.commit()
-            original_conn.close()
-            reprocess_conn.close()
 
             # 11. Update backup manifest with run IDs
             if manifest_path and manifest_path.exists():
@@ -5491,7 +5294,6 @@ class ExclusionFileSelector(ReviewBase):
                 except Exception as e:
                     print(f"[REPROCESS] Warning: Failed to update manifest: {e}")
 
-            print("[REPROCESS] Database merge successful")
             return original_run_id, reprocess_run_id
 
         except Exception as e:
