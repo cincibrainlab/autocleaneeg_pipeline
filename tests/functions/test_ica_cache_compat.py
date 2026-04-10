@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import matplotlib.pyplot as plt
 import mne
 import numpy as np
 import pytest
@@ -11,7 +12,10 @@ from mne.preprocessing import ICA
 
 from autoclean.functions.visualization._ica_cache_utils import get_ica_mixing_matrix
 from autoclean.functions.visualization._ica_psd_cache import ICAPSDCache
-from autoclean.functions.visualization._ica_topography_cache import ICATopographyCache
+from autoclean.functions.visualization._ica_topography_cache import (
+    ICATopographyCache,
+    apply_cached_topography,
+)
 
 
 def _fit_test_ica() -> tuple[ICA, mne.io.RawArray]:
@@ -55,3 +59,37 @@ def test_get_ica_mixing_matrix_falls_back_to_legacy_attr() -> None:
 def test_get_ica_mixing_matrix_requires_fitted_ica() -> None:
     with pytest.raises(AttributeError, match="mixing matrix"):
         get_ica_mixing_matrix(SimpleNamespace())  # type: ignore[arg-type]
+
+
+def test_cached_topography_replay_preserves_native_axis_limits() -> None:
+    ica, _raw = _fit_test_ica()
+
+    fig_native, ax_native = plt.subplots(1, 1, figsize=(3, 3))
+    ica.plot_components(
+        picks=0,
+        axes=ax_native,
+        ch_type="eeg",
+        show=False,
+        colorbar=False,
+        cmap="jet",
+        outlines="head",
+        sensors=True,
+        contours=6,
+    )
+    native_xlim = tuple(float(v) for v in ax_native.get_xlim())
+    native_ylim = tuple(float(v) for v in ax_native.get_ylim())
+    plt.close(fig_native)
+
+    topography = ICATopographyCache().get_topographies(ica, [0])[0]
+
+    assert topography["xlim"] == pytest.approx(native_xlim)
+    assert topography["ylim"] == pytest.approx(native_ylim)
+
+    fig_replay, ax_replay = plt.subplots(1, 1, figsize=(3, 3))
+    apply_cached_topography(ax_replay, topography, 0)
+    replay_xlim = tuple(float(v) for v in ax_replay.get_xlim())
+    replay_ylim = tuple(float(v) for v in ax_replay.get_ylim())
+    plt.close(fig_replay)
+
+    assert replay_xlim == pytest.approx(native_xlim)
+    assert replay_ylim == pytest.approx(native_ylim)

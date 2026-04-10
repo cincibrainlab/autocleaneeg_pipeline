@@ -166,6 +166,8 @@ class ICATopographyCache:
                         "images": images,
                         "extents": extents,
                         "contours": contours_data,
+                        "xlim": tuple(float(v) for v in ax.get_xlim()),
+                        "ylim": tuple(float(v) for v in ax.get_ylim()),
                         "component_idx": idx,
                     }
                     plt.close(fig)
@@ -179,6 +181,8 @@ class ICATopographyCache:
                         "images": [],
                         "extents": [],
                         "contours": [],
+                        "xlim": None,
+                        "ylim": None,
                         "component_idx": idx,
                         "error": str(exc),
                     }
@@ -272,6 +276,14 @@ def apply_cached_topography(
             ):
                 if len(path) > 0:
                     ax.plot(path[:, 0], path[:, 1], color=color, linewidth=linewidth)
+
+        xlim = topography_data.get("xlim")
+        ylim = topography_data.get("ylim")
+        if xlim is not None:
+            ax.set_xlim(xlim)
+        if ylim is not None:
+            ax.set_ylim(ylim)
+        ax.set_aspect("equal")
 
         if title is None:
             title = f"IC{component_idx} Topography"
