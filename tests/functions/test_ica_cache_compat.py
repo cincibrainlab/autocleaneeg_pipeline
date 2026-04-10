@@ -78,18 +78,22 @@ def test_cached_topography_replay_preserves_native_axis_limits() -> None:
     )
     native_xlim = tuple(float(v) for v in ax_native.get_xlim())
     native_ylim = tuple(float(v) for v in ax_native.get_ylim())
+    native_origin = ax_native.images[0].origin
     plt.close(fig_native)
 
     topography = ICATopographyCache().get_topographies(ica, [0])[0]
 
     assert topography["xlim"] == pytest.approx(native_xlim)
     assert topography["ylim"] == pytest.approx(native_ylim)
+    assert topography["origins"] == [native_origin]
 
     fig_replay, ax_replay = plt.subplots(1, 1, figsize=(3, 3))
     apply_cached_topography(ax_replay, topography, 0)
     replay_xlim = tuple(float(v) for v in ax_replay.get_xlim())
     replay_ylim = tuple(float(v) for v in ax_replay.get_ylim())
+    replay_origin = ax_replay.images[0].origin
     plt.close(fig_replay)
 
     assert replay_xlim == pytest.approx(native_xlim)
     assert replay_ylim == pytest.approx(native_ylim)
+    assert replay_origin == native_origin

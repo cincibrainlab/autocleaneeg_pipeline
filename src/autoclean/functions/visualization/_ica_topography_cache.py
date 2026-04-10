@@ -134,6 +134,9 @@ class ICATopographyCache:
 
                     images = []
                     extents = []
+                    origins = []
+                    interpolations = []
+                    alphas = []
                     contours_data = []
                     for child in ax.get_children():
                         if hasattr(child, "get_array") and hasattr(child, "get_extent"):
@@ -142,6 +145,17 @@ class ICATopographyCache:
                             if array is not None and extent is not None:
                                 images.append(array.copy())
                                 extents.append(extent)
+                                origins.append(getattr(child, "origin", "upper"))
+                                interpolations.append(
+                                    getattr(
+                                        child,
+                                        "get_interpolation",
+                                        lambda: "antialiased",
+                                    )()
+                                )
+                                alphas.append(
+                                    getattr(child, "get_alpha", lambda: None)()
+                                )
                         elif hasattr(child, "get_paths"):
                             try:
                                 paths = child.get_paths()
@@ -165,6 +179,9 @@ class ICATopographyCache:
                     topographies[idx] = {
                         "images": images,
                         "extents": extents,
+                        "origins": origins,
+                        "interpolations": interpolations,
+                        "alphas": alphas,
                         "contours": contours_data,
                         "xlim": tuple(float(v) for v in ax.get_xlim()),
                         "ylim": tuple(float(v) for v in ax.get_ylim()),
@@ -180,6 +197,9 @@ class ICATopographyCache:
                     topographies[idx] = {
                         "images": [],
                         "extents": [],
+                        "origins": [],
+                        "interpolations": [],
+                        "alphas": [],
                         "contours": [],
                         "xlim": None,
                         "ylim": None,
@@ -265,8 +285,28 @@ def apply_cached_topography(
             ax.set_title(f"IC{component_idx} (Error)", fontsize=12)
             return
 
-        for img, extent in zip(topography_data["images"], topography_data["extents"]):
-            ax.imshow(img, extent=extent, cmap="jet", aspect="equal")
+        origins = topography_data.get("origins", [])
+        interpolations = topography_data.get("interpolations", [])
+        alphas = topography_data.get("alphas", [])
+        for idx, (img, extent) in enumerate(
+            zip(topography_data["images"], topography_data["extents"])
+        ):
+            origin = origins[idx] if idx < len(origins) else "upper"
+            interpolation = (
+                interpolations[idx]
+                if idx < len(interpolations)
+                else "antialiased"
+            )
+            alpha = alphas[idx] if idx < len(alphas) else None
+            ax.imshow(
+                img,
+                extent=extent,
+                cmap="jet",
+                aspect="equal",
+                origin=origin,
+                interpolation=interpolation,
+                alpha=alpha,
+            )
 
         for contour_data in topography_data["contours"]:
             for path, color, linewidth in zip(
