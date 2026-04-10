@@ -211,8 +211,7 @@ def generate_reprocess_task_from_original(
                 return node
 
             if (
-                fix_type in ("channel", "channels", "both")
-                and isinstance(node.func, ast.Attribute)
+                isinstance(node.func, ast.Attribute)
                 and node.func.attr == "clean_bad_channels"
                 and bad_channels
             ):

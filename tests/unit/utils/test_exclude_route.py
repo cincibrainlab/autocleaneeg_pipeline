@@ -368,6 +368,83 @@ async def test_reprocess_start_and_status(workspace, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_second_ica_reprocess_keeps_existing_bad_channels(workspace, monkeypatch):
+    _workspace_dir, exports_dir = workspace
+    task_root = exports_dir.parent
+    set_file = exports_dir / "subject01_comp_epo.set"
+    set_file.write_text("", encoding="utf-8")
+    reports_dir = task_root / "reports" / "run_reports"
+    reports_dir.mkdir(parents=True)
+    metadata_path = reports_dir / "subject01_autoclean_metadata.json"
+    raw_file = task_root / "subject01_raw.set"
+    raw_file.write_text("", encoding="utf-8")
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "unprocessed_file": str(raw_file),
+                "metadata": {
+                    "import_eeg": {"originalChannelNames": ["FP1", "FP2"]},
+                    "step_run_ica": {"ica": {"ica_components": 3}},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    status_dir = task_root / "status"
+    status_dir.mkdir()
+    task_file = status_dir / "ExampleTask.py"
+    task_file.write_text(
+        (
+            "from autoclean.core.task import Task\n\n"
+            "config = {}\n\n"
+            "class ExampleTask(Task):\n"
+            "    def run(self):\n"
+            "        self.import_raw()\n"
+            "        self.clean_bad_channels()\n"
+            "        self.run_ica()\n"
+            "        self.classify_ica_components()\n"
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        exclude,
+        "extract_ica_full",
+        lambda _path: {
+            "components": [
+                {"component": "IC0"},
+                {"component": "IC1"},
+                {"component": "IC2"},
+            ]
+        },
+    )
+    fake_subprocess = _FakeSubprocessModule()
+    monkeypatch.setattr(exclude, "subprocess", fake_subprocess)
+
+    _save_decisions(
+        exports_dir,
+        {"subject01_comp_epo": {**_default_record("subject01_comp_epo.set")}},
+    )
+
+    await start_reprocess(
+        "subject01_comp_epo",
+        exclude.ReprocessRequest(manual_bad_channels=["FP1"], manual_rejected_ica=[]),
+        route_id=None,
+    )
+    await start_reprocess(
+        "subject01_comp_epo",
+        exclude.ReprocessRequest(manual_bad_channels=["FP1"], manual_rejected_ica=[1]),
+        route_id=None,
+    )
+
+    generated_task = (status_dir / "subject01_Reprocess.py").read_text(encoding="utf-8")
+
+    assert "manual_bad_channels=['FP1']" in generated_task
+    assert "classify_ica_components(reject=False)" in generated_task
+    assert "apply_ica_component_rejection(manual_rejected_components=[1])" in generated_task
+
+
+@pytest.mark.asyncio
 async def test_missing_workspace_edge_cases_raise_http_exception(monkeypatch):
     old_workspace = api_state.workspace_dir
     api_state.workspace_dir = None

@@ -154,3 +154,49 @@ def test_generate_reprocess_task_replaces_existing_manual_bad_channels_keyword(
 
     assert generated.count("manual_bad_channels=") == 1
     assert "manual_bad_channels=['FP1', 'FP2']" in generated
+
+
+def test_generate_reprocess_task_keeps_bad_channels_during_ica_reprocess(
+    tmp_path: Path,
+):
+    task_path = tmp_path / "ExampleTask.py"
+    task_path.write_text(
+        (
+            "from autoclean.core.task import Task\n\n"
+            "config = {}\n\n"
+            "class ExampleTask(Task):\n"
+            "    def run(self):\n"
+            "        self.clean_bad_channels()\n"
+            "        self.classify_ica_components()\n"
+        ),
+        encoding="utf-8",
+    )
+
+    payload = {
+        "file_stem": "subject01",
+        "fix_type": "ica",
+        "timestamp": "2026-03-26T12:00:00",
+        "modifications": {
+            "epoch_review": {"count": 0, "indices": [], "times": [], "events": []},
+            "bad_channels": {
+                "modified": ["FP1"],
+                "original": ["FP1"],
+                "added": [],
+                "removed": [],
+            },
+            "rejected_ica": {
+                "modified": [1],
+                "original": [],
+                "added": [1],
+                "removed": [],
+            },
+        },
+    }
+
+    generated = generate_reprocess_task_from_original(
+        task_path, payload, "ExampleTaskReprocess", "20260326_120000"
+    )
+
+    assert "manual_bad_channels=['FP1']" in generated
+    assert "classify_ica_components(reject=False)" in generated
+    assert "apply_ica_component_rejection(manual_rejected_components=[1])" in generated
