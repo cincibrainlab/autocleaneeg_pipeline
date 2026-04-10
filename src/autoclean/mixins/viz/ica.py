@@ -499,12 +499,6 @@ class ICAReportingMixin:
             )
 
             try:
-                # Pre-compute all topographies for the components we'll plot
-                logger.debug(
-                    f"Pre-computing topographies for {len(component_indices)} components"
-                )
-                get_cached_topographies(ica, component_indices)
-
                 # Pre-compute all PSDs for the components we'll plot
                 logger.debug(
                     f"Pre-computing PSDs for {len(component_indices)} components"

@@ -36,16 +36,6 @@ except ImportError:
     SOURCES_CACHE_AVAILABLE = False
 
 try:
-    from autoclean.functions.visualization._ica_topography_cache import (
-        apply_cached_topography,
-        get_cached_topographies,
-    )
-
-    TOPOGRAPHY_CACHE_AVAILABLE = True
-except ImportError:
-    TOPOGRAPHY_CACHE_AVAILABLE = False
-
-try:
     from autoclean.functions.visualization._ica_psd_cache import (
         get_cached_component_psds,
     )
@@ -243,33 +233,24 @@ def plot_component_for_classification(
 
     # --- Topography -----------------------------------------------------
     try:
-        if TOPOGRAPHY_CACHE_AVAILABLE:
-            # Use cached topography for better performance
-            topographies = get_cached_topographies(ica_obj, [component_idx])
-            if component_idx in topographies:
-                apply_cached_topography(
-                    ax_topo, topographies[component_idx], component_idx
-                )
-            else:
-                raise ValueError("Cached topography not available")
-        else:
-            # Fallback to original MNE plotting
-            ica_obj.plot_components(
-                picks=component_idx,
-                axes=ax_topo,
-                ch_type="eeg",
-                show=False,
-                colorbar=False,
-                cmap="jet",
-                outlines="head",
-                sensors=True,
-                contours=6,
-            )
-            ax_topo.set_title(f"IC{component_idx} Topography", fontsize=12)
-            ax_topo.set_xlabel("")
-            ax_topo.set_ylabel("")
-            ax_topo.set_xticks([])
-            ax_topo.set_yticks([])
+        # Use native MNE topomap rendering in reports so the head circle,
+        # clipping, and orientation match the non-cached plot exactly.
+        ica_obj.plot_components(
+            picks=component_idx,
+            axes=ax_topo,
+            ch_type="eeg",
+            show=False,
+            colorbar=False,
+            cmap="jet",
+            outlines="head",
+            sensors=True,
+            contours=6,
+        )
+        ax_topo.set_title(f"IC{component_idx} Topography", fontsize=12)
+        ax_topo.set_xlabel("")
+        ax_topo.set_ylabel("")
+        ax_topo.set_xticks([])
+        ax_topo.set_yticks([])
     except Exception as exc:  # pragma: no cover - defensive path
         logger.error("Topography plotting failed for IC%s: %s", component_idx, exc)
         ax_topo.text(0.5, 0.5, "Topography plot failed", ha="center", va="center")
@@ -686,41 +667,21 @@ def plot_ica_topographies_overview(
             fontsize=14,
         )
 
-        # Pre-compute all topographies for this batch for better performance
-        if TOPOGRAPHY_CACHE_AVAILABLE:
-            try:
-                batch_topographies = get_cached_topographies(ica_obj, batch)
-            except Exception as exc:
-                logger.warning(f"Batch topography caching failed: {exc}")
-                batch_topographies = {}
-        else:
-            batch_topographies = {}
-
         for ax_idx, comp_idx in enumerate(batch):
             row, col = divmod(ax_idx, ncols)
             ax = axes[row, col]
             try:
-                if comp_idx in batch_topographies:
-                    # Use cached topography
-                    apply_cached_topography(
-                        ax,
-                        batch_topographies[comp_idx],
-                        comp_idx,
-                        title=f"IC{comp_idx}",
-                    )
-                else:
-                    # Fallback to original MNE plotting
-                    ica_obj.plot_components(
-                        picks=comp_idx,
-                        axes=ax,
-                        show=False,
-                        colorbar=False,
-                        cmap="jet",
-                        outlines="head",
-                        sensors=False,
-                        contours=4,
-                    )
-                    ax.set_title(f"IC{comp_idx}", fontsize=9)
+                ica_obj.plot_components(
+                    picks=comp_idx,
+                    axes=ax,
+                    show=False,
+                    colorbar=False,
+                    cmap="jet",
+                    outlines="head",
+                    sensors=False,
+                    contours=4,
+                )
+                ax.set_title(f"IC{comp_idx}", fontsize=9)
             except Exception as exc:  # pragma: no cover
                 logger.warning("Failed to plot topography for IC%s: %s", comp_idx, exc)
                 ax.text(0.5, 0.5, "Error", ha="center", va="center")
