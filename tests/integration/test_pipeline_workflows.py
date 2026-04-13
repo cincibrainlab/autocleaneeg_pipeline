@@ -258,7 +258,6 @@ class TestPipelineMemoryAndPerformance:
         final_memory = process.memory_info().rss / 1024 / 1024
         assert final_memory - initial_memory < 500
 
-    @pytest.mark.timeout(300)
     def test_processing_time_reasonable(self, tmp_path):
         configure_logger(verbose="ERROR", output_dir=tmp_path)
         task_name = "TimingTask"

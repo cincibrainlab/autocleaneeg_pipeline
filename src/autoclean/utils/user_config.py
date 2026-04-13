@@ -24,12 +24,8 @@ try:
 except ImportError:
     PSUTIL_AVAILABLE = False
 
-try:
-    import torch
-
-    TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+TORCH_AVAILABLE = None
+_TORCH_MODULE = None
 
 try:
     from rich.console import Console
@@ -52,6 +48,25 @@ PRODUCT_NAME = "AutoClean EEG"
 TAGLINE = "Professional EEG Processing & Analysis Platform"
 LOGO_ICON = "🧠"
 DIVIDER = "═════════════════════════════════════════════════"
+
+
+def _get_torch_module():
+    """Load torch lazily for optional GPU detection."""
+    global TORCH_AVAILABLE, _TORCH_MODULE
+
+    if TORCH_AVAILABLE is not None:
+        return _TORCH_MODULE
+
+    try:
+        import torch
+
+        _TORCH_MODULE = torch
+        TORCH_AVAILABLE = True
+    except Exception:
+        _TORCH_MODULE = None
+        TORCH_AVAILABLE = False
+
+    return _TORCH_MODULE
 
 
 class UserConfigManager:
@@ -878,16 +893,21 @@ class UserConfigManager:
 
         try:
             # Try PyTorch GPU detection as fallback
-            if TORCH_AVAILABLE and torch.cuda.is_available():
+            torch = _get_torch_module()
+            if torch is not None and torch.cuda.is_available():
                 gpu_count = torch.cuda.device_count()
                 if gpu_count == 1:
                     gpu_name = torch.cuda.get_device_name(0)
                     return f"✓ CUDA {gpu_name}"
                 else:
                     return f"✓ {gpu_count}× CUDA GPUs"
-            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            elif (
+                torch is not None
+                and hasattr(torch.backends, "mps")
+                and torch.backends.mps.is_available()
+            ):
                 return "✓ Apple Metal GPU"
-        except ImportError:
+        except Exception:
             pass
 
         return "None detected"

@@ -5012,11 +5012,17 @@ class ExclusionFileSelector(ReviewBase):
         task_file_hash = None
         status_dir = self.task_root / "status"
         if status_dir.exists():
-            # Find .py files in status directory
-            py_files = list(status_dir.glob("*.py"))
-            if py_files:
-                # Use the first .py file found (typically only one task file)
+            # Prefer the original task source over generated reprocess tasks.
+            py_files = sorted(status_dir.glob("*.py"))
+            source_task_candidates = [
+                path for path in py_files if not path.stem.endswith("_Reprocess")
+            ]
+            if source_task_candidates:
+                task_file_path = source_task_candidates[0]
+            elif py_files:
                 task_file_path = py_files[0]
+
+            if task_file_path is not None:
                 task_file_relative = f"status/{task_file_path.name}"
                 # Calculate SHA256 hash of task file for integrity
                 if task_file_path.exists():

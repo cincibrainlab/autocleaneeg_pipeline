@@ -116,6 +116,8 @@ def generate_reprocess_task_from_original(
             new_body: list[ast.stmt] = []
             for stmt in node.body:
                 modified_stmt = self.visit(stmt)
+                if self._is_manual_ica_rejection_call(modified_stmt):
+                    continue
                 new_body.append(modified_stmt)
 
                 if (
@@ -205,6 +207,21 @@ def generate_reprocess_task_from_original(
             node.body = new_body
             self.in_run_method = False
             return node
+
+        def _is_manual_ica_rejection_call(self, node: ast.AST) -> bool:
+            if not (
+                isinstance(node, ast.Expr)
+                and isinstance(node.value, ast.Call)
+                and isinstance(node.value.func, ast.Attribute)
+                and node.value.func.attr == "apply_ica_component_rejection"
+            ):
+                return False
+
+            for keyword in node.value.keywords:
+                if keyword.arg == "manual_rejected_components":
+                    return True
+
+            return False
 
         def visit_Call(self, node: ast.Call):  # type: ignore[override]
             if not self.in_run_method:

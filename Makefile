@@ -7,6 +7,7 @@
 SERVE_WORKSPACE ?= $(HOME)/Documents/Autoclean-EEG
 SERVE_MODE ?= live
 AUTOCLEAN_CLI ?= autocleaneeg-pipeline
+PYTEST ?= python scripts/run_pytest.py
 
 ifneq ("$(wildcard .venv/bin/autocleaneeg-pipeline)","")
 AUTOCLEAN_CLI := .venv/bin/autocleaneeg-pipeline
@@ -145,39 +146,39 @@ check-fix: ## Run code quality checks and auto-fix issues
 # Testing
 test: ## Run unit tests
 	@echo "🧪 Running unit tests..."
-	@pytest tests/unit/ -v
+	@$(PYTEST) tests/unit/ -v
 
 test-quick: ## Run fast ingestion unit tests
 	@echo "🧪 Running ingestion unit tests..."
-	@pytest tests/unit/utils/test_ingestion.py -v
+	@$(PYTEST) tests/unit/utils/test_ingestion.py -v
 
 test-unit-short: ## Run unit tests (fail fast)
 	@echo "🧪 Running unit tests (fast fail)..."
-	@pytest tests/unit/ -q --maxfail=1
+	@$(PYTEST) tests/unit/ -q --maxfail=1
 
 test-ingestion: ## Run ingestion unit tests
 	@echo "🧪 Running ingestion unit tests..."
-	@pytest tests/unit/utils/test_ingestion.py -v
+	@$(PYTEST) tests/unit/utils/test_ingestion.py -v
 
 test-cov: ## Run tests with coverage reporting
 	@echo "🧪 Running tests with coverage..."
-	@pytest tests/unit/ --cov=autoclean --cov-report=term-missing --cov-report=html
+	@$(PYTEST) tests/unit/ --cov=autoclean --cov-report=term-missing --cov-report=html
 
 test-integration: ## Run integration tests
 	@echo "🧪 Running integration tests..."
-	@pytest tests/integration/ -v --tb=short
+	@$(PYTEST) tests/integration/ -v --tb=short
 
 test-integration-short: ## Run integration tests (fail fast)
 	@echo "🧪 Running integration tests (fast fail)..."
-	@pytest tests/integration/ -q --tb=short --maxfail=1
+	@$(PYTEST) tests/integration/ -q --tb=short --maxfail=1
 
 test-perf: ## Run performance benchmarks
 	@echo "🏃 Running performance benchmarks..."
-	@pytest tests/performance/ --benchmark-only -v
+	@$(PYTEST) tests/performance/ --benchmark-only -v
 
 test-all: ## Run all tests (unit + integration)
 	@echo "🧪 Running all tests..."
-	@pytest tests/ -v --tb=short --maxfail=10
+	@$(PYTEST) tests/ -v --tb=short --maxfail=10
 
 # CI Simulation
 ci-check: ## Run the same checks as CI pipeline
@@ -187,13 +188,13 @@ ci-check: ## Run the same checks as CI pipeline
 	@python3 scripts/check_code_quality.py
 	@echo ""
 	@echo "2/4 Unit Tests..."
-	@pytest tests/unit/ -v --tb=short --maxfail=5
+	@$(PYTEST) tests/unit/ -v --tb=short --maxfail=5
 	@echo ""
 	@echo "3/4 Integration Tests..."
-	@pytest tests/integration/ -v --tb=short --maxfail=3 || echo "⚠️ Integration tests may fail - that's expected"
+	@$(PYTEST) tests/integration/ -v --tb=short --maxfail=3 || echo "⚠️ Integration tests may fail - that's expected"
 	@echo ""
 	@echo "4/4 Performance Tests..."
-	@pytest tests/performance/ --benchmark-only --benchmark-min-rounds=1 -v || echo "⚠️ Performance tests are optional"
+	@$(PYTEST) tests/performance/ --benchmark-only --benchmark-min-rounds=1 -v || echo "⚠️ Performance tests are optional"
 	@echo ""
 	@echo "✅ CI simulation completed!"
 
