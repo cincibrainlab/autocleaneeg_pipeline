@@ -80,7 +80,7 @@ Once AutoClean is installed, you only need to remember these commands:
 
 .. code-block:: bash
 
-   autoclean version
+   autocleaneeg-pipeline version
 
 This should show you the AutoClean version number.
 
@@ -88,7 +88,7 @@ This should show you the AutoClean version number.
 
 .. code-block:: bash
 
-   autoclean setup
+   autocleaneeg-pipeline config setup
 
 This runs a clean setup wizard that creates your personal AutoClean workspace in Documents/Autoclean-EEG.
 
@@ -97,10 +97,7 @@ This runs a clean setup wizard that creates your personal AutoClean workspace in
 .. code-block:: bash
 
    # Built-in tasks only
-   autoclean list-tasks
-   
-   # Include your custom tasks too
-   autoclean list-tasks --include-custom
+   autocleaneeg-pipeline list-tasks
 
 This shows all the processing workflows you can use.
 
@@ -108,7 +105,7 @@ This shows all the processing workflows you can use.
 
 .. code-block:: bash
 
-   autoclean process RestingEyesOpen my_data_file.raw
+   autocleaneeg-pipeline process RestingEyesOpen my_data_file.raw
 
 Replace "RestingEyesOpen" with your task name and "my_data_file.raw" with your actual file.
 
@@ -116,20 +113,20 @@ Replace "RestingEyesOpen" with your task name and "my_data_file.raw" with your a
 
 .. code-block:: bash
 
-   # Add a custom task
-   autoclean task add my_custom_task.py
+   # Install a task file into the workspace
+   autocleaneeg-pipeline task install my_custom_task.py --source file
    
-   # List your custom tasks
-   autoclean task list
+   # List tasks
+   autocleaneeg-pipeline task list
    
-   # Remove a custom task
-   autoclean task remove MyTaskName
+   # Remove a workspace task
+   autocleaneeg-pipeline task delete MyTaskName
 
 **6. Check your results:**
 
 .. code-block:: bash
 
-   autoclean config show
+   autocleaneeg-pipeline config show
 
 This shows where your results are saved.
 
@@ -138,16 +135,16 @@ This shows where your results are saved.
 .. code-block:: bash
 
    # Export all database access logs
-   autoclean export-access-log --output audit-trail.jsonl
+   autocleaneeg-pipeline export-access-log --output audit-trail.jsonl
    
    # Export with date filtering
-   autoclean export-access-log --start-date 2025-01-01 --end-date 2025-01-31 --output monthly-audit.jsonl
+   autocleaneeg-pipeline export-access-log --start-date 2025-01-01 --end-date 2025-01-31 --output monthly-audit.jsonl
    
    # Export to CSV for spreadsheet analysis
-   autoclean export-access-log --format csv --output audit-data.csv
+   autocleaneeg-pipeline export-access-log --format csv --output audit-data.csv
    
    # Just verify database integrity (no export)
-   autoclean export-access-log --verify-only
+   autocleaneeg-pipeline export-access-log --verify-only
 
 This creates detailed logs of all processing activities for compliance and research documentation.
 
@@ -182,7 +179,7 @@ You should see your .raw, .set, or other EEG files listed.
 
 .. code-block:: bash
 
-   autoclean process RestingEyesOpen subject001.raw
+   autocleaneeg-pipeline process RestingEyesOpen subject001.raw
 
 Replace "subject001.raw" with your actual filename.
 
@@ -194,7 +191,7 @@ You'll see messages showing the progress. When it's done, you'll see "Processing
 
 .. code-block:: bash
 
-   autoclean config show
+   autocleaneeg-pipeline config show
 
 This tells you where to find your processed data and reports.
 
@@ -214,14 +211,14 @@ This tells you where to find your processed data and reports.
 - /Users/yourname/Research (Mac)
 
 🆘 What If Something Goes Wrong?
--------------------------------
+--------------------------------
 
 **"Command not found" error:**
 This means AutoClean isn't installed properly. Try:
 
 .. code-block:: bash
 
-   pip install autocleaneeg-pipeline
+   uv tool install autocleaneeg-pipeline
 
 **"File not found" error:**
 Check that you're in the right folder and the filename is correct:
@@ -233,7 +230,8 @@ Check that you're in the right folder and the filename is correct:
    ls     # Mac/Linux
 
 **"Permission denied" error:**
-Try running the command as administrator (Windows) or with sudo (Mac/Linux).
+Prefer the normal user install path with ``uv tool install autocleaneeg-pipeline``
+instead of using ``sudo`` or an administrator shell.
 
 **AutoClean seems stuck:**
 - Wait a few minutes - EEG processing takes time

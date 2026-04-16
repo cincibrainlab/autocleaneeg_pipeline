@@ -91,14 +91,14 @@ Create a new Python file in your workspace tasks folder:
    # Option 1: Drop the file into your workspace tasks folder
    # ~/Documents/Autoclean-EEG/tasks/my_custom_task.py
    
-   # Option 2: Use CLI to add the task
-   autoclean task add my_custom_task.py
+   # Option 2: Use CLI to install the task into the workspace
+   autocleaneeg-pipeline task install my_custom_task.py --source file
    
    # AutoClean automatically discovers it
-   autoclean task list
+   autocleaneeg-pipeline task list
    
    # Use your custom task
-   autoclean process MyCustomTask my_data.raw
+   autocleaneeg-pipeline process MyCustomTask my_data.raw
 
 That's it! AutoClean will automatically find and use your custom task.
 
@@ -389,13 +389,13 @@ Your task configuration controls every aspect of processing. Here are the key se
 .. code-block:: bash
 
    # Test with a small file first
-   autoclean process MyCustomTask test_data.raw --dry-run
+   autocleaneeg-pipeline process MyCustomTask test_data.raw --dry-run
    
    # Run actual processing
-   autoclean process MyCustomTask test_data.raw
+   autocleaneeg-pipeline process MyCustomTask test_data.raw
    
    # Check the results
-   autoclean config show
+   autocleaneeg-pipeline config show
 
 **Validate processing quality:**
 
@@ -427,18 +427,18 @@ Your task configuration controls every aspect of processing. Here are the key se
 - Explain why you chose specific values
 - Note any data-specific requirements
 
-🆘 Troubleshooting Custom Tasks
-------------------------------
+Troubleshooting Custom Tasks
+----------------------------
 
 **Task not found:**
 
 .. code-block:: bash
 
    # Check task was discovered
-   autoclean task list --include-custom
+   autocleaneeg-pipeline task list
    
    # Verify file is in correct location
-   autoclean config show
+   autocleaneeg-pipeline config show
    
    # List files in tasks directory
    ls ~/Documents/Autoclean-EEG/tasks/
@@ -448,7 +448,7 @@ Your task configuration controls every aspect of processing. Here are the key se
 .. code-block:: bash
 
    # Check logs for detailed error messages
-   autoclean config show
+   autocleaneeg-pipeline config show
    # Look in output/*/logs/ folder
 
 **Poor results:**

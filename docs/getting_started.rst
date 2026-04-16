@@ -6,11 +6,11 @@ AutoClean is a framework for automated EEG data processing built on MNE-Python. 
 Installation
 ------------
 
-Install AutoClean using Python's package manager:
+Install AutoClean using `uv`:
 
 .. code-block:: bash
 
-   pip install autocleaneeg-pipeline
+   uv tool install autocleaneeg-pipeline
 
 MATLAB-backed workflows are optional. If you need MATLAB routes or MATLAB-backed blocks, continue with :doc:`tutorials/matlab_integration` after the base install.
 
@@ -19,12 +19,12 @@ Workspace Setup
 
 AutoClean uses a simple "drop-and-go" workflow centered around a workspace directory. Set this up once:
 
-.. code-block:: python
+.. code-block:: bash
 
-   import subprocess
-   subprocess.run(["autoclean", "setup"])
+   autocleaneeg-pipeline config setup
 
-Or run this from your file manager by opening a terminal/command prompt and typing ``autoclean setup``.
+This launches the current workspace configuration flow and records the active
+workspace location for later CLI runs.
 
 This creates a workspace directory (typically ``~/Documents/AutoClean-EEG``) with a simple structure:
 
@@ -33,6 +33,28 @@ This creates a workspace directory (typically ``~/Documents/AutoClean-EEG``) wit
    AutoClean-EEG/
    ├── tasks/                    # Drop custom task files here
    └── output/                   # All processing results
+
+Serve Workflow
+--------------
+
+If you are using the route-based Serve operator workflow instead of the basic
+CLI/Python path, use the commands with this split:
+
+- ``autocleaneeg-serve`` for normal launcher commands such as foreground start,
+  ``up``, ``down``, ``restart``, and ``status``
+- ``autocleaneeg-pipeline serve ...`` for workspace selection, route
+  management, validation, deployment, queue inspection, and dispatcher control
+
+Typical Serve setup:
+
+.. code-block:: bash
+
+   autocleaneeg-pipeline serve workspace --mode new --path /path/to/serve-workspace
+   autocleaneeg-serve up
+   autocleaneeg-pipeline serve route list --path /path/to/serve-workspace
+   autocleaneeg-serve status
+
+For the full route workflow, see :doc:`serve_ui_workflow`.
 
 Python API Workflow
 --------------------
@@ -171,7 +193,7 @@ Here's a complete example of the typical AutoClean workflow:
 Results are organized in timestamped folders that you can browse with your file manager. Each processing run creates a complete record including cleaned data, quality reports, and processing logs.
 
 📈 Output and Results
---------------------
+---------------------
 
 AutoClean creates comprehensive outputs for every processing run:
 
@@ -200,22 +222,21 @@ All results are organized in timestamped folders so you never lose previous anal
 - :doc:`api_reference/index` - Complete technical reference
 
 **Support**
-- Check our FAQ for common questions
-- Visit our GitHub issues page for bug reports
-- Join our community forums for discussions
+- Check the tutorials and troubleshooting pages first
+- Use GitHub issues for bugs and documentation gaps: ``https://github.com/cincibrainlab/autoclean_pipeline/issues``
 
 **Quick Troubleshooting**
 
 .. code-block:: bash
 
    # Check if AutoClean is installed correctly
-   autoclean version
+   autocleaneeg-pipeline version
    
    # Verify your workspace setup
-   autoclean config show
+   autocleaneeg-pipeline config show
    
    # List available tasks
-   autoclean list-tasks
+   autocleaneeg-pipeline list-tasks
 
 🚀 Next Steps
 -------------

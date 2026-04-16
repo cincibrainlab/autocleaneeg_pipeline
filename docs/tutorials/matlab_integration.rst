@@ -22,7 +22,7 @@ Base install:
 
 .. code-block:: bash
 
-   pip install autocleaneeg-pipeline
+   uv tool install autocleaneeg-pipeline
 
 MATLAB-enabled install:
 
@@ -39,7 +39,7 @@ Recommended local workflow on this repo:
 
 Important rules:
 
-- Do not assume ``pip install autocleaneeg-pipeline`` alone enables MATLAB.
+- Do not assume the base AutoClean install alone enables MATLAB.
 - Do not assume ``uv tool install`` is enough for MATLAB-backed routes.
 - Use one MATLAB-capable interpreter for the CLI, worker, and engine.
 

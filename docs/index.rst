@@ -1,17 +1,18 @@
 AutoClean EEG Pipeline
 ======================
 
-**AutoClean** makes EEG data processing simple and accessible for everyone - from researchers with no programming experience to advanced developers building custom analysis workflows.
+**AutoClean** provides task-driven EEG preprocessing, review, and operational
+workflows for research teams using MNE-Python.
 
 🎯 **For Non-Technical Users**
 ------------------------------
 
 If you're new to EEG processing or programming, AutoClean provides:
 
-* **One-click setup**: Install and configure your workspace in minutes
-* **Web-based task builder**: Create processing pipelines through an intuitive interface  
-* **Drop-and-go workflow**: Simply drop your task files and run
-* **No coding required**: Process your data with simple commands
+* **Workspace setup**: Configure a local workspace for tasks and outputs
+* **Task-driven processing**: Run built-in or workspace-installed tasks from the CLI
+* **Serve workflow**: Use the web/API and TUI surfaces for route-based operation
+* **Published guides**: Follow the getting-started and tutorial pages for supported workflows
 * **Serve docs portal**: Start with `Serve Docs Portal <serve-docs-portal.html>`_ if you want a browsable local menu instead of a single standalone guide page
 * **Serve UI tutorial**: Read :doc:`serve_ui_workflow` for the CLI-first setup and daily-use workflow
 * **Serve tutorial**: Open `First Route Tutorial <serve-first-route-tutorial.html>`_ for the step-by-step workflow from workspace creation through Draft validation and Production promotion
@@ -39,14 +40,14 @@ Key Features
 * **Cross-Platform**: Works on Windows, Mac, and Linux
 * **Reproducible**: Consistent results across different users and systems
 * **Extensible**: Easy to add new processing methods and experimental paradigms
-* **Compliance Ready**: Tamper-proof audit trails and integrity verification for regulated environments
+* **Audit tooling**: Export and inspect access logs for research and operational review
 
 Why Choose AutoClean?
 ---------------------
 
 **Consistent Results**: Eliminates variability between researchers and labs by providing standardized, validated processing workflows.
 
-**Easy to Use**: Whether you're clicking through a web interface or writing Python code, AutoClean adapts to your preferred way of working.
+**Multiple entrypoints**: Use the CLI, Python API, TUI, or Serve workflow depending on your deployment style.
 
 **Research-Focused**: Built by neuroscientists for neuroscientists, with features that address real research needs and workflows.
 
@@ -68,23 +69,37 @@ AutoClean is built around simple, intuitive concepts:
    Simply drop task files into your workspace - AutoClean automatically finds and makes them available for use.
 
 Quick Start Examples
--------------------
+--------------------
 
 **🎯 For Non-Technical Users (Command Line)**
 
 .. code-block:: bash
 
    # Install AutoClean
-   pip install autocleaneeg-pipeline
+   uv tool install autocleaneeg-pipeline
    
-   # Run first-time setup
-   autoclean setup
+   # Set up or reconfigure your workspace
+   autocleaneeg-pipeline config setup
    
    # Process your data (that's it!)
-   autoclean process RestingEyesOpen my_eeg_data.raw
+   autocleaneeg-pipeline process RestingEyesOpen my_eeg_data.raw
    
-   # Export audit trail for compliance
-   autoclean export-access-log --output audit.jsonl
+   # Export audit trail
+   autocleaneeg-pipeline export-access-log --output audit.jsonl
+
+Important boundaries
+--------------------
+
+- GitHub issues are the public path for bug reports and documentation gaps.
+- Optional integrations such as MATLAB, Redis/RQ, and GUI tooling are not part
+  of the minimal base workflow.
+- Audit logging and export tools can support internal controls, but the
+  repository does not claim certification for any regulatory framework by
+  itself.
+- GitHub Pages publishing comes from the repository workflow on `main`, not a
+  manually curated docs branch.
+- For Serve, use ``autocleaneeg-serve`` as the normal launcher and
+  ``autocleaneeg-pipeline serve ...`` for lower-level operator control.
 
 **🔧 For Technical Users (Python)**
 
@@ -112,6 +127,8 @@ Quick Start Examples
    :caption: Getting Started
 
    getting_started
+   command_reference
+   serve_command_reference
    serve_ui_workflow
 
 .. toctree::

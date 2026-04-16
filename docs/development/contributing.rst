@@ -29,14 +29,15 @@ Development Setup
    .. code-block:: bash
 
       git clone https://github.com/cincibrainlab/autoclean_pipeline.git
-      cd autoclean-eeg
-      pip install -e ".[dev]"
+      cd autoclean_pipeline
+      uv tool install -e --upgrade . --force
+      make install-dev
 
 2. Set up pre-commit hooks:
 
    .. code-block:: bash
 
-      pre-commit install
+      python3 scripts/uv_tools.py run pre-commit install
 
 Code Style
 ----------
@@ -46,16 +47,16 @@ We use several tools to maintain code quality:
 * `Black <https://black.readthedocs.io/>`_ for code formatting
 * `isort <https://pycqa.github.io/isort/>`_ for import sorting
 * `mypy <http://mypy-lang.org/>`_ for static type checking
-* `flake8 <https://flake8.pycqa.org/>`_ for style guide enforcement
+* `Ruff <https://docs.astral.sh/ruff/>`_ for linting
 
 Run the following before committing:
 
 .. code-block:: bash
 
-   black .
-   isort .
+   black src tests scripts
+   isort src tests scripts
    mypy src/autoclean
-   flake8 src/autoclean
+   ruff check src tests scripts
 
 Testing
 -------
@@ -64,13 +65,13 @@ We use pytest for testing. Run the test suite:
 
 .. code-block:: bash
 
-   pytest
+   make test
 
 For coverage report:
 
 .. code-block:: bash
 
-   pytest --cov=autoclean
+   make test-cov
 
 Documentation
 -------------
@@ -79,8 +80,8 @@ We use Sphinx for documentation. Build the docs:
 
 .. code-block:: bash
 
-   cd docs
-   make html
+   make docs-setup
+   make docs-build
 
 Pull Request Process
 --------------------

@@ -1,36 +1,30 @@
 Troubleshooting Guide
-====================
+=====================
 
 This guide helps you solve common issues with AutoClean. Most problems can be resolved quickly by following these steps.
 
 🔧 Installation Issues
 ----------------------
 
-**"autoclean command not found"**
+**"`autocleaneeg-pipeline` command not found"**
 
 .. code-block:: bash
 
    # Check if AutoClean is installed
-   pip list | grep autocleaneeg-pipeline
+   uv tool list | grep autocleaneeg-pipeline
    
    # If not found, install it
-   pip install autocleaneeg-pipeline
-   
-   # Some systems need pip3
-   pip3 install autocleaneeg-pipeline
+   uv tool install autocleaneeg-pipeline
    
    # Verify installation
-   autoclean version
+   autocleaneeg-pipeline version
 
 **"Permission denied" errors**
 
 .. code-block:: bash
 
-   # On Windows: Run as administrator
-   # Right-click Command Prompt → "Run as administrator"
-   
-   # On Mac/Linux: Use sudo (be careful!)
-   sudo pip install autocleaneeg-pipeline
+   # Prefer an isolated uv install rather than sudo/pip into the system Python
+   uv tool install autocleaneeg-pipeline
 
 **Python/pip not found**
 
@@ -46,10 +40,10 @@ This guide helps you solve common issues with AutoClean. Most problems can be re
 .. code-block:: bash
 
    # Force reconfiguration
-   autoclean setup
+   autocleaneeg-pipeline config setup
    
    # Check current configuration
-   autoclean config show
+   autocleaneeg-pipeline config show
 
 **Workspace deleted or moved**
 
@@ -69,10 +63,10 @@ AutoClean detects workspace deletion automatically. When you run any command, it
 .. code-block:: bash
 
    # Show current workspace location
-   autoclean config show
+   autocleaneeg-pipeline config show
    
    # Reset to default location
-   autoclean config reset --confirm
+   autocleaneeg-pipeline config reset --confirm
 
 📁 File and Data Issues
 -----------------------
@@ -90,7 +84,7 @@ AutoClean detects workspace deletion automatically. When you run any command, it
    dir     # Windows
    
    # Use full file path if needed
-   autoclean process RestingEyesOpen "/full/path/to/your/file.raw"
+   autocleaneeg-pipeline process RestingEyesOpen "/full/path/to/your/file.raw"
 
 **Unsupported file format**
 
@@ -110,21 +104,18 @@ If your file isn't supported:
    
    # If file opens elsewhere but fails in AutoClean:
    # Check the logs for detailed error messages
-   autoclean config show
+   autocleaneeg-pipeline config show
    # Look in output/*/logs/ folder
 
 🎯 Task and Processing Issues
-----------------------------
+-----------------------------
 
 **"Task not found" errors**
 
 .. code-block:: bash
 
    # List available tasks
-   autoclean list-tasks
-   
-   # Include custom tasks
-   autoclean list-tasks --include-custom
+   autocleaneeg-pipeline list-tasks
    
    # Check exact spelling (case-sensitive!)
    # Use: RestingEyesOpen
@@ -135,7 +126,7 @@ If your file isn't supported:
 .. code-block:: bash
 
    # Check task file is in correct location
-   autoclean config show
+   autocleaneeg-pipeline config show
    ls ~/Documents/Autoclean-EEG/tasks/
    
    # Verify Python syntax
@@ -152,7 +143,7 @@ If your file isn't supported:
    # Close other programs if needed
    
    # Try with a smaller file first
-   autoclean process RestingEyesOpen small_test_file.raw
+   autocleaneeg-pipeline process RestingEyesOpen small_test_file.raw
    
    # Check logs for error details
    # Look in workspace/output/*/logs/
@@ -165,7 +156,7 @@ If your file isn't supported:
 4. **Verify experimental paradigm**: Make sure you're using the right task type
 
 ⚡ Performance Issues
---------------------
+---------------------
 
 **Processing takes too long**
 
@@ -201,7 +192,7 @@ AutoClean creates several copies of your data during processing:
    # Delete old output folders you don't need
 
 🔍 Output and Results Issues
----------------------------
+----------------------------
 
 **No output files generated**
 
@@ -211,7 +202,7 @@ AutoClean creates several copies of your data during processing:
    # Look for "Processing completed successfully!" message
    
    # Check output directory
-   autoclean config show
+   autocleaneeg-pipeline config show
    ls ~/Documents/Autoclean-EEG/output/
    
    # Check logs for errors
@@ -232,7 +223,7 @@ AutoClean creates several copies of your data during processing:
 4. **Compare with original**: Is original data good quality?
 
 💻 Command Line Issues
----------------------
+----------------------
 
 **Commands not working**
 
@@ -254,12 +245,13 @@ AutoClean creates several copies of your data during processing:
    # AutoClean should work with normal user permissions
    
    # If needed on Mac/Linux:
-   sudo autoclean setup
+   autocleaneeg-pipeline config setup
 
 **Terminal/Command prompt closes**
 
 - Don't close the window while processing is running
-- If it closes unexpectedly, restart and run autoclean config show to find partial results
+- If it closes unexpectedly, restart and run
+  ``autocleaneeg-pipeline config show`` to find partial results
 
 🌐 Network and Environment Issues
 ---------------------------------
@@ -268,18 +260,17 @@ AutoClean creates several copies of your data during processing:
 
 .. code-block:: bash
 
-   # If using conda/miniconda
+   # If using conda/miniconda, activate it first
    conda activate your_environment
-   pip install autocleaneeg-pipeline
-   
-   # Or install in conda directly
-   conda install -c conda-forge autocleaneeg-pipeline
+
+   # Then prefer the same uv-based install flow used elsewhere in the docs
+   uv tool install autocleaneeg-pipeline
 
 **Corporate firewall blocking installation**
 
 - Contact IT department for assistance
 - May need to use proxy settings or internal package repository
-- Alternative: download offline installer from IT
+- Alternative: ask IT to mirror the Python and uv dependencies your lab needs
 
 🆘 Getting More Help
 --------------------
@@ -287,19 +278,18 @@ AutoClean creates several copies of your data during processing:
 **Still having problems?**
 
 1. **Check error messages carefully**: Often they tell you exactly what's wrong
-2. **Look at log files**: Detailed information in output/*/logs/
+2. **Look at log files**: Detailed information in ``output/*/logs/``
 3. **Try with test data**: Confirm AutoClean works with known-good files
 4. **Update AutoClean**: New versions fix common issues
 
 .. code-block:: bash
 
    # Update to latest version
-   pip install --upgrade autocleaneeg-pipeline
+   uv tool upgrade autocleaneeg-pipeline
 
 **Report bugs or ask for help:**
 
 - GitHub Issues: Report specific bugs with error messages
-- Community Forums: Ask questions and share solutions
 - Documentation: Check other tutorial sections
 
 **What to include when asking for help:**
@@ -308,7 +298,7 @@ AutoClean creates several copies of your data during processing:
 2. **Command used**: What exactly did you type?
 3. **File type**: What format is your EEG data?
 4. **System info**: Windows/Mac/Linux, Python version
-5. **AutoClean version**: Output of `autoclean version`
+5. **AutoClean version**: Output of `autocleaneeg-pipeline version`
 
 🧹 Clean Installation
 ---------------------
@@ -318,16 +308,13 @@ AutoClean creates several copies of your data during processing:
 .. code-block:: bash
 
    # Uninstall AutoClean
-   pip uninstall autocleaneeg-pipeline
-   
-   # Clear pip cache
-   pip cache purge
+   uv tool uninstall autocleaneeg-pipeline
    
    # Reinstall
-   pip install autocleaneeg-pipeline
+   uv tool install autocleaneeg-pipeline --force
    
    # Reset configuration
-   autoclean config reset --confirm
+   autocleaneeg-pipeline config reset --confirm
 
 **Complete reset:**
 

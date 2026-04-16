@@ -16,14 +16,10 @@ Setup Your Environment
 
 Install and set up AutoClean:
 
-.. code-block:: python
+.. code-block:: bash
 
-   # Install if needed
-   import subprocess
-   subprocess.run(["pip", "install", "autocleaneeg-pipeline"])
-   
-   # Set up workspace
-   subprocess.run(["autoclean", "setup"])
+   uv tool install autocleaneeg-pipeline
+   autocleaneeg-pipeline config setup
 
 This creates your workspace folder (typically ``~/Documents/AutoClean-EEG``) with the drop-and-go structure.
 
@@ -146,9 +142,9 @@ Here's a complete workflow from setup to results:
    from pathlib import Path
    from autoclean import Pipeline
    
-   # Step 1: Setup (run once)
-   import subprocess
-   subprocess.run(["autoclean", "setup"])
+   # Step 1: Setup (run once from the terminal)
+   # uv tool install autocleaneeg-pipeline
+   # autocleaneeg-pipeline config setup
    
    # Step 2: Create custom task at Config Wizard
    # Visit: https://cincibrainlab.github.io/Autoclean-ConfigWizard/
@@ -171,7 +167,7 @@ This workflow integrates Python processing with familiar file management, making
 
 .. code-block:: bash
 
-   autoclean process RestingEyesOpen subject001_rest.raw
+   autocleaneeg-pipeline process RestingEyesOpen subject001_rest.raw
 
 **What you'll see:**
 - Welcome message and setup information
@@ -195,7 +191,7 @@ This workflow integrates Python processing with familiar file management, making
 
 .. code-block:: bash
 
-   autoclean config show
+   autocleaneeg-pipeline config show
 
 This shows your workspace location. Your results are in the "output" folder.
 
@@ -267,15 +263,15 @@ This shows your workspace location. Your results are in the "output" folder.
 - Artifact-free epochs (if applicable)
 - ICA components and artifact classifications
 
-🆘 Troubleshooting Common Issues
--------------------------------
+Troubleshooting Common Issues
+-----------------------------
 
 **"Task not found" error:**
 
 .. code-block:: bash
 
    # Check available tasks
-   autoclean list-tasks
+   autocleaneeg-pipeline list-tasks
    
    # Make sure you typed the task name exactly
 
@@ -299,7 +295,7 @@ This shows your workspace location. Your results are in the "output" folder.
 **No results appear:**
 - Check that processing completed successfully
 - Look for error messages in the command window
-- Verify the output folder location with `autoclean config show`
+- Verify the output folder location with ``autocleaneeg-pipeline config show``
 
 🎉 Success! What's Next?
 ------------------------
@@ -333,7 +329,7 @@ Congratulations! You've successfully processed your first EEG file with AutoClea
 
 **Get help when needed:**
 - Check our troubleshooting guide
-- Ask on the community forums
+- Use GitHub issues for bugs and documentation gaps
 - Contact your lab's technical support
 
 Happy analyzing! 🧠

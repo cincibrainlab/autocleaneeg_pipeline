@@ -42,19 +42,19 @@ AutoClean includes a specialized task for resting state data that:
 
 .. code-block:: bash
 
-   autoclean process RestingEyesOpen subject001_rest.raw
+   autocleaneeg-pipeline process RestingEyesOpen subject001_rest.raw
 
 **For multiple files in a folder:**
 
 .. code-block:: bash
 
-   autoclean process RestingEyesOpen data_folder/
+   autocleaneeg-pipeline process RestingEyesOpen data_folder/
 
 **With custom output location:**
 
 .. code-block:: bash
 
-   autoclean process RestingEyesOpen subject001_rest.raw --output results/
+   autocleaneeg-pipeline process RestingEyesOpen subject001_rest.raw --output results/
 
 ⚙️ Understanding the Processing Steps
 -------------------------------------
@@ -234,7 +234,7 @@ The default RestingEyesOpen task works well for most studies, but you can custom
 
 .. code-block:: bash
 
-   autoclean process RestingEyesOpen data/
+   autocleaneeg-pipeline process RestingEyesOpen data/
 
 **Monitor progress:**
 - AutoClean will process each file sequentially

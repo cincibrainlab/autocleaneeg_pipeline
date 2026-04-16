@@ -3,8 +3,8 @@ Tutorials
 
 Welcome to the AutoClean tutorials! These step-by-step guides will help you master EEG processing, whether you're new to the field or an experienced researcher.
 
-🎯 **For New Users**
--------------------
+For New Users
+-------------
 
 Start here if you're new to EEG processing or AutoClean:
 
@@ -16,8 +16,13 @@ Start here if you're new to EEG processing or AutoClean:
    first_time_processing
    understanding_results
 
-📊 **For Researchers**
----------------------
+Command references:
+
+- :doc:`../command_reference`
+- :doc:`../serve_command_reference`
+
+For Researchers
+---------------
 
 Practical guides for common research scenarios:
 
@@ -29,8 +34,8 @@ Practical guides for common research scenarios:
    biosemi_bdf_guide
    compliance_and_audit
 
-🔧 **For Technical Users**
--------------------------
+For Technical Users
+-------------------
 
 Advanced customization and development:
 
@@ -42,8 +47,8 @@ Advanced customization and development:
    creating_a_custom_mixin
    matlab_integration
 
-🐳 **Deployment & Admin**
-------------------------
+Deployment & Admin
+------------------
 
 For IT administrators and power users:
 

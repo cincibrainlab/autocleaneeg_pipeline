@@ -1,14 +1,15 @@
 Development
 ============
 
-This guide provides information for developers who want to contribute to or extend AutoClean EEG.
+This guide provides information for developers who want to contribute to or
+extend AutoClean EEG.
 
 Setting Up Development Environment
 ----------------------------------
 
 Prerequisites:
 
-- Python 3.10 or higher
+- Python 3.11 to 3.13
 - Git
 
 1. Clone the repository:
@@ -18,18 +19,18 @@ Prerequisites:
       git clone https://github.com/cincibrainlab/autoclean_pipeline
       cd autoclean_pipeline
 
-2. Create a virtual environment:
+2. Install the package as an editable `uv` tool:
 
    .. code-block:: bash
 
-      python -m venv .venv
-      source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+      uv tool install -e --upgrade . --force
 
-3. Install development dependencies:
+3. Install contributor tooling:
 
    .. code-block:: bash
 
-      pip install -e ".[dev]"
+      make install-dev
+      python3 scripts/uv_tools.py run pre-commit install
 
 Project Structure
 -----------------
@@ -37,14 +38,20 @@ Project Structure
 The project is organized as follows:
 
 - ``configs/``: Configuration templates
+- ``src/autoclean/configkit/``: Config schema helpers and schema exports
 
 - ``src/autoclean/core/``: Core classes and functionality
    - ``pipeline.py``: Main entry point for the API
    - ``task.py``: Base class for all task implementations
 
-- ``src/autoclean/io/``: Modular processing functions
+- ``src/autoclean/api/``: Serve API endpoints, auth hooks, notifications, and
+  shipped runtime web assets
+
+- ``src/autoclean/blocks/``: Optional processing and analysis blocks
+
+- ``src/autoclean/io/``: Import/export helpers
    - ``export.py``: Exporting functions
-   - ``import.py``: Importing functions
+   - ``import_.py``: Importing functions
 
 - ``src/autoclean/mixins/signal_processing/``: Signal processing related functions
 
@@ -56,10 +63,9 @@ The project is organized as follows:
 
 - ``src/autoclean/plugins/``: Import and event handling plugins
    
-- ``src/autoclean/tasks/``: Task implementations
-   - ``resting_eyes_open.py``: Resting state task
-   - ``assr_default.py``: ASSR task
-   - And others...
+- ``src/autoclean/tasks/``: Task implementations and curated built-in tasks
+
+- ``src/autoclean/tui/``: Terminal UI surfaces for Serve and operator workflows
    
 - ``src/autoclean/utils/``: Utility functions
    - ``config.py``: Configuration handling
@@ -87,12 +93,19 @@ The architecture uses a combination of:
 - **Abstract Base Classes**: For extensibility and consistent interfaces
 - **Mixins**: For shared functionality across tasks
 - **Asynchronous Processing**: For parallel file processing
-- **YAML Configuration**: For reproducible processing parameters
+- **Python Task Modules**: For reproducible task configuration and workflow logic
+
+Canonical contributor docs
+--------------------------
+
+Use these as the main sources of truth:
+
+- ``CONTRIBUTING.md`` for setup, validation, and issue reporting
+- ``README.md`` for user-facing install and supported surface guidance
+- ``docs/INDEX.md`` for documentation layout and canonical locations
 
 .. toctree::
    :maxdepth: 2
    
    development/contributing
    development/changelog
-
-

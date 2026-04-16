@@ -7,7 +7,10 @@ This directory contains the complete testing infrastructure for AutoClean EEG, d
 ### Goal: Coverage of Real Behavior, Not Coverage of Lines
 
 **Test the contract, not the implementation**
-Each mixin/function has a job — ICA removes artifacts, audit logs are tamper-proof, epoching produces correct epoch counts. Tests should verify those promises hold, not just that code runs without crashing.
+Each mixin/function has a job — ICA removes artifacts, audit logs preserve
+their expected integrity behavior, epoching produces correct epoch counts.
+Tests should verify those promises hold, not just that code runs without
+crashing.
 
 **Mock at the boundary, not inside the system**
 EEG data (MNE objects), file I/O, and databases are expensive. Mock those at the outer edge, but let the actual logic inside each function run. The goal is catching real bugs, not achieving a green coverage number with hollow mocks.
@@ -90,7 +93,7 @@ python3 -m pytest tests/integration/
 python3 -m pytest tests/unit/test_synthetic_data.py -v
 
 # Tests with coverage
-python3 -m pytest --cov=src/autoclean --cov-report=html
+python3 -m pytest --cov=autoclean --cov-report=html
 ```
 
 ## Test Data
@@ -177,7 +180,7 @@ Tests target >70% code coverage with HTML reports generated in `htmlcov/`.
 
 ### GitHub Actions Compatibility
 - Runs on Ubuntu, macOS, Windows
-- Python 3.10, 3.11, 3.12 support
+- Python 3.11, 3.12, 3.13 support
 - Dependency caching for scientific packages
 - Parallel test execution
 - Coverage reporting

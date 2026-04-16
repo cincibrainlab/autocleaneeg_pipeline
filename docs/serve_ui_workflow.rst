@@ -10,6 +10,17 @@ This tutorial shows the normal way to use AutoClean Serve:
 
 This guide is intentionally CLI-first. The web UI is a first-class operator surface, but the CLI remains the source of truth for setup, status, and operational control.
 
+Command model
+-------------
+
+Use the Serve commands with this split:
+
+* ``autocleaneeg-serve`` is the normal launcher for daemon lifecycle commands:
+  foreground start, ``up``, ``down``, ``restart``, ``status``, and ``share``
+* ``autocleaneeg-pipeline serve ...`` is the lower-level control surface for
+  workspace setup, route management, validation, deployment, dispatcher
+  control, queue inspection, API/TUI/worker commands, and mode switching
+
 Before you start
 ----------------
 
@@ -64,17 +75,18 @@ Start the UI and normal processing path:
 
 .. code-block:: bash
 
-   autocleaneeg-pipeline serve up
+   autocleaneeg-serve up
 
 That is the recommended operator command.
 
-For most users, you should not need to start ``serve api`` and ``serve run`` separately.
+For most users, you should not need to start ``serve api`` and ``serve run``
+separately.
 
 Check whether Serve is actually operational:
 
 .. code-block:: bash
 
-   autocleaneeg-pipeline serve status
+   autocleaneeg-serve status
 
 What to look for:
 
@@ -130,7 +142,8 @@ Validation checks whether the current draft config is usable. It does not publis
 To make processing use the current config, you must apply or deploy it explicitly:
 
 * in the web UI, use the Apply action in Settings
-* in the CLI, use the config deployment path that publishes the current draft into ``deploy/``
+* in the CLI, use ``autocleaneeg-pipeline serve deploy --mode <test|live>`` to
+  publish the current draft into ``deploy/``
 * route changes are not live for processing until that apply/deploy step happens
 
 Step 5: Confirm dispatcher and queue state
@@ -172,8 +185,8 @@ Daily-use commands
 
 .. code-block:: bash
 
-   autocleaneeg-pipeline serve up
-   autocleaneeg-pipeline serve status
+   autocleaneeg-serve up
+   autocleaneeg-serve status
    autocleaneeg-pipeline serve service status
    autocleaneeg-pipeline serve queue status
 
@@ -201,7 +214,7 @@ Run:
 
 .. code-block:: bash
 
-   autocleaneeg-pipeline serve status
+   autocleaneeg-serve status
    autocleaneeg-pipeline serve service status
    autocleaneeg-pipeline serve queue status
 
@@ -264,7 +277,7 @@ Recommended mental model
 Use this simple model:
 
 * ``serve workspace`` sets up or selects the normal workspace root that Serve uses
-* ``serve up`` starts the normal operator experience
-* ``serve status`` tells you whether Serve is really operational
+* ``autocleaneeg-serve up`` starts the normal operator experience
+* ``autocleaneeg-serve status`` tells you whether Serve is really operational
 * ``serve route ...`` manages routes directly from the CLI
 * ``serve service ...`` manages the dispatcher

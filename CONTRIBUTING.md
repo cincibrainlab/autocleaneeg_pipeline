@@ -1,6 +1,8 @@
 # Contributing to AutoClean EEG Pipeline
 
-We welcome contributions! This guide will help you get started.
+This repository uses `uv`, `make`, and pytest-based validation as the canonical
+contributor workflow. If a doc conflicts with this file, treat this file as the
+source of truth.
 
 ## Development Setup
 
@@ -10,15 +12,15 @@ We welcome contributions! This guide will help you get started.
    cd autoclean_pipeline
    ```
 
-2. **Install in editable mode using uv:**
+2. **Install the package as an editable uv tool:**
    ```bash
    uv tool install -e --upgrade . --force
    ```
 
-3. **Install pre-commit hooks (recommended):**
+3. **Install contributor tooling:**
    ```bash
-   pip install pre-commit
-   pre-commit install
+   make install-dev
+   python3 scripts/uv_tools.py run pre-commit install
    ```
 
 ## Development Workflow with Makefile
@@ -36,7 +38,7 @@ We use a Makefile to standardize development workflows and ensure consistency ac
 make help          # Show all available commands
 make check         # Run all code quality checks (format + lint)
 make format        # Auto-format code with black and isort
-make lint          # Run linting (ruff) and type checking (mypy)
+make lint          # Run linting (ruff)
 make test          # Run unit tests
 make test-cov      # Run tests with coverage report
 make ci-check      # Run CI-equivalent checks locally
@@ -56,9 +58,9 @@ make lint          # Check code quality
 Alternatively, you can run tools directly:
 
 ```bash
-black .
-isort .
-ruff check .
+black src tests scripts
+isort src tests scripts
+ruff check src tests scripts
 mypy src/autoclean
 ```
 
@@ -77,8 +79,8 @@ make test-all      # Run all tests (unit + integration)
 Or run pytest directly:
 
 ```bash
-pytest -q
-pytest --cov=autoclean
+pytest tests/unit -v
+pytest tests/integration -v --tb=short
 ```
 
 ## Documentation
@@ -86,6 +88,7 @@ pytest --cov=autoclean
 Build documentation locally:
 
 ```bash
+make docs-setup    # Install docs dependencies
 make docs-build    # Build documentation
 make docs-serve    # Serve documentation locally at http://localhost:8000
 ```
@@ -100,17 +103,52 @@ Documentation navigation:
 
 - main docs tree: [docs/INDEX.md](docs/INDEX.md)
 
+Docs publishing:
+
+- [`.github/workflows/docs.yml`](.github/workflows/docs.yml) is the canonical
+  GitHub Pages deployment path
+- pushes to `main` publish `docs/_build/html`
+- pull requests should validate docs in CI, not by updating a separate
+  `gh-pages` branch
+
 Frontend workflow:
 
 - the Serve frontend lives under `web/`
 - run frontend build and test commands from that directory via [web/package.json](web/package.json)
+- frontend changes should pass `cd web && npm test` and `cd web && npm run build`
+
+Validation policy:
+
+- required CI checks cover formatting, linting, unit tests, docs build, package
+  smoke checks, and frontend validation
+- heavier or environment-specific testing is maintainer-driven and should not be
+  assumed to run on every public PR
+
+Supported public entrypoints:
+
+- `autocleaneeg-pipeline`
+- `autocleaneeg-serve`
+- `autocleaneeg-tui`
+
+Serve command model:
+
+- use `autocleaneeg-serve` for the normal daemon lifecycle: foreground start,
+  `up`, `down`, `restart`, `status`, and `share`
+- use `autocleaneeg-pipeline serve ...` for workspace selection, route
+  management, validation, deployment, queue inspection, dispatcher control, and
+  lower-level API/TUI/worker commands
+
+Compatibility notes:
+
+- prefer the public entrypoints above in new docs, examples, and contributor work
+- treat older or compatibility-only paths in-tree as implementation details unless a maintainer explicitly documents them for public use
 
 ## Submitting Changes
 
 1. Create a feature branch from `main`
 2. Add tests for new functionality
 3. Update documentation as needed
-4. Ensure linting, type checking, and tests pass:
+4. Ensure linting and tests pass:
    ```bash
    make ci-check    # Run all checks (equivalent to CI)
    ```

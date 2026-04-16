@@ -22,7 +22,3 @@ clean:
 	rm -rf $(BUILDDIR)/*
 	rm -rf generated/
 	rm -rf examples/
-	
-# Special target for GitHub Pages
-gh-pages: html
-	cp -a $(BUILDDIR)/html/. ../gh-pages 

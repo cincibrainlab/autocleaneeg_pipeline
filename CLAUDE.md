@@ -1,260 +1,121 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file gives Claude Code a current, repo-local orientation for working in
+this repository.
 
-## Commit Guidelines
-- DO NOT add anything about claude in git commit messages or descriptions
-- Use conventional commit format when possible (feat:, fix:, docs:, test:, refactor:)
+## Commit Guidance
+
+- Do not mention Claude in commit messages or descriptions.
+- Prefer conventional prefixes when appropriate: `feat:`, `fix:`, `docs:`,
+  `test:`, `refactor:`.
 
 ## Project Overview
-AutoClean EEG is a sophisticated modular framework for automated EEG data processing built on MNE-Python. It supports multiple EEG paradigms (ASSR, Chirp, MMN, Resting State) with BIDS-compatible data organization and enterprise-grade audit logging.
 
-**Version 2.0.0+ introduces Python-based task files with embedded configuration, replacing YAML pipelines.**
+AutoCleanEEG Pipeline is a modular EEG preprocessing and review framework built
+on MNE-Python. The repository includes:
 
-**Stack:** MNE-Python + FastAPI + React 19 + Textual TUI + SQLite + Cloudflare Tunnels
-**Structure:** Mixin-composed Task engine + 14-route REST API + 10-page web dashboard + file-watching automation
+- the main pipeline CLI: `autocleaneeg-pipeline`
+- the Serve launcher: `autocleaneeg-serve`
+- the TUI entrypoint: `autocleaneeg-tui`
+- a Python API centered on `autoclean.Pipeline`
+- frontend source in `web/` and tracked runtime assets in
+  `src/autoclean/api/static/`
 
-For detailed architecture, module guide, data flow diagrams, and navigation guide, see [docs/CODEBASE_MAP.md](docs/CODEBASE_MAP.md).
+Treat the README and published docs as the canonical user-facing references:
 
-## Core Architecture
+- [`README.md`](README.md)
+- [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- [`docs/INDEX.md`](docs/INDEX.md)
+- [`docs/command_reference.rst`](docs/command_reference.rst)
+- [`docs/serve_command_reference.rst`](docs/serve_command_reference.rst)
 
-### Dynamic Mixin System
-The codebase uses an innovative mixin discovery system that automatically finds and combines all "*Mixin" classes:
-- **Auto-discovery**: Scans `src/autoclean/mixins/` subdirectories for mixin classes
-- **External blocks**: Also discovers plugin blocks from `~/.autoclean/blocks/`, `./blocks/`, and task-registry
-- **Dynamic combination**: Creates a single CombinedAutocleanMixins class via multiple inheritance
-- **MRO conflict detection**: Advanced error handling for method resolution order issues
-- **Collision warnings**: Detects method name conflicts between mixins
+## Repository Layout
 
-**Plugin Blocks (v2.4.0+)**: Single-file Python modules that extend Task with custom methods. Drop `*_plugin.py` files in `~/.autoclean/blocks/` to add functionality without modifying pipeline code. See `PLUGIN_BLOCKS_PLAN.md` for architecture details.
-
-### Key Components
-1. **Pipeline** (`src/autoclean/core/pipeline.py`) - Central orchestrator managing workflow
-2. **Task** (`src/autoclean/core/task.py`) - Base class inheriting from all discovered mixins
-3. **Mixins** (`src/autoclean/mixins/`) - Processing components organized by functionality:
-   - `signal_processing/` - Filtering, ICA, epoching, artifacts
-   - `viz/` - Reports, plots, topography
-   - `analysis/` - Connectivity, source localization, wavelets
-   - `utils/` - BIDS handling, file operations, validation
-
-### Plugin Architecture
-Auto-registered extensibility system:
-- **EEG Plugins** (`src/autoclean/plugins/eeg_plugins/`) - Format + montage handlers (e.g., CNT_GSN129)
-- **Event Processors** (`src/autoclean/plugins/event_processors/`) - Paradigm-specific event handling
-- **Format Plugins** (`src/autoclean/plugins/formats/`) - EEG file format support (EGI, CNT, EDF)
-
-### Task Implementation Pattern
-```python
-# Python task file with embedded configuration (v2.0.0+)
-config = {
-    "schema_version": "2025.09",
-    "montage": {"enabled": True, "value": "GSN-HydroCel-129"},
-    "resample_step": {"enabled": True, "value": 250},
-    "filtering": {
-        "enabled": True,
-        "value": {"l_freq": 1, "h_freq": 100, "notch_freqs": [60, 120]}
-    }
-}
-
-class CustomTask(Task):  # Inherits all mixins automatically
-    def run(self):
-        self.import_raw()           # From base
-
-        # Basic preprocessing steps (explicit for transparency)
-        self.resample_data()        # From mixins
-        self.filter_data()          # From mixins
-        self.drop_outer_layer()     # From mixins
-        self.assign_eog_channels()  # From mixins
-        self.trim_edges()           # From mixins
-        self.crop_duration()        # From mixins
-
-        # Channel cleaning and rereferencing
-        self.clean_bad_channels()   # From mixins
-        self.rereference_data()     # From mixins
-
-        # Advanced processing
-        self.run_ica()             # From mixins
-        self.create_regular_epochs() # From mixins
-```
+- `src/autoclean/`: package source
+- `src/autoclean/core/`: pipeline and task base classes
+- `src/autoclean/mixins/`: processing mixins
+- `src/autoclean/plugins/`: plugin and registry surfaces
+- `src/autoclean/tasks/`: built-in tasks
+- `src/autoclean/api/`: API and Serve-facing runtime code
+- `configs/`: shipped configuration assets
+- `docs/`: Sphinx documentation sources
+- `examples/`: maintained example material
+- `tests/`: unit and integration coverage
+- `web/`: frontend source for the Serve UI
 
 ## Development Commands
 
-### Code Quality & Testing
+Recommended setup:
+
 ```bash
-# Quick quality checks (recommended before commits)
-make check                      # Run all checks (format, lint, type)
-make check-fix                  # Auto-fix formatting and linting issues
-make fix-all                    # Fix all possible issues automatically
-
-# Testing
-make test                       # Run unit tests
-make test-cov                   # Run tests with coverage report
-make test-all                   # Run all tests (unit + integration)
-make ci-check                   # Run CI-equivalent checks locally
-
-# Run specific tests
-pytest tests/unit/test_pipeline.py -v                           # Specific file
-pytest tests/unit/test_pipeline.py::TestPipeline::test_init -v  # Specific method
-pytest tests/unit/ -k "pattern" -v                              # Pattern matching
-pytest tests/integration/ --benchmark-only                       # Performance tests
+make dev-setup
+autocleaneeg-pipeline --help
+autocleaneeg-serve --help
 ```
 
-### Installation & Setup
+Common checks:
+
 ```bash
-# Development setup
-make dev-setup                  # Complete dev environment setup
-pip install -e .                # Install package in editable mode
-pip install -e ".[gui]"         # Install with GUI dependencies
-
-# Standalone CLI tool
-uv tool install autocleaneeg-pipeline    # Install from PyPI
-make install-uv-tool                      # Install from source
+make check
+make check-fix
+make test
+make test-cov
+make test-all
+make ci-check
+make docs-build
 ```
 
-### CLI Usage
+Source install path used by this repo:
+
 ```bash
-# Core commands
-autocleaneeg-pipeline process RestingEyesOpen /path/to/data.raw
-autocleaneeg-pipeline list-tasks --overrides
-autocleaneeg-pipeline review --output results/
-
-# Task schema management
-autocleaneeg-pipeline task schema export -o schema.json
-autocleaneeg-pipeline task schema export --bundle
-
-# Block management (v3.0.0+)
-autocleaneeg-pipeline blocks list                    # List available processing blocks
-autocleaneeg-pipeline blocks info wavelet_threshold  # Show block metadata
-autocleaneeg-pipeline blocks update                  # Fetch latest blocks from GitHub
-autocleaneeg-pipeline blocks install autoreject      # Download block to cache
-
-# Audit log export
-autocleaneeg-pipeline export-access-log --output audit.jsonl
-autocleaneeg-pipeline export-access-log --format csv --output audit.csv
-autocleaneeg-pipeline export-access-log --verify-only
+uv tool install -e --upgrade . --force
 ```
 
-## Key File Locations
-- **Core**: `src/autoclean/core/` - Pipeline and Task base classes
-- **Mixins**: `src/autoclean/mixins/` - Processing components (signal_processing/, viz/, analysis/, utils/)
-- **Plugins**: `src/autoclean/plugins/` - Auto-registered extensions
-- **Tasks**: `src/autoclean/tasks/` - Built-in paradigm implementations
-- **Database**: `src/autoclean/database/` - SQLite with audit logging
-- **GUI**: `src/autoclean/tools/` - Review GUI and task manager
-- **Workspace**: `~/.autoclean/` or OS-specific user directory
-- **Custom Tasks**: `workspace/tasks/` - User Python task files
+## CLI Notes
 
-## Audit Trail & Compliance
-The system maintains tamper-proof audit logging with cryptographic integrity:
-- **Hash chain verification**: Each log entry includes hash of previous entry
-- **User context tracking**: Username, hostname, PID, timestamp for all operations
-- **Task file tracking**: SHA256 hash and full source code captured for reproducibility
-- **Database protection**: SQL triggers prevent modification of completed runs
-- **Export formats**: JSONL, CSV, human-readable reports
+Use these command surfaces:
 
-## Block Update System (v3.0.0+)
+- `autocleaneeg-pipeline` for processing, workspace, task, config, review, and
+  Serve control commands
+- `autocleaneeg-serve` for the normal Serve daemon lifecycle
+- `autocleaneeg-tui` for the terminal UI
 
-Processing blocks use a **three-tier cache system** (mirrors task library architecture):
+Common examples:
 
-### Architecture
-```
-1. Cache (Priority 1): ~/.config/autocleaneeg/.block_cache/
-   - Downloaded via 'blocks update' command
-   - Fetched from autocleaneeg-task-registry GitHub repo
-   - SHA256 hash tracking for integrity
-
-2. Bundled (Priority 2): src/autoclean/blocks/
-   - Shipped with pipeline releases
-   - Offline fallback when network unavailable
-
-3. External (Priority 3): ~/.autoclean/blocks/ or ./blocks/
-   - User-created custom blocks (plugin system)
-```
-
-### Workflow
-
-**Update blocks from GitHub:**
 ```bash
-autocleaneeg-pipeline blocks update
-# Output:
-# → Updating blocks from GitHub registry...
-# Block Library refreshed (version abc1234).
-#   New: fooof_aperiodic
-#   Updated: wavelet_threshold
+autocleaneeg-pipeline list-tasks
+autocleaneeg-pipeline process RestingEyesOpen /path/to/file.raw
+autocleaneeg-pipeline review --output /path/to/output
+
+autocleaneeg-pipeline serve workspace --mode new --path /path/to/serve-workspace
+autocleaneeg-serve up
+autocleaneeg-pipeline serve route list --path /path/to/serve-workspace
+autocleaneeg-pipeline serve validate --path /path/to/serve-workspace --mode test
+autocleaneeg-pipeline serve deploy --path /path/to/serve-workspace --mode test
+autocleaneeg-serve status
 ```
 
-**List available blocks:**
+For full command coverage, use the command reference docs instead of extending
+this file with duplicate command inventories.
+
+## Architecture Notes
+
+- Task behavior is composed from mixins under `src/autoclean/mixins/`.
+- Built-in task implementations live under `src/autoclean/tasks/`.
+- Serve runtime code is split across the CLI, API, workspace, and frontend
+  surfaces rather than one single module.
+- Compatibility aliases and older surfaces may still exist in-tree, but new
+  docs and examples should prefer the supported public entrypoints listed
+  above.
+
+## Workspace Notes
+
+The active Serve and operator workflow in this repo assumes a workspace under
+the user's environment, commonly `~/Documents/Autoclean-EEG`. Use the CLI to
+inspect or set it rather than assuming an older fixed path:
+
 ```bash
-autocleaneeg-pipeline blocks list
-# Shows: name, version, source (cache/bundled/external), description
+autocleaneeg-pipeline workspace show
+autocleaneeg-pipeline workspace set /path/to/workspace
+autocleaneeg-pipeline serve workspace status
 ```
-
-**View block details:**
-```bash
-autocleaneeg-pipeline blocks info wavelet_threshold
-# Shows: metadata, API, dependencies, references, sync status
-```
-
-**Install specific block:**
-```bash
-autocleaneeg-pipeline blocks install autoreject
-# Downloads to cache, auto-discovered on next pipeline run
-```
-
-### Discovery System
-Blocks are automatically loaded at import time in this order:
-1. Cache blocks (if updated)
-2. Bundled blocks (shipped with pipeline)
-3. External user blocks (for custom extensions)
-
-All discovered blocks become methods on the `Task` class via mixin inheritance.
-
-### Offline Operation
-If GitHub is unreachable, the system gracefully falls back to bundled blocks. No network connection required for normal operation.
-
-## API Migration (v1.x → v2.0.0+)
-```python
-# OLD (v1.x) - YAML configuration
-pipeline = Pipeline(
-    autoclean_dir="/path/to/output",
-    autoclean_config="config.yaml"
-)
-
-# NEW (v2.0.0+) - Python task files
-pipeline = Pipeline(output_dir="/path/to/output")
-pipeline.add_task("my_custom_task.py")
-pipeline.process_file("/path/to/data.raw", task="MyTask")
-```
-
-## Research Workflow
-1. **Setup**: Interactive workspace wizard creates directory structure
-2. **Development**: Drop Python task files into workspace/tasks/
-3. **Testing**: Process single files to validate parameters
-4. **Production**: Batch processing for full datasets
-5. **Review**: GUI tools for quality inspection and BIDS derivatives
-
-## Common Patterns
-
-### Creating Custom Mixins
-```python
-# Add to src/autoclean/mixins/custom/my_mixin.py
-class MyCustomMixin:
-    def my_processing_step(self):
-        # Will be available to all Task classes
-        pass
-```
-
-### Handling Mixin Conflicts
-When mixins have conflicting method names, the last mixin in MRO wins. Use explicit method calls:
-```python
-def run(self):
-    # Explicitly call specific mixin's version
-    FilteringMixin.apply_filter(self, ...)
-```
-
-### Export Counter System
-Processing stages automatically numbered in BIDS derivatives:
-- `01_import/`, `02_resample/`, `03_filter/`, etc.
-- Replaces legacy `stage_files` approach
-
-## Development Requirements

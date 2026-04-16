@@ -1,13 +1,17 @@
 Compliance and Audit Trail
 ===========================
 
-AutoClean provides comprehensive audit trail and compliance features for research environments that need to track data processing activities, maintain data integrity, and generate compliance reports.
+AutoClean provides audit-log export and integrity-check tooling for research
+environments that need to track processing activity and inspect database-backed
+history. These features can support internal audit practices, but the
+repository does not by itself certify compliance with any regulatory framework.
 
 🔒 **Key Features**
 -------------------
 
-**Tamper-Proof Database Logging**
-   All database operations are automatically logged to a write-only table with cryptographic integrity verification.
+**Integrity-Oriented Database Logging**
+   Database operations are logged with integrity-verification support so runs
+   can be reviewed later.
 
 **Hash Chain Integrity**
    Each audit log entry includes a cryptographic hash linking it to the previous entry, creating a tamper-evident chain.
@@ -29,10 +33,10 @@ AutoClean provides comprehensive audit trail and compliance features for researc
    - Verify that results haven't been tampered with
    - Maintain chain of custody for sensitive data
 
-**Regulatory Compliance**
-   - FDA 21 CFR Part 11 electronic records requirements
-   - GLP (Good Laboratory Practice) documentation
-   - Clinical trial data integrity standards
+**Internal Audit Preparation**
+   - Export logs for internal review
+   - Verify that log history remains internally consistent
+   - Preserve task and operator context alongside runs
 
 **Institutional Requirements**
    - IRB audit trail requirements
@@ -58,7 +62,7 @@ Export complete audit trail for compliance reporting:
 .. code-block:: bash
 
    # Export all logs to JSONL format
-   autoclean export-access-log --output complete-audit.jsonl
+   autocleaneeg-pipeline export-access-log --output complete-audit.jsonl
 
 **Export with Date Filtering**
 
@@ -67,10 +71,10 @@ Filter logs for specific time periods:
 .. code-block:: bash
 
    # Export logs for a specific month
-   autoclean export-access-log --start-date 2025-01-01 --end-date 2025-01-31 --output january-audit.jsonl
+   autocleaneeg-pipeline export-access-log --start-date 2025-01-01 --end-date 2025-01-31 --output january-audit.jsonl
    
    # Export recent activity (last week)
-   autoclean export-access-log --start-date 2025-06-13 --output recent-activity.jsonl
+   autocleaneeg-pipeline export-access-log --start-date 2025-06-13 --output recent-activity.jsonl
 
 **Export Different Formats**
 
@@ -79,13 +83,13 @@ Choose the best format for your needs:
 .. code-block:: bash
 
    # JSONL format (default) - best for programmatic analysis
-   autoclean export-access-log --format json --output audit.jsonl
+   autocleaneeg-pipeline export-access-log --format json --output audit.jsonl
    
    # CSV format - for spreadsheet analysis
-   autoclean export-access-log --format csv --output audit.csv
+   autocleaneeg-pipeline export-access-log --format csv --output audit.csv
    
    # Human-readable report - for manual review
-   autoclean export-access-log --format human --output audit-report.txt
+   autocleaneeg-pipeline export-access-log --format human --output audit-report.txt
 
 **Filter by Operation Type**
 
@@ -94,10 +98,10 @@ Export specific types of operations:
 .. code-block:: bash
 
    # Only export data storage operations
-   autoclean export-access-log --operation "store" --output storage-operations.jsonl
+   autocleaneeg-pipeline export-access-log --operation "store" --output storage-operations.jsonl
    
    # Only export database creation events
-   autoclean export-access-log --operation "create_collection" --output database-creation.jsonl
+   autocleaneeg-pipeline export-access-log --operation "create_collection" --output database-creation.jsonl
 
 **Verify Database Integrity**
 
@@ -106,7 +110,7 @@ Check that audit logs haven't been tampered with:
 .. code-block:: bash
 
    # Verify integrity without exporting data
-   autoclean export-access-log --verify-only
+   autocleaneeg-pipeline export-access-log --verify-only
 
 This command checks the cryptographic hash chain and reports any integrity issues.
 
@@ -172,8 +176,8 @@ Formatted text report with:
    → Entry 45: Hash mismatch detected
    → Entry 67: Missing previous hash
 
-🎯 **Best Practices**
---------------------
+Best Practices
+--------------
 
 **Regular Exports**
 
@@ -199,8 +203,8 @@ Formatted text report with:
 - Use file system permissions to protect audit data
 - Consider database encryption for sensitive environments
 
-⚠️ **Security Considerations**
------------------------------
+Security Considerations
+-----------------------
 
 **Database Protection**
 
@@ -221,39 +225,17 @@ While the audit system is robust, consider these limitations:
 
 For maximum security in regulated environments, consider additional measures like database encryption, file system monitoring, and secure backup storage.
 
-🔗 **Integration with Compliance Frameworks**
----------------------------------------------
+Framework Boundary
+------------------
 
-**FDA 21 CFR Part 11**
+AutoClean can provide evidence that may be useful inside a broader quality
+system, but maintainers do not represent the repository as independently
+validated for FDA, GCP, GLP, ALCOA+, or similar frameworks. Teams with those
+requirements should review the actual outputs, environment controls, backup
+policy, access model, and institutional procedures in their own deployment.
 
-The audit trail features support key requirements:
-
-- Electronic record integrity (hash chain verification)
-- User identification and authentication (user context tracking)
-- Time stamping (operation timestamps)
-- Audit trail review capabilities (export and verification tools)
-
-**Good Clinical Practice (GCP)**
-
-Supports data integrity requirements:
-
-- Complete audit trail of data processing
-- Tamper-evident record keeping
-- User accountability tracking
-- Data reconstruction capability
-
-**ALCOA+ Principles**
-
-Audit logs meet data integrity principles:
-
-- **Attributable**: User context in every log entry
-- **Legible**: Human-readable export formats
-- **Contemporaneous**: Real-time logging of operations
-- **Original**: Tamper-proof storage with integrity verification
-- **Accurate**: Complete operation details captured
-
-🚀 **Next Steps**
-----------------
+Next Steps
+----------
 
 **For Compliance Officers**
 
