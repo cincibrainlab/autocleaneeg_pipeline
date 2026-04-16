@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+title: AutoClean EEG Pipeline
+message: If you use this software, please cite the repository and the relevant release.
+type: software
+version: 3.0.0
+license: MIT
+repository-code: https://github.com/cincibrainlab/autoclean_pipeline
+url: https://github.com/cincibrainlab/autoclean_pipeline
+authors:
+  - family-names: Pedapati
+    given-names: Ernest
+    email: ernest.pedapati@cchmc.org
+  - family-names: Gammoh
+    given-names: Gavin
+    email: gavin.gammoh@cchmc.org
+keywords:
+  - EEG
+  - MNE-Python
+  - preprocessing
+  - neuroscience
+  - BIDS

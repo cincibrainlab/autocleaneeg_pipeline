@@ -2,7 +2,7 @@
 # Provides convenient commands for local development and code quality checks
 # Uses uv tool for isolated tool management (no dependency conflicts!)
 
-.PHONY: help install-dev install-uv-tool upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-quick test-unit-short test-ingestion test-cov test-integration test-integration-short test-perf test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve deploy plans-serve plans-stop ensure-serve-workspace web-ui serve-run app-up app-stop
+.PHONY: help install-dev install-uv-tool upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-quick test-unit-short test-ingestion test-cov test-integration test-integration-short test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve deploy plans-serve plans-stop ensure-serve-workspace web-ui serve-run app-up app-stop
 
 SERVE_WORKSPACE ?= $(HOME)/Documents/Autoclean-EEG
 SERVE_MODE ?= live
@@ -40,7 +40,6 @@ help: ## Show this help message
 	@echo "  test-unit-short Run unit tests (fail fast)"
 	@echo "  test-ingestion Run ingestion unit tests"
 	@echo "  test-cov       Run tests with coverage"
-	@echo "  test-perf      Run performance benchmarks"
 	@echo "  test-integration-short Run integration tests (fail fast)"
 	@echo ""
 	@echo "CI Simulation:"
@@ -172,10 +171,6 @@ test-integration-short: ## Run integration tests (fail fast)
 	@echo "🧪 Running integration tests (fast fail)..."
 	@$(PYTEST) tests/integration/ -q --tb=short --maxfail=1
 
-test-perf: ## Run performance benchmarks
-	@echo "🏃 Running performance benchmarks..."
-	@$(PYTEST) tests/performance/ --benchmark-only -v
-
 test-all: ## Run all tests (unit + integration)
 	@echo "🧪 Running all tests..."
 	@$(PYTEST) tests/ -v --tb=short --maxfail=10
@@ -192,9 +187,6 @@ ci-check: ## Run the same checks as CI pipeline
 	@echo ""
 	@echo "3/4 Integration Tests..."
 	@$(PYTEST) tests/integration/ -v --tb=short --maxfail=3 || echo "⚠️ Integration tests may fail - that's expected"
-	@echo ""
-	@echo "4/4 Performance Tests..."
-	@$(PYTEST) tests/performance/ --benchmark-only --benchmark-min-rounds=1 -v || echo "⚠️ Performance tests are optional"
 	@echo ""
 	@echo "✅ CI simulation completed!"
 
@@ -230,7 +222,7 @@ all: format lint test ## Run format, lint, and test
 # Documentation
 docs-setup: ## Install documentation dependencies
 	@echo "📚 Installing documentation tools..."
-	@pip install sphinx numpydoc pydata-sphinx-theme sphinx_gallery
+	@pip install -e ".[docs]"
 
 docs-build: ## Build documentation
 	@echo "📚 Building documentation..."

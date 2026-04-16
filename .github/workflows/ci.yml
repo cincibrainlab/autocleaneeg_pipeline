@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install quality tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install black isort mypy ruff
+
+      - name: Run formatting checks
+        run: |
+          black --check src tests scripts
+          isort --check-only src tests scripts
+
+      - name: Run lint and type checks
+        run: |
+          ruff check src tests scripts
+          mypy src/autoclean
+
+  tests:
+    runs-on: ubuntu-latest
+    env:
+      MPLCONFIGDIR: /tmp/matplotlib
+      MNE_HOME: /tmp/mne
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install package and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest pytest-cov pytest-mock
+
+      - name: Run unit tests
+        run: pytest tests/unit -v --tb=short --maxfail=5
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Build package artifacts
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+          python -m build
+
+      - name: Install wheel and smoke test entrypoints
+        run: |
+          python -m pip install dist/*.whl
+          autocleaneeg-pipeline version
+          autocleaneeg-serve --help >/dev/null
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run frontend tests
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build
+
+  docs:
+    runs-on: ubuntu-latest
+    env:
+      MPLCONFIGDIR: /tmp/matplotlib
+      MNE_HOME: /tmp/mne
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install package and docs dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install -e ".[docs]"
+
+      - name: Build docs
+        run: make docs-build

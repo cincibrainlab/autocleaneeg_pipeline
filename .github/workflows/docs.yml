@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MPLCONFIGDIR: /tmp/matplotlib
+      MNE_HOME: /tmp/mne
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,7 +37,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .
-          pip install sphinx numpydoc pydata-sphinx-theme sphinx-gallery
+          pip install -e ".[docs]"
 
       - name: Build docs
         run: |

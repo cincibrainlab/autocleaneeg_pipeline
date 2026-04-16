@@ -23,6 +23,7 @@ wheels/
 
 # Coverage
 .coverage
+.coverage*
 coverage.xml
 htmlcov/
 
@@ -64,10 +65,9 @@ codefetch/codebase.md
 examples/single_file.py
 /docs/_build
 /docs/api_reference/generated
+/docs/sg_execution_times.rst
 /ica_vision_test_output
 examples/batch_run.py
-
-
 .claude/
 .mypy_cache/
 .ruff_cache/
@@ -75,12 +75,6 @@ examples/batch_run.py
 2502_rest_autoclean_metadata.json
 /autoclean_icvision_results
 src/.DS_Store
-# coverage artifacts
-.coverage*
-
-# Archived planning documents
-docs/archive/
-
 # Test outputs
 test_outputs/
 # Web frontend
@@ -89,3 +83,5 @@ web/dist/
 web/tsconfig.app.tsbuildinfo
 .serve-run.pid
 session-ses_*.md
+docs/__pycache__/
+plans/_site/
