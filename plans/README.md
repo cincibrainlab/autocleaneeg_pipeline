@@ -6,6 +6,7 @@ This directory is the structured home for larger planning artifacts.
 
 - numbered folders like `001-*` through `024-*` hold plan-specific source files
 - `main-plan.md` is the higher-level planning log
+- `matlab-integration-plan.md` is a currently retained standalone plan
 - `archive/` contains retired plan material
 - `_site/` is local generated Quarto output and should not be tracked
 
@@ -17,6 +18,8 @@ This directory is the structured home for larger planning artifacts.
 - keep the numbered RFC `.md` + `.qmd` pairs as the current active plan format unless we make an explicit future format change
 - use `archive/` for retired standalone plan notes and old plan sets
 - use `archive/imported-docs/` for former doc-tree planning notes that belong with planning history instead
+- standalone plans that are superseded should be moved out of the active top
+  level rather than left beside current planning sources
 
 ## Generated Content
 
