@@ -73,18 +73,32 @@ Quick Start Examples
 
 **🎯 For Non-Technical Users (Command Line)**
 
+``uv tool install autocleaneeg-pipeline``
+   Install the CLI.
+
 .. code-block:: bash
 
-   # Install AutoClean
    uv tool install autocleaneeg-pipeline
-   
-   # Set up or reconfigure your workspace
+
+``autocleaneeg-pipeline config setup``
+   Set up or reconfigure your workspace.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline config setup
-   
-   # Process your data (that's it!)
+
+``autocleaneeg-pipeline process RestingEyesOpen my_eeg_data.raw``
+   Process one EEG file with a built-in task.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline process RestingEyesOpen my_eeg_data.raw
-   
-   # Export audit trail
+
+``autocleaneeg-pipeline export-access-log --output audit.jsonl``
+   Export the audit trail for records or review.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline export-access-log --output audit.jsonl
 
 Important boundaries

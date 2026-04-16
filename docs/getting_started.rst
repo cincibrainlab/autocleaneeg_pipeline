@@ -6,7 +6,8 @@ AutoClean is a framework for automated EEG data processing built on MNE-Python. 
 Installation
 ------------
 
-Install AutoClean using `uv`:
+``uv tool install autocleaneeg-pipeline``
+   Install the CLI with the recommended ``uv`` workflow.
 
 .. code-block:: bash
 
@@ -17,7 +18,11 @@ MATLAB-backed workflows are optional. If you need MATLAB routes or MATLAB-backed
 Workspace Setup
 ---------------
 
-AutoClean uses a simple "drop-and-go" workflow centered around a workspace directory. Set this up once:
+AutoClean uses a simple "drop-and-go" workflow centered around a workspace directory.
+Set this up once:
+
+``autocleaneeg-pipeline config setup``
+   Configure the active workspace and save it for later CLI runs.
 
 .. code-block:: bash
 
@@ -45,13 +50,32 @@ CLI/Python path, use the commands with this split:
 - ``autocleaneeg-pipeline serve ...`` for workspace selection, route
   management, validation, deployment, queue inspection, and dispatcher control
 
-Typical Serve setup:
+``autocleaneeg-pipeline serve workspace --mode new --path /path/to/serve-workspace``
+   Create a new Serve workspace.
 
 .. code-block:: bash
 
    autocleaneeg-pipeline serve workspace --mode new --path /path/to/serve-workspace
+
+``autocleaneeg-serve up``
+   Start the normal Serve launcher lifecycle.
+
+.. code-block:: bash
+
    autocleaneeg-serve up
+
+``autocleaneeg-pipeline serve route list --path /path/to/serve-workspace``
+   List the routes currently configured for that workspace.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve route list --path /path/to/serve-workspace
+
+``autocleaneeg-serve status``
+   Check whether the Serve UI and dispatcher are operational.
+
+.. code-block:: bash
+
    autocleaneeg-serve status
 
 For the full route workflow, see :doc:`serve_ui_workflow`.
@@ -227,15 +251,25 @@ All results are organized in timestamped folders so you never lose previous anal
 
 **Quick Troubleshooting**
 
+``autocleaneeg-pipeline version``
+   Check that the CLI is installed and runnable.
+
 .. code-block:: bash
 
-   # Check if AutoClean is installed correctly
    autocleaneeg-pipeline version
-   
-   # Verify your workspace setup
+
+``autocleaneeg-pipeline config show``
+   Show the current workspace and saved configuration.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline config show
-   
-   # List available tasks
+
+``autocleaneeg-pipeline list-tasks``
+   List the tasks available in the current environment.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline list-tasks
 
 🚀 Next Steps

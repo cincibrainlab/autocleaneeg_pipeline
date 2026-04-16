@@ -72,25 +72,29 @@ For contributor workflow, testing, linting, and local docs commands, see [CONTRI
 
 ## Quick Start
 
-List available tasks:
+``autocleaneeg-pipeline list-tasks``
+List the available built-in and installed tasks.
 
 ```bash
 autocleaneeg-pipeline list-tasks
 ```
 
-Process a file with a built-in task:
+``autocleaneeg-pipeline process RestingEyesOpen /path/to/data.raw``
+Process one file with a built-in task.
 
 ```bash
 autocleaneeg-pipeline process RestingEyesOpen /path/to/data.raw
 ```
 
-Review pipeline output:
+``autocleaneeg-pipeline review --output /path/to/output``
+Open the review flow for a completed output directory.
 
 ```bash
 autocleaneeg-pipeline review --output /path/to/output
 ```
 
-Start the Serve web/API workflow:
+``autocleaneeg-serve up``
+Start the normal Serve web/API workflow.
 
 ```bash
 autocleaneeg-serve up
@@ -105,14 +109,45 @@ Use the Serve surfaces with this split:
 - `autocleaneeg-pipeline serve ...`: lower-level workspace, route, validation,
   queue, dispatcher, and API control surface
 
-Typical Serve flow:
+``autocleaneeg-pipeline serve workspace --mode new --path /path/to/serve-workspace``
+Create a new Serve workspace.
 
 ```bash
 autocleaneeg-pipeline serve workspace --mode new --path /path/to/serve-workspace
+```
+
+``autocleaneeg-serve up``
+Start the normal Serve daemon for that workspace.
+
+```bash
 autocleaneeg-serve up
+```
+
+``autocleaneeg-pipeline serve route list --path /path/to/serve-workspace``
+List the routes configured for a Serve workspace.
+
+```bash
 autocleaneeg-pipeline serve route list --path /path/to/serve-workspace
+```
+
+``autocleaneeg-pipeline serve validate --path /path/to/serve-workspace --mode test``
+Validate the Serve configuration before deployment.
+
+```bash
 autocleaneeg-pipeline serve validate --path /path/to/serve-workspace --mode test
+```
+
+``autocleaneeg-pipeline serve deploy --path /path/to/serve-workspace --mode test``
+Deploy the current Serve draft configuration for test mode.
+
+```bash
 autocleaneeg-pipeline serve deploy --path /path/to/serve-workspace --mode test
+```
+
+``autocleaneeg-serve status``
+Check whether the Serve UI and dispatcher are actually operational.
+
+```bash
 autocleaneeg-serve status
 ```
 

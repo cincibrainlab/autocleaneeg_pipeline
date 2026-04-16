@@ -26,14 +26,38 @@ Development Setup
 
 1. Clone your fork and install development dependencies:
 
+   ``git clone https://github.com/cincibrainlab/autoclean_pipeline.git``
+      Clone the repository locally.
+
    .. code-block:: bash
 
       git clone https://github.com/cincibrainlab/autoclean_pipeline.git
+
+   ``cd autoclean_pipeline``
+      Enter the repository root.
+
+   .. code-block:: bash
+
       cd autoclean_pipeline
+
+   ``uv tool install -e --upgrade . --force``
+      Install the package as an editable uv tool.
+
+   .. code-block:: bash
+
       uv tool install -e --upgrade . --force
+
+   ``make install-dev``
+      Install contributor tooling used by the repo.
+
+   .. code-block:: bash
+
       make install-dev
 
 2. Set up pre-commit hooks:
+
+   ``python3 scripts/uv_tools.py run pre-commit install``
+      Install the repository pre-commit hooks.
 
    .. code-block:: bash
 
@@ -51,11 +75,32 @@ We use several tools to maintain code quality:
 
 Run the following before committing:
 
+``black src tests scripts``
+   Run Black directly against the main source and test trees.
+
 .. code-block:: bash
 
    black src tests scripts
+
+``isort src tests scripts``
+   Sort imports directly with isort.
+
+.. code-block:: bash
+
    isort src tests scripts
+
+``mypy src/autoclean``
+   Run mypy directly against the package source.
+
+.. code-block:: bash
+
    mypy src/autoclean
+
+``ruff check src tests scripts``
+   Run Ruff directly against the main source and test trees.
+
+.. code-block:: bash
+
    ruff check src tests scripts
 
 Testing
@@ -63,11 +108,17 @@ Testing
 
 We use pytest for testing. Run the test suite:
 
+``make test``
+   Run the main test target.
+
 .. code-block:: bash
 
    make test
 
 For coverage report:
+
+``make test-cov``
+   Run tests with coverage reporting.
 
 .. code-block:: bash
 
@@ -78,9 +129,18 @@ Documentation
 
 We use Sphinx for documentation. Build the docs:
 
+``make docs-setup``
+   Install documentation dependencies.
+
 .. code-block:: bash
 
    make docs-setup
+
+``make docs-build``
+   Build the Sphinx docs locally.
+
+.. code-block:: bash
+
    make docs-build
 
 Pull Request Process

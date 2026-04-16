@@ -111,15 +111,25 @@ Replace "RestingEyesOpen" with your task name and "my_data_file.raw" with your a
 
 **5. Manage your custom tasks:**
 
+``autocleaneeg-pipeline task install my_custom_task.py --source file``
+Install a task file into the workspace.
+
 .. code-block:: bash
 
-   # Install a task file into the workspace
    autocleaneeg-pipeline task install my_custom_task.py --source file
-   
-   # List tasks
+
+``autocleaneeg-pipeline task list``
+List the tasks available in the workspace-aware task library.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline task list
-   
-   # Remove a workspace task
+
+``autocleaneeg-pipeline task delete MyTaskName``
+Remove a task from the active workspace.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline task delete MyTaskName
 
 **6. Check your results:**
@@ -132,18 +142,32 @@ This shows where your results are saved.
 
 **7. Export audit trail (for compliance/research records):**
 
+``autocleaneeg-pipeline export-access-log --output audit-trail.jsonl``
+Export the access log as JSONL.
+
 .. code-block:: bash
 
-   # Export all database access logs
    autocleaneeg-pipeline export-access-log --output audit-trail.jsonl
-   
-   # Export with date filtering
+
+``autocleaneeg-pipeline export-access-log --start-date 2025-01-01 --end-date 2025-01-31 --output monthly-audit.jsonl``
+Export the access log for a specific date range.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline export-access-log --start-date 2025-01-01 --end-date 2025-01-31 --output monthly-audit.jsonl
-   
-   # Export to CSV for spreadsheet analysis
+
+``autocleaneeg-pipeline export-access-log --format csv --output audit-data.csv``
+Export the access log as CSV.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline export-access-log --format csv --output audit-data.csv
-   
-   # Just verify database integrity (no export)
+
+``autocleaneeg-pipeline export-access-log --verify-only``
+Verify the audit database integrity without exporting a new file.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline export-access-log --verify-only
 
 This creates detailed logs of all processing activities for compliance and research documentation.
@@ -216,6 +240,9 @@ This tells you where to find your processed data and reports.
 **"Command not found" error:**
 This means AutoClean isn't installed properly. Try:
 
+``uv tool install autocleaneeg-pipeline``
+Install the CLI with the recommended ``uv`` workflow.
+
 .. code-block:: bash
 
    uv tool install autocleaneeg-pipeline
@@ -223,11 +250,19 @@ This means AutoClean isn't installed properly. Try:
 **"File not found" error:**
 Check that you're in the right folder and the filename is correct:
 
+``dir``
+List files in the current folder on Windows.
+
 .. code-block:: bash
 
-   # See what files are available
-   dir    # Windows
-   ls     # Mac/Linux
+   dir
+
+``ls``
+List files in the current folder on macOS or Linux.
+
+.. code-block:: bash
+
+   ls
 
 **"Permission denied" error:**
 Prefer the normal user install path with ``uv tool install autocleaneeg-pipeline``

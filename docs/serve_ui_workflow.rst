@@ -41,7 +41,8 @@ In examples below, replace these paths with your own:
 Step 1: Create or link the workspace Serve should use
 -----------------------------------------------------
 
-Create a new workspace for Serve:
+``autocleaneeg-pipeline serve workspace --mode new --path /path/to/serve-workspace``
+   Create a new workspace for Serve.
 
 .. code-block:: bash
 
@@ -49,18 +50,32 @@ Create a new workspace for Serve:
 
 Use an empty directory for ``--mode new``. If the target directory already contains files, use ``--mode existing`` instead.
 
-Link an existing workspace for Serve:
+``autocleaneeg-pipeline serve workspace --mode existing --path /path/to/serve-workspace``
+   Link an existing directory as the Serve workspace.
 
 .. code-block:: bash
 
    autocleaneeg-pipeline serve workspace --mode existing --path /path/to/serve-workspace
 
-Useful workspace commands:
+``autocleaneeg-pipeline serve workspace status``
+   Show which workspace Serve is currently using.
 
 .. code-block:: bash
 
    autocleaneeg-pipeline serve workspace status
+
+``autocleaneeg-pipeline serve workspace doctor``
+   Check the selected workspace for structural problems.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve workspace doctor
+
+``autocleaneeg-pipeline serve workspace use --path /path/to/serve-workspace``
+   Switch Serve to a different workspace.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve workspace use --path /path/to/serve-workspace
 
 What to look for:
@@ -71,7 +86,8 @@ What to look for:
 Step 2: Start Serve the normal way
 ----------------------------------
 
-Start the UI and normal processing path:
+``autocleaneeg-serve up``
+   Start the UI and normal processing path.
 
 .. code-block:: bash
 
@@ -82,7 +98,8 @@ That is the recommended operator command.
 For most users, you should not need to start ``serve api`` and ``serve run``
 separately.
 
-Check whether Serve is actually operational:
+``autocleaneeg-serve status``
+   Check whether Serve is actually operational.
 
 .. code-block:: bash
 
@@ -100,7 +117,8 @@ Step 3: Create a route
 
 You can create the route in the web UI, or directly in the CLI.
 
-CLI route creation example:
+``autocleaneeg-pipeline serve route upsert resting-test --taskfile /path/to/task.py --montage GSN-HydroCel-129 --ingestion-folder /path/to/input-folder --file-glob "*.set" --recursive --enabled``
+   Create or update a route from the CLI.
 
 .. code-block:: bash
 
@@ -112,14 +130,39 @@ CLI route creation example:
      --recursive \
      --enabled
 
-Useful route commands:
+``autocleaneeg-pipeline serve route list``
+   List the routes currently configured in the workspace.
 
 .. code-block:: bash
 
    autocleaneeg-pipeline serve route list
+
+``autocleaneeg-pipeline serve route promote resting-test``
+   Promote one route inside the route set.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve route promote resting-test
+
+``autocleaneeg-pipeline serve route archive resting-test``
+   Archive a route without deleting it.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve route archive resting-test
+
+``autocleaneeg-pipeline serve route unarchive resting-test``
+   Restore an archived route.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve route unarchive resting-test
+
+``autocleaneeg-pipeline serve route sync``
+   Sync route state from workspace files.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve route sync
 
 Notes:
@@ -132,6 +175,9 @@ Step 4: Validate configuration
 ------------------------------
 
 If you want explicit control, you can validate from the CLI:
+
+``autocleaneeg-pipeline serve validate --mode test``
+   Validate the current draft configuration.
 
 .. code-block:: bash
 
@@ -149,22 +195,60 @@ To make processing use the current config, you must apply or deploy it explicitl
 Step 5: Confirm dispatcher and queue state
 ------------------------------------------
 
-Dispatcher controls:
+``autocleaneeg-pipeline serve service status``
+   Show dispatcher status through the service API.
 
 .. code-block:: bash
 
    autocleaneeg-pipeline serve service status
+
+``autocleaneeg-pipeline serve service start``
+   Start dispatcher processing through the service API.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve service start
+
+``autocleaneeg-pipeline serve service stop``
+   Stop dispatcher processing through the service API.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve service stop
 
-Queue controls:
+``autocleaneeg-pipeline serve queue status``
+   Show queue health and activity.
 
 .. code-block:: bash
 
    autocleaneeg-pipeline serve queue status
+
+``autocleaneeg-pipeline serve queue list``
+   List queued files and queue history items.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve queue list
+
+``autocleaneeg-pipeline serve queue retry-failed``
+   Retry failed queue items.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve queue retry-failed
+
+``autocleaneeg-pipeline serve queue clear-processed``
+   Remove processed items from queue history.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve queue clear-processed
+
+``autocleaneeg-pipeline serve queue remove /full/path/to/file.set``
+   Remove one file from the queue by path.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve queue remove /full/path/to/file.set
 
 Step 6: Use the web UI for normal operations
@@ -183,23 +267,77 @@ Normal operator flow:
 Daily-use commands
 ------------------
 
+``autocleaneeg-serve up``
+   Start the normal Serve daemon workflow.
+
 .. code-block:: bash
 
    autocleaneeg-serve up
+
+``autocleaneeg-serve status``
+   Check whether Serve is operational.
+
+.. code-block:: bash
+
    autocleaneeg-serve status
+
+``autocleaneeg-pipeline serve service status``
+   Check dispatcher status.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve service status
+
+``autocleaneeg-pipeline serve queue status``
+   Check queue health.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve queue status
 
 Advanced commands
 -----------------
 
+``autocleaneeg-pipeline serve api``
+   Start only the Serve API process.
+
 .. code-block:: bash
 
    autocleaneeg-pipeline serve api
+
+``autocleaneeg-pipeline serve run``
+   Start only the dispatcher loop.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve run
+
+``autocleaneeg-pipeline serve worker``
+   Start only the worker process.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve worker
+
+``autocleaneeg-pipeline serve mode test``
+   Switch the running Serve session to test mode.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve mode test
+
+``autocleaneeg-pipeline serve mode live``
+   Switch the running Serve session to live mode.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve mode live
+
+``autocleaneeg-pipeline serve share status``
+   Show sharing status through the Serve CLI family.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve share status
 
 Use these when you are debugging, developing, or deliberately controlling Serve internals.
@@ -212,15 +350,33 @@ Serve is up, but nothing is processing
 
 Run:
 
+``autocleaneeg-serve status``
+   Check high-level Serve status first.
+
 .. code-block:: bash
 
    autocleaneeg-serve status
+
+``autocleaneeg-pipeline serve service status``
+   Confirm whether the dispatcher is running.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve service status
+
+``autocleaneeg-pipeline serve queue status``
+   Inspect whether files are queued, blocked, or idle.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve queue status
 
 If routes are missing, create one.
 
 If config is not applied, validate it and then apply or deploy it:
+
+``autocleaneeg-pipeline serve validate --mode test``
+   Validate the current draft without deploying it.
 
 .. code-block:: bash
 
@@ -237,15 +393,27 @@ I am not sure which workspace Serve is using
 
 Run:
 
+``autocleaneeg-pipeline serve workspace status``
+   Show the workspace currently selected for Serve.
+
 .. code-block:: bash
 
    autocleaneeg-pipeline serve workspace status
+
+``autocleaneeg-pipeline serve workspace doctor``
+   Check whether the selected workspace is healthy.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline serve workspace doctor
 
 I want to switch to a different Serve workspace
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Run:
+
+``autocleaneeg-pipeline serve workspace use --path /path/to/serve-workspace``
+   Switch Serve to a different workspace.
 
 .. code-block:: bash
 
@@ -256,11 +424,32 @@ Task Manager parity notes
 
 For the Serve UI Task Manager, the clean CLI equivalents today are:
 
+``autocleaneeg-pipeline task create MyCustomTask``
+   Create a new task in the active workspace.
+
 .. code-block:: bash
 
    autocleaneeg-pipeline task create MyCustomTask
+
+``autocleaneeg-pipeline task install RestingState_Basic``
+   Install a task into the active workspace.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline task install RestingState_Basic
+
+``autocleaneeg-pipeline task delete MyCustomTask``
+   Delete a task from the active workspace.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline task delete MyCustomTask
+
+``autocleaneeg-pipeline task update``
+   Refresh task metadata used by the task browser and manager.
+
+.. code-block:: bash
+
    autocleaneeg-pipeline task update
 
 Notes:

@@ -34,25 +34,85 @@ We use a Makefile to standardize development workflows and ensure consistency ac
 
 ### Quick Commands
 
+`make help`
+Show all available development targets.
+
 ```bash
-make help          # Show all available commands
-make check         # Run all code quality checks (format + lint)
-make format        # Auto-format code with black and isort
-make lint          # Run linting (ruff)
-make test          # Run unit tests
-make test-cov      # Run tests with coverage report
-make ci-check      # Run CI-equivalent checks locally
-make clean         # Clean temporary files and caches
+make help
+```
+
+`make check`
+Run the standard formatting and lint checks together.
+
+```bash
+make check
+```
+
+`make format`
+Auto-format Python code with the configured tooling.
+
+```bash
+make format
+```
+
+`make lint`
+Run the configured lint checks.
+
+```bash
+make lint
+```
+
+`make test`
+Run the unit test suite.
+
+```bash
+make test
+```
+
+`make test-cov`
+Run the tests with coverage output.
+
+```bash
+make test-cov
+```
+
+`make ci-check`
+Run the local CI-equivalent validation flow.
+
+```bash
+make ci-check
+```
+
+`make clean`
+Remove common generated caches and temporary files.
+
+```bash
+make clean
 ```
 
 ### Code Style
 
 We use automated tools for code quality. Run before committing:
 
+`make format`
+Auto-format the codebase before review.
+
 ```bash
-make format        # Auto-format code
-make lint          # Check code quality
-# Or use make check to run both
+make format
+```
+
+`make lint`
+Run the standard lint checks before review.
+
+```bash
+make lint
+```
+
+`make check`
+Run formatting and lint checks together.
+
+```bash
+make check
 ```
 
 Alternatively, you can run tools directly:
@@ -70,10 +130,25 @@ Configuration is in `pyproject.toml`.
 
 Run the test suite:
 
+`make test`
+Run the main unit test suite.
+
 ```bash
-make test          # Run unit tests
-make test-cov      # Run tests with coverage
-make test-all      # Run all tests (unit + integration)
+make test
+```
+
+`make test-cov`
+Run tests with coverage reporting enabled.
+
+```bash
+make test-cov
+```
+
+`make test-all`
+Run the broader test suite including integration coverage.
+
+```bash
+make test-all
 ```
 
 Or run pytest directly:
@@ -87,10 +162,25 @@ pytest tests/integration -v --tb=short
 
 Build documentation locally:
 
+`make docs-setup`
+Install the local documentation dependencies.
+
 ```bash
-make docs-setup    # Install docs dependencies
-make docs-build    # Build documentation
-make docs-serve    # Serve documentation locally at http://localhost:8000
+make docs-setup
+```
+
+`make docs-build`
+Build the Sphinx documentation locally.
+
+```bash
+make docs-build
+```
+
+`make docs-serve`
+Serve the built documentation locally.
+
+```bash
+make docs-serve
 ```
 
 Or build directly:
@@ -149,8 +239,11 @@ Compatibility notes:
 2. Add tests for new functionality
 3. Update documentation as needed
 4. Ensure linting and tests pass:
+   `make ci-check`
+   Run the local CI-equivalent validation flow before opening the PR.
+
    ```bash
-   make ci-check    # Run all checks (equivalent to CI)
+   make ci-check
    ```
 5. Submit a pull request with a clear description
 
