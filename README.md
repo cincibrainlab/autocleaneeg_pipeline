@@ -129,6 +129,18 @@ Start the normal Serve daemon for that workspace.
 autocleaneeg-serve up
 ```
 
+If you prefer the older alias under the main CLI, use the persisted workspace
+selection first:
+
+```bash
+autocleaneeg-pipeline serve workspace use --path /path/to/serve-workspace
+autocleaneeg-pipeline serve up
+```
+
+``autocleaneeg-pipeline serve up`` uses the workspace already selected for
+Serve and does not accept ``--path``. If you need an explicit-path launcher in
+one command, use ``autocleaneeg-serve up --path /path/to/serve-workspace``.
+
 ``autocleaneeg-pipeline serve route list --path /path/to/serve-workspace``
 List the routes configured for a Serve workspace.
 

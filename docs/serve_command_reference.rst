@@ -559,11 +559,28 @@ Legacy Aliases
 ``autocleaneeg-pipeline serve up``
    Start Serve through the older alias under the main CLI.
 
+   This command uses the workspace already selected through
+   ``autocleaneeg-pipeline serve workspace use --path ...`` and does not accept
+   ``--path`` itself.
+
    Example:
 
    .. code-block:: bash
 
       autocleaneeg-pipeline serve up
+
+   Persist the workspace first:
+
+   .. code-block:: bash
+
+      autocleaneeg-pipeline serve workspace use --path /path/to/serve-workspace
+      autocleaneeg-pipeline serve up
+
+   If you need an explicit-path launcher in one command, use:
+
+   .. code-block:: bash
+
+      autocleaneeg-serve up --path /path/to/serve-workspace
 
 ``autocleaneeg-pipeline serve down``
    Stop Serve through the older alias under the main CLI.

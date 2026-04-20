@@ -95,6 +95,18 @@ Step 2: Start Serve the normal way
 
 That is the recommended operator command.
 
+If you want to start Serve through the older alias under the main CLI, persist
+the workspace first and then start it:
+
+.. code-block:: bash
+
+   autocleaneeg-pipeline serve workspace use --path /path/to/serve-workspace
+   autocleaneeg-pipeline serve up
+
+``autocleaneeg-pipeline serve up`` uses the workspace already selected for
+Serve and does not accept ``--path``. If you need an explicit-path start in one
+command, use ``autocleaneeg-serve up --path /path/to/serve-workspace``.
+
 For most users, you should not need to start ``serve api`` and ``serve run``
 separately.
 
