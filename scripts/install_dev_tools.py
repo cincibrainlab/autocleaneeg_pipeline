@@ -37,7 +37,7 @@ def check_uv_available():
 
 def main():
     """Install development tools using uv tool."""
-    print("🚀 Installing AutoClean Development Tools with uv tool")
+    print("🚀 Installing AutoClean Contributor Tools with uv tool")
     print("=" * 50)
     
     # Check if uv is available
@@ -46,6 +46,9 @@ def main():
     
     print("✅ uv detected - using isolated tool environments")
     print("   No virtual environment conflicts possible!")
+    print("ℹ️ This script installs contributor tooling only.")
+    print("   It does NOT install the runnable AutoClean CLI/Serve environment.")
+    print("   For the CLI and Serve commands, run: make install-uv-tool")
 
     # Core development tools using uv tool (isolated environments)
     tools = [
@@ -89,13 +92,14 @@ def main():
             print(f"   - {tool}")
         print(f"✅ {len(all_tools) - len(failed_tools)} tools installed successfully")
     else:
-        print("🎉 All development tools installed successfully!")
+        print("🎉 All contributor tools installed successfully!")
 
     print("\n💡 Next steps:")
-    print("   1. Run: python scripts/check_code_quality.py")
-    print("   2. (Optional) Set up pre-commit: uv tool run pre-commit install")
-    print("   3. List installed tools: uv tool list")
-    print("   4. Start developing with confidence!")
+    print("   1. Install the runnable CLI if needed: make install-uv-tool")
+    print("   2. Run: python scripts/check_code_quality.py")
+    print("   3. (Optional) Set up pre-commit: uv tool run pre-commit install")
+    print("   4. List installed tools: uv tool list")
+    print("   5. Start developing with confidence!")
     print("\n🎯 Benefit: All tools are isolated - no dependency conflicts!")
 
     return 0 if not failed_tools else 1

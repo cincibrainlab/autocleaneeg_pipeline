@@ -2,7 +2,7 @@
 # Provides convenient commands for local development and code quality checks
 # Uses uv tool for isolated tool management (no dependency conflicts!)
 
-.PHONY: help install-dev install-uv-tool upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-quick test-unit-short test-ingestion test-cov test-integration test-integration-short test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve deploy plans-serve plans-stop ensure-serve-workspace web-ui serve-run app-up app-stop
+.PHONY: help install-dev install-uv-tool serve-setup upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-quick test-unit-short test-ingestion test-cov test-integration test-integration-short test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve deploy plans-serve plans-stop ensure-serve-workspace web-ui serve-run app-up app-stop
 
 SERVE_WORKSPACE ?= $(HOME)/Documents/Autoclean-EEG
 SERVE_MODE ?= live
@@ -19,9 +19,11 @@ help: ## Show this help message
 	@echo "============================================="
 	@echo ""
 	@echo "Setup:"
-	@echo "  install-dev         Install development tools (black, isort, ruff, mypy, pre-commit)"
+	@echo "  install-dev         Install contributor tools only (black, isort, ruff, mypy, pre-commit)"
+	@echo "                      Does NOT install the runnable AutoClean CLI/Serve environment"
 	@echo "  install-uv-tool     Install AutoClean as standalone CLI tool (RECOMMENDED)"
 	@echo "                      ✅ Global CLI, isolated, editable, matches CONTRIBUTING.md"
+	@echo "  serve-setup         Install the runnable CLI/Serve path plus contributor tools"
 	@echo "  uninstall-uv-tool   Uninstall AutoClean uv tool"
 	@echo "  upgrade-tools       Upgrade all development tools"
 	@echo "  list-tools          List installed development tools"
@@ -68,7 +70,7 @@ help: ## Show this help message
 	@echo "  all            Run format, lint, and test"
 
 # Installation
-install-dev: ## Install development tools using uv tool (black, isort, ruff, mypy, pre-commit)
+install-dev: ## Install contributor tools only; does not install the runnable AutoClean CLI
 	@python3 scripts/install_dev_tools.py
 
 upgrade-tools: ## Upgrade all development tools
@@ -106,6 +108,11 @@ install-uv-tool: ## Install AutoClean as standalone CLI tool (RECOMMENDED - matc
 	@echo ""
 	@echo "💡 Code changes will reflect immediately (editable mode)"
 	@echo "💡 No dependency conflicts (isolated uv environment)"
+
+serve-setup: install-uv-tool install-dev ## Install the runnable CLI/Serve path plus contributor tools
+	@echo "🎯 Serve setup completed!"
+	@echo "💡 The runnable CLI is installed via uv tool and contributor tooling is installed separately"
+	@echo "💡 Try: autocleaneeg-pipeline serve api --mode test --api-port 8000"
 
 uninstall-uv-tool: ## Uninstall AutoClean uv tool
 	@echo "🗑️ Uninstalling AutoClean uv tool..."
@@ -199,6 +206,7 @@ dev-setup: install-uv-tool install-dev ## Complete development setup (matches CO
 	@echo "🎯 Development environment setup completed!"
 	@echo "💡 Installed with uv tool (global CLI, isolated environment)"
 	@echo "💡 Try running: make check"
+	@echo "💡 For the first Serve run, the CLI is available via: autocleaneeg-pipeline serve api --mode test --api-port 8000"
 
 # Utilities
 clean: ## Clean temporary files and caches

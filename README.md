@@ -68,6 +68,12 @@ uv tool install -e --upgrade . --force
 autocleaneeg-pipeline --help
 ```
 
+If you use the Makefile helpers:
+
+- `make install-dev` installs contributor tooling only
+- `make install-uv-tool` installs the runnable CLI/Serve environment
+- `make serve-setup` installs both for a first Serve run
+
 For contributor workflow, testing, linting, and local docs commands, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Quick Start
