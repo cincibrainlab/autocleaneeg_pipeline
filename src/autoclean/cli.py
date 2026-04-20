@@ -10858,12 +10858,56 @@ def _runtime_cli_bin(venv_dir: Path) -> Path:
     return venv_dir / "bin" / "autocleaneeg-pipeline"
 
 
+def _looks_like_uv_unknown_issuer(stderr: str | None, stdout: str | None) -> bool:
+    """Detect uv TLS certificate failures that need native TLS guidance."""
+    combined = "\n".join(part for part in (stderr, stdout) if part).lower()
+    if not combined:
+        return False
+    return "unknownissuer" in combined or (
+        "invalid peer certificate" in combined and "native-tls" in combined
+    )
+
+
+def _emit_uv_unknown_issuer_guidance(
+    *,
+    label: str,
+    workspace_dir: Path,
+    workspace_mode: str | None,
+) -> None:
+    """Print a focused recovery message for uv TLS trust failures."""
+    message(
+        "error",
+        f"{label.capitalize()} runtime setup hit a TLS certificate trust error while uv was talking to PyPI.",
+    )
+    message(
+        "info",
+        "Try again with system trust roots enabled for uv: export UV_NATIVE_TLS=1",
+    )
+    retry_mode = "existing" if workspace_mode == "new" else (workspace_mode or "existing")
+    message(
+        "info",
+        f"Retry: autocleaneeg-pipeline serve workspace --mode {retry_mode} --path {workspace_dir}",
+    )
+    if workspace_mode == "new":
+        message(
+            "info",
+            "The first attempt already created files in that directory, so the retry should use --mode existing.",
+        )
+    message(
+        "info",
+        "If your organization uses a managed proxy or custom CA, you may also need that root certificate installed in the system trust store.",
+    )
+
+
 def _setup_runtime(
     runtime_dir: Path,
     label: str,
     package_spec: str,
     skip_uv: bool,
     run_test: bool,
+    *,
+    workspace_dir: Path,
+    workspace_mode: str | None,
 ) -> bool:
     runtime_dir.mkdir(parents=True, exist_ok=True)
     if skip_uv:
@@ -10876,7 +10920,12 @@ def _setup_runtime(
     venv_dir = runtime_dir / ".venv"
     try:
         if not venv_dir.exists():
-            subprocess.run(["uv", "venv", str(venv_dir)], check=True)
+            subprocess.run(
+                ["uv", "venv", str(venv_dir)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
         python_bin = _runtime_python_bin(venv_dir)
         subprocess.run(
             [
@@ -10888,8 +10937,18 @@ def _setup_runtime(
                 package_spec,
             ],
             check=True,
+            capture_output=True,
+            text=True,
         )
     except subprocess.CalledProcessError as exc:
+        if _looks_like_uv_unknown_issuer(exc.stderr, exc.stdout):
+            _emit_uv_unknown_issuer_guidance(
+                label=label,
+                workspace_dir=workspace_dir,
+                workspace_mode=workspace_mode,
+            )
+        if exc.stderr:
+            message("error", exc.stderr.strip())
         message("error", f"Failed to set up {label} runtime: {exc}")
         return False
 
@@ -11150,6 +11209,8 @@ def cmd_serve_workspace(args) -> int:
         args.package,
         args.skip_uv,
         not args.no_test,
+        workspace_dir=workspace_dir,
+        workspace_mode=mode,
     ):
         return 1
     if not _setup_runtime(
@@ -11158,6 +11219,8 @@ def cmd_serve_workspace(args) -> int:
         args.package,
         args.skip_uv,
         not args.no_test,
+        workspace_dir=workspace_dir,
+        workspace_mode=mode,
     ):
         return 1
 

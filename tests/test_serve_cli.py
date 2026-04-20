@@ -208,6 +208,52 @@ class TestServeWorkspaceCommands:
         assert (workspace / "routes").exists()
         assert (workspace / "automations").exists()
 
+    def test_workspace_new_uv_unknownissuer_prints_retry_guidance(
+        self, tmp_path: Path
+    ) -> None:
+        from autoclean.cli import cmd_serve_workspace
+
+        workspace = tmp_path / "workspace"
+
+        args = MagicMock()
+        args.workspace_action = None
+        args.path = workspace
+        args.mode = "new"
+        args.package = "autocleaneeg-pipeline"
+        args.skip_uv = False
+        args.no_test = True
+
+        messages: list[tuple[str, str]] = []
+        calls = {"count": 0}
+
+        def _fake_run(cmd, check=False, capture_output=False, text=False):
+            calls["count"] += 1
+            if calls["count"] == 1:
+                return subprocess.CompletedProcess(cmd, 0, "", "")
+            raise subprocess.CalledProcessError(
+                returncode=2,
+                cmd=cmd,
+                stderr=(
+                    "Failed to fetch: https://pypi.org/simple/autocleaneeg-pipeline/\n"
+                    "invalid peer certificate: UnknownIssuer\n"
+                    "Consider enabling use of system TLS certificates with the --native-tls flag"
+                ),
+            )
+
+        with (
+            patch("autoclean.cli.user_config") as mock_config,
+            patch("autoclean.cli.shutil.which", return_value="/usr/bin/uv"),
+            patch("autoclean.cli.subprocess.run", side_effect=_fake_run),
+            patch("autoclean.cli.message", side_effect=lambda level, text: messages.append((level, text))),
+        ):
+            mock_config.get_serve_workspace.return_value = None
+            assert cmd_serve_workspace(args) == 1
+
+        rendered = "\n".join(text for _level, text in messages)
+        assert "UV_NATIVE_TLS=1" in rendered
+        assert f"--mode existing --path {workspace.resolve()}" in rendered
+        assert "The first attempt already created files in that directory" in rendered
+
 
 class TestResolveWorkspaceDir:
     """Tests for workspace directory resolution."""

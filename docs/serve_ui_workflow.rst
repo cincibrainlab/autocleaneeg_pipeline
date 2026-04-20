@@ -388,6 +388,23 @@ For the normal web UI and API service path, the dispatcher only starts from the 
 
 The TUI service screen can still run against the operator config for a deliberate Draft-only test path when no deployed config exists yet, but that is an advanced exception rather than the normal operator workflow.
 
+Serve workspace setup fails with ``UnknownIssuer``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If ``autocleaneeg-pipeline serve workspace --mode new --path /path/to/serve-workspace``
+fails while ``uv pip install`` is running and the error mentions
+``invalid peer certificate: UnknownIssuer``, rerun the setup with uv's system
+TLS trust enabled:
+
+.. code-block:: bash
+
+   export UV_NATIVE_TLS=1
+   autocleaneeg-pipeline serve workspace --mode existing --path /path/to/serve-workspace
+
+Use ``--mode existing`` on the retry because the first attempt already created
+the workspace directory structure. This is common on managed networks or
+machines that require a custom root CA in the system trust store.
+
 I am not sure which workspace Serve is using
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
