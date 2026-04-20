@@ -278,13 +278,16 @@ def _cmd_up(args) -> int:
     # Start detached — use Popen with file descriptors (no shell=True)
     log_path = _log_file_path()
     log_f = open(log_path, "w")
-    subprocess.Popen(
+    child_env = os.environ.copy()
+    child_env["PYTHONUNBUFFERED"] = "1"
+    child = subprocess.Popen(
         cmd,
         stdin=subprocess.DEVNULL,
         stdout=log_f,
         stderr=subprocess.STDOUT,
         start_new_session=True,
         close_fds=True,
+        env=child_env,
     )
     log_f.close()  # Parent doesn't need the FD
 
@@ -297,7 +300,15 @@ def _cmd_up(args) -> int:
         if existing is not None:
             child_pid, port, health = existing
         else:
-            print(f"Server did not respond within 15s. Check {log_path}")
+            _print_startup_failure_diagnostics(
+                log_path=log_path,
+                cmd=cmd,
+                child=child,
+                port=args.port,
+                host=args.host,
+                mode=args.mode,
+                workspace_path=args.path,
+            )
             return 1
     else:
         child_pid = _read_pid_from_file()
@@ -318,8 +329,90 @@ def _cmd_up(args) -> int:
             print("  Operational state: UI is running; processing still needs attention.")
         return 0
 
-    print(f"Server did not respond within 15s. Check {log_path}")
+    _print_startup_failure_diagnostics(
+        log_path=log_path,
+        cmd=cmd,
+        child=child,
+        port=args.port,
+        host=args.host,
+        mode=args.mode,
+        workspace_path=args.path,
+    )
     return 1
+
+
+def _read_log_preview(log_path: str, *, max_lines: int = 12) -> list[str]:
+    """Return a short log preview for startup diagnostics."""
+    import time
+
+    try:
+        time.sleep(0.2)
+        with open(log_path, encoding="utf-8", errors="replace") as handle:
+            return handle.read().splitlines()[:max_lines]
+    except OSError:
+        return []
+
+
+def _foreground_diagnostic_command(
+    *,
+    port: int,
+    host: str,
+    mode: str,
+    workspace_path: str | None,
+) -> str:
+    """Build a foreground command that exposes startup tracebacks."""
+    cmd = [
+        "autocleaneeg-pipeline",
+        "serve",
+        "api",
+        "--api-port",
+        str(port),
+        "--host",
+        host,
+        "--mode",
+        mode,
+    ]
+    if workspace_path:
+        cmd.extend(["--path", workspace_path])
+    return " ".join(cmd)
+
+
+def _print_startup_failure_diagnostics(
+    *,
+    log_path: str,
+    cmd: list[str],
+    child,
+    port: int,
+    host: str,
+    mode: str,
+    workspace_path: str | None,
+) -> None:
+    """Print actionable diagnostics when the daemon fails to become healthy."""
+    print(f"Server did not respond within 15s. Check {log_path}")
+    print(f"  Child command: {' '.join(cmd)}")
+
+    exit_code = child.poll()
+    if exit_code is not None:
+        print(f"  Child process exited before health check with code {exit_code}.")
+
+    preview = _read_log_preview(log_path)
+    if preview:
+        print("  Log preview:")
+        for line in preview:
+            print(f"    {line}")
+    else:
+        print("  Log is empty.")
+
+    print("  For an immediate traceback, run the server in the foreground:")
+    print(
+        "    "
+        + _foreground_diagnostic_command(
+            port=port,
+            host=host,
+            mode=mode,
+            workspace_path=workspace_path,
+        )
+    )
 
 
 def _cmd_down(quiet: bool = False) -> int:
@@ -766,3 +859,7 @@ def _resolve_workspace(path_arg: str | None):
         pass
 
     return None
+
+
+if __name__ == "__main__":
+    main()

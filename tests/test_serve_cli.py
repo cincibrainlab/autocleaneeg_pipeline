@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -768,6 +769,112 @@ class TestServeLauncherOperationalStartup:
 
         assert running is False
         assert any("configuration is invalid" in message for message in messages)
+
+
+class TestServeLauncherDaemonStartup:
+    """Tests for diagnostics when Serve background startup fails."""
+
+    def test_serve_launcher_module_executes_main(self) -> None:
+        completed = subprocess.run(
+            [sys.executable, "-m", "autoclean.serve_launcher", "--help"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert completed.returncode == 0
+        assert "AutoCleanEEG Serve" in completed.stdout
+
+    def test_cmd_up_reports_empty_log_and_foreground_command(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        from autoclean.serve_launcher import _cmd_up
+
+        log_path = tmp_path / "serve.log"
+
+        class _FakeProc:
+            def poll(self) -> int | None:
+                return 1
+
+        args = MagicMock()
+        args.port = 8123
+        args.host = "127.0.0.1"
+        args.mode = "test"
+        args.path = str(tmp_path / "workspace")
+        args.force = False
+
+        with (
+            patch("autoclean.serve_launcher._check_existing_server", return_value=None),
+            patch("autoclean.serve_launcher._wait_for_health", return_value=None),
+            patch("autoclean.serve_launcher._log_file_path", return_value=str(log_path)),
+            patch("shutil.which", return_value=None),
+            patch("autoclean.serve_launcher.subprocess.Popen", return_value=_FakeProc()),
+        ):
+            assert _cmd_up(args) == 1
+
+        output = capsys.readouterr().out
+        assert "Server did not respond within 15s." in output
+        assert "Child command:" in output
+        assert "autoclean.serve_launcher" in output
+        assert "Child process exited before health check with code 1." in output
+        assert "Log is empty." in output
+        assert (
+            "autocleaneeg-pipeline serve api --api-port 8123 --host 127.0.0.1 --mode test"
+            in output
+        )
+        assert f"--path {args.path}" in output
+
+    def test_cmd_up_reports_log_preview_when_available(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        from autoclean.serve_launcher import _cmd_up
+
+        log_path = tmp_path / "serve.log"
+
+        class _FakeProc:
+            def poll(self) -> int | None:
+                return None
+
+        def _fake_popen(
+            cmd,
+            stdin=None,
+            stdout=None,
+            stderr=None,
+            start_new_session=None,
+            close_fds=None,
+            env=None,
+        ):
+            assert env is not None
+            assert env["PYTHONUNBUFFERED"] == "1"
+            assert stdout is not None
+            os.write(stdout.fileno(), b"Traceback line 1\nTraceback line 2\n")
+            stdout.flush()
+            return _FakeProc()
+
+        args = MagicMock()
+        args.port = 8124
+        args.host = "0.0.0.0"
+        args.mode = "live"
+        args.path = None
+        args.force = False
+
+        with (
+            patch("autoclean.serve_launcher._check_existing_server", return_value=None),
+            patch("autoclean.serve_launcher._wait_for_health", return_value=None),
+            patch("autoclean.serve_launcher._log_file_path", return_value=str(log_path)),
+            patch("shutil.which", return_value="/usr/local/bin/autocleaneeg-serve"),
+            patch("autoclean.serve_launcher.subprocess.Popen", side_effect=_fake_popen),
+        ):
+            assert _cmd_up(args) == 1
+
+        output = capsys.readouterr().out
+        assert "Log preview:" in output
+        assert "Traceback line 1" in output
+        assert "Traceback line 2" in output
+        assert (
+            "autocleaneeg-pipeline serve api --api-port 8124 --host 0.0.0.0 --mode live"
+            in output
+        )
 
 
 class TestServeServiceCli:
