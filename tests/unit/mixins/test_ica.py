@@ -294,6 +294,33 @@ class TestClassifyICAComponents:
         assert len(result) == 3
         assert task.ica_flags is result
 
+    @patch("autoclean.mixins.signal_processing.ica.classify_ica_components")
+    def test_generates_iclabel_report_after_rejection(self, mock_classify, task):
+        """ICLabel report generation should happen after rejection updates ICA state."""
+        mock_classify.return_value = pd.DataFrame({"label": ["brain", "eye blink"]})
+        task.final_ica = _make_mock_ica()
+        calls: list[str] = []
+
+        def _record_rejection(*args, **kwargs):
+            calls.append("reject")
+
+        def _record_report(*args, **kwargs):
+            calls.append("report")
+
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_auto_export_if_enabled"),
+            patch.object(
+                task,
+                "apply_ica_component_rejection",
+                side_effect=_record_rejection,
+            ),
+            patch.object(task, "generate_ica_reports", side_effect=_record_report),
+        ):
+            task.classify_ica_components(method="iclabel", reject=True)
+
+        assert calls == ["reject", "report"]
+
 
 class TestRunICASettings:
     @patch("autoclean.mixins.signal_processing.ica.save_ica_to_fif")
