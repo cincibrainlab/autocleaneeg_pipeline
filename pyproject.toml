@@ -49,6 +49,7 @@ dependencies = [
     "networkx==3.5",
     "bctpy==0.6.1",
     "specparam==2.0.0rc6",
+    "bycycle==1.2.0",
     # Machine learning
     "torch==2.2.2",
     # Utilities and data handling
