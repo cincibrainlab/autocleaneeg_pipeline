@@ -4,8 +4,13 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import mne
+import numpy as np
 import pytest
 
+from autoclean.plugins.eeg_plugins.bdf_biosemi32_plugin import BDFBiosemi32Plugin
+from autoclean.plugins.eeg_plugins.bdf_biosemi64_plugin import BDFBiosemi64Plugin
+from autoclean.plugins.eeg_plugins.bdf_biosemi128_plugin import BDFBiosemi128Plugin
+from autoclean.plugins.eeg_plugins.bdf_biosemi256_plugin import BDFBiosemi256Plugin
 from tests.fixtures.synthetic_data import create_synthetic_raw
 from tests.fixtures.test_utils import EEGAssertions
 
@@ -16,6 +21,49 @@ try:
     PLUGIN_BASE_AVAILABLE = True
 except ImportError:
     PLUGIN_BASE_AVAILABLE = False
+
+
+def _make_biosemi_raw_with_externals() -> mne.io.RawArray:
+    """Create a compact BioSemi-like Raw with EEG, mastoids, externals, and status."""
+    ch_names = [
+        "Fp1",
+        "Fp2",
+        "C3",
+        "C4",
+        "O1",
+        "O2",
+        "LM",
+        "RM",
+        "LVE",
+        "RVE",
+        "LHE",
+        "RHE",
+        "EXG7",
+        "EXG8",
+        "Status",
+    ]
+    ch_types = ["eeg"] * 14 + ["misc"]
+    data = np.vstack(
+        [
+            np.full(8, 10.0),
+            np.full(8, 12.0),
+            np.full(8, 14.0),
+            np.full(8, 16.0),
+            np.full(8, 18.0),
+            np.full(8, 20.0),
+            np.full(8, 1.0),
+            np.full(8, 3.0),
+            np.full(8, 0.5),
+            np.full(8, 0.75),
+            np.full(8, 1.25),
+            np.full(8, 1.5),
+            np.full(8, 2.0),
+            np.full(8, 2.5),
+            np.arange(8, dtype=float),
+        ]
+    )
+    info = mne.create_info(ch_names=ch_names, sfreq=256.0, ch_types=ch_types)
+    return mne.io.RawArray(data, info, verbose=False)
 
 
 class TestBDFBiosemi32Plugin:
@@ -570,3 +618,58 @@ class TestBDFPluginMocked:
                 break
 
         assert selected_plugin == plugin_128
+
+
+@pytest.mark.parametrize(
+    ("plugin_class", "montage_name"),
+    [
+        (BDFBiosemi32Plugin, "biosemi32"),
+        (BDFBiosemi64Plugin, "biosemi64"),
+        (BDFBiosemi128Plugin, "biosemi128"),
+        (BDFBiosemi256Plugin, "biosemi256"),
+    ],
+)
+@patch("mne.io.read_raw_bdf")
+def test_biosemi_plugins_rereference_to_mastoids_on_import(
+    mock_read_bdf,
+    plugin_class,
+    montage_name,
+):
+    """BioSemi BDF imports should immediately rereference to mastoids when present."""
+    mock_read_bdf.return_value = _make_biosemi_raw_with_externals()
+
+    result = plugin_class().import_and_configure(
+        Path("/test/data.bdf"),
+        {"eeg_system": montage_name},
+    )
+
+    expected = np.array([8.0, 10.0, 12.0, 14.0, 16.0, 18.0])
+    observed = result.get_data(picks=["Fp1", "Fp2", "C3", "C4", "O1", "O2"])[:, 0]
+    np.testing.assert_allclose(observed, expected)
+    assert "LM" not in result.ch_names
+    assert "RM" not in result.ch_names
+    assert "Status" in result.ch_names
+
+
+@patch("mne.io.read_raw_bdf")
+def test_biosemi_plugin_can_keep_reference_and_external_channels(mock_read_bdf):
+    """BioSemi import options should allow retaining reference and external channels."""
+    mock_read_bdf.return_value = _make_biosemi_raw_with_externals()
+
+    result = BDFBiosemi64Plugin().import_and_configure(
+        Path("/test/data.bdf"),
+        {
+            "eeg_system": "biosemi64",
+            "biosemi_import": {
+                "keep_reference_channels": True,
+                "keep_external_channels": True,
+            },
+        },
+    )
+
+    for channel in ["LM", "RM", "LVE", "RVE", "LHE", "RHE", "EXG7", "EXG8", "Status"]:
+        assert channel in result.ch_names
+
+    assert result.get_channel_types(["LVE"])[0] == "eog"
+    assert result.get_channel_types(["EXG7"])[0] == "misc"
+    assert result.get_channel_types(["Status"])[0] == "stim"

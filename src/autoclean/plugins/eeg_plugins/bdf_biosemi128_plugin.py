@@ -11,6 +11,7 @@ import mne
 import pandas as pd
 
 from autoclean.io.import_ import BaseEEGPlugin
+from autoclean.plugins.eeg_plugins._biosemi_bdf_common import import_biosemi_bdf
 from autoclean.utils.logging import message
 
 
@@ -33,109 +34,13 @@ class BDFBiosemi128Plugin(BaseEEGPlugin):
         self, file_path: Path, autoclean_dict: dict, preload: bool = True
     ):
         """Import BioSemi BDF file and configure biosemi128 montage."""
-        message(
-            "info", f"Loading BioSemi BDF file with biosemi128 montage: {file_path}"
-        )
-
         try:
-            # Step 1: Import the BDF file with auto status channel detection
-            # BioSemi BDF files contain a status channel with trigger information
-            raw = mne.io.read_raw_bdf(
-                input_fname=file_path,
+            return import_biosemi_bdf(
+                file_path=file_path,
+                autoclean_dict=autoclean_dict,
                 preload=preload,
-                stim_channel="auto",  # Auto-detect status channel for triggers
-                exclude=[],  # Include all channels initially
-                verbose=True,
+                montage_name="biosemi128",
             )
-            message("success", "Successfully loaded BDF file with status channel")
-
-            # Log channel information
-            message(
-                "debug",
-                f"Loaded {len(raw.ch_names)} channels: {', '.join(raw.ch_names[:10])}...",
-            )
-
-            # Step 1.5: Rename channels to match standard biosemi naming
-            # BioSemi BDF files often have prefixed channel names (e.g., A1_Fp1)
-            # that need to be stripped to match MNE's standard montage names
-            rename_mapping = {}
-            for ch_name in raw.ch_names:
-                # Skip Status channel
-                if ch_name == "Status":
-                    continue
-                # BioSemi channels may have prefix like A1_, B5_, etc.
-                if "_" in ch_name:
-                    prefix, standard_name = ch_name.split("_", 1)
-                    # Fix known case issues (e.g., Afz -> AFz)
-                    if standard_name == "Afz":
-                        standard_name = "AFz"
-                    rename_mapping[ch_name] = standard_name
-
-            if rename_mapping:
-                raw.rename_channels(rename_mapping)
-                message(
-                    "debug",
-                    f"Renamed {len(rename_mapping)} channels to standard names",
-                )
-
-            # Step 2: Configure the biosemi128 montage
-            message("info", "Configuring biosemi128 montage")
-
-            # Apply BioSemi 128-channel standard montage
-            montage = mne.channels.make_standard_montage("biosemi128")
-            raw.set_montage(montage, match_case=False, on_missing="warn")
-
-            message("success", "Successfully applied biosemi128 montage")
-
-            # Step 3: Exclude external channels that won't have montage positions
-            # EXG channels (EOG, mastoids, etc.) don't have positions in standard montage
-            exg_to_exclude = [
-                ch
-                for ch in raw.ch_names
-                if ch
-                in [
-                    "LM",
-                    "RM",
-                    "LVE",
-                    "RVE",
-                    "LHE",
-                    "RHE",
-                    "EXG7",
-                    "EXG8",
-                    "EXG1",
-                    "EXG2",
-                    "EXG3",
-                    "EXG4",
-                    "EXG5",
-                    "EXG6",
-                ]
-            ]
-
-            if exg_to_exclude:
-                raw.drop_channels(exg_to_exclude)
-                message(
-                    "debug",
-                    f"Dropped {len(exg_to_exclude)} EXG channels without montage positions",
-                )
-
-            # Pick EEG and stimulus channels
-            # Keep stimulus channels for event extraction
-            raw.pick_types(eeg=True, stim=True, exclude=[])
-
-            message(
-                "info",
-                f"Selected {len(raw.ch_names)} channels (EEG + status)",
-            )
-
-            # Note: BioSemi systems use CMS/DRL active referencing during acquisition.
-            # Rereferencing should be done in the pipeline preprocessing steps if needed.
-            message(
-                "info",
-                "BioSemi data retains CMS/DRL referencing from acquisition. "
-                "Apply rereferencing in pipeline if needed.",
-            )
-
-            return raw
 
         except Exception as e:
             raise RuntimeError(
