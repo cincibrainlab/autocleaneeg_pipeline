@@ -254,9 +254,18 @@ async def sync_routes():
         result = sync_route_registry(
             api_state.workspace_dir, modes=("test", "live")
         )
+        synced_modes = list(result.keys()) if isinstance(result, dict) else []
+        test_info = result.get("test", {}) if isinstance(result, dict) else {}
+        live_info = result.get("live", {}) if isinstance(result, dict) else {}
         return SyncResponse(
             success=True,
-            modes_synced=list(result.keys()) if isinstance(result, dict) else [],
+            message=(
+                f"Synced route registry for modes: {', '.join(synced_modes)}"
+                if synced_modes
+                else "Synced route registry"
+            ),
+            test_path=str(test_info.get("path")) if test_info.get("path") else None,
+            live_path=str(live_info.get("path")) if live_info.get("path") else None,
         )
     except Exception as exc:
         logger.exception("Route sync failed")

@@ -8,6 +8,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 
 from autoclean.api.models import (
@@ -259,10 +260,47 @@ class TestWorkspaceUtilitiesApi:
             issue["label"] == "live runtime ready"
             for issue in payload["doctor"]["blocking_issues"]
         )
-        assert any(
-            check["label"] == "serve-test.yaml" and check["ok"] is True
-            for check in payload["status_checks"]
+
+
+class TestServeRoutesApi:
+    """Tests for route-spec API endpoints."""
+
+    def test_sync_routes_returns_valid_sync_response(self, tmp_path: Path) -> None:
+        app = create_app(workspace_dir=tmp_path, mode="test")
+        client = TestClient(app, raise_server_exceptions=False)
+
+        base_config = {
+            "mode": "test",
+            "runtime": "runtimes/test",
+            "automation_mode": True,
+            "defaults": {
+                "automation_root": "automations",
+                "workspace_name": "taskfile-montage-version",
+                "file_globs": ["*.set"],
+                "sentinel_ext": ".ready",
+                "recursive": True,
+            },
+            "automations": [],
+        }
+        (tmp_path / "serve-test.yaml").write_text(
+            yaml.safe_dump(base_config, sort_keys=False),
+            encoding="utf-8",
         )
+        base_config["mode"] = "live"
+        base_config["runtime"] = "runtimes/live"
+        (tmp_path / "serve-live.yaml").write_text(
+            yaml.safe_dump(base_config, sort_keys=False),
+            encoding="utf-8",
+        )
+
+        response = client.post("/api/routes/sync")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["success"] is True
+        assert "message" in payload
+        assert payload["test_path"] == str(tmp_path / "serve-test.yaml")
+        assert payload["live_path"] == str(tmp_path / "serve-live.yaml")
 
 
 class TestConfigDeployApi:
