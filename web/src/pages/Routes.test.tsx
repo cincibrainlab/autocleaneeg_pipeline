@@ -182,4 +182,53 @@ describe("Routes page actions", () => {
       screen.queryByText(/Open Settings and click Apply to publish this change for processing/i),
     ).not.toBeInTheDocument();
   });
+
+  it("allows typing a custom montage even when montage suggestions are available", async () => {
+    api.getRoutes.mockResolvedValue([]);
+    api.getTaskOptions.mockResolvedValue([{ name: "RestingEyesOpen", source: "/tasks/RestingEyesOpen.py", description: "" }]);
+    api.getMontageOptions.mockResolvedValue([
+      { name: "GSN-HydroCel-129", description: "EGI 129-channel net" },
+      { name: "standard_1020", description: "Standard 10-20" },
+    ]);
+    api.createRoute.mockResolvedValue({ success: true });
+
+    renderPage();
+
+    fireEvent.click(await screen.findAllByRole("button", { name: "New Route" }).then((buttons) => buttons[0]!));
+
+    const montageInput = await screen.findByRole("combobox", { name: "Montage" });
+    fireEvent.focus(montageInput);
+    expect(await screen.findByRole("listbox")).toBeInTheDocument();
+    fireEvent.mouseDown(await screen.findByRole("option", { name: /GSN-HydroCel-129/i }));
+    expect((montageInput as HTMLInputElement).value).toBe("GSN-HydroCel-129");
+
+    fireEvent.change(await screen.findByLabelText("Route ID"), {
+      target: { value: "custom-montage-route" },
+    });
+    fireEvent.change(screen.getByLabelText("Task"), {
+      target: { value: "RestingEyesOpen" },
+    });
+    fireEvent.change(montageInput, {
+      target: { value: "MyCustomCap-64" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("/path/to/folder — press Enter to add"), {
+      target: { value: "/input" },
+    });
+    fireEvent.keyDown(screen.getByPlaceholderText("/path/to/folder — press Enter to add"), {
+      key: "Enter",
+      code: "Enter",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Route" }));
+
+    await waitFor(() => {
+      expect(api.createRoute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "custom-montage-route",
+          taskfile: "RestingEyesOpen",
+          montage: "MyCustomCap-64",
+        }),
+      );
+    });
+  });
 });

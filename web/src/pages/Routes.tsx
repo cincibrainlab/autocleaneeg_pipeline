@@ -71,6 +71,8 @@ const emptyForm: RouteFormData = {
   priority: 100,
 };
 
+const MONTAGE_LISTBOX_ID = "route-montage-listbox";
+
 // ── Action Menu (portal-based) ──────────────────────────────────
 
 function ActionMenu({
@@ -183,6 +185,8 @@ export default function RoutesPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showFolderBrowser, setShowFolderBrowser] = useState(false);
+  const [montageMenuOpen, setMontageMenuOpen] = useState(false);
+  const [activeMontageIndex, setActiveMontageIndex] = useState(-1);
 
   // Tutorial integration
   const { isActive, currentStep, tutorialData, nextStep } = useTutorial();
@@ -248,6 +252,28 @@ export default function RoutesPage() {
       api.getMontageOptions().then(setMontageOptions).catch(() => {});
     }
   }, [showModal]);
+
+  useEffect(() => {
+    if (!showModal) {
+      setMontageMenuOpen(false);
+      setActiveMontageIndex(-1);
+    }
+  }, [showModal]);
+
+  const filteredMontageOptions = useMemo(() => {
+    const query = form.montage.trim().toLowerCase();
+    if (!query) return montageOptions;
+    return montageOptions.filter((option) =>
+      option.name.toLowerCase().includes(query) ||
+      option.description.toLowerCase().includes(query)
+    );
+  }, [montageOptions, form.montage]);
+
+  const selectMontage = (name: string) => {
+    setForm((prev) => ({ ...prev, montage: name }));
+    setMontageMenuOpen(false);
+    setActiveMontageIndex(-1);
+  };
 
   // Filter routes (memoized to avoid new array ref every render)
   const filtered = useMemo(() => (routes || []).filter((r) => {
@@ -747,10 +773,11 @@ export default function RoutesPage() {
             <div className="space-y-5">
               {/* ── Section: Identity ─────────────────────────── */}
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-1">
+                <label htmlFor="route-id" className="block text-sm font-medium text-zinc-400 mb-1">
                   Route ID
                 </label>
                 <input
+                  id="route-id"
                   type="text"
                   value={form.id}
                   onChange={(e) => setForm({ ...form, id: e.target.value })}
@@ -772,9 +799,10 @@ export default function RoutesPage() {
                 <p className="text-xs uppercase tracking-wider text-zinc-600 mb-3">Processing</p>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-zinc-400 mb-1">Task</label>
+                    <label htmlFor="route-task" className="block text-sm text-zinc-400 mb-1">Task</label>
                     {taskOptions.length > 0 ? (
                       <select
+                        id="route-task"
                         value={form.taskfile}
                         onChange={(e) => setForm({ ...form, taskfile: e.target.value })}
                         className="w-full rounded-md border border-border bg-surface-100 text-sm text-zinc-200 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand/50"
@@ -789,6 +817,7 @@ export default function RoutesPage() {
                       </select>
                     ) : (
                       <input
+                        id="route-task"
                         type="text"
                         value={form.taskfile}
                         onChange={(e) => setForm({ ...form, taskfile: e.target.value })}
@@ -798,29 +827,104 @@ export default function RoutesPage() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm text-zinc-400 mb-1">Montage</label>
-                    {montageOptions.length > 0 ? (
-                      <select
-                        value={form.montage}
-                        onChange={(e) => setForm({ ...form, montage: e.target.value })}
-                        className="w-full rounded-md border border-border bg-surface-100 text-sm text-zinc-200 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand/50"
-                      >
-                        <option value="">Select a montage...</option>
-                        {montageOptions.map((m) => (
-                          <option key={m.name} value={m.name}>
-                            {m.name}
-                            {m.description ? ` - ${m.description}` : ""}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
+                    <label htmlFor="route-montage" className="block text-sm text-zinc-400 mb-1">Montage</label>
+                    <div className="relative">
                       <input
+                        id="route-montage"
                         type="text"
+                        role="combobox"
+                        aria-autocomplete="list"
+                        aria-expanded={montageOptions.length > 0 && montageMenuOpen}
+                        aria-controls={montageOptions.length > 0 ? MONTAGE_LISTBOX_ID : undefined}
+                        aria-activedescendant={
+                          montageMenuOpen && activeMontageIndex >= 0 && filteredMontageOptions[activeMontageIndex]
+                            ? `${MONTAGE_LISTBOX_ID}-${filteredMontageOptions[activeMontageIndex].name}`
+                            : undefined
+                        }
                         value={form.montage}
-                        onChange={(e) => setForm({ ...form, montage: e.target.value })}
-                        placeholder="montage_name"
+                        onFocus={() => {
+                          if (montageOptions.length > 0) {
+                            setMontageMenuOpen(true);
+                            setActiveMontageIndex(filteredMontageOptions.length > 0 ? 0 : -1);
+                          }
+                        }}
+                        onChange={(e) => {
+                          setForm({ ...form, montage: e.target.value });
+                          if (montageOptions.length > 0) {
+                            setMontageMenuOpen(true);
+                            setActiveMontageIndex(0);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (!montageOptions.length) return;
+                          if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            setMontageMenuOpen(true);
+                            setActiveMontageIndex((prev) =>
+                              Math.min(prev + 1, filteredMontageOptions.length - 1)
+                            );
+                          } else if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            setMontageMenuOpen(true);
+                            setActiveMontageIndex((prev) => Math.max(prev - 1, 0));
+                          } else if (e.key === "Enter" && montageMenuOpen && activeMontageIndex >= 0) {
+                            e.preventDefault();
+                            const option = filteredMontageOptions[activeMontageIndex];
+                            if (option) selectMontage(option.name);
+                          } else if (e.key === "Escape") {
+                            setMontageMenuOpen(false);
+                            setActiveMontageIndex(-1);
+                          }
+                        }}
+                        onBlur={() => {
+                          window.setTimeout(() => {
+                            setMontageMenuOpen(false);
+                            setActiveMontageIndex(-1);
+                          }, 100);
+                        }}
+                        placeholder={
+                          montageOptions.length > 0
+                            ? "Type to search or enter a custom montage..."
+                            : "montage_name"
+                        }
                         className="w-full rounded-md border border-border bg-surface-100 text-sm text-zinc-200 px-3 py-2 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-brand/50"
                       />
+                      {montageOptions.length > 0 && montageMenuOpen && filteredMontageOptions.length > 0 && (
+                        <div
+                          id={MONTAGE_LISTBOX_ID}
+                          role="listbox"
+                          className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-md border border-border bg-surface-200 py-1 shadow-xl"
+                        >
+                          {filteredMontageOptions.map((m, index) => (
+                            <button
+                              key={m.name}
+                              id={`${MONTAGE_LISTBOX_ID}-${m.name}`}
+                              type="button"
+                              role="option"
+                              aria-selected={index === activeMontageIndex}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                selectMontage(m.name);
+                              }}
+                              className={`block w-full px-3 py-2 text-left text-sm transition-colors ${
+                                index === activeMontageIndex
+                                  ? "bg-surface-50 text-zinc-100"
+                                  : "text-zinc-300 hover:bg-surface-50/60"
+                              }`}
+                            >
+                              <div>{m.name}</div>
+                              {m.description && (
+                                <div className="mt-0.5 text-xs text-zinc-500">{m.description}</div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {montageOptions.length > 0 && (
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Choose a known montage from the combobox or keep typing to use a custom value.
+                      </p>
                     )}
                   </div>
                 </div>
