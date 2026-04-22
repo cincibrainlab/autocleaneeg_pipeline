@@ -175,8 +175,16 @@ def _discover_custom_tasks() -> (
 
     # Scan for Python files recursively (including subdirectories)
     for task_file in user_config.tasks_dir.rglob("*.py"):
-        # Skip private files, templates, and test fixtures
-        if task_file.name.startswith("_"):
+        # Skip macOS resource fork files, private files, templates, and test fixtures
+        if task_file.name.startswith("._"):
+            skipped_files.append(
+                SkippedTaskFile(
+                    source=str(task_file),
+                    reason="macOS resource fork file (starts with '._')",
+                )
+            )
+            continue
+        elif task_file.name.startswith("_"):
             skipped_files.append(
                 SkippedTaskFile(
                     source=str(task_file), reason="Private file (starts with '_')"

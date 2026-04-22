@@ -195,6 +195,55 @@ class NormalTask(Task):
     assert "PrivateTask" not in task_names
 
 
+def test_macos_resource_fork_files_skipped(monkeypatch, tmp_path):
+    """Test that macOS resource fork task files are skipped cleanly."""
+    tasks_dir = tmp_path / "tasks"
+    tasks_dir.mkdir()
+
+    resource_fork_file = tasks_dir / "._resource_task.py"
+    resource_fork_file.write_text(
+        """
+from autoclean.core.task import Task
+
+class ResourceForkTask(Task):
+    def run(self):
+        pass
+"""
+    )
+
+    normal_file = tasks_dir / "normal_task.py"
+    normal_file.write_text(
+        """
+from autoclean.core.task import Task
+
+class NormalTask(Task):
+    def run(self):
+        pass
+"""
+    )
+
+    monkeypatch.setattr(
+        "autoclean.utils.user_config.user_config.tasks_dir",
+        tasks_dir,
+    )
+
+    valid_tasks, invalid_files, skipped_files = safe_discover_tasks()
+
+    custom_tasks = [t for t in valid_tasks if str(tasks_dir) in t.source]
+    skipped_sources = {Path(entry.source).name for entry in skipped_files}
+    skipped_reasons = {
+        Path(entry.source).name: entry.reason for entry in skipped_files
+    }
+
+    assert [task.name for task in custom_tasks] == ["NormalTask"]
+    assert "._resource_task.py" in skipped_sources
+    assert (
+        skipped_reasons["._resource_task.py"]
+        == "macOS resource fork file (starts with '._')"
+    )
+    assert not any("._resource_task.py" in entry.source for entry in invalid_files)
+
+
 def test_error_messages_are_helpful(monkeypatch, tmp_path):
     """Test that error messages provide helpful information."""
     tasks_dir = tmp_path / "tasks"
