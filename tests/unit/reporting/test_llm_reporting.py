@@ -24,7 +24,10 @@ EpochStats = LLM_REPORTING.EpochStats
 FilterParams = LLM_REPORTING.FilterParams
 ICAStats = LLM_REPORTING.ICAStats
 RunContext = LLM_REPORTING.RunContext
+create_reports = LLM_REPORTING.create_reports
 render_methods = LLM_REPORTING.render_methods
+resolve_llm_settings = LLM_REPORTING._resolve_llm_settings
+build_llm_client = LLM_REPORTING._build_llm_client
 
 
 def _base_context(**overrides):
@@ -112,3 +115,133 @@ def test_render_methods_minimal_context() -> None:
         == "EEG preprocessing was performed using AutoCleanEEG v3.0.0-alpha (MNE-Python n/a). "
         "Data were converted to BIDS and organized under a BIDS-compliant folder."
     )
+
+
+def test_resolve_llm_settings_task_overrides_global(monkeypatch) -> None:
+    monkeypatch.setenv("GLOBAL_LLM_KEY", "global-key")
+    monkeypatch.setenv("TASK_LLM_KEY", "task-key")
+    monkeypatch.setattr(
+        LLM_REPORTING,
+        "load_user_config",
+        lambda: {
+            "llm_reporting": {
+                "enabled": True,
+                "api_key": "$GLOBAL_LLM_KEY",
+                "base_url": "https://global.example/v1/",
+                "model": "global-model",
+                "temperature": 0.0,
+                "seed": 1,
+            }
+        },
+    )
+
+    resolved = resolve_llm_settings(
+        {
+            "api_key": "$TASK_LLM_KEY",
+            "model": "task-model",
+            "temperature": 0.25,
+        }
+    )
+
+    assert resolved == {
+        "enabled": True,
+        "api_key": "task-key",
+        "base_url": "https://global.example/v1",
+        "model": "task-model",
+        "temperature": 0.25,
+        "seed": 1,
+    }
+
+
+def test_build_llm_client_uses_config_before_env(monkeypatch) -> None:
+    captured = {}
+
+    class FakeLLMClient:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setenv("OPENAI_API_KEY", "env-openai-key")
+    monkeypatch.setenv("TASK_LLM_KEY", "task-key")
+    monkeypatch.setattr(
+        LLM_REPORTING,
+        "load_user_config",
+        lambda: {
+            "llm_reporting": {
+                "base_url": "https://global.example/v1",
+                "model": "global-model",
+            }
+        },
+    )
+    monkeypatch.setattr(LLM_REPORTING, "LLMClient", FakeLLMClient)
+
+    client = build_llm_client(
+        {
+            "api_key": "$TASK_LLM_KEY",
+            "model": "task-model",
+            "temperature": 0.5,
+            "seed": 7,
+        }
+    )
+
+    assert client is not None
+    assert captured == {
+        "api_key": "task-key",
+        "base_url": "https://global.example/v1",
+        "model": "task-model",
+        "temperature": 0.5,
+        "seed": 7,
+    }
+
+
+def test_create_reports_uses_llm_settings(tmp_path: Path, monkeypatch) -> None:
+    created = {}
+
+    class FakeLLMClient:
+        def __init__(self, **kwargs):
+            created.update(kwargs)
+            self.model = kwargs.get("model", "fake-model")
+            self.temperature = kwargs.get("temperature", 0.0)
+            self.seed = kwargs.get("seed", 0)
+
+        def generate_json(self, system: str, user: str, schema_hint: str):
+            if "executive summary" in user:
+                return {
+                    "title": "Run summary",
+                    "bullets": ["LLM-backed summary created"],
+                    "notes": [],
+                }
+            return {
+                "summary": "QC narrative created",
+                "recommendations": ["Keep current defaults"],
+            }
+
+    monkeypatch.setattr(LLM_REPORTING, "LLMClient", FakeLLMClient)
+    monkeypatch.setattr(LLM_REPORTING, "load_user_config", lambda: {})
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("REPORT_KEY", "report-key")
+
+    out_dir = tmp_path / "reports"
+    create_reports(
+        _base_context(),
+        out_dir,
+        llm_settings={
+            "enabled": True,
+            "api_key": "$REPORT_KEY",
+            "base_url": "https://local-llm.example/v1",
+            "model": "custom-model",
+            "temperature": 0.1,
+            "seed": 3,
+        },
+    )
+
+    assert created == {
+        "api_key": "report-key",
+        "base_url": "https://local-llm.example/v1",
+        "model": "custom-model",
+        "temperature": 0.1,
+        "seed": 3,
+    }
+    assert (out_dir / "context.json").exists()
+    assert (out_dir / "methods.md").exists()
+    assert (out_dir / "executive_summary.md").exists()
+    assert (out_dir / "qc_narrative.md").exists()

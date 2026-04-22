@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from autoclean.utils.auth import require_authentication
+from autoclean.utils.config import load_user_config
 from autoclean.utils.logging import message
 from autoclean.utils.template_renderer import render_template
 
@@ -216,6 +217,79 @@ class LLMClient:
         return json.loads(content)
 
 
+_LLM_SETTING_KEYS = (
+    "enabled",
+    "api_key",
+    "base_url",
+    "model",
+    "temperature",
+    "seed",
+)
+
+
+def _resolve_config_value(value: Any) -> Any:
+    """Resolve config values, including $ENV_VAR references."""
+    if isinstance(value, str) and value.startswith("$") and len(value) > 1:
+        return os.getenv(value[1:])
+    return value
+
+
+def _normalize_llm_settings(settings: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Normalize llm_reporting settings from task or global config."""
+    if not isinstance(settings, dict):
+        return {}
+
+    normalized: Dict[str, Any] = {}
+    for key in _LLM_SETTING_KEYS:
+        if key not in settings:
+            continue
+        value = _resolve_config_value(settings[key])
+        if key == "base_url" and isinstance(value, str):
+            value = value.rstrip("/")
+        normalized[key] = value
+    return normalized
+
+
+def _resolve_llm_settings(
+    task_settings: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Resolve llm_reporting settings with task config overriding global config."""
+    global_settings = {}
+    try:
+        global_settings = _normalize_llm_settings(
+            load_user_config().get("llm_reporting")
+        )
+    except Exception:
+        global_settings = {}
+
+    merged = dict(global_settings)
+    merged.update(_normalize_llm_settings(task_settings))
+    return merged
+
+
+def _build_llm_client(
+    llm_settings: Optional[Dict[str, Any]] = None,
+) -> Optional[LLMClient]:
+    """Build an LLM client from config, env vars, and defaults."""
+    resolved_settings = _resolve_llm_settings(llm_settings)
+
+    if resolved_settings.get("enabled") is False:
+        message("info", "LLM reporting disabled by config; skipping LLM summaries.")
+        return None
+
+    client_kwargs = {
+        key: value
+        for key, value in resolved_settings.items()
+        if key != "enabled" and value is not None
+    }
+
+    if not (client_kwargs.get("api_key") or os.getenv("OPENAI_API_KEY")):
+        message("warning", "No LLM API key configured; skipping LLM summaries.")
+        return None
+
+    return LLMClient(**client_kwargs)
+
+
 # ---------- Prompts ----------
 
 
@@ -293,6 +367,7 @@ def create_reports(
     context: RunContext,
     out_dir: Path,
     llm: Optional[LLMClient] = None,
+    llm_settings: Optional[Dict[str, Any]] = None,
     emit_methods: bool = True,
     emit_exec: bool = True,
     emit_qc: bool = True,
@@ -306,12 +381,9 @@ def create_reports(
         _write_text(out_dir / "methods.md", methods_md)
 
     if llm is None:
-        llm_enabled = bool(os.getenv("OPENAI_API_KEY"))
-        if not llm_enabled:
-            message("warning", "OPENAI_API_KEY not set; skipping LLM summaries.")
+        llm = _build_llm_client(llm_settings)
+        if llm is None:
             emit_exec = emit_qc = False
-        else:
-            llm = LLMClient()
 
     if emit_exec and llm:
         system, user, schema = _exec_summary_prompt(context)

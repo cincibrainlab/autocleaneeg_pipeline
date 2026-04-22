@@ -536,5 +536,11 @@ class Task(ABC, *DISCOVERED_MIXINS):
 
         reports_dir.mkdir(parents=True, exist_ok=True)
 
-        create_reports(context, reports_dir)
+        llm_settings = None
+        if isinstance(self.settings, dict):
+            maybe_llm_settings = self.settings.get("llm_reporting")
+            if isinstance(maybe_llm_settings, dict):
+                llm_settings = maybe_llm_settings
+
+        create_reports(context, reports_dir, llm_settings=llm_settings)
         return reports_dir

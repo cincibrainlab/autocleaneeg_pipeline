@@ -342,6 +342,7 @@ def load_user_config() -> dict:
             "require_electronic_signatures": False,
         },
         "workspace": {"default_output_dir": None, "auto_backup": True},
+        "llm_reporting": {},
     }
 
     if not user_config_file.exists():
@@ -361,6 +362,12 @@ def load_user_config() -> dict:
         # Safely merge workspace settings
         if "workspace" in user_config and isinstance(user_config["workspace"], dict):
             merged_config["workspace"].update(user_config["workspace"])
+
+        # Safely merge llm reporting settings
+        if "llm_reporting" in user_config and isinstance(
+            user_config["llm_reporting"], dict
+        ):
+            merged_config["llm_reporting"].update(user_config["llm_reporting"])
 
         return merged_config
 

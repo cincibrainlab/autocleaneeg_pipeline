@@ -6,6 +6,14 @@
       "value": "string (valid montage) | 'auto' | None"
     },
     "ai_reporting": "bool|null",
+    "llm_reporting": {
+      "enabled": "bool|null",
+      "api_key": "str|null",
+      "base_url": "str|null",
+      "model": "str|null",
+      "temperature": "number|null",
+      "seed": "int|null"
+    },
     "move_flagged_files": "bool|null",
     "resample_step": {
       "enabled": "bool",
