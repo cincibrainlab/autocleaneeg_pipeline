@@ -1,6 +1,6 @@
 """Output Results Viewer endpoints.
 
-Scans all automation output directories for run_database.db files, aggregates
+Scans all automation output directories for pipeline run databases, aggregates
 run records, and serves processed artifacts (PDFs, PNGs, JSON).
 
 Includes review-decision workflow: operators can mark runs as Pass/Fail/Review
@@ -59,10 +59,11 @@ _runs_cache: list[tuple[dict[str, Any], Path]] = []
 _runs_cache_time: float = 0.0
 _runs_cache_lock = threading.Lock()
 _RUNS_CACHE_TTL = 5.0  # seconds
+_RUN_DB_FILENAMES = ("pipeline.db", "run_database.db")
 
 
 def _find_all_runs(workspace: Path) -> list[tuple[dict[str, Any], Path]]:
-    """Scan all automation dirs for run_database.db. Cached for 5 seconds."""
+    """Scan all automation dirs for supported run DBs. Cached for 5 seconds."""
     global _runs_cache, _runs_cache_time
 
     now = time.time()
@@ -78,31 +79,56 @@ def _find_all_runs(workspace: Path) -> list[tuple[dict[str, Any], Path]]:
             _runs_cache_time = now
         return results
 
+    seen_db_paths: set[Path] = set()
     for auto_dir in automations.iterdir():
         if not auto_dir.is_dir():
             continue
-        for db_path in auto_dir.rglob("run_database.db"):
-            task_root = db_path.parent
-            try:
-                conn = sqlite3.connect(str(db_path))
+        for db_name in _RUN_DB_FILENAMES:
+            for db_path in auto_dir.rglob(db_name):
+                resolved_db_path = db_path.resolve()
+                if resolved_db_path in seen_db_paths:
+                    continue
+                seen_db_paths.add(resolved_db_path)
+                task_root = db_path.parent
                 try:
-                    conn.row_factory = sqlite3.Row
-                    rows = conn.execute(
-                        "SELECT * FROM pipeline_runs ORDER BY created_at DESC"
-                    ).fetchall()
-                    for row in rows:
-                        results.append((dict(row), task_root))
-                finally:
-                    conn.close()
-            except Exception as exc:
-                logger.debug("Skipping %s: %s", db_path, exc)
-                continue
+                    conn = sqlite3.connect(str(db_path))
+                    try:
+                        conn.row_factory = sqlite3.Row
+                        rows = conn.execute(
+                            "SELECT * FROM pipeline_runs ORDER BY created_at DESC"
+                        ).fetchall()
+                        for row in rows:
+                            results.append((dict(row), task_root))
+                    finally:
+                        conn.close()
+                except Exception as exc:
+                    logger.debug("Skipping %s: %s", db_path, exc)
+                    continue
 
+    deduped_by_run_id: dict[str, tuple[dict[str, Any], Path]] = {}
+    for row, task_root in results:
+        run_id = str(row.get("run_id") or "").strip()
+        if not run_id:
+            continue
+        existing = deduped_by_run_id.get(run_id)
+        if existing is None or _prefer_task_root(task_root, existing[1]):
+            deduped_by_run_id[run_id] = (row, task_root)
+
+    results = list(deduped_by_run_id.values())
     results.sort(key=lambda t: t[0].get("created_at", ""), reverse=True)
     with _runs_cache_lock:
         _runs_cache = results
         _runs_cache_time = now
     return results
+
+
+def _prefer_task_root(candidate: Path, current: Path) -> bool:
+    """Return True when candidate is the better root for serving run assets."""
+    candidate_reports = (candidate / "reports").exists()
+    current_reports = (current / "reports").exists()
+    if candidate_reports != current_reports:
+        return candidate_reports
+    return len(candidate.parts) > len(current.parts)
 
 
 def _find_run(run_id: str, workspace: Path) -> tuple[dict[str, Any], Path] | None:
@@ -483,11 +509,7 @@ async def get_report(run_id: str) -> FileResponse:
     """Serve the autoclean PDF report for a run."""
     workspace = _require_workspace()
     _row, _task_root, _stem, asset_path = _get_stem_and_asset(run_id, workspace, "report")
-    return FileResponse(
-        path=str(asset_path),
-        media_type="application/pdf",
-        filename=asset_path.name,
-    )
+    return FileResponse(path=str(asset_path), media_type="application/pdf")
 
 
 @router.get("/{run_id}/ica-report")
@@ -495,11 +517,7 @@ async def get_ica_report(run_id: str) -> FileResponse:
     """Serve the ICA components PDF report for a run."""
     workspace = _require_workspace()
     _row, _task_root, _stem, asset_path = _get_stem_and_asset(run_id, workspace, "ica_report")
-    return FileResponse(
-        path=str(asset_path),
-        media_type="application/pdf",
-        filename=asset_path.name,
-    )
+    return FileResponse(path=str(asset_path), media_type="application/pdf")
 
 
 @router.get("/{run_id}/psd")
