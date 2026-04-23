@@ -227,7 +227,7 @@ class ServeRoute:
     ingestion_excludes: list[Path]
     file_globs: list[str]
     recursive: bool
-    sentinel_ext: str
+    sentinel_ext: Optional[str]
     automation_root: Path
     workspace_name: str
     requires_matlab: bool = False
@@ -425,10 +425,10 @@ def parse_serve_config(
         errors,
         "file_globs",
     )
-    default_sentinel_ext = _default_value("sentinel_ext") or ".ready"
-    if not isinstance(default_sentinel_ext, str):
+    default_sentinel_ext = _default_value("sentinel_ext")
+    if default_sentinel_ext is not None and not isinstance(default_sentinel_ext, str):
         errors.append("sentinel_ext must be a string")
-        default_sentinel_ext = ".ready"
+        default_sentinel_ext = None
     default_recursive = _coerce_bool(
         _default_value("recursive"), default=True, errors=errors, label="recursive"
     )
@@ -511,10 +511,12 @@ def parse_serve_config(
             label=f"automations[{idx}].recursive",
         )
 
-        sentinel_value = route_data.get("sentinel_ext", default_sentinel_ext)
-        if not isinstance(sentinel_value, str):
-            errors.append(f"automations[{idx}].sentinel_ext must be a string")
+        sentinel_value = route_data.get("sentinel_ext")
+        if sentinel_value is None and legacy:
             sentinel_value = default_sentinel_ext
+        if sentinel_value is not None and not isinstance(sentinel_value, str):
+            errors.append(f"automations[{idx}].sentinel_ext must be a string")
+            sentinel_value = default_sentinel_ext if legacy else None
 
         ingestion_folders = _normalize_path_list(
             route_data.get("ingestion_folders"),
@@ -1062,7 +1064,9 @@ def _select_route_for_file(
     return best
 
 
-def _strip_sentinel(path: Path, sentinel_ext: str) -> Path:
+def _strip_sentinel(path: Path, sentinel_ext: Optional[str]) -> Path:
+    if not sentinel_ext:
+        return path
     name = path.name
     if name.endswith(sentinel_ext):
         return path.with_name(name[: -len(sentinel_ext)])
@@ -1506,14 +1510,14 @@ def _check_stability(files: Iterable[Path], window_seconds: int) -> list[Path]:
 def evaluate_readiness(
     files: Iterable[Path],
     *,
-    sentinel_ext: str = ".ready",
+    sentinel_ext: Optional[str] = None,
     require_sentinel: bool = True,
     stability_window_seconds: int = 0,
 ) -> ReadinessResult:
     """Evaluate readiness based on sentinels and stability window."""
     file_list = list(files)
     missing = []
-    if require_sentinel:
+    if require_sentinel and sentinel_ext:
         for path in file_list:
             sentinel = _sentinel_path(path, sentinel_ext)
             if not sentinel.exists():
@@ -1537,7 +1541,7 @@ def list_ingestion_files(
     root: Path,
     *,
     file_glob: str | Sequence[str],
-    sentinel_ext: str,
+    sentinel_ext: Optional[str],
     recursive: bool = True,
 ) -> list[Path]:
     """Return candidate ingestion files under root."""
@@ -1548,7 +1552,7 @@ def list_ingestion_files(
         for path in iterator:
             if not path.is_file():
                 continue
-            if path.name.endswith(sentinel_ext):
+            if sentinel_ext and path.name.endswith(sentinel_ext):
                 continue
             files.append(path)
     return sorted(set(files))
@@ -1557,7 +1561,7 @@ def list_ingestion_files(
 def scan_ready_files(
     files: Iterable[Path],
     *,
-    sentinel_ext: str = ".ready",
+    sentinel_ext: Optional[str] = None,
     require_sentinel: bool = True,
     stability_window_seconds: int = 0,
 ) -> ReadyScanResult:
@@ -1591,7 +1595,7 @@ def poll_ready_files(
     root: Path,
     *,
     file_glob: str | Sequence[str] = "*",
-    sentinel_ext: str = ".ready",
+    sentinel_ext: Optional[str] = None,
     require_sentinel: bool = True,
     stability_window_seconds: int = 0,
     recursive: bool = True,
@@ -1626,7 +1630,7 @@ def watch_ready_files(
     root: Path,
     *,
     file_glob: str | Sequence[str] = "*",
-    sentinel_ext: str = ".ready",
+    sentinel_ext: Optional[str] = None,
     require_sentinel: bool = True,
     stability_window_seconds: int = 0,
     poll_interval_seconds: float = 1.0,
@@ -1661,7 +1665,23 @@ def watch_ready_files(
             max_loops=max_events,
         )
 
-    result = ReadyScanResult()
+    # Always scan once before waiting on filesystem events so existing files
+    # are picked up immediately when the dispatcher starts.
+    initial_files = list_ingestion_files(
+        root,
+        file_glob=file_glob,
+        sentinel_ext=sentinel_ext,
+        recursive=recursive,
+    )
+    result = scan_ready_files(
+        initial_files,
+        sentinel_ext=sentinel_ext,
+        require_sentinel=require_sentinel,
+        stability_window_seconds=stability_window_seconds,
+    )
+    if result.ready:
+        return result
+
     for idx, _ in enumerate(watch(root)):
         files = list_ingestion_files(
             root,
