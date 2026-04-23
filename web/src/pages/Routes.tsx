@@ -265,7 +265,7 @@ export default function RoutesPage() {
     if (!query) return montageOptions;
     return montageOptions.filter((option) =>
       option.name.toLowerCase().includes(query) ||
-      option.description.toLowerCase().includes(query)
+      (option.description ?? "").toLowerCase().includes(query)
     );
   }, [montageOptions, form.montage]);
 

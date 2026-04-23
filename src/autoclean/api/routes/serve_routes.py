@@ -62,16 +62,15 @@ async def list_montages():
     """Return available montage configurations."""
     _require_workspace()
     try:
-        from autoclean.utils.montage_catalog import load_valid_montages
+        from autoclean.utils.montage import load_valid_montages
 
         montages = load_valid_montages()
-        return [
-            MontageOption(
-                name=m if isinstance(m, str) else m.get("name", str(m)),
-                description="" if isinstance(m, str) else m.get("description", ""),
-            )
-            for m in montages
-        ]
+        if isinstance(montages, dict):
+            return [
+                MontageOption(name=name, description=description or "")
+                for name, description in montages.items()
+            ]
+        return [MontageOption(name=str(m), description="") for m in montages]
     except Exception as exc:
         logger.warning("Montage catalog load failed: %s", exc)
         return []

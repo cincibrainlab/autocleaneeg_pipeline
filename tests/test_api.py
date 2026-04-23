@@ -265,6 +265,18 @@ class TestWorkspaceUtilitiesApi:
 class TestServeRoutesApi:
     """Tests for route-spec API endpoints."""
 
+    def test_list_montage_options_returns_known_montages(self, tmp_path: Path) -> None:
+        app = create_app(workspace_dir=tmp_path, mode="test")
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/api/routes/discovery/montages")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert isinstance(payload, list)
+        assert payload
+        assert any(item["name"] == "GSN-HydroCel-32" for item in payload)
+
     def test_sync_routes_returns_valid_sync_response(self, tmp_path: Path) -> None:
         app = create_app(workspace_dir=tmp_path, mode="test")
         client = TestClient(app, raise_server_exceptions=False)
