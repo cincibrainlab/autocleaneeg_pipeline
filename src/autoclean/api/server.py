@@ -343,11 +343,40 @@ defaults:
     - "*.set"
     - "*.edf"
     - "*.bdf"
-  sentinel_ext: .ready
   recursive: true
 automations: []
 """
         config_path.write_text(config_content)
+
+
+def _ensure_workspace_runtimes(
+    workspace_dir: Path,
+    *,
+    package_spec: str = "autocleaneeg-pipeline",
+) -> None:
+    """Provision Serve runtimes for a workspace.
+
+    Reuses the CLI runtime bootstrapper so the web UI and CLI produce the same
+    runnable workspace layout.
+    """
+    from autoclean.cli import _setup_runtime
+
+    runtime_specs = (
+        (workspace_dir / "runtimes" / "test", "test"),
+        (workspace_dir / "runtimes" / "live", "live"),
+    )
+    for runtime_dir, label in runtime_specs:
+        ok = _setup_runtime(
+            runtime_dir,
+            label,
+            package_spec,
+            skip_uv=False,
+            run_test=False,
+            workspace_dir=workspace_dir,
+            workspace_mode="existing" if workspace_dir.exists() else "new",
+        )
+        if not ok:
+            raise RuntimeError(f"Failed to set up {label} runtime")
 
 
 @asynccontextmanager
@@ -616,6 +645,14 @@ REST API for managing automated EEG file processing pipelines.
                 )
             except Exception:
                 pass
+
+        try:
+            _ensure_workspace_runtimes(workspace_dir)
+        except Exception as exc:
+            raise _HTTPException(
+                status_code=500,
+                detail=f"Workspace runtime setup failed: {exc}",
+            )
 
         # Configure API state in-place — no restart required
         api_state.configure(workspace_dir, api_state.mode or "test", api_state.redis_url)

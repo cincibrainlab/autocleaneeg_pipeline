@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -187,16 +188,18 @@ class TestSetupWorkspaceRoute:
         (workspace / "tasks").mkdir(parents=True)
         (workspace / "output").mkdir(parents=True)
 
-        response = client.post(
-            "/api/setup/workspace",
-            json={"path": str(workspace), "create_new": False},
-        )
+        with patch("autoclean.api.server._ensure_workspace_runtimes") as ensure_runtimes:
+            response = client.post(
+                "/api/setup/workspace",
+                json={"path": str(workspace), "create_new": False},
+            )
 
         assert response.status_code == 200
         assert (workspace / "serve-test.yaml").exists()
         assert (workspace / "serve-live.yaml").exists()
         assert (workspace / "routes").exists()
         assert (workspace / "automations").exists()
+        ensure_runtimes.assert_called_once_with(workspace)
         metadata = json.loads((workspace / ".serve-workspace.json").read_text(encoding="utf-8"))
         assert metadata["origin"] == "bootstrapped_autoclean"
 
@@ -206,14 +209,34 @@ class TestSetupWorkspaceRoute:
 
         workspace = tmp_path / "new-workspace"
 
-        response = client.post(
-            "/api/setup/workspace",
-            json={"path": str(workspace), "create_new": True},
-        )
+        with patch("autoclean.api.server._ensure_workspace_runtimes") as ensure_runtimes:
+            response = client.post(
+                "/api/setup/workspace",
+                json={"path": str(workspace), "create_new": True},
+            )
 
         assert response.status_code == 200
+        ensure_runtimes.assert_called_once_with(workspace)
         metadata = json.loads((workspace / ".serve-workspace.json").read_text(encoding="utf-8"))
         assert metadata["origin"] == "new_serve_workspace"
+
+    def test_setup_workspace_returns_error_when_runtime_setup_fails(self, tmp_path: Path) -> None:
+        app = create_app()
+        client = TestClient(app)
+
+        workspace = tmp_path / "new-workspace"
+
+        with patch(
+            "autoclean.api.server._ensure_workspace_runtimes",
+            side_effect=RuntimeError("uv failed"),
+        ):
+            response = client.post(
+                "/api/setup/workspace",
+                json={"path": str(workspace), "create_new": True},
+            )
+
+        assert response.status_code == 500
+        assert "Workspace runtime setup failed" in response.json()["detail"]
 
 
 class TestWorkspaceUtilitiesApi:
@@ -374,6 +397,210 @@ class TestServeRoutesApi:
         assert payload["success"] is True
         assert payload["route_id"] == "example-route"
         assert not route_path.exists()
+
+
+class TestResultsApi:
+    """Tests for the results API."""
+
+    def test_list_results_reads_pipeline_db(self, tmp_path: Path) -> None:
+        app = create_app(workspace_dir=tmp_path, mode="live")
+        client = TestClient(app, raise_server_exceptions=False)
+
+        automation_dir = tmp_path / "automations" / "Resting_GSN_32-GSN-HydroCel-32"
+        automation_dir.mkdir(parents=True)
+        db_path = automation_dir / "pipeline.db"
+
+        conn = sqlite3.connect(db_path)
+        try:
+            conn.execute(
+                """
+                CREATE TABLE pipeline_runs (
+                    run_id TEXT PRIMARY KEY,
+                    created_at TEXT,
+                    task TEXT,
+                    status TEXT,
+                    success INTEGER,
+                    unprocessed_file TEXT
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO pipeline_runs (
+                    run_id, created_at, task, status, success, unprocessed_file
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "run-001",
+                    "2026-04-23 12:00:00",
+                    "Resting_GSN_32",
+                    "completed",
+                    1,
+                    "/Users/sueo8x/Documents/TestEegData/0003_rest.raw",
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        import autoclean.api.routes.results as results_route
+
+        with results_route._runs_cache_lock:
+            results_route._runs_cache = []
+            results_route._runs_cache_time = 0.0
+
+        response = client.get("/api/results")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["total"] == 1
+        assert payload["runs"][0]["run_id"] == "run-001"
+        assert payload["runs"][0]["task"] == "Resting_GSN_32"
+        assert payload["runs"][0]["filename"] == "0003_rest.raw"
+
+    def test_run_detail_prefers_nested_db_root_for_assets(self, tmp_path: Path) -> None:
+        app = create_app(workspace_dir=tmp_path, mode="live")
+        client = TestClient(app, raise_server_exceptions=False)
+
+        automation_dir = tmp_path / "automations" / "Resting_GSN_32-GSN-HydroCel-32"
+        task_dir = automation_dir / "Resting_GSN_32"
+        task_dir.mkdir(parents=True)
+
+        db_specs = [
+            automation_dir / "pipeline.db",
+            task_dir / "run_database.db",
+        ]
+        for db_path in db_specs:
+            conn = sqlite3.connect(db_path)
+            try:
+                conn.execute(
+                    """
+                    CREATE TABLE pipeline_runs (
+                        run_id TEXT PRIMARY KEY,
+                        created_at TEXT,
+                        task TEXT,
+                        status TEXT,
+                        success INTEGER,
+                        unprocessed_file TEXT,
+                        metadata TEXT,
+                        user_context TEXT,
+                        error TEXT
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    INSERT INTO pipeline_runs (
+                        run_id, created_at, task, status, success, unprocessed_file,
+                        metadata, user_context, error
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        "run-001",
+                        "2026-04-23 12:00:00",
+                        "Resting_GSN_32",
+                        "completed",
+                        1,
+                        "/Users/sueo8x/Documents/TestEegData/0003_rest.raw",
+                        "{}",
+                        None,
+                        None,
+                    ),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+        report_path = task_dir / "reports" / "run_reports" / "0003_rest_autoclean_report.pdf"
+        report_path.parent.mkdir(parents=True)
+        report_path.write_bytes(b"%PDF-1.4\n%mock report\n")
+
+        import autoclean.api.routes.results as results_route
+
+        with results_route._runs_cache_lock:
+            results_route._runs_cache = []
+            results_route._runs_cache_time = 0.0
+
+        response = client.get("/api/results/run-001")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["assets"]["report"] is True
+        assert payload["filename"] == "0003_rest.raw"
+
+    def test_report_and_ica_pdf_endpoints_are_inline(self, tmp_path: Path) -> None:
+        app = create_app(workspace_dir=tmp_path, mode="live")
+        client = TestClient(app, raise_server_exceptions=False)
+
+        automation_dir = tmp_path / "automations" / "Resting_GSN_32-GSN-HydroCel-32"
+        task_dir = automation_dir / "Resting_GSN_32"
+        task_dir.mkdir(parents=True)
+
+        db_path = task_dir / "run_database.db"
+        conn = sqlite3.connect(db_path)
+        try:
+            conn.execute(
+                """
+                CREATE TABLE pipeline_runs (
+                    run_id TEXT PRIMARY KEY,
+                    created_at TEXT,
+                    task TEXT,
+                    status TEXT,
+                    success INTEGER,
+                    unprocessed_file TEXT,
+                    metadata TEXT,
+                    user_context TEXT,
+                    error TEXT
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO pipeline_runs (
+                    run_id, created_at, task, status, success, unprocessed_file,
+                    metadata, user_context, error
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    "run-inline",
+                    "2026-04-23 12:00:00",
+                    "Resting_GSN_32",
+                    "completed",
+                    1,
+                    "/Users/sueo8x/Documents/TestEegData/0003_rest.raw",
+                    "{}",
+                    None,
+                    None,
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        report_path = task_dir / "reports" / "run_reports" / "0003_rest_autoclean_report.pdf"
+        report_path.parent.mkdir(parents=True)
+        report_path.write_bytes(b"%PDF-1.4\n%mock report\n")
+
+        ica_path = task_dir / "reports" / "ica_components" / "0003_rest_ica_components_all.pdf"
+        ica_path.parent.mkdir(parents=True)
+        ica_path.write_bytes(b"%PDF-1.4\n%mock ica\n")
+
+        import autoclean.api.routes.results as results_route
+
+        with results_route._runs_cache_lock:
+            results_route._runs_cache = []
+            results_route._runs_cache_time = 0.0
+
+        report_response = client.get("/api/results/run-inline/report")
+        ica_response = client.get("/api/results/run-inline/ica-report")
+
+        assert report_response.status_code == 200
+        assert report_response.headers["content-type"].startswith("application/pdf")
+        assert "attachment" not in report_response.headers.get("content-disposition", "").lower()
+
+        assert ica_response.status_code == 200
+        assert ica_response.headers["content-type"].startswith("application/pdf")
+        assert "attachment" not in ica_response.headers.get("content-disposition", "").lower()
 
 
 class TestConfigDeployApi:
