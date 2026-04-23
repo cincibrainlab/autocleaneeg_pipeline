@@ -41,9 +41,20 @@ def _allowed_roots() -> list[Path]:
     """Return the list of directories the browser is permitted to explore."""
     roots: list[Path] = []
     if api_state.workspace_dir:
-        roots.append(Path(api_state.workspace_dir).resolve())
+        workspace_root = Path(api_state.workspace_dir).resolve()
+        roots.append(workspace_root)
+        if workspace_root.parent != workspace_root:
+            roots.append(workspace_root.parent)
     roots.append(Path.home().resolve())
-    return roots
+
+    unique_roots: list[Path] = []
+    seen: set[Path] = set()
+    for root in roots:
+        if root in seen:
+            continue
+        seen.add(root)
+        unique_roots.append(root)
+    return unique_roots
 
 
 def _is_allowed(path: Path) -> bool:

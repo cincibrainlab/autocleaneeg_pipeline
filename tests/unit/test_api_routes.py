@@ -271,6 +271,16 @@ class TestFilesystemSecurity:
             home = Path.home()
             assert fs._is_allowed(home) is True
 
+    def test_is_allowed_workspace_parent_directory(self, tmp_path: Path):
+        """Parent of the current workspace is allowed for workspace reselection."""
+        import autoclean.api.routes.filesystem as fs
+
+        workspace = tmp_path / "Autoclean_Serve_Workspaces" / "project-a"
+        workspace.mkdir(parents=True)
+
+        with patch.object(fs.api_state, "workspace_dir", workspace):
+            assert fs._is_allowed(workspace.parent) is True
+
     def test_is_allowed_root_directory(self, tmp_path: Path):
         """Root directory is allowed only as a top-level chooser for allowed roots."""
         import autoclean.api.routes.filesystem as fs
@@ -288,6 +298,22 @@ class TestFilesystemSecurity:
             returned_paths = {entry.path for entry in response.entries}
             assert str(tmp_path.resolve()) in returned_paths
             assert str(Path.home().resolve()) in returned_paths
+
+    def test_browse_workspace_parent_directory_is_permitted(self, tmp_path: Path):
+        """Browsing up from a workspace into its parent directory is allowed."""
+        import asyncio
+        import autoclean.api.routes.filesystem as fs
+
+        workspace = tmp_path / "Autoclean_Serve_Workspaces" / "project-a"
+        sibling = workspace.parent / "project-b"
+        workspace.mkdir(parents=True)
+        sibling.mkdir()
+
+        with patch.object(fs.api_state, "workspace_dir", workspace):
+            response = asyncio.run(fs.browse_directory(path=str(workspace.parent)))
+            returned_paths = {entry.path for entry in response.entries}
+            assert str(workspace) in returned_paths
+            assert str(sibling) in returned_paths
 
 
 # ── Service stop_service threading tests ──────────────────────────────
