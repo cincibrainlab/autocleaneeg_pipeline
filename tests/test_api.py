@@ -265,6 +265,34 @@ class TestWorkspaceUtilitiesApi:
 class TestServeRoutesApi:
     """Tests for route-spec API endpoints."""
 
+    def test_list_task_options_uses_serve_workspace_tasks_dir(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app = create_app(workspace_dir=tmp_path, mode="test")
+        client = TestClient(app, raise_server_exceptions=False)
+
+        serve_tasks_dir = tmp_path / "tasks"
+        serve_tasks_dir.mkdir(parents=True)
+        (serve_tasks_dir / "MyServeTask.py").write_text(
+            (
+                "from autoclean.core.task import Task\n"
+                "class MyServeTask(Task):\n"
+                '    """Serve workspace task."""\n'
+                "    pass\n"
+            ),
+            encoding="utf-8",
+        )
+
+        legacy_tasks_dir = tmp_path / "legacy-tasks"
+        legacy_tasks_dir.mkdir()
+        monkeypatch.setattr("autoclean.utils.user_config.user_config.tasks_dir", legacy_tasks_dir)
+
+        response = client.get("/api/routes/discovery/tasks")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert any(item["name"] == "MyServeTask" for item in payload)
+
     def test_list_montage_options_returns_known_montages(self, tmp_path: Path) -> None:
         app = create_app(workspace_dir=tmp_path, mode="test")
         client = TestClient(app, raise_server_exceptions=False)

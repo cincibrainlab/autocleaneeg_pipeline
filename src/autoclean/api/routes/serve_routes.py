@@ -9,6 +9,8 @@ them into the mode-specific ``serve-*.yaml`` config consumed by
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -34,6 +36,25 @@ def _require_workspace():
         raise HTTPException(status_code=409, detail="Workspace not configured")
 
 
+@contextmanager
+def _serve_task_discovery_context(workspace_dir: Path):
+    """Temporarily point task discovery at the active Serve workspace."""
+    from autoclean.utils.user_config import user_config
+
+    original_tasks_dir = user_config.tasks_dir
+    original_config_dir = user_config.config_dir
+    serve_tasks_dir = workspace_dir / "tasks"
+    serve_tasks_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        user_config.tasks_dir = serve_tasks_dir
+        user_config.config_dir = workspace_dir
+        yield
+    finally:
+        user_config.tasks_dir = original_tasks_dir
+        user_config.config_dir = original_config_dir
+
+
 # ── List / Read ──────────────────────────────────────────────────────
 
 @router.get("/discovery/tasks", response_model=list[TaskOption])
@@ -43,7 +64,8 @@ async def list_tasks():
     try:
         from autoclean.utils.task_discovery import safe_discover_tasks
 
-        tasks, _invalid, _skipped = safe_discover_tasks()
+        with _serve_task_discovery_context(api_state.workspace_dir):
+            tasks, _invalid, _skipped = safe_discover_tasks()
         return [
             TaskOption(
                 name=t.name,
