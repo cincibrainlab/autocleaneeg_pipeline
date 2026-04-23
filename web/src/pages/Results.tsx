@@ -204,6 +204,37 @@ function Unavailable({ label }: { label: string }) {
   );
 }
 
+function PdfViewer({
+  title,
+  src,
+  linkLabel,
+}: {
+  title: string;
+  src: string;
+  linkLabel: string;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <a
+          href={src}
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs text-brand hover:underline"
+        >
+          {linkLabel}
+        </a>
+      </div>
+      <iframe
+        key={src}
+        title={title}
+        src={src}
+        className="w-full min-h-[38rem] rounded-lg border border-border bg-white"
+      />
+    </div>
+  );
+}
+
 // ── Summary tab ───────────────────────────────────────────────────
 
 function SummaryTab({ detail }: { detail: RunDetail }) {
@@ -610,27 +641,46 @@ function IcaTab({
   const { components, structure } = summary;
   const pageUrl = (n: number) =>
     `/api/results/${encodeURIComponent(runId)}/ica/page/${n}`;
+  const icaReportUrl = api.getRunIcaReportUrl(runId);
 
   // ── Detail / topo view ──
   if (view === "topo") {
     const topoPage = structure.topo_grid_page;
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setView("grid")}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setView("grid")}
+              className="text-xs text-brand hover:underline"
+            >
+              &larr; Back to components
+            </button>
+            <span className="text-xs text-zinc-500">Topography Grid</span>
+          </div>
+          <a
+            href={typeof topoPage === "number" ? `${icaReportUrl}#page=${topoPage + 1}` : icaReportUrl}
+            target="_blank"
+            rel="noreferrer"
             className="text-xs text-brand hover:underline"
           >
-            &larr; Back to components
-          </button>
-          <span className="text-xs text-zinc-500">Topography Grid</span>
+            Open ICA PDF in new tab
+          </a>
         </div>
         {topoPage !== null ? (
-          <img
-            src={pageUrl(topoPage)}
-            alt="ICA topography grid"
-            className="rounded border border-border max-w-full"
-          />
+          <div className="space-y-3">
+            <iframe
+              key={`${icaReportUrl}#page=${topoPage + 1}`}
+              title="ICA report"
+              src={`${icaReportUrl}#page=${topoPage + 1}`}
+              className="w-full min-h-[38rem] rounded-lg border border-border bg-white"
+            />
+            <img
+              src={pageUrl(topoPage)}
+              alt="ICA topography grid"
+              className="rounded border border-border max-w-full"
+            />
+          </div>
         ) : (
           <Unavailable label="Topo grid page" />
         )}
@@ -645,39 +695,57 @@ function IcaTab({
       comp ? (ICA_TYPE_COLORS[comp.type] ?? "bg-zinc-500/15 text-zinc-400") : "";
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-3 flex-wrap">
-          <button
-            onClick={() => setView("grid")}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={() => setView("grid")}
+              className="text-xs text-brand hover:underline"
+            >
+              &larr; Back to components
+            </button>
+            <span className="text-xs font-mono font-semibold text-zinc-200">
+              {ic}
+            </span>
+            {comp && (
+              <>
+                <span
+                  className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${colorClass}`}
+                >
+                  {comp.type}
+                </span>
+                <span className="text-[10px] text-zinc-500">
+                  {Math.round(comp.confidence * 100)}% confidence
+                </span>
+                {comp.rejected && (
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-500/15 text-red-400 uppercase tracking-wide">
+                    Rejected
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+          <a
+            href={`${icaReportUrl}#page=${pageNum + 1}`}
+            target="_blank"
+            rel="noreferrer"
             className="text-xs text-brand hover:underline"
           >
-            &larr; Back to components
-          </button>
-          <span className="text-xs font-mono font-semibold text-zinc-200">
-            {ic}
-          </span>
-          {comp && (
-            <>
-              <span
-                className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${colorClass}`}
-              >
-                {comp.type}
-              </span>
-              <span className="text-[10px] text-zinc-500">
-                {Math.round(comp.confidence * 100)}% confidence
-              </span>
-              {comp.rejected && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-500/15 text-red-400 uppercase tracking-wide">
-                  Rejected
-                </span>
-              )}
-            </>
-          )}
+            Open ICA PDF in new tab
+          </a>
         </div>
-        <img
-          src={pageUrl(pageNum)}
-          alt={`${ic} detail`}
-          className="rounded border border-border max-w-full"
-        />
+        <div className="space-y-3">
+          <iframe
+            key={`${icaReportUrl}#page=${pageNum + 1}`}
+            title={`ICA report ${ic}`}
+            src={`${icaReportUrl}#page=${pageNum + 1}`}
+            className="w-full min-h-[38rem] rounded-lg border border-border bg-white"
+          />
+          <img
+            src={pageUrl(pageNum)}
+            alt={`${ic} detail`}
+            className="rounded border border-border max-w-full"
+          />
+        </div>
       </div>
     );
   }
@@ -699,14 +767,41 @@ function IcaTab({
           )}
         </div>
         {structure.topo_grid_page !== null && (
-          <button
-            onClick={() => setView("topo")}
-            className="px-2.5 py-1 rounded text-xs font-medium border border-border bg-surface-50 text-zinc-300 hover:bg-surface-50/60 transition-colors"
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setView("topo")}
+              className="px-2.5 py-1 rounded text-xs font-medium border border-border bg-surface-50 text-zinc-300 hover:bg-surface-50/60 transition-colors"
+            >
+              Topo Grid
+            </button>
+            <a
+              href={icaReportUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-brand hover:underline"
+            >
+              Open ICA PDF in new tab
+            </a>
+          </div>
+        )}
+        {structure.topo_grid_page === null && (
+          <a
+            href={icaReportUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-brand hover:underline"
           >
-            Topo Grid
-          </button>
+            Open ICA PDF in new tab
+          </a>
         )}
       </div>
+
+      <iframe
+        key={icaReportUrl}
+        title="ICA report"
+        src={icaReportUrl}
+        className="w-full min-h-[32rem] rounded-lg border border-border bg-white"
+      />
 
       {n_total === 0 ? (
         <div className="py-8 text-center text-xs text-zinc-500">
@@ -969,11 +1064,10 @@ function RunDetailPanel({
 
             {activeTab === "report" && (
               detail.assets.report ? (
-                <iframe
-                  src={`/api/results/${encodeURIComponent(run.run_id)}/report`}
-                  className="w-full rounded border border-border"
-                  style={{ height: "600px" }}
+                <PdfViewer
                   title="Run report"
+                  src={api.getRunReportUrl(run.run_id)}
+                  linkLabel="Open report in new tab"
                 />
               ) : (
                 <Unavailable label="Run report" />
@@ -983,14 +1077,21 @@ function RunDetailPanel({
             {activeTab === "plots" && (
               <div className="space-y-6">
                 {detail.assets.psd ? (
-                  <div>
-                    <p className="text-[10px] uppercase font-medium text-zinc-500 tracking-wider mb-3">
-                      PSD Topomap
-                    </p>
+                  <div className="space-y-3">
+                    <div className="flex justify-end">
+                      <a
+                        href={api.getRunPsdUrl(run.run_id)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-brand hover:underline"
+                      >
+                        Open PSD in new tab
+                      </a>
+                    </div>
                     <img
-                      src={`/api/results/${encodeURIComponent(run.run_id)}/psd`}
+                      src={api.getRunPsdUrl(run.run_id)}
                       alt="PSD topomap"
-                      className="rounded border border-border max-w-full"
+                      className="w-full rounded-lg border border-border"
                     />
                   </div>
                 ) : (
@@ -1024,10 +1125,15 @@ function RunDetailPanel({
             )}
 
             {activeTab === "ica" && (
-              <IcaTab
-                runId={run.run_id}
-                available={Boolean(detail.assets.ica_report)}
-              />
+              detail.assets.ica_report ? (
+                <PdfViewer
+                  title="ICA report"
+                  src={api.getRunIcaReportUrl(run.run_id)}
+                  linkLabel="Open ICA PDF in new tab"
+                />
+              ) : (
+                <Unavailable label="ICA report" />
+              )
             )}
 
             {activeTab === "events" && (

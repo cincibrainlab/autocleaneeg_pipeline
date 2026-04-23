@@ -548,6 +548,7 @@ export const api = {
   getRun: (runId: string) => json<RunDetail>(`/api/results/${encodeURIComponent(runId)}`),
   getRunDetail: (runId: string) => json<RunDetail>(`/api/results/${encodeURIComponent(runId)}`),
   getRunReportUrl: (runId: string) => `/api/results/${encodeURIComponent(runId)}/report`,
+  getRunIcaReportUrl: (runId: string) => `/api/results/${encodeURIComponent(runId)}/ica-report`,
   getRunPsdUrl: (runId: string) => `/api/results/${encodeURIComponent(runId)}/psd`,
   getRunOverlayUrl: (runId: string) => `/api/results/${encodeURIComponent(runId)}/overlay`,
   getRunMetadata: (runId: string) => json<Record<string, unknown>>(`/api/results/${encodeURIComponent(runId)}/metadata`),
