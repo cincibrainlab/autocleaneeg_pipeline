@@ -249,6 +249,24 @@ def unarchive_route_spec(
     return set_route_archived(workspace_dir, route_id, False)
 
 
+def delete_route_spec(workspace_dir: Path, route_id: str) -> tuple[bool, str | None]:
+    """Delete an archived route spec from the route registry."""
+    try:
+        path = route_spec_path(workspace_dir, route_id)
+    except ValueError as exc:
+        return False, str(exc)
+
+    if not path.exists():
+        return False, f"Route not found: {normalize_route_id(route_id)}"
+
+    spec = _clean_route_spec(route_id, _load_yaml_mapping(path))
+    if not spec.get("archived", False):
+        return False, "Route must be archived before deletion"
+
+    path.unlink()
+    return True, None
+
+
 def _compiled_route(route: dict[str, Any]) -> dict[str, Any]:
     compiled: dict[str, Any] = {}
     for key in _COMPILED_ROUTE_KEYS:

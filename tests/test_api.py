@@ -302,6 +302,39 @@ class TestServeRoutesApi:
         assert payload["test_path"] == str(tmp_path / "serve-test.yaml")
         assert payload["live_path"] == str(tmp_path / "serve-live.yaml")
 
+    def test_delete_archived_route_removes_route_spec(self, tmp_path: Path) -> None:
+        app = create_app(workspace_dir=tmp_path, mode="test")
+        client = TestClient(app, raise_server_exceptions=False)
+
+        (tmp_path / "routes").mkdir(parents=True)
+        route_path = tmp_path / "routes" / "example-route.yaml"
+        route_path.write_text(
+            yaml.safe_dump(
+                {
+                    "id": "example-route",
+                    "modes": ["test"],
+                    "enabled": False,
+                    "archived": True,
+                    "priority": 1,
+                    "taskfile": "Resting_GSN_32",
+                    "montage": "GSN-HydroCel-32",
+                    "ingestion_folders": [str(tmp_path / "incoming")],
+                    "file_globs": ["*.set"],
+                    "recursive": False,
+                },
+                sort_keys=False,
+            ),
+            encoding="utf-8",
+        )
+
+        response = client.delete("/api/routes/example-route")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["success"] is True
+        assert payload["route_id"] == "example-route"
+        assert not route_path.exists()
+
 
 class TestConfigDeployApi:
     """Tests for Serve config deployment through the API."""
