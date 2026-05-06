@@ -10177,11 +10177,6 @@ defaults:
     # - "*.edf"
     # - "*_resting.set"
 
-  # Sentinel file extension - file won't process until this exists
-  # Set to null to process immediately without waiting for sentinel
-  sentinel_ext: ".ready"
-  # sentinel_ext: null  # Process immediately
-
   # Whether to scan subdirectories
   recursive: true
 
@@ -10203,7 +10198,6 @@ automations:
   #
   #   # Optional: override defaults for this route
   #   # file_globs: ["*_EC.set", "*_EO.set"]
-  #   # sentinel_ext: null
   #   # recursive: false
   #   # workspace_name: "custom-output-name"
 
@@ -10258,7 +10252,6 @@ defaults:
   workspace_name: taskfile-montage-version
   file_globs:
     - "*.set"
-  sentinel_ext: ".ready"
   recursive: true
 
 # -----------------------------------------------------------------------------

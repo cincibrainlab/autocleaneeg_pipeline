@@ -285,6 +285,12 @@ def _render_compiled_config(base_config: dict[str, Any], mode: str, routes: Iter
     for key, value in base_config.items():
         if key in _LEGACY_TOP_LEVEL_ROUTE_KEYS or key == "automations":
             continue
+        if key == "defaults" and isinstance(value, dict):
+            value = {
+                item_key: item_value
+                for item_key, item_value in value.items()
+                if item_key != "sentinel_ext"
+            }
         compiled[key] = value
     compiled["mode"] = mode
     compiled["automation_mode"] = True

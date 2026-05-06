@@ -373,14 +373,14 @@ Runtime Commands
 
       autocleaneeg-pipeline serve run --path /path/to/serve-workspace --dry-run
 
-``autocleaneeg-pipeline serve run --path /path/to/serve-workspace --no-watch --no-sentinel``
-   Run the dispatcher loop with file watching and sentinel behavior disabled.
+``autocleaneeg-pipeline serve run --path /path/to/serve-workspace --no-watch``
+   Run the dispatcher loop with file watching disabled.
 
    Example:
 
    .. code-block:: bash
 
-      autocleaneeg-pipeline serve run --path /path/to/serve-workspace --no-watch --no-sentinel
+      autocleaneeg-pipeline serve run --path /path/to/serve-workspace --no-watch
 
 ``autocleaneeg-pipeline serve tui --path /path/to/serve-workspace --mode test``
    Start the Serve TUI for a workspace.

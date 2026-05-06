@@ -6,7 +6,6 @@ automation_mode: true
 
 defaults:
   file_globs: ["*.set"]
-  sentinel_ext: ".ready"
   recursive: true
 
 automations:
@@ -16,4 +15,3 @@ automations:
       - /data/incoming
     # Optional overrides:
     # file_globs: ["*_EC.set", "*_EO.set"]
-    # sentinel_ext: null  # Process immediately without sentinel

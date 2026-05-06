@@ -9,7 +9,6 @@ defaults:
   workspace_name: taskfile-montage-version
   file_globs:
   - '*.set'
-  sentinel_ext: .ready
   recursive: true
 automations:
 - id: resting-biosemi64

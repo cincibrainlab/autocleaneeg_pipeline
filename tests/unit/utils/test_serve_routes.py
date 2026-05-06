@@ -116,6 +116,8 @@ def test_sync_route_registry_compiles_mode_specific_configs(tmp_path: Path) -> N
         "draft-only",
     ]
     assert [route["id"] for route in live_config["automations"]] == ["draft-and-live"]
+    assert "sentinel_ext" not in test_config["defaults"]
+    assert "sentinel_ext" not in live_config["defaults"]
 
 
 def test_archived_routes_are_excluded_from_compiled_configs(tmp_path: Path) -> None:
