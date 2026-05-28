@@ -165,22 +165,56 @@ def save_raw_to_set(
 
     # Save to all paths
     raw.info["description"] = autoclean_dict["run_id"]
+    saved_paths = []
+
+    # MATLAB v5 (.set) has a ~2 GB hard limit per matrix.
+    # Pre-check matrix size and skip EEGLAB export entirely if too big.
+    MAX_EEGLAB_ELEMENTS = 400_000_000  # ~1.6 GB at float32, well below the limit
+    matrix_elements = raw.n_times * len(raw.ch_names)
+    use_fif_directly = matrix_elements > MAX_EEGLAB_ELEMENTS
+
     for path in paths:
         try:
-            # Ensure parent directory exists
             path.parent.mkdir(parents=True, exist_ok=True)
-            raw.export(path, fmt="eeglab", overwrite=True)
-            message("success", f"✓ Saved {stage} file to: {path}")
+            if use_fif_directly:
+                fif_path = path.with_suffix(".fif")
+                message(
+                    "info",
+                    f"Matrix has {matrix_elements:,} elements — too large for EEGLAB v5. "
+                    f"Saving as .fif instead: {fif_path.name}",
+                )
+                raw.save(fif_path, overwrite=True, fmt="single")
+                message("success", f"✓ Saved {stage} file to: {fif_path}")
+                saved_paths.append(fif_path)
+            else:
+                try:
+                    raw.export(path, fmt="eeglab", overwrite=True)
+                    message("success", f"✓ Saved {stage} file to: {path}")
+                    saved_paths.append(path)
+                except Exception as set_err:
+                    err_str = str(set_err)
+                    if "Matlab 5" in err_str or "Matrix too large" in err_str:
+                        fif_path = path.with_suffix(".fif")
+                        message(
+                            "warning",
+                            f"EEGLAB v5 (.set) rejected the matrix. Saving as .fif: {fif_path.name}",
+                        )
+                        raw.save(fif_path, overwrite=True, fmt="single")
+                        message("success", f"✓ Saved {stage} file to: {fif_path}")
+                        saved_paths.append(fif_path)
+                    else:
+                        raise
         except Exception as e:
             error_msg = f"Failed to save {stage} file to {path}: {str(e)}"
             message("error", error_msg)
-            # For dynamic stages, provide more helpful error information
-            if stage not in autoclean_dict["stage_files"]:
+            if stage not in autoclean_dict.get("stage_files", {}):
                 message(
                     "info",
                     f"Note: Stage '{stage}' was auto-generated. Check directory permissions and disk space.",
                 )
             raise RuntimeError(error_msg) from e
+    paths = saved_paths
+    stage_path = paths[0] if paths else stage_path   # keep stage_path in sync
 
     metadata = {
         "save_raw_to_set": {
@@ -431,48 +465,82 @@ def save_epochs_to_set(
     # Save to all target paths
     epochs.info["description"] = autoclean_dict["run_id"]
     epochs.apply_proj()  # Apply projectors before saving
+    saved_paths = []
+
+    # EEGLAB .set (MATLAB v5) caps matrices at ~2 GB. Long recordings produce
+    # too many epochs to fit — fall back to MNE -epo.fif when the matrix is large.
+    MAX_EEGLAB_ELEMENTS = 400_000_000  # ~1.6 GB at float32
+    matrix_elements = len(epochs) * len(epochs.ch_names) * len(epochs.times)
+    use_fif_directly = matrix_elements > MAX_EEGLAB_ELEMENTS
+
     for path in paths:
         try:
             # Ensure parent directory exists
             path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Use specialized export for preserving complex event structures
-            if events_in_epochs is not None and len(events_in_epochs) > 0:
-
-                ## Channel locations fix 10/19/2025
-                drop_chs = ["epoc", "STI 014"]
-                ch_names = [ch for ch in epochs.ch_names if ch not in drop_chs]
-                cart_coords = _get_als_coords_from_chs(epochs.info["chs"], drop_chs)
-
-                export_set(
-                    fname=str(path),
-                    data=epochs.get_data(),
-                    sfreq=epochs.info["sfreq"],
-                    events=events_in_epochs,
-                    tmin=epochs.tmin,
-                    tmax=epochs.tmax,
-                    ch_names=ch_names,
-                    ch_locs=cart_coords,
-                    event_id=event_id_rebuilt,
-                    epoch_indices=epoch_indices_array,
-                    precision="single",
+            if use_fif_directly:
+                fif_path = path.with_suffix(".fif")  # ..._epo.set -> ..._epo.fif
+                message(
+                    "info",
+                    f"Epochs matrix has {matrix_elements:,} elements — too large for "
+                    f"EEGLAB v5. Saving as .fif instead: {fif_path.name}",
                 )
-            else:
-                # Use MNE's built-in exporter for simple cases
-                epochs.export(path, fmt="eeglab", overwrite=True)
-            # Add run_id to EEGLAB's etc field for tracking
-            # pylint: disable=invalid-name
-            EEG = sio.loadmat(path)
-            for k in ["__header__", "__version__", "__globals__"]:
-                EEG.pop(k, None)
-            EEG["etc"] = {}
-            EEG["etc"]["run_id"] = autoclean_dict["run_id"]
-            sio.savemat(path, EEG, do_compression=False)
-            message("success", f"✓ Saved {stage} file to: {path}")
+                epochs.save(fif_path, overwrite=True, fmt="single")
+                message("success", f"✓ Saved {stage} file to: {fif_path}")
+                saved_paths.append(fif_path)
+                continue
+
+            try:
+                # Use specialized export for preserving complex event structures
+                if events_in_epochs is not None and len(events_in_epochs) > 0:
+                    ## Channel locations fix 10/19/2025
+                    drop_chs = ["epoc", "STI 014"]
+                    ch_names = [ch for ch in epochs.ch_names if ch not in drop_chs]
+                    cart_coords = _get_als_coords_from_chs(epochs.info["chs"], drop_chs)
+                    export_set(
+                        fname=str(path),
+                        data=epochs.get_data(),
+                        sfreq=epochs.info["sfreq"],
+                        events=events_in_epochs,
+                        tmin=epochs.tmin,
+                        tmax=epochs.tmax,
+                        ch_names=ch_names,
+                        ch_locs=cart_coords,
+                        event_id=event_id_rebuilt,
+                        epoch_indices=epoch_indices_array,
+                        precision="single",
+                    )
+                else:
+                    # Use MNE's built-in exporter for simple cases
+                    epochs.export(path, fmt="eeglab", overwrite=True)
+                # Add run_id to EEGLAB's etc field for tracking
+                # pylint: disable=invalid-name
+                EEG = sio.loadmat(path)
+                for k in ["__header__", "__version__", "__globals__"]:
+                    EEG.pop(k, None)
+                EEG["etc"] = {}
+                EEG["etc"]["run_id"] = autoclean_dict["run_id"]
+                sio.savemat(path, EEG, do_compression=False)
+                message("success", f"✓ Saved {stage} file to: {path}")
+                saved_paths.append(path)
+            except Exception as set_err:
+                err_str = str(set_err)
+                if "Matlab 5" in err_str or "Matrix too large" in err_str:
+                    fif_path = path.with_suffix(".fif")
+                    message(
+                        "warning",
+                        f"EEGLAB v5 (.set) rejected the epochs matrix. Saving as .fif: {fif_path.name}",
+                    )
+                    epochs.save(fif_path, overwrite=True, fmt="single")
+                    message("success", f"✓ Saved {stage} file to: {fif_path}")
+                    saved_paths.append(fif_path)
+                else:
+                    raise
         except Exception as e:
             error_msg = f"Failed to save {stage} file to {path}: {str(e)}"
             message("error", error_msg)
             raise RuntimeError(error_msg) from e
+    paths = saved_paths
 
     # Record save operation in database
     metadata = {
