@@ -20,9 +20,78 @@ __all__ = [
     "save_stc_to_file",
     "save_raw_to_set",
     "save_epochs_to_set",
+    "save_epochs_to_set_chunked",
     "copy_final_files",
     "_get_stage_number",
 ]
+
+
+def _cleanup_prior_stages(stage_dir: Path, current_stage_num: int) -> None:
+    """Delete stage directories with number < current_stage_num.
+
+    Used by save_epochs_to_set / save_raw_to_set when the task enables
+    incremental_cleanup. Skips FLAGGED_* directories and any directory whose
+    name does not start with a numeric prefix.
+    """
+    if not stage_dir.exists():
+        return
+    for d in stage_dir.iterdir():
+        if not d.is_dir() or d.name.startswith("FLAGGED"):
+            continue
+        try:
+            d_num = int(d.name.split("_")[0])
+        except (ValueError, IndexError):
+            continue
+        if d_num < current_stage_num:
+            try:
+                shutil.rmtree(d)
+                message("info", f"Removed prior stage: {d.name}")
+            except OSError as exc:
+                message("warning", f"Could not remove {d.name}: {exc}")
+
+
+def save_epochs_to_set_chunked(
+    epochs: mne.Epochs,
+    output_dir: Path,
+    basename: str,
+    chunk_size_epochs: int = 5000,
+    overwrite: bool = True,
+) -> list[Path]:
+    """Save epoched data as one or more EEGLAB .set files, chunked by epoch.
+
+    MATLAB v5 .set caps a single matrix at 2 GB. For large datasets, this
+    writes ceil(N / chunk_size_epochs) sequential .set files instead of one
+    oversized file.
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    n_epochs = len(epochs)
+    if n_epochs == 0:
+        raise ValueError("save_epochs_to_set_chunked: epochs is empty")
+
+    n_chunks = (n_epochs + chunk_size_epochs - 1) // chunk_size_epochs
+    written: list[Path] = []
+
+    for i in range(n_chunks):
+        start = i * chunk_size_epochs
+        end = min(start + chunk_size_epochs, n_epochs)
+        chunk = epochs[start:end]
+
+        if n_chunks == 1:
+            chunk_name = f"{basename}.set"
+        else:
+            chunk_name = f"{basename}_chunk-{i + 1:02d}-of-{n_chunks:02d}.set"
+
+        chunk_path = output_dir / chunk_name
+        chunk.export(str(chunk_path), fmt="eeglab", overwrite=overwrite)
+        written.append(chunk_path)
+        message(
+            "success",
+            f"\u2713 Saved chunk {i + 1}/{n_chunks} ({end - start} epochs) \u2192 {chunk_path.name}",
+        )
+
+    return written
 
 
 def save_stc_to_file(
@@ -215,6 +284,13 @@ def save_raw_to_set(
             raise RuntimeError(error_msg) from e
     paths = saved_paths
     stage_path = paths[0] if paths else stage_path   # keep stage_path in sync
+
+    # Incremental cleanup — opt-in via task config
+    if autoclean_dict.get("incremental_cleanup", {}).get("enabled"):
+        _cleanup_prior_stages(
+            Path(autoclean_dict["stage_dir"]),
+            int(stage_num),
+        )
 
     metadata = {
         "save_raw_to_set": {
@@ -468,26 +544,36 @@ def save_epochs_to_set(
     saved_paths = []
 
     # EEGLAB .set (MATLAB v5) caps matrices at ~2 GB. Long recordings produce
-    # too many epochs to fit — fall back to MNE -epo.fif when the matrix is large.
+    # too many epochs to fit — split into chunked .set files when oversized.
     MAX_EEGLAB_ELEMENTS = 400_000_000  # ~1.6 GB at float32
     matrix_elements = len(epochs) * len(epochs.ch_names) * len(epochs.times)
-    use_fif_directly = matrix_elements > MAX_EEGLAB_ELEMENTS
+    use_chunked_set = matrix_elements > MAX_EEGLAB_ELEMENTS
 
     for path in paths:
         try:
             # Ensure parent directory exists
             path.parent.mkdir(parents=True, exist_ok=True)
 
-            if use_fif_directly:
-                fif_path = path.with_suffix(".fif")  # ..._epo.set -> ..._epo.fif
+            if use_chunked_set:
                 message(
                     "info",
                     f"Epochs matrix has {matrix_elements:,} elements — too large for "
-                    f"EEGLAB v5. Saving as .fif instead: {fif_path.name}",
+                    f"a single EEGLAB v5 .set; splitting into chunks",
                 )
-                epochs.save(fif_path, overwrite=True, fmt="single")
-                message("success", f"✓ Saved {stage} file to: {fif_path}")
-                saved_paths.append(fif_path)
+                chunks = save_epochs_to_set_chunked(
+                    epochs=epochs,
+                    output_dir=path.parent,
+                    basename=path.stem,
+                    chunk_size_epochs=5000,
+                )
+                for chunk_path in chunks:
+                    EEG = sio.loadmat(chunk_path)
+                    for k in ["__header__", "__version__", "__globals__"]:
+                        EEG.pop(k, None)
+                    EEG["etc"] = {}
+                    EEG["etc"]["run_id"] = autoclean_dict["run_id"]
+                    sio.savemat(chunk_path, EEG, do_compression=False)
+                saved_paths.extend(chunks)
                 continue
 
             try:
@@ -526,14 +612,24 @@ def save_epochs_to_set(
             except Exception as set_err:
                 err_str = str(set_err)
                 if "Matlab 5" in err_str or "Matrix too large" in err_str:
-                    fif_path = path.with_suffix(".fif")
                     message(
                         "warning",
-                        f"EEGLAB v5 (.set) rejected the epochs matrix. Saving as .fif: {fif_path.name}",
+                        "EEGLAB v5 (.set) rejected the epochs matrix; falling back to chunked .set",
                     )
-                    epochs.save(fif_path, overwrite=True, fmt="single")
-                    message("success", f"✓ Saved {stage} file to: {fif_path}")
-                    saved_paths.append(fif_path)
+                    chunks = save_epochs_to_set_chunked(
+                        epochs=epochs,
+                        output_dir=path.parent,
+                        basename=path.stem,
+                        chunk_size_epochs=5000,
+                    )
+                    for chunk_path in chunks:
+                        EEG = sio.loadmat(chunk_path)
+                        for k in ["__header__", "__version__", "__globals__"]:
+                            EEG.pop(k, None)
+                        EEG["etc"] = {}
+                        EEG["etc"]["run_id"] = autoclean_dict["run_id"]
+                        sio.savemat(chunk_path, EEG, do_compression=False)
+                    saved_paths.extend(chunks)
                 else:
                     raise
         except Exception as e:
@@ -543,6 +639,13 @@ def save_epochs_to_set(
     paths = saved_paths
 
     # Record save operation in database
+    # Incremental cleanup — opt-in via task config
+    if autoclean_dict.get("incremental_cleanup", {}).get("enabled"):
+        _cleanup_prior_stages(
+            Path(autoclean_dict["stage_dir"]),
+            int(stage_num),
+        )
+
     metadata = {
         "save_epochs_to_set": {
             "creationDateTime": datetime.now().isoformat(),

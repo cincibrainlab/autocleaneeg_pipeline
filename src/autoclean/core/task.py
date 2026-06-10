@@ -208,6 +208,14 @@ class Task(ABC, *DISCOVERED_MIXINS):
         defined in the task configuration and validated before use.
         """
 
+    def finalize_run(self) -> None:
+        """Hook called after a successful run completes.
+
+        Override in subclasses to convert final outputs, prune intermediate stages,
+        or perform other post-run housekeeping. Exceptions raised here are logged
+        but do not mark the run as failed.
+        """
+
     def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate the complete task configuration.
 
