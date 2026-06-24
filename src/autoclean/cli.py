@@ -11642,6 +11642,29 @@ def cmd_serve_run(args) -> int:
     if queue_path is None:
         queue_path = workspace_dir / f"queue-{mode}.json"
 
+    # Diagnostic: record terminating signals so a dispatcher death is not a mystery.
+    # SIGKILL cannot be caught here (the API's exit-code log captures that case).
+    import os as _os
+    import signal as _signal
+    from datetime import datetime as _dt
+
+    def _log_death_signal(signum, _frame):
+        try:
+            with open(workspace_dir / f"dispatcher-death-{mode}.log", "a") as _fh:
+                _fh.write(
+                    f"{_dt.now().isoformat()} pid={_os.getpid()} "
+                    f"received {_signal.Signals(signum).name} ({signum})\n"
+                )
+        except Exception:  # pylint: disable=broad-except
+            pass
+        raise SystemExit(128 + signum)
+
+    for _sig in (_signal.SIGTERM, _signal.SIGHUP):
+        try:
+            _signal.signal(_sig, _log_death_signal)
+        except (ValueError, OSError):
+            pass
+
     from autoclean.utils.ingestion import run_ingestion_service
 
     def _runner(cmd: list[str]) -> None:

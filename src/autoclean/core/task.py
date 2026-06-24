@@ -115,6 +115,14 @@ class Task(ABC, *DISCOVERED_MIXINS):
         else:
             config.setdefault("move_flagged_files", True)
 
+        # Propagate task-level incremental_cleanup setting (default: absent = disabled).
+        # Without this lift from settings -> runtime config, save_raw_to_set /
+        # save_epochs_to_set never see the flag and intermediate stages are never pruned.
+        if self.settings and "incremental_cleanup" in self.settings:
+            config.setdefault(
+                "incremental_cleanup", self.settings["incremental_cleanup"]
+            )
+
         # Configuration must be validated first as other initializations depend on it
         self.config = self.validate_config(config)
 
