@@ -65,6 +65,17 @@ def _resolve_study_user() -> str:
         return "autocleaneeg_user"
 
 
+def _collect_report_notes(metadata: dict[str, Any]) -> list[str]:
+    """Collect report notes emitted by processing steps."""
+    report_notes: list[str] = []
+    source_metadata = metadata.get("step_apply_source_localization")
+    if isinstance(source_metadata, dict):
+        for note in source_metadata.get("report_notes", []):
+            if note and note not in report_notes:
+                report_notes.append(str(note))
+    return report_notes
+
+
 def create_run_report(
     run_id: str, autoclean_dict: dict = None, json_summary: dict = None
 ) -> None:
@@ -896,6 +907,44 @@ def create_run_report(
 
     story.append(results_table)
     story.append(Spacer(1, 0.2 * inch))
+
+    # Methodological Notes Section (if any notes exist)
+    report_notes_data = []
+    try:
+        if json_summary and "report_notes" in json_summary:
+            report_notes = json_summary["report_notes"]
+            if isinstance(report_notes, list) and report_notes:
+                for note in report_notes:
+                    report_notes_data.append([Paragraph(str(note), normal_style)])
+    except Exception as e:  # pylint: disable=broad-except
+        message("warning", f"Error processing report notes: {str(e)}")
+        report_notes_data = [[Paragraph("Error processing report notes", normal_style)]]
+
+    if report_notes_data:
+        story.append(Paragraph("Methodological Notes", heading_style))
+        report_notes_table = ReportLabTable(
+            [[Paragraph("Note", heading_style)]] + report_notes_data,
+            colWidths=[6 * inch],
+        )
+        report_notes_table.setStyle(
+            TableStyle(
+                [
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
+                    ("FONTSIZE", (0, 0), (-1, -1), 7),
+                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F5F6FA")),
+                    ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#F8F9FA")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
+                    ("TOPPADDING", (0, 0), (-1, -1), 2),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ]
+            )
+        )
+        story.append(report_notes_table)
+        story.append(Spacer(1, 0.2 * inch))
 
     # Flagged Reasons Section (if any flags exist)
     flagged_reasons_data = []
@@ -1760,6 +1809,8 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
         ]
         processing_details["ref_artifacts"] = ref_artifacts
 
+    report_notes = _collect_report_notes(metadata)
+
     summary_dict = {
         "run_id": run_id,
         "task": run_record["task"],
@@ -1769,6 +1820,7 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
         "proc_state": proc_state,
         "exclude_category": exclude_category,
         "flagged_reasons": flagged_reasons,  # Add flagged reasons to the summary
+        "report_notes": report_notes,
         "metadata": metadata,  # Include full metadata for unified channel removals
         "import_details": import_details,
         "processing_details": processing_details,

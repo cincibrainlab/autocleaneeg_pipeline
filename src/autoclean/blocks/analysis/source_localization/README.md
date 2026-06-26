@@ -55,6 +55,20 @@ config = {
 
 All parameters are optional—omitting the `value` block will use the defaults.
 
+## Interpretation Caveats
+
+Source-localized ROI signals are template-based estimates, not scalp microvolts or unique anatomical truth. Interpret them as native source units with limited spatial resolution, template-anatomy uncertainty, inverse-solution spread, ROI averaging, and possible polarity/sign ambiguity.
+
+Key limits to report with results:
+
+- EEG source localization is an inverse estimate; multiple source patterns can explain the same scalp data.
+- This block uses `fsaverage` template anatomy, so individual anatomy and electrode placement are approximate.
+- Low-density EEG and montage quality limit spatial resolution, especially for deep or nearby sources.
+- Minimum-norm estimates are spatially smooth and can spread activity across adjacent cortical regions.
+- Outputs are 68 Desikan-Killiany ROI time courses in native source units, not scalp microvolts.
+- ROI averaging can obscure within-region variation, and ROI polarity/sign can be ambiguous.
+- Use source-localized results as descriptive/supporting evidence unless validated with subject-specific anatomy or converging methods.
+
 ## Outputs
 
 When the block completes, the following files are written:
