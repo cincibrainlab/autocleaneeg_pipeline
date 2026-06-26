@@ -211,12 +211,14 @@ def register_plugin(plugin_class: Type[BaseEEGPlugin]) -> None:
             "GSN-HydroCel-129",
             "GSN-HydroCel-124",
             "standard_1020",
+            "biosemi32",
             "biosemi64",
+            "biosemi128",
+            "biosemi256",
             "MEA30",
             "MEA30_EDF",
             "MouseEEGv2_H32",
             "MEA30_MNI",
-            "BioSemi-256",
             "CustomCap-64",
         ]
 
@@ -323,6 +325,17 @@ def get_plugin_for_combination(format_id: str, montage_name: str) -> BaseEEGPlug
         for key, plugin_class in _PLUGIN_REGISTRY.items()
         if key[0] == format_id
     ]
+
+    if format_plugins and format_id == "BIOSEMI_BDF":
+        supported_montages = sorted(
+            montage
+            for plugin_format, montage in _PLUGIN_REGISTRY
+            if plugin_format == format_id
+        )
+        raise ValueError(
+            f"No plugin found for format '{format_id}' and montage '{montage_name}'. "
+            f"Supported montages for {format_id}: {', '.join(supported_montages)}"
+        )
 
     if format_plugins:
         message(
