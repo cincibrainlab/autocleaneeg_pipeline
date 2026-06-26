@@ -8,10 +8,12 @@ for BioSemi BDF files with the 256-channel BioSemi electrode system.
 from pathlib import Path
 
 import mne
-import pandas as pd
 
 from autoclean.io.import_ import BaseEEGPlugin
-from autoclean.plugins.eeg_plugins._biosemi_bdf_common import import_biosemi_bdf
+from autoclean.plugins.eeg_plugins._biosemi_bdf_common import (
+    import_biosemi_bdf,
+    process_biosemi_bdf_events,
+)
 from autoclean.utils.logging import message
 
 
@@ -48,53 +50,8 @@ class BDFBiosemi256Plugin(BaseEEGPlugin):
             ) from e
 
     def process_events(self, raw: mne.io.Raw) -> tuple:
-        """Process events and annotations from BDF status channel.
-
-        BioSemi BDF files encode triggers in a 16-bit status channel,
-        with system status information in the upper bits.
-        """
-        message("info", "Processing events from BDF status channel")
-        try:
-            # Get events from annotations (MNE auto-extracts from status channel)
-            events, event_id = mne.events_from_annotations(raw)
-
-            # Create a detailed events DataFrame
-            if events is not None and len(events) > 0:
-                events_df = pd.DataFrame(
-                    {
-                        "time": events[:, 0] / raw.info["sfreq"],
-                        "sample": events[:, 0],
-                        "id": events[:, 2],
-                        "type": [
-                            (
-                                list(event_id.keys())[list(event_id.values()).index(id)]
-                                if id in event_id.values()
-                                else f"Unknown-{id}"
-                            )
-                            for id in events[:, 2]
-                        ],
-                    }
-                )
-
-                # Log event information
-                unique_event_types = events_df["type"].unique()
-                message(
-                    "info",
-                    f"Found {len(events)} events of {len(unique_event_types)} unique types: {unique_event_types}",
-                )
-
-                # Count events by type
-                event_counts = events_df["type"].value_counts().to_dict()
-                message("info", f"Event counts: {event_counts}")
-
-                return events, event_id, events_df
-            else:
-                message("warning", "No events found in the BDF status channel")
-                return None, None, None
-
-        except Exception as e:  # pylint: disable=broad-except
-            message("warning", f"Failed to process events: {str(e)}")
-            return None, None, None
+        """Process events and annotations from BDF status channel."""
+        return process_biosemi_bdf_events(raw)
 
     def get_metadata(self) -> dict:
         """Get additional metadata about this plugin."""
