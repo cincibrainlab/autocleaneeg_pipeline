@@ -316,6 +316,24 @@ def _epoch_descriptor() -> dict:
     }
 
 
+def _bad_channel_log_descriptor() -> dict:
+    return {
+        "enabled": "bool",
+        "value": {
+            "path": "string",
+            "file_column": "string (default: file)",
+            "channels_column": "string (default: bad_channels)",
+            "subject_column": "string|null",
+            "subject": "string|null",
+            "session_column": "string|null",
+            "session": "string|null",
+            "delimiter": "string|null (default inferred from extension)",
+            "action": "'mark'",
+            "strict": "bool (default: false)",
+        },
+    }
+
+
 def _build_task_settings_schema() -> Schema:
     """Schema for Python task module `config` dictionaries.
 
@@ -402,6 +420,21 @@ def _build_task_settings_schema() -> Schema:
                 },
             },
             "drop_outerlayer": step_value_list,
+            Optional("bad_channel_log"): {
+                "enabled": bool,
+                "value": {
+                    "path": And(str, len),
+                    Optional("file_column"): And(str, len),
+                    Optional("channels_column"): And(str, len),
+                    Optional("subject_column"): And(str, len),
+                    Optional("subject"): And(str, len),
+                    Optional("session_column"): And(str, len),
+                    Optional("session"): And(str, len),
+                    Optional("delimiter"): Or(str, None),
+                    Optional("action"): Or("mark"),
+                    Optional("strict"): bool,
+                },
+            },
             "eog_step": {**step_bool, "value": eog_value_schema},
             "trim_step": {**step_bool, "value": Or(int, float)},
             "crop_step": {
@@ -592,6 +625,7 @@ def export_task_schema_layout() -> dict:
             "resample_step": _step_value_num_descriptor(),
             "filtering": _filtering_descriptor(),
             "drop_outerlayer": {"enabled": "bool", "value": "list|None"},
+            "bad_channel_log": _bad_channel_log_descriptor(),
             "eog_step": {
                 "enabled": "bool",
                 "value": "dict{eog_indices:list[int]|None, eog_drop:bool|None} | list | None",
