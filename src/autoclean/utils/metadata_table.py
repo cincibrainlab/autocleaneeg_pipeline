@@ -27,6 +27,9 @@ def load_metadata_table(
     if not table_path.exists():
         raise FileNotFoundError(f"Metadata table not found: {table_path}")
 
+    if table_path.suffix.lower() in {".xlsx", ".xls"}:
+        return _load_excel_metadata_table(table_path)
+
     resolved_delimiter = delimiter or _delimiter_for_path(table_path)
     with table_path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle, delimiter=resolved_delimiter)
@@ -35,14 +38,37 @@ def load_metadata_table(
 
         rows: list[dict[str, str]] = []
         for raw_row in reader:
-            rows.append(
-                {
-                    str(key).strip(): "" if value is None else str(value).strip()
-                    for key, value in raw_row.items()
-                    if key is not None
-                }
-            )
+            rows.append(_normalise_row(raw_row))
     return rows
+
+
+def _load_excel_metadata_table(path: Path) -> list[dict[str, str]]:
+    try:
+        import pandas as pd
+    except ImportError as exc:  # pragma: no cover - pandas is a project dependency
+        raise ImportError("Reading Excel metadata tables requires pandas.") from exc
+
+    try:
+        frame = pd.read_excel(path, dtype=str).fillna("")
+    except ImportError as exc:
+        raise ImportError(
+            "Reading Excel metadata tables requires an installed pandas Excel engine "
+            "such as openpyxl."
+        ) from exc
+
+    if frame.columns.empty:
+        raise ValueError(f"Metadata table has no header row: {path}")
+
+    frame.columns = [str(column).strip() for column in frame.columns]
+    return [_normalise_row(row) for row in frame.to_dict(orient="records")]
+
+
+def _normalise_row(row: Mapping[object, object]) -> dict[str, str]:
+    return {
+        str(key).strip(): "" if value is None else str(value).strip()
+        for key, value in row.items()
+        if key is not None
+    }
 
 
 def require_columns(rows: list[dict[str, str]], columns: Iterable[str]) -> None:

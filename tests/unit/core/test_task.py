@@ -439,9 +439,6 @@ class TestTaskConcrete:
             task.get_epochs()
 
 
-
-
-
 @pytest.mark.skipif(not TASK_AVAILABLE, reason="Task module not available for import")
 class TestTaskMixinIntegration:
     """Test that Task correctly integrates with the mixin system."""
@@ -449,10 +446,13 @@ class TestTaskMixinIntegration:
     def test_task_inherits_from_all_discovered_mixins(self):
         """Task should be a subclass of every mixin returned by the discovery system."""
         for mixin in DISCOVERED_MIXINS:
-            assert issubclass(Task, mixin), f"Task should inherit from discovered mixin {mixin}"
+            assert issubclass(
+                Task, mixin
+            ), f"Task should inherit from discovered mixin {mixin}"
 
     def test_subclass_run_override_is_called(self):
         """A concrete subclass's run() should be what gets invoked, not Task.run."""
+
         class CustomTask(Task):
             def run(self):
                 return "custom implementation"
@@ -595,3 +595,66 @@ class TestTaskErrorHandling:
 
         with pytest.raises(TypeError):
             TestTask(invalid_config)
+
+
+@pytest.mark.skipif(not TASK_AVAILABLE, reason="Task module not available for import")
+def test_pipeline_records_exclusion_list_skip_without_task_start(
+    monkeypatch, tmp_path: Path
+):
+    from autoclean.core.pipeline import Pipeline
+
+    table = tmp_path / "exclusions.csv"
+    table.write_text(
+        "file,exclude,reason\nsubject01.set,yes,withdrawn\n",
+        encoding="utf-8",
+    )
+    input_file = tmp_path / "subject01.set"
+    input_file.write_text("placeholder", encoding="utf-8")
+
+    pipeline = Pipeline.__new__(Pipeline)
+    pipeline.session_task_registry = {"dummy": object}
+    pipeline.session_task_configs = {
+        "dummy": {
+            "exclusion_list": {
+                "enabled": True,
+                "value": {"path": str(table), "mode": "skip"},
+            }
+        }
+    }
+
+    updates = []
+
+    def fake_manage_database(*, operation, run_record=None, update_record=None):
+        if operation == "store":
+            return 1
+        updates.append(
+            {
+                "operation": operation,
+                "run_record": run_record,
+                "update_record": update_record,
+            }
+        )
+        return None
+
+    monkeypatch.setattr("autoclean.core.pipeline.manage_database", fake_manage_database)
+    monkeypatch.setattr(
+        "autoclean.core.pipeline.get_current_user_for_audit", lambda: {}
+    )
+    monkeypatch.setattr(
+        "autoclean.core.pipeline.Pipeline._validate_file",
+        lambda self, file_path: None,
+    )
+
+    pipeline._entrypoint(input_file, "dummy")
+
+    status_update = next(
+        item["update_record"]
+        for item in updates
+        if item["operation"] == "update"
+        and item["update_record"]
+        and item["update_record"].get("status") == "skipped"
+    )
+    assert status_update["success"] is True
+    assert status_update["metadata"]["step_exclusion_list"]["mode"] == "skip"
+    assert status_update["metadata"]["skip_reason"] == "EXCLUSION_LIST: withdrawn"
+    assert any(item["operation"] == "add_access_log" for item in updates)
