@@ -46,12 +46,16 @@ class EEGLABSetGSN129Plugin(BaseEEGPlugin):
                 raw = mne.io.read_raw_eeglab(
                     input_fname=file_path, preload=preload, verbose=True
                 )
-            except TypeError as e:
+            except Exception as e:
                 if "trials" in str(e) and "read_epochs_eeglab" in str(e):
                     raw = mne.io.read_epochs_eeglab(input_fname=file_path, verbose=True)
                 else:
                     raise e
             message("success", "Successfully loaded .set file")
+
+            if isinstance(raw, mne.BaseEpochs):
+                message("info", "Epochs file detected - preserving imported epochs")
+                return raw
 
             # Step 1.5: Check for reference channel and rename if necessary
             ref_channel_names = ["VREF", "REF", "E129"]
@@ -73,22 +77,18 @@ class EEGLABSetGSN129Plugin(BaseEEGPlugin):
                     break
 
             # Step 2: Configure the GSN-HydroCel-129 montage
-            # Skip montage configuration for epochs - they already have channel positions
-            if isinstance(raw, mne.Epochs):
-                message("info", "Epochs file detected - skipping montage configuration")
-            else:
-                message("info", "Configuring GSN-HydroCel-129 montage")
+            message("info", "Configuring GSN-HydroCel-129 montage")
 
-                # Create montage and set the special 129th electrode name
-                montage = mne.channels.make_standard_montage("GSN-HydroCel-129")
+            # Create montage and set the special 129th electrode name
+            montage = mne.channels.make_standard_montage("GSN-HydroCel-129")
 
-                # Apply the montage
-                raw.set_montage(montage, match_case=False)
+            # Apply the montage
+            raw.set_montage(montage, match_case=False)
 
-                # Pick only EEG channels
-                raw.pick("eeg")
+            # Pick only EEG channels
+            raw.pick("eeg")
 
-                message("success", "Successfully configured GSN-HydroCel-129 montage")
+            message("success", "Successfully configured GSN-HydroCel-129 montage")
             # Step 3: Extract and process events
             events_df = self._get_matlab_annotations_table(file_path)
 
