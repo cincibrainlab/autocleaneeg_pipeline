@@ -736,6 +736,30 @@ def test_biosemi_process_events_does_not_swallow_unexpected_errors(monkeypatch):
         BDFBiosemi64Plugin().process_events(raw)
 
 
+def test_biosemi_process_events_does_not_swallow_unexpected_find_events_value_error(
+    monkeypatch,
+):
+    """Unexpected Status-channel ValueErrors should remain visible to callers."""
+    info = mne.create_info(
+        ch_names=["Fp1", "Status"], sfreq=100.0, ch_types=["eeg", "stim"]
+    )
+    raw = mne.io.RawArray(np.zeros((2, 10)), info, verbose=False)
+
+    monkeypatch.setattr(
+        mne,
+        "events_from_annotations",
+        lambda *args, **kwargs: (np.empty((0, 3), dtype=int), {}),
+    )
+
+    def raise_unexpected_value_error(*args, **kwargs):
+        raise ValueError("unexpected Status parser failure")
+
+    monkeypatch.setattr(mne, "find_events", raise_unexpected_value_error)
+
+    with pytest.raises(ValueError, match="unexpected Status parser failure"):
+        BDFBiosemi64Plugin().process_events(raw)
+
+
 @pytest.mark.parametrize(
     ("plugin_class", "montage_name"),
     [

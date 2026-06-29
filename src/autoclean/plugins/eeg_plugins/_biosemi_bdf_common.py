@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import mne
+import numpy as np
 import pandas as pd
 
 from autoclean.utils.logging import message
@@ -188,7 +189,7 @@ def process_biosemi_bdf_events(raw: mne.io.Raw) -> tuple:
                 raise
             event_id = {
                 f"Status-{event_code}": int(event_code)
-                for event_code in sorted(set(events[:, 2]))
+                for event_code in np.unique(events[:, 2])
             }
 
         if len(events) == 0:
@@ -204,6 +205,6 @@ def process_biosemi_bdf_events(raw: mne.io.Raw) -> tuple:
         message("info", f"Event counts: {events_df['type'].value_counts().to_dict()}")
         return events, event_id, events_df
 
-    except (RuntimeError, ValueError) as e:
+    except RuntimeError as e:
         message("warning", f"Failed to process events: {str(e)}")
         return None, None, None
