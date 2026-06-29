@@ -457,7 +457,7 @@ def test_eeglab_plugins_fallback_to_epochs_reader_for_epoched_set(
         patch("mne.io.read_raw_eeglab") as read_raw,
         patch("mne.io.read_epochs_eeglab", return_value=epochs) as read_epochs,
     ):
-        read_raw.side_effect = RuntimeError(
+        read_raw.side_effect = ValueError(
             "The number of trials is 2. It must be 1 for raw files. "
             "Please use `mne.io.read_epochs_eeglab` if the .set file contains epochs."
         )
