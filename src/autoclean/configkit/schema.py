@@ -379,6 +379,9 @@ def _build_task_settings_schema() -> Schema:
                 Optional("seed"): Or(int, None),
             },
             Optional("move_flagged_files"): Or(bool, None),
+            Optional("incremental_cleanup"): {
+                Optional("enabled"): bool,
+            },
             Optional("dataset_name"): Or(str, None),
             Optional("automation_mode"): Or(bool, str, None),
             # Basic preprocessing

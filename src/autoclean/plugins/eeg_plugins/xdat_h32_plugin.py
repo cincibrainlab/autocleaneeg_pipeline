@@ -169,6 +169,7 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
         # Create MNE Raw object
         info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=ch_types_list)
         raw = mne.io.RawArray(data, info)
+        raw._filenames = [file_path]
 
         return raw
 
@@ -263,6 +264,25 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
                 "success",
                 f"Applied montage with {len(coords_dict)} electrode positions",
             )
+
+            # Step 5: Demote EEG channels with no montage position to misc.
+            # The montage covers only the 30 mouse electrodes; ref/ground/aux
+            # channels mislabeled "eeg" keep NaN coords and break spatial steps
+            # like bad-channel detection. Reclassify them so they're preserved
+            # but excluded from EEG analyses.
+            positionless = [
+                ch["ch_name"]
+                for ch in raw.info["chs"]
+                if raw.get_channel_types([ch["ch_name"]])[0] == "eeg"
+                and np.any(np.isnan(ch["loc"][:3]))
+            ]
+            if positionless:
+                raw.set_channel_types({ch: "misc" for ch in positionless})
+                message(
+                    "warning",
+                    f"Reclassified {len(positionless)} position-less EEG channel(s) "
+                    f"to misc (not in montage): {positionless}",
+                )
 
             # Step 6: Pick EEG and stimulus channels
             # Keep aux and digital I/O for complete data preservation

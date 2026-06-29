@@ -77,7 +77,9 @@ class ServiceStartRequest(BaseModel):
         ge=0,
         description="Idle cycles before exiting (0 = keep running)",
     )
-    sleep_seconds: float = Field(default=1.0, ge=0, description="Sleep between cycles in seconds")
+    sleep_seconds: float = Field(
+        default=1.0, ge=0, description="Sleep between cycles in seconds"
+    )
     no_watch: bool = Field(default=False, description="Disable watchfiles usage")
     no_sentinel: bool = Field(default=False, description="Disable sentinel requirement")
 
@@ -131,6 +133,21 @@ def get_service_status() -> dict:
         if _process is not None:
             retcode = _process.poll()
             if retcode is not None:
+                # Diagnostic: record how the dispatcher exited before clearing state.
+                # retcode < 0 means it was killed by signal number -retcode
+                # (-15 SIGTERM, -9 SIGKILL, -1 SIGHUP). Captures even uncatchable kills.
+                try:
+                    if api_state.workspace_dir:
+                        _sig = f" (signal {-retcode})" if retcode < 0 else ""
+                        with open(
+                            api_state.workspace_dir / "dispatcher-exit.log", "a"
+                        ) as _fh:
+                            _fh.write(
+                                f"{time.strftime('%Y-%m-%d %H:%M:%S')} "
+                                f"pid={_process.pid} exited retcode={retcode}{_sig}\n"
+                            )
+                except Exception:  # pylint: disable=broad-except
+                    pass
                 # Process has exited
                 _process = None
                 _start_time = None
@@ -140,13 +157,16 @@ def get_service_status() -> dict:
             "running": running,
             "pid": _process.pid if running else None,
             "mode": api_state.mode,
-            "uptime_seconds": (time.time() - _start_time) if running and _start_time else None,
+            "uptime_seconds": (
+                (time.time() - _start_time) if running and _start_time else None
+            ),
             "can_start": blocker is None,
             "blocked_reason": blocker,
         }
 
 
 # ── Endpoints ────────────────────────────────────────────────────────
+
 
 @router.get("/status", response_model=ServiceStatusResponse)
 async def status():

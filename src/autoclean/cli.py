@@ -34,13 +34,12 @@ import sys
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import requests
 import yaml
 from rich.panel import Panel
 from rich.table import Table
-
 
 # Block management commands
 from autoclean import __version__, cli_blocks
@@ -372,7 +371,9 @@ def _print_context(
             pass
 
     try:
-        raw_input = input_path if input_path is not None else user_config.get_active_source()
+        raw_input = (
+            input_path if input_path is not None else user_config.get_active_source()
+        )
         if raw_input:
             p = Path(raw_input)
             input_display = str(p)
@@ -608,7 +609,7 @@ def _render_input_summary(console, *, input_path: Path) -> None:
         path_kind = "Path"
 
     details = [
-        f"[success]✓[/success] Active input saved",
+        "[success]✓[/success] Active input saved",
         f"[muted]Type:[/muted] {path_kind}",
         f"[muted]Location:[/muted] [info]{input_path}[/info]",
     ]
@@ -747,7 +748,10 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             ("📜 task list", "List available tasks (same as 'list-tasks')"),
             ("📂 task explore", "Open the workspace tasks folder"),
             ("✏️  task edit [name|path]", "Edit task (omit uses active)"),
-            ("🆕 task create <ClassName>", "Create a workspace-local task from template"),
+            (
+                "🆕 task create <ClassName>",
+                "Create a workspace-local task from template",
+            ),
             ("📥 task import <path>", "Copy a task file into workspace"),
             ("📄 task copy [name|path]", "Copy task (omit uses active)"),
             ("🗑  task delete [name|path]", "Delete task from the active workspace"),
@@ -2591,7 +2595,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
 
     serve_tui = serve_subparsers.add_parser(
-        "tui", help="Launch interactive TUI for automation administration", add_help=False
+        "tui",
+        help="Launch interactive TUI for automation administration",
+        add_help=False,
     )
     attach_rich_help(serve_tui)
     serve_tui.add_argument(
@@ -2666,7 +2672,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
 
     serve_service = serve_subparsers.add_parser(
-        "service", help="Control the dispatcher through the running Serve server", add_help=False
+        "service",
+        help="Control the dispatcher through the running Serve server",
+        add_help=False,
     )
     attach_rich_help(serve_service)
     serve_service_subparsers = serve_service.add_subparsers(
@@ -2677,27 +2685,57 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "status", help="Show dispatcher status", add_help=False
     )
     attach_rich_help(serve_service_status)
-    serve_service_status.add_argument("--port", dest="service_port", type=int, default=None, help="Serve port override")
+    serve_service_status.add_argument(
+        "--port",
+        dest="service_port",
+        type=int,
+        default=None,
+        help="Serve port override",
+    )
 
     serve_service_start = serve_service_subparsers.add_parser(
         "start", help="Start the dispatcher through the Serve API", add_help=False
     )
     attach_rich_help(serve_service_start)
-    serve_service_start.add_argument("--port", dest="service_port", type=int, default=None, help="Serve port override")
-    serve_service_start.add_argument("--max-cycles", type=int, default=0, help="0 = unlimited")
-    serve_service_start.add_argument("--idle-limit", type=int, default=0, help="0 = keep running")
-    serve_service_start.add_argument("--sleep-seconds", type=float, default=1.0, help="Sleep between cycles")
-    serve_service_start.add_argument("--no-watch", action="store_true", help="Disable watchfiles usage")
-    serve_service_start.add_argument("--no-sentinel", action="store_true", help="Disable sentinel requirement")
+    serve_service_start.add_argument(
+        "--port",
+        dest="service_port",
+        type=int,
+        default=None,
+        help="Serve port override",
+    )
+    serve_service_start.add_argument(
+        "--max-cycles", type=int, default=0, help="0 = unlimited"
+    )
+    serve_service_start.add_argument(
+        "--idle-limit", type=int, default=0, help="0 = keep running"
+    )
+    serve_service_start.add_argument(
+        "--sleep-seconds", type=float, default=1.0, help="Sleep between cycles"
+    )
+    serve_service_start.add_argument(
+        "--no-watch", action="store_true", help="Disable watchfiles usage"
+    )
+    serve_service_start.add_argument(
+        "--no-sentinel", action="store_true", help="Disable sentinel requirement"
+    )
 
     serve_service_stop = serve_service_subparsers.add_parser(
         "stop", help="Stop the dispatcher through the Serve API", add_help=False
     )
     attach_rich_help(serve_service_stop)
-    serve_service_stop.add_argument("--port", dest="service_port", type=int, default=None, help="Serve port override")
+    serve_service_stop.add_argument(
+        "--port",
+        dest="service_port",
+        type=int,
+        default=None,
+        help="Serve port override",
+    )
 
     serve_mode = serve_subparsers.add_parser(
-        "mode", help="Inspect or switch test/live mode on a running Serve session", add_help=False
+        "mode",
+        help="Inspect or switch test/live mode on a running Serve session",
+        add_help=False,
     )
     attach_rich_help(serve_mode)
     serve_mode.add_argument(
@@ -2707,10 +2745,14 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         choices=["status", "test", "live"],
         help="Show current mode or switch the running session to test/live",
     )
-    serve_mode.add_argument("--port", dest="mode_port", type=int, default=None, help="Serve port override")
+    serve_mode.add_argument(
+        "--port", dest="mode_port", type=int, default=None, help="Serve port override"
+    )
 
     serve_queue = serve_subparsers.add_parser(
-        "queue", help="Inspect and maintain queue entries through the running Serve server", add_help=False
+        "queue",
+        help="Inspect and maintain queue entries through the running Serve server",
+        add_help=False,
     )
     attach_rich_help(serve_queue)
     serve_queue_subparsers = serve_queue.add_subparsers(
@@ -2721,13 +2763,17 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "status", help="Show queue statistics", add_help=False
     )
     attach_rich_help(serve_queue_status)
-    serve_queue_status.add_argument("--port", dest="queue_port", type=int, default=None, help="Serve port override")
+    serve_queue_status.add_argument(
+        "--port", dest="queue_port", type=int, default=None, help="Serve port override"
+    )
 
     serve_queue_list = serve_queue_subparsers.add_parser(
         "list", help="List queue entries", add_help=False
     )
     attach_rich_help(serve_queue_list)
-    serve_queue_list.add_argument("--port", dest="queue_port", type=int, default=None, help="Serve port override")
+    serve_queue_list.add_argument(
+        "--port", dest="queue_port", type=int, default=None, help="Serve port override"
+    )
     serve_queue_list.add_argument(
         "--status",
         choices=["pending", "processing", "processed", "failed"],
@@ -2735,14 +2781,20 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="Filter by queue status",
     )
     serve_queue_list.add_argument("--route-id", default=None, help="Filter by route id")
-    serve_queue_list.add_argument("--limit", type=int, default=100, help="Max entries to show")
-    serve_queue_list.add_argument("--offset", type=int, default=0, help="Offset into the queue")
+    serve_queue_list.add_argument(
+        "--limit", type=int, default=100, help="Max entries to show"
+    )
+    serve_queue_list.add_argument(
+        "--offset", type=int, default=0, help="Offset into the queue"
+    )
 
     serve_queue_retry = serve_queue_subparsers.add_parser(
         "retry-failed", help="Reset failed entries back to pending", add_help=False
     )
     attach_rich_help(serve_queue_retry)
-    serve_queue_retry.add_argument("--port", dest="queue_port", type=int, default=None, help="Serve port override")
+    serve_queue_retry.add_argument(
+        "--port", dest="queue_port", type=int, default=None, help="Serve port override"
+    )
     serve_queue_retry.add_argument(
         "paths",
         nargs="*",
@@ -2753,13 +2805,17 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "clear-processed", help="Remove processed queue entries", add_help=False
     )
     attach_rich_help(serve_queue_clear_processed)
-    serve_queue_clear_processed.add_argument("--port", dest="queue_port", type=int, default=None, help="Serve port override")
+    serve_queue_clear_processed.add_argument(
+        "--port", dest="queue_port", type=int, default=None, help="Serve port override"
+    )
 
     serve_queue_remove = serve_queue_subparsers.add_parser(
         "remove", help="Remove one queue entry by full path", add_help=False
     )
     attach_rich_help(serve_queue_remove)
-    serve_queue_remove.add_argument("--port", dest="queue_port", type=int, default=None, help="Serve port override")
+    serve_queue_remove.add_argument(
+        "--port", dest="queue_port", type=int, default=None, help="Serve port override"
+    )
     serve_queue_remove.add_argument("path", help="Full queue entry path to remove")
 
     # Serve daemon management
@@ -2780,7 +2836,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
     attach_rich_help(serve_restart)
     serve_restart.add_argument("--host", default="0.0.0.0", help="Bind address")
-    serve_restart.add_argument("--force", action="store_true", help="Allow second instance")
+    serve_restart.add_argument(
+        "--force", action="store_true", help="Allow second instance"
+    )
 
     serve_status = serve_subparsers.add_parser(
         "status", help="Show serve daemon status", add_help=False
@@ -2792,7 +2850,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
     attach_rich_help(serve_share)
     serve_share.add_argument(
-        "share_action", nargs="?", default="start",
+        "share_action",
+        nargs="?",
+        default="start",
         choices=["start", "stop", "status", "setup", "clear"],
         help="start (default), stop, status, setup (configure named tunnel), clear",
     )
@@ -5367,9 +5427,9 @@ def _simple_header(
     console.print()
 
 
-def _wizard_collect_state() -> Tuple[
-    Path, bool, Optional[str], Optional[Path], Optional[str], Optional[str]
-]:
+def _wizard_collect_state() -> (
+    Tuple[Path, bool, Optional[str], Optional[Path], Optional[str], Optional[str]]
+):
     """Gather current workspace, task, montage, and input state for summaries."""
 
     workspace_dir = user_config.config_dir
@@ -6358,9 +6418,9 @@ def _setup_compliance_mode() -> int:
         user_config_data["compliance"]["require_electronic_signatures"] = (
             signature_answer["require_signatures"]
         )
-        user_config_data["workspace"]["auto_backup"] = (
-            True  # Always enabled for compliance
-        )
+        user_config_data["workspace"][
+            "auto_backup"
+        ] = True  # Always enabled for compliance
 
         save_user_config(user_config_data)
 
@@ -6659,7 +6719,11 @@ def _matlab_install_mode(python_executable: str, engine_installed: bool) -> str:
     """Classify the current interpreter from an operator perspective."""
     executable = str(python_executable)
     if ".venv" in executable:
-        return "matlab-capable .venv" if engine_installed else "base .venv (MATLAB not enabled)"
+        return (
+            "matlab-capable .venv"
+            if engine_installed
+            else "base .venv (MATLAB not enabled)"
+        )
     if "/uv/tools/" in executable or "\\uv\\tools\\" in executable:
         return (
             "uv tool install with MATLAB enabled"
@@ -6691,12 +6755,21 @@ def _matlab_remediation_guidance(report, *, skip_start: bool) -> list[str]:
     error_text = " | ".join(report.errors).lower()
 
     if not report.is_64_bit:
-        guidance.append("Use a 64-bit Python interpreter that matches the MATLAB architecture.")
-    if "could not find directory" in error_text or "maca64" in error_text or "maci64" in error_text:
+        guidance.append(
+            "Use a 64-bit Python interpreter that matches the MATLAB architecture."
+        )
+    if (
+        "could not find directory" in error_text
+        or "maca64" in error_text
+        or "maci64" in error_text
+    ):
         guidance.append(
             "Rebuild the MATLAB engine in an interpreter whose architecture matches the installed MATLAB build."
         )
-    if "matlab engine api unavailable" in error_text or not report.engine_package_installed:
+    if (
+        "matlab engine api unavailable" in error_text
+        or not report.engine_package_installed
+    ):
         guidance.append(
             "Install MATLAB Engine into this environment from matlabroot/extern/engines/python or a compatible matlabengine wheel."
         )
@@ -6709,10 +6782,16 @@ def _matlab_remediation_guidance(report, *, skip_start: bool) -> list[str]:
             "Verify MATLAB licensing in this environment, or rerun with --license-file pointing at the correct network or local license."
         )
     if "timed out" in error_text:
-        guidance.append("Increase --startup-timeout or resolve slow MATLAB startup before running routes.")
+        guidance.append(
+            "Increase --startup-timeout or resolve slow MATLAB startup before running routes."
+        )
     if skip_start and report.engine_package_installed:
-        guidance.append("Rerun without --skip-start to verify that this interpreter can actually launch MATLAB.")
-    if "uv tool" in _matlab_install_mode(report.python_executable, report.engine_package_installed):
+        guidance.append(
+            "Rerun without --skip-start to verify that this interpreter can actually launch MATLAB."
+        )
+    if "uv tool" in _matlab_install_mode(
+        report.python_executable, report.engine_package_installed
+    ):
         guidance.append(
             "For MATLAB-backed routes, prefer a dedicated project .venv so the CLI, worker, and engine use the same interpreter."
         )
@@ -6755,7 +6834,11 @@ def cmd_matlab_doctor(args) -> int:
     table.add_row("License File", report.license_file or "default")
     table.add_row(
         "Engine Start",
-        "ok" if report.engine_start_ok else "not verified" if args.skip_start else "failed",
+        (
+            "ok"
+            if report.engine_start_ok
+            else "not verified" if args.skip_start else "failed"
+        ),
     )
     table.add_row(
         "Route Environment Supported",
@@ -7735,7 +7818,9 @@ def cmd_task_use(args) -> int:
             console.print("[warning]No library tasks available.[/warning]")
             return 1
 
-        console.print("\n[header]Select a task to install into the active workspace:[/header]\n")
+        console.print(
+            "\n[header]Select a task to install into the active workspace:[/header]\n"
+        )
 
         from rich.table import Table
 
@@ -7817,9 +7902,7 @@ def cmd_task_use(args) -> int:
     # Install task if needed
     if not skip_install:
         try:
-            installed_path = registry.materialize_task_to(
-                task_name, tasks_dir
-            )
+            installed_path = registry.materialize_task_to(task_name, tasks_dir)
             console.print(
                 f"[success]✓[/success] {task_name} installed to [info]{installed_path}[/info]"
             )
@@ -7947,9 +8030,7 @@ def cmd_task_install(args) -> int:
 
             # Check if already exists
             if dest_path.exists() and not force:
-                sync_status = registry.task_sync_status(
-                    task_source, tasks_dir
-                )
+                sync_status = registry.task_sync_status(task_source, tasks_dir)
                 status = sync_status.get("status")
 
                 if status == "synced":
@@ -7971,9 +8052,7 @@ def cmd_task_install(args) -> int:
                 return 1
             else:
                 # Install task
-                materialized_path = registry.materialize_task_to(
-                    task_source, tasks_dir
-                )
+                materialized_path = registry.materialize_task_to(task_source, tasks_dir)
 
                 # Rename if custom name specified
                 if custom_name and custom_name != task_source:
@@ -8181,9 +8260,7 @@ def cmd_task_sync(args) -> int:
             try:
                 # Create backup
                 task_path = tasks_dir / f"{task_name}.py"
-                backup_path = (
-                    tasks_dir / f"{task_name}.backup.{backup_suffix}.py"
-                )
+                backup_path = tasks_dir / f"{task_name}.backup.{backup_suffix}.py"
 
                 import shutil
 
@@ -8841,8 +8918,8 @@ def cmd_events_analyze(args) -> int:
     """Provide timing diagnostics for events inside a file."""
     from collections import Counter
 
-    import numpy as np
     import mne
+    import numpy as np
 
     file_path = Path(args.input_file).expanduser()
 
@@ -9898,9 +9975,11 @@ def cmd_serve(args) -> int:
     if action is None:
         # Check if server is already running — show status
         from autoclean.serve_launcher import _check_existing_server
+
         existing = _check_existing_server(getattr(args, "port", 8000) or 8000)
 
         from autoclean.utils.console import get_console
+
         c = get_console()
 
         c.print()
@@ -9917,14 +9996,22 @@ def cmd_serve(args) -> int:
         c.print()
         c.print("[bold]First-time setup:[/bold]")
         c.print("  [white]serve workspace[/white] Create or link a Serve workspace")
-        c.print("  [white]serve up[/white]        Start the Serve UI and processing service")
+        c.print(
+            "  [white]serve up[/white]        Start the Serve UI and processing service"
+        )
         c.print()
         c.print("[bold]Daily use:[/bold]")
-        c.print("  [white]serve up[/white]        Start the Serve UI and processing service")
-        c.print("  [white]serve status[/white]    Show whether UI and processing are operational")
+        c.print(
+            "  [white]serve up[/white]        Start the Serve UI and processing service"
+        )
+        c.print(
+            "  [white]serve status[/white]    Show whether UI and processing are operational"
+        )
         c.print("  [white]serve service[/white]   Control dispatcher start/stop/status")
         c.print("  [white]serve queue[/white]     Inspect or maintain queue entries")
-        c.print("  [white]serve mode[/white]      Switch between test and live in a running session")
+        c.print(
+            "  [white]serve mode[/white]      Switch between test and live in a running session"
+        )
         c.print()
         c.print("[bold]Advanced:[/bold]")
         c.print("  [white]serve api[/white]       Start API/UI only in foreground")
@@ -10123,7 +10210,7 @@ def _write_serve_yaml(
 
     # Create a well-documented template as a string (preserves comments)
     if mode == "test":
-        template = f'''# =============================================================================
+        template = f"""# =============================================================================
 # AutoClean Serve Configuration - TEST MODE
 # =============================================================================
 # This configuration defines automated "hot-folder" processing for EEG files.
@@ -10219,9 +10306,9 @@ automations:
 #
 # Run "autocleaneeg-pipeline montage list" for all available montages
 # =============================================================================
-'''
+"""
     else:  # live mode
-        template = f'''# =============================================================================
+        template = f"""# =============================================================================
 # AutoClean Serve Configuration - LIVE/PRODUCTION MODE
 # =============================================================================
 # CAUTION: This is the PRODUCTION configuration.
@@ -10266,7 +10353,7 @@ automations:
     ingestion_folders: []
 
 # =============================================================================
-'''
+"""
 
     with open(yaml_path, "w", encoding="utf-8") as f:
         f.write(template)
@@ -10279,7 +10366,7 @@ def _write_serve_makefile(workspace_dir: Path) -> None:
         message("warning", "Makefile already exists; leaving unchanged")
         return
 
-    template = '''# AutoClean Serve - Quick Commands
+    template = """# AutoClean Serve - Quick Commands
 # Run from this directory: make <target>
 
 # Load workspace.env if present, otherwise use defaults
@@ -10576,7 +10663,7 @@ docker-status:
 \t@echo ""
 \t@printf "Test API:   " && curl -s http://localhost:8000/health 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print('$(GREEN)healthy$(RESET) ('+d.get('mode','?')+')')" 2>/dev/null || echo "$(DIM)not running$(RESET)"
 \t@printf "Live API:   " && curl -s http://localhost:8001/health 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print('$(GREEN)healthy$(RESET) ('+d.get('mode','?')+')')" 2>/dev/null || echo "$(DIM)not running$(RESET)"
-'''
+"""
 
     with open(makefile_path, "w", encoding="utf-8") as f:
         f.write(template)
@@ -10588,7 +10675,7 @@ def _write_workspace_env(workspace_dir: Path) -> None:
     if env_path.exists():
         return  # Don't overwrite existing config
 
-    template = '''# AutoClean Serve Workspace Configuration
+    template = """# AutoClean Serve Workspace Configuration
 # Used by both Makefile and docker-compose.yml
 
 # ─────────────────────────────────────────────────────────────
@@ -10627,7 +10714,7 @@ REDIS_URL=redis://localhost:6379
 # Data directory mounted at /data in containers
 # Set to your EEG data root, or leave commented if data is in workspace
 # DATA_DIR=/path/to/eeg-data
-'''
+"""
     with open(env_path, "w", encoding="utf-8") as f:
         f.write(template)
 
@@ -10638,7 +10725,7 @@ def _write_dockerfile(workspace_dir: Path) -> None:
     if dockerfile_path.exists():
         return
 
-    template = '''# AutoClean Serve - Container Image
+    template = """# AutoClean Serve - Container Image
 # Development mode: installs package at runtime from mounted source
 # Production mode: installs from PyPI/git at build time
 
@@ -10682,7 +10769,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \\
 # Use entrypoint to handle dev/prod mode
 ENTRYPOINT ["/app/entrypoint.sh", "/app/.venv/bin/autocleaneeg-pipeline"]
 CMD ["--help"]
-'''
+"""
     with open(dockerfile_path, "w", encoding="utf-8") as f:
         f.write(template)
 
@@ -10692,7 +10779,7 @@ def _write_docker_compose(workspace_dir: Path) -> None:
     # Write test stack (port 8000)
     test_path = workspace_dir / "docker-compose-test.yml"
     if not test_path.exists():
-        test_template = '''# AutoClean Serve - TEST MODE Stack
+        test_template = """# AutoClean Serve - TEST MODE Stack
 # Runs on port 8000, separate Redis instance
 #
 # Start:  docker compose -f docker-compose-test.yml up -d
@@ -10759,14 +10846,14 @@ services:
 
 volumes:
   redis-test-data:
-'''
+"""
         with open(test_path, "w", encoding="utf-8") as f:
             f.write(test_template)
 
     # Write live stack (port 8001)
     live_path = workspace_dir / "docker-compose-live.yml"
     if not live_path.exists():
-        live_template = '''# AutoClean Serve - LIVE MODE Stack
+        live_template = """# AutoClean Serve - LIVE MODE Stack
 # Runs on port 8001, separate Redis instance
 #
 # Start:  docker compose -f docker-compose-live.yml up -d
@@ -10834,7 +10921,7 @@ services:
 
 volumes:
   redis-live-data:
-'''
+"""
         with open(live_path, "w", encoding="utf-8") as f:
             f.write(live_template)
 
@@ -10876,7 +10963,9 @@ def _emit_uv_unknown_issuer_guidance(
         "info",
         "Try again with system trust roots enabled for uv: export UV_NATIVE_TLS=1",
     )
-    retry_mode = "existing" if workspace_mode == "new" else (workspace_mode or "existing")
+    retry_mode = (
+        "existing" if workspace_mode == "new" else (workspace_mode or "existing")
+    )
     message(
         "info",
         f"Retry: autocleaneeg-pipeline serve workspace --mode {retry_mode} --path {workspace_dir}",
@@ -10989,11 +11078,19 @@ def _serve_workspace_checklist(workspace_dir: Path) -> list[tuple[str, bool, str
 
     test_runtime_cli = _runtime_cli_bin(paths["runtimes_test"] / ".venv")
     live_runtime_cli = _runtime_cli_bin(paths["runtimes_live"] / ".venv")
-    checks.append(("test runtime CLI", test_runtime_cli.exists(), str(test_runtime_cli)))
-    checks.append(("live runtime CLI", live_runtime_cli.exists(), str(live_runtime_cli)))
+    checks.append(
+        ("test runtime CLI", test_runtime_cli.exists(), str(test_runtime_cli))
+    )
+    checks.append(
+        ("live runtime CLI", live_runtime_cli.exists(), str(live_runtime_cli))
+    )
 
-    route_count = len(list(paths["routes"].glob("*.yaml"))) if paths["routes"].exists() else 0
-    checks.append(("route specs present", route_count > 0, f"{route_count} route spec(s)"))
+    route_count = (
+        len(list(paths["routes"].glob("*.yaml"))) if paths["routes"].exists() else 0
+    )
+    checks.append(
+        ("route specs present", route_count > 0, f"{route_count} route spec(s)")
+    )
 
     for mode in ("test", "live"):
         config_path = _resolve_config_path(paths, mode, deployed=False)
@@ -11025,12 +11122,14 @@ def _serve_workspace_route_mode_counts(workspace_dir: Path) -> dict[str, int]:
 
 def _print_workspace_status(workspace_dir: Path) -> int:
     """Print a concise status summary for the workspace Serve is using."""
-    paths = _serve_workspace_paths(workspace_dir)
     message("info", f"Workspace used by Serve: {workspace_dir}")
     persisted = user_config.get_serve_workspace()
     if persisted is not None:
         current = persisted.expanduser().resolve()
-        message("info", f"Selected in user config: {'yes' if current == workspace_dir else 'no'}")
+        message(
+            "info",
+            f"Selected in user config: {'yes' if current == workspace_dir else 'no'}",
+        )
 
     checks = _serve_workspace_checklist(workspace_dir)
     for label, ok, detail in checks:
@@ -11066,7 +11165,10 @@ def _print_workspace_doctor(workspace_dir: Path) -> int:
     message("info", f"Serve workspace doctor: {workspace_dir}")
     if not blocking_failures and not guidance_items:
         message("success", "✓ Workspace looks healthy")
-        message("info", "Next: run 'autocleaneeg-pipeline serve up' to start the normal Serve experience")
+        message(
+            "info",
+            "Next: run 'autocleaneeg-pipeline serve up' to start the normal Serve experience",
+        )
         return 0
 
     if blocking_failures:
@@ -11080,15 +11182,30 @@ def _print_workspace_doctor(workspace_dir: Path) -> int:
             message("info", f"- {label}: {detail}")
 
     if any("runtime CLI" in label for label, _detail in blocking_failures):
-        message("info", "Try re-running 'autocleaneeg-pipeline serve workspace --mode existing --path <dir>' to rebuild runtimes")
+        message(
+            "info",
+            "Try re-running 'autocleaneeg-pipeline serve workspace --mode existing --path <dir>' to rebuild runtimes",
+        )
     if any("route specs present" in label for label, _detail in guidance_items):
-        message("info", "Create a route in the UI or with 'autocleaneeg-pipeline serve route upsert ...'")
+        message(
+            "info",
+            "Create a route in the UI or with 'autocleaneeg-pipeline serve route upsert ...'",
+        )
     if any("config valid" in label for label, _detail in blocking_failures):
-        message("info", "Open Settings in the Serve UI or run 'autocleaneeg-pipeline serve validate --mode <test|live>'")
+        message(
+            "info",
+            "Open Settings in the Serve UI or run 'autocleaneeg-pipeline serve validate --mode <test|live>'",
+        )
     if any(label == "live config valid" for label, _detail in guidance_items):
-        message("info", "Promote a validated route when you are ready to operate in live mode")
+        message(
+            "info",
+            "Promote a validated route when you are ready to operate in live mode",
+        )
     if not blocking_failures:
-        message("success", "✓ Workspace infrastructure is healthy; setup is not fully complete yet")
+        message(
+            "success",
+            "✓ Workspace infrastructure is healthy; setup is not fully complete yet",
+        )
         return 0
     return 1
 
@@ -11125,7 +11242,9 @@ def cmd_serve_workspace(args) -> int:
         if not workspace_dir.exists():
             message("error", f"Workspace directory does not exist: {workspace_dir}")
             return 1
-        if not _validate_serve_workspace(_serve_workspace_paths(workspace_dir)) and not _looks_like_cli_workspace(workspace_dir):
+        if not _validate_serve_workspace(
+            _serve_workspace_paths(workspace_dir)
+        ) and not _looks_like_cli_workspace(workspace_dir):
             message(
                 "error",
                 "Workspace must already be a valid Serve workspace or an AutoClean workspace with tasks/output.",
@@ -11135,7 +11254,10 @@ def cmd_serve_workspace(args) -> int:
             message("error", "Failed to persist serve workspace setting")
             return 1
         message("success", f"✓ Serve will now use workspace: {workspace_dir}")
-        message("info", "Next: run 'autocleaneeg-pipeline serve status' or 'autocleaneeg-pipeline serve up'")
+        message(
+            "info",
+            "Next: run 'autocleaneeg-pipeline serve status' or 'autocleaneeg-pipeline serve up'",
+        )
         return 0
 
     if not args.mode and args.path is None:
@@ -11143,7 +11265,9 @@ def cmd_serve_workspace(args) -> int:
         message(
             "info", "Use --mode existing --path <dir> to link an existing workspace"
         )
-        message("info", "Use 'serve workspace status' to inspect the selected workspace")
+        message(
+            "info", "Use 'serve workspace status' to inspect the selected workspace"
+        )
         message("info", "Use 'serve workspace doctor' to diagnose workspace issues")
         return 0
 
@@ -11224,7 +11348,10 @@ def cmd_serve_workspace(args) -> int:
     message("info", "Next steps:")
     message("info", "1. Run 'autocleaneeg-pipeline serve up' to start the Serve UI")
     message("info", "2. Finish route setup in the web UI or with 'serve route upsert'")
-    message("info", "3. Use 'autocleaneeg-pipeline serve status' to confirm processing is active")
+    message(
+        "info",
+        "3. Use 'autocleaneeg-pipeline serve status' to confirm processing is active",
+    )
     return 0
 
 
@@ -11312,7 +11439,9 @@ def _resolve_route_updates(args) -> dict[str, object]:
         updates["priority"] = args.priority
 
     if args.automation_root is not None:
-        updates["automation_root"] = str(Path(args.automation_root).expanduser().resolve())
+        updates["automation_root"] = str(
+            Path(args.automation_root).expanduser().resolve()
+        )
 
     if args.workspace_name is not None:
         updates["workspace_name"] = args.workspace_name
@@ -11411,7 +11540,9 @@ def cmd_serve_route_upsert(args) -> int:
         from autoclean.utils.serve_routes import sync_route_registry, upsert_route_spec
 
         updates = _resolve_route_updates(args)
-        route_path, spec, status = upsert_route_spec(workspace_dir, args.route_id, updates)
+        route_path, spec, status = upsert_route_spec(
+            workspace_dir, args.route_id, updates
+        )
         sync_results = sync_route_registry(workspace_dir)
     except Exception as exc:
         message("error", f"Failed to upsert route: {exc}")
@@ -11478,7 +11609,10 @@ def cmd_serve_route_unarchive(args) -> int:
         return 1
 
     try:
-        from autoclean.utils.serve_routes import sync_route_registry, unarchive_route_spec
+        from autoclean.utils.serve_routes import (
+            sync_route_registry,
+            unarchive_route_spec,
+        )
 
         route_path, spec, status = unarchive_route_spec(workspace_dir, args.route_id)
         sync_results = sync_route_registry(workspace_dir)
@@ -11616,7 +11750,9 @@ def cmd_serve_deploy(args) -> int:
     else:
         package_spec = "autocleaneeg-pipeline"
     message("info", f"Setting up {mode} runtime...")
-    if not _setup_runtime(runtime_dir, mode, package_spec, skip_uv=False, run_test=True):
+    if not _setup_runtime(
+        runtime_dir, mode, package_spec, skip_uv=False, run_test=True
+    ):
         message("error", f"Failed to set up {mode} runtime")
         return 1
 
@@ -11641,6 +11777,29 @@ def cmd_serve_run(args) -> int:
     queue_path = args.queue_path
     if queue_path is None:
         queue_path = workspace_dir / f"queue-{mode}.json"
+
+    # Diagnostic: record terminating signals so a dispatcher death is not a mystery.
+    # SIGKILL cannot be caught here (the API's exit-code log captures that case).
+    import os as _os
+    import signal as _signal
+    from datetime import datetime as _dt
+
+    def _log_death_signal(signum, _frame):
+        try:
+            with open(workspace_dir / f"dispatcher-death-{mode}.log", "a") as _fh:
+                _fh.write(
+                    f"{_dt.now().isoformat()} pid={_os.getpid()} "
+                    f"received {_signal.Signals(signum).name} ({signum})\n"
+                )
+        except Exception:  # pylint: disable=broad-except
+            pass
+        raise SystemExit(128 + signum)
+
+    for _sig in (_signal.SIGTERM, _signal.SIGHUP):
+        try:
+            _signal.signal(_sig, _log_death_signal)
+        except (ValueError, OSError):
+            pass
 
     from autoclean.utils.ingestion import run_ingestion_service
 
@@ -11695,17 +11854,24 @@ def cmd_serve_run(args) -> int:
     return 0
 
 
-def _serve_api_request_or_error(port: int, path: str, method: str = "GET", body: dict | None = None) -> tuple[bool, dict | str]:
+def _serve_api_request_or_error(
+    port: int, path: str, method: str = "GET", body: dict | None = None
+) -> tuple[bool, dict | str]:
     """Call the local Serve API, returning a success flag and payload or error."""
     try:
         from autoclean.serve_launcher import _api_request, _check_existing_server
 
         existing = _check_existing_server(port)
         if not existing:
-            return False, "Serve is not running. Start it with 'autocleaneeg-pipeline serve up'."
+            return (
+                False,
+                "Serve is not running. Start it with 'autocleaneeg-pipeline serve up'.",
+            )
 
         _pid, resolved_port, _health = existing
-        payload = _api_request(resolved_port, path, method=method, body=body, timeout=20)
+        payload = _api_request(
+            resolved_port, path, method=method, body=body, timeout=20
+        )
         return True, payload
     except Exception as exc:
         return False, str(exc)
@@ -11758,7 +11924,9 @@ def cmd_serve_service(args) -> int:
         return 0 if success else 1
 
     if action == "stop":
-        ok, payload = _serve_api_request_or_error(port, "/api/service/stop", method="POST", body={})
+        ok, payload = _serve_api_request_or_error(
+            port, "/api/service/stop", method="POST", body={}
+        )
         if not ok:
             message("error", str(payload))
             return 1
@@ -11802,7 +11970,7 @@ def cmd_serve_mode(args) -> int:
 
 def cmd_serve_queue(args) -> int:
     """Inspect and maintain queue entries through the running Serve server."""
-    from urllib.parse import urlencode, quote
+    from urllib.parse import quote, urlencode
 
     action = getattr(args, "queue_action", None) or "status"
     port = _serve_effective_port(args, "queue_port")
@@ -11859,20 +12027,30 @@ def cmd_serve_queue(args) -> int:
         if not ok:
             message("error", str(payload))
             return 1
-        message("success", f"Retried {payload.get('retried', 0)} failed queue entr{'y' if payload.get('retried', 0) == 1 else 'ies'}.")
+        message(
+            "success",
+            f"Retried {payload.get('retried', 0)} failed queue entr{'y' if payload.get('retried', 0) == 1 else 'ies'}.",
+        )
         return 0
 
     if action == "clear-processed":
-        ok, payload = _serve_api_request_or_error(port, "/api/queue/processed", method="DELETE")
+        ok, payload = _serve_api_request_or_error(
+            port, "/api/queue/processed", method="DELETE"
+        )
         if not ok:
             message("error", str(payload))
             return 1
-        message("success", f"Cleared {payload.get('cleared', 0)} processed queue entr{'y' if payload.get('cleared', 0) == 1 else 'ies'}.")
+        message(
+            "success",
+            f"Cleared {payload.get('cleared', 0)} processed queue entr{'y' if payload.get('cleared', 0) == 1 else 'ies'}.",
+        )
         return 0
 
     if action == "remove":
         path = quote(str(args.path), safe="")
-        ok, payload = _serve_api_request_or_error(port, f"/api/queue/entry/{path}", method="DELETE")
+        ok, payload = _serve_api_request_or_error(
+            port, f"/api/queue/entry/{path}", method="DELETE"
+        )
         if not ok:
             message("error", str(payload))
             return 1
@@ -11954,7 +12132,7 @@ def cmd_serve_worker(args) -> int:
     """Start RQ worker process."""
     try:
         from redis import Redis
-        from rq import Worker, Queue
+        from rq import Queue, Worker
 
         message("info", f"Connecting to Redis: {args.redis_url}")
 
@@ -11994,8 +12172,13 @@ def cmd_serve_worker(args) -> int:
 def cmd_serve_daemon(args, action: str) -> int:
     """Delegate to serve_launcher daemon commands."""
     from types import SimpleNamespace
+
     from autoclean.serve_launcher import (
-        _cmd_up, _cmd_down, _cmd_restart, _cmd_status, _cmd_share,
+        _cmd_down,
+        _cmd_restart,
+        _cmd_share,
+        _cmd_status,
+        _cmd_up,
     )
 
     # Build a clean namespace with defaults for missing attributes
