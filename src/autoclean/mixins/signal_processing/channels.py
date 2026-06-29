@@ -5,12 +5,12 @@ from typing import Dict, List, Union
 import mne
 
 from autoclean.functions.artifacts.channels import detect_bad_channels
+from autoclean.utils.logging import message
 from autoclean.utils.metadata_table import (
     load_metadata_table,
     match_recording_row,
     split_channels,
 )
-from autoclean.utils.logging import message
 
 
 class ChannelsMixin:
