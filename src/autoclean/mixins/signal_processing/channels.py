@@ -6,6 +6,11 @@ import mne
 
 from autoclean.functions.artifacts.channels import detect_bad_channels
 from autoclean.utils.logging import message
+from autoclean.utils.metadata_table import (
+    load_metadata_table,
+    match_recording_row,
+    split_channels,
+)
 
 
 class ChannelsMixin:
@@ -105,6 +110,10 @@ class ChannelsMixin:
                 if manual_bad_channels is not None
                 else None
             )
+            manual_override = bool(manual_bad_channels)
+            imported_bad_channels = (
+                [] if manual_override else self._apply_bad_channel_log(result_raw)
+            )
 
             # Setup options
             options = {
@@ -116,8 +125,6 @@ class ChannelsMixin:
                 "ransac_frac_bad": ransac_frac_bad,
                 "ransac_channel_wise": ransac_channel_wise,
             }
-
-            manual_override = bool(manual_bad_channels)
 
             if manual_override:
                 message(
@@ -150,6 +157,11 @@ class ChannelsMixin:
 
                 # Get the overall bad channels list for backward compatibility
                 all_bad_channels = bad_channels.get("combined", [])
+
+            if imported_bad_channels and not manual_override:
+                all_bad_channels = list(
+                    dict.fromkeys([*imported_bad_channels, *all_bad_channels])
+                )
 
             # Check for reference channels to exclude from bad channels
             ref_channels = []
@@ -267,6 +279,142 @@ class ChannelsMixin:
         except Exception as e:
             message("error", f"Error during bad channel detection: {str(e)}")
             raise RuntimeError(f"Failed to detect bad channels: {str(e)}") from e
+
+    def _apply_bad_channel_log(self, raw: mne.io.Raw) -> List[str]:
+        """Apply configured user-provided bad channels to ``raw.info['bads']``."""
+
+        is_enabled, config_value = self._check_step_enabled("bad_channel_log")
+        if not is_enabled:
+            return []
+
+        value = (config_value or {}).get("value") or {}
+        path = value.get("path")
+        if not path:
+            raise ValueError("bad_channel_log is enabled but no value.path was set")
+
+        action = value.get("action", "mark")
+        if action != "mark":
+            raise ValueError(
+                "bad_channel_log currently supports action='mark' only; "
+                "drop/interpolate/exclude require a separate tested workflow."
+            )
+
+        file_column = value.get("file_column", "file")
+        channels_column = value.get("channels_column", "bad_channels")
+        strict = bool(value.get("strict", False))
+        field_matches = self._bad_channel_log_field_matches(value)
+
+        rows = load_metadata_table(path, delimiter=value.get("delimiter"))
+        match = match_recording_row(
+            rows,
+            self.config.get("unprocessed_file", ""),
+            file_column=file_column,
+            field_matches=field_matches,
+        )
+
+        if match is None:
+            warning = (
+                "No bad-channel log row matched input file "
+                f"{self.config.get('unprocessed_file')!s}"
+            )
+            if strict:
+                raise ValueError(warning)
+            self._record_bad_channel_log_metadata(
+                path=path,
+                matched=False,
+                matched_by=None,
+                applied=[],
+                missing=[],
+                warning=warning,
+            )
+            message("warning", warning)
+            return []
+
+        if channels_column not in match.row:
+            raise ValueError(
+                f"Bad-channel log is missing channels column {channels_column!r}"
+            )
+
+        requested = split_channels(match.row.get(channels_column))
+        missing = [channel for channel in requested if channel not in raw.ch_names]
+        applied = [channel for channel in requested if channel in raw.ch_names]
+
+        warning = None
+        if missing:
+            warning = (
+                "Bad-channel log referenced channel(s) not present in raw data: "
+                f"{missing}"
+            )
+            if strict:
+                raise ValueError(warning)
+            message("warning", warning)
+
+        if applied:
+            raw.info["bads"] = list(dict.fromkeys([*raw.info["bads"], *applied]))
+            self._track_channel_removal(
+                channels=applied,
+                reason="BAD_CHANNEL_LOG",
+                source_step="bad_channel_log",
+            )
+            message("info", f"Applied bad-channel log channels: {applied}")
+
+        self._record_bad_channel_log_metadata(
+            path=path,
+            matched=True,
+            matched_by=match.matched_by,
+            applied=applied,
+            missing=missing,
+            warning=warning,
+        )
+        return applied
+
+    def _bad_channel_log_field_matches(self, value: dict) -> dict[str, str]:
+        """Build optional exact-match criteria for subject/session columns."""
+
+        matches: dict[str, str] = {}
+        subject_column = value.get("subject_column")
+        subject = value.get("subject") or self.config.get("subject")
+        if subject_column:
+            if subject:
+                matches[str(subject_column)] = str(subject)
+            else:
+                message(
+                    "warning",
+                    "bad_channel_log subject_column configured but no subject value was found",
+                )
+
+        session_column = value.get("session_column")
+        session = value.get("session") or self.config.get("session")
+        if session_column:
+            if session:
+                matches[str(session_column)] = str(session)
+            else:
+                message(
+                    "warning",
+                    "bad_channel_log session_column configured but no session value was found",
+                )
+
+        return matches
+
+    def _record_bad_channel_log_metadata(
+        self,
+        *,
+        path: str,
+        matched: bool,
+        matched_by: str | None,
+        applied: List[str],
+        missing: List[str],
+        warning: str | None,
+    ) -> None:
+        metadata = {
+            "path": str(path),
+            "matched": matched,
+            "matched_by": matched_by,
+            "applied_channels": applied,
+            "missing_channels": missing,
+            "warning": warning,
+        }
+        self._update_metadata("step_bad_channel_log", metadata)
 
     def drop_channels(
         self,
