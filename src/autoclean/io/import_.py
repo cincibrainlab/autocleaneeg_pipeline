@@ -73,8 +73,9 @@ _BIOSEMI_MONTAGE_ALIASES = {
 
 def normalize_montage_name(montage_name: str) -> str:
     """Normalize supported montage aliases while preserving unknown names."""
-    normalized_key = str(montage_name).strip().lower()
-    return _BIOSEMI_MONTAGE_ALIASES.get(normalized_key, montage_name)
+    normalized_name = str(montage_name).strip()
+    normalized_key = normalized_name.lower()
+    return _BIOSEMI_MONTAGE_ALIASES.get(normalized_key, normalized_name)
 
 
 def register_format(extension: str, format_id: str) -> None:

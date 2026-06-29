@@ -650,7 +650,7 @@ def test_biosemi_montage_aliases_accept_user_facing_names():
     assert normalize_montage_name("BioSemi-128") == "biosemi128"
     assert normalize_montage_name("BioSemi-256") == "biosemi256"
     assert normalize_montage_name("biosemi256") == "biosemi256"
-    assert normalize_montage_name("GSN-HydroCel-129") == "GSN-HydroCel-129"
+    assert normalize_montage_name(" GSN-HydroCel-129 ") == "GSN-HydroCel-129"
 
 
 def test_find_plugin_returns_none_for_unsupported_biosemi_montage():
@@ -698,6 +698,30 @@ def test_get_plugin_raises_helpful_error_for_unsupported_biosemi_montage():
         _PLUGIN_REGISTRY.clear()
         _PLUGIN_REGISTRY.update(original_registry)
         import_module._PLUGINS_DISCOVERED = original_discovered
+
+
+def test_biosemi_process_events_uses_annotations_when_present():
+    """BioSemi plugins should use annotation events before Status fallback."""
+    info = mne.create_info(
+        ch_names=["Fp1", "Fp2"],
+        sfreq=100.0,
+        ch_types=["eeg", "eeg"],
+    )
+    raw = mne.io.RawArray(np.zeros((2, 40)), info, verbose=False)
+    raw.set_annotations(
+        mne.Annotations(
+            onset=[0.1, 0.25],
+            duration=[0.0, 0.0],
+            description=["Target", "Standard"],
+        )
+    )
+
+    events, event_id, events_df = BDFBiosemi64Plugin().process_events(raw)
+
+    assert set(event_id) == {"Standard", "Target"}
+    assert events[:, 0].tolist() == [10, 25]
+    assert events_df["sample"].tolist() == [10, 25]
+    assert events_df["type"].tolist() == ["Target", "Standard"]
 
 
 def test_biosemi_process_events_falls_back_to_status_channel():
