@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import mne
+import numpy as np
+import pandas as pd
 
 from autoclean.utils.logging import message
 
@@ -41,7 +43,9 @@ def import_biosemi_bdf(
         _biosemi_import_options(autoclean_dict)
     )
 
-    message("info", f"Loading BioSemi BDF file with {montage_name} montage: {file_path}")
+    message(
+        "info", f"Loading BioSemi BDF file with {montage_name} montage: {file_path}"
+    )
     message(
         "info",
         "BioSemi BDF import immediately re-references EEG to LM/RM mastoids when both channels are available.",
@@ -136,3 +140,71 @@ def import_biosemi_bdf(
 
     message("info", f"Selected {len(raw.ch_names)} channels after configuration")
     return raw
+
+
+def _events_dataframe(events, event_id: dict[str, int], sfreq: float) -> pd.DataFrame:
+    """Create the BioSemi event metadata table used by BDF plugins."""
+    reverse_event_id = {value: key for key, value in event_id.items()}
+    return pd.DataFrame(
+        {
+            "time": events[:, 0] / sfreq,
+            "sample": events[:, 0],
+            "id": events[:, 2],
+            "type": [
+                reverse_event_id.get(event, f"Status-{event}") for event in events[:, 2]
+            ],
+        }
+    )
+
+
+def process_biosemi_bdf_events(raw: mne.io.Raw) -> tuple:
+    """Extract BioSemi events from annotations, then fall back to Status/stim data."""
+    message("info", "Processing events from BDF status channel")
+    try:
+        events, event_id = mne.events_from_annotations(raw, verbose=False)
+        if len(events) == 0:
+            stim_channels = [
+                name
+                for name, kind in zip(raw.ch_names, raw.get_channel_types())
+                if name == "Status" or kind == "stim"
+            ]
+            if not stim_channels:
+                message(
+                    "warning", "No Status or stim channel found in BioSemi BDF data"
+                )
+                return None, None, None
+
+            status_channel = "Status" if "Status" in stim_channels else stim_channels[0]
+            try:
+                events = mne.find_events(
+                    raw,
+                    stim_channel=status_channel,
+                    shortest_event=1,
+                    verbose=False,
+                )
+            except ValueError as exc:
+                if "No events found" in str(exc):
+                    message("warning", "No events found in the BDF status channel")
+                    return None, None, None
+                raise
+            event_id = {
+                f"Status-{event_code}": int(event_code)
+                for event_code in np.unique(events[:, 2])
+            }
+
+        if len(events) == 0:
+            message("warning", "No events found in the BDF status channel")
+            return None, None, None
+
+        events_df = _events_dataframe(events, event_id, raw.info["sfreq"])
+        unique_event_types = events_df["type"].unique()
+        message(
+            "info",
+            f"Found {len(events)} events of {len(unique_event_types)} unique types: {unique_event_types}",
+        )
+        message("info", f"Event counts: {events_df['type'].value_counts().to_dict()}")
+        return events, event_id, events_df
+
+    except RuntimeError as e:
+        message("warning", f"Failed to process events: {str(e)}")
+        return None, None, None

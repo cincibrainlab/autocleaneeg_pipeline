@@ -7,6 +7,14 @@ import mne
 import numpy as np
 import pytest
 
+from autoclean.io.import_ import (
+    _PLUGIN_REGISTRY,
+    find_plugin_for_combination,
+    get_format_from_extension,
+    get_plugin_for_combination,
+    normalize_montage_name,
+    register_plugin,
+)
 from autoclean.plugins.eeg_plugins.bdf_biosemi32_plugin import BDFBiosemi32Plugin
 from autoclean.plugins.eeg_plugins.bdf_biosemi64_plugin import BDFBiosemi64Plugin
 from autoclean.plugins.eeg_plugins.bdf_biosemi128_plugin import BDFBiosemi128Plugin
@@ -87,20 +95,12 @@ class TestBDFBiosemi32Plugin:
         plugin_class = MockBDFBiosemi32Plugin
 
         # Should support correct combination
-        assert (
-            plugin_class.supports_format_montage("BIOSEMI_BDF", "biosemi32") is True
-        )
+        assert plugin_class.supports_format_montage("BIOSEMI_BDF", "biosemi32") is True
 
         # Should not support incorrect combinations
-        assert (
-            plugin_class.supports_format_montage("EGI_RAW", "biosemi32") is False
-        )
-        assert (
-            plugin_class.supports_format_montage("BIOSEMI_BDF", "biosemi64") is False
-        )
-        assert (
-            plugin_class.supports_format_montage("EEGLAB_SET", "biosemi32") is False
-        )
+        assert plugin_class.supports_format_montage("EGI_RAW", "biosemi32") is False
+        assert plugin_class.supports_format_montage("BIOSEMI_BDF", "biosemi64") is False
+        assert plugin_class.supports_format_montage("EEGLAB_SET", "biosemi32") is False
 
     @patch("mne.io.read_raw_bdf")
     def test_bdf_biosemi32_import_functionality(self, mock_read_bdf):
@@ -180,14 +180,10 @@ class TestBDFBiosemi64Plugin:
         plugin_class = MockBDFBiosemi64Plugin
 
         # Should support correct combination
-        assert (
-            plugin_class.supports_format_montage("BIOSEMI_BDF", "biosemi64") is True
-        )
+        assert plugin_class.supports_format_montage("BIOSEMI_BDF", "biosemi64") is True
 
         # Should not support incorrect combinations
-        assert (
-            plugin_class.supports_format_montage("BIOSEMI_BDF", "biosemi32") is False
-        )
+        assert plugin_class.supports_format_montage("BIOSEMI_BDF", "biosemi32") is False
         assert (
             plugin_class.supports_format_montage("BIOSEMI_BDF", "biosemi128") is False
         )
@@ -267,14 +263,10 @@ class TestBDFBiosemi128Plugin:
         plugin_class = MockBDFBiosemi128Plugin
 
         # Should support correct combination
-        assert (
-            plugin_class.supports_format_montage("BIOSEMI_BDF", "biosemi128") is True
-        )
+        assert plugin_class.supports_format_montage("BIOSEMI_BDF", "biosemi128") is True
 
         # Should not support incorrect combinations
-        assert (
-            plugin_class.supports_format_montage("BIOSEMI_BDF", "biosemi64") is False
-        )
+        assert plugin_class.supports_format_montage("BIOSEMI_BDF", "biosemi64") is False
         assert (
             plugin_class.supports_format_montage("BIOSEMI_BDF", "biosemi256") is False
         )
@@ -353,9 +345,7 @@ class TestBDFBiosemi256Plugin:
         plugin_class = MockBDFBiosemi256Plugin
 
         # Should support correct combination
-        assert (
-            plugin_class.supports_format_montage("BIOSEMI_BDF", "biosemi256") is True
-        )
+        assert plugin_class.supports_format_montage("BIOSEMI_BDF", "biosemi256") is True
 
         # Should not support incorrect combinations
         assert (
@@ -618,6 +608,180 @@ class TestBDFPluginMocked:
                 break
 
         assert selected_plugin == plugin_128
+
+
+def test_biosemi_bdf_format_and_plugin_registry_routes_all_supported_montages():
+    """BioSemi BDF should route explicitly to each supported montage plugin."""
+    original_registry = _PLUGIN_REGISTRY.copy()
+    original_discovered = __import__(
+        "autoclean.io.import_", fromlist=["_PLUGINS_DISCOVERED"]
+    )._PLUGINS_DISCOVERED
+    import_module = __import__("autoclean.io.import_", fromlist=["_PLUGINS_DISCOVERED"])
+    import_module._PLUGINS_DISCOVERED = True
+    _PLUGIN_REGISTRY.clear()
+    try:
+        for plugin_class in (
+            BDFBiosemi32Plugin,
+            BDFBiosemi64Plugin,
+            BDFBiosemi128Plugin,
+            BDFBiosemi256Plugin,
+        ):
+            register_plugin(plugin_class)
+
+        assert get_format_from_extension(".bdf") == "BIOSEMI_BDF"
+        assert _PLUGIN_REGISTRY[("BIOSEMI_BDF", "biosemi32")] is BDFBiosemi32Plugin
+        assert _PLUGIN_REGISTRY[("BIOSEMI_BDF", "biosemi64")] is BDFBiosemi64Plugin
+        assert _PLUGIN_REGISTRY[("BIOSEMI_BDF", "biosemi128")] is BDFBiosemi128Plugin
+        assert _PLUGIN_REGISTRY[("BIOSEMI_BDF", "biosemi256")] is BDFBiosemi256Plugin
+        assert (
+            find_plugin_for_combination("BIOSEMI_BDF", "BioSemi-256").__class__
+            is BDFBiosemi256Plugin
+        )
+    finally:
+        _PLUGIN_REGISTRY.clear()
+        _PLUGIN_REGISTRY.update(original_registry)
+        import_module._PLUGINS_DISCOVERED = original_discovered
+
+
+def test_biosemi_montage_aliases_accept_user_facing_names():
+    """User-facing BioSemi-32/64/128/256 names should map to plugin keys."""
+    assert normalize_montage_name("BioSemi-32") == "biosemi32"
+    assert normalize_montage_name("BioSemi-64") == "biosemi64"
+    assert normalize_montage_name("BioSemi-128") == "biosemi128"
+    assert normalize_montage_name("BioSemi-256") == "biosemi256"
+    assert normalize_montage_name("biosemi256") == "biosemi256"
+    assert normalize_montage_name(" GSN-HydroCel-129 ") == "GSN-HydroCel-129"
+
+
+def test_find_plugin_returns_none_for_unsupported_biosemi_montage():
+    """Unsupported BioSemi BDF montages should not fall back to a wrong plugin."""
+    original_registry = _PLUGIN_REGISTRY.copy()
+    import_module = __import__("autoclean.io.import_", fromlist=["_PLUGINS_DISCOVERED"])
+    original_discovered = import_module._PLUGINS_DISCOVERED
+    import_module._PLUGINS_DISCOVERED = True
+    _PLUGIN_REGISTRY.clear()
+    try:
+        for plugin_class in (
+            BDFBiosemi32Plugin,
+            BDFBiosemi64Plugin,
+            BDFBiosemi128Plugin,
+            BDFBiosemi256Plugin,
+        ):
+            register_plugin(plugin_class)
+
+        assert find_plugin_for_combination("BIOSEMI_BDF", "biosemi16") is None
+    finally:
+        _PLUGIN_REGISTRY.clear()
+        _PLUGIN_REGISTRY.update(original_registry)
+        import_module._PLUGINS_DISCOVERED = original_discovered
+
+
+def test_get_plugin_raises_helpful_error_for_unsupported_biosemi_montage():
+    """Direct plugin lookup should explain supported BioSemi BDF montages."""
+    original_registry = _PLUGIN_REGISTRY.copy()
+    import_module = __import__("autoclean.io.import_", fromlist=["_PLUGINS_DISCOVERED"])
+    original_discovered = import_module._PLUGINS_DISCOVERED
+    import_module._PLUGINS_DISCOVERED = True
+    _PLUGIN_REGISTRY.clear()
+    try:
+        for plugin_class in (
+            BDFBiosemi32Plugin,
+            BDFBiosemi64Plugin,
+            BDFBiosemi128Plugin,
+            BDFBiosemi256Plugin,
+        ):
+            register_plugin(plugin_class)
+
+        with pytest.raises(ValueError, match="Supported montages for BIOSEMI_BDF"):
+            get_plugin_for_combination("BIOSEMI_BDF", "biosemi16")
+    finally:
+        _PLUGIN_REGISTRY.clear()
+        _PLUGIN_REGISTRY.update(original_registry)
+        import_module._PLUGINS_DISCOVERED = original_discovered
+
+
+def test_biosemi_process_events_uses_annotations_when_present():
+    """BioSemi plugins should use annotation events before Status fallback."""
+    info = mne.create_info(
+        ch_names=["Fp1", "Fp2"],
+        sfreq=100.0,
+        ch_types=["eeg", "eeg"],
+    )
+    raw = mne.io.RawArray(np.zeros((2, 40)), info, verbose=False)
+    raw.set_annotations(
+        mne.Annotations(
+            onset=[0.1, 0.25],
+            duration=[0.0, 0.0],
+            description=["Target", "Standard"],
+        )
+    )
+
+    events, event_id, events_df = BDFBiosemi64Plugin().process_events(raw)
+
+    assert set(event_id) == {"Standard", "Target"}
+    assert events[:, 0].tolist() == [10, 25]
+    assert events_df["sample"].tolist() == [10, 25]
+    assert events_df["type"].tolist() == ["Target", "Standard"]
+
+
+def test_biosemi_process_events_falls_back_to_status_channel():
+    """BioSemi plugins should read triggers from the Status stim channel."""
+    info = mne.create_info(
+        ch_names=["Fp1", "Fp2", "Status"],
+        sfreq=100.0,
+        ch_types=["eeg", "eeg", "stim"],
+    )
+    data = np.zeros((3, 40))
+    data[2, 10:12] = 7
+    data[2, 25:27] = 9
+    raw = mne.io.RawArray(data, info, verbose=False)
+
+    events, event_id, events_df = BDFBiosemi64Plugin().process_events(raw)
+
+    assert events[:, 0].tolist() == [10, 25]
+    assert events[:, 2].tolist() == [7, 9]
+    assert event_id == {"Status-7": 7, "Status-9": 9}
+    assert events_df["type"].tolist() == ["Status-7", "Status-9"]
+
+
+def test_biosemi_process_events_does_not_swallow_unexpected_errors(monkeypatch):
+    """Unexpected event-processing errors should remain visible to callers."""
+    info = mne.create_info(
+        ch_names=["Fp1", "Status"], sfreq=100.0, ch_types=["eeg", "stim"]
+    )
+    raw = mne.io.RawArray(np.zeros((2, 10)), info, verbose=False)
+
+    def raise_unexpected(*args, **kwargs):
+        raise TypeError("unexpected parser failure")
+
+    monkeypatch.setattr(mne, "events_from_annotations", raise_unexpected)
+
+    with pytest.raises(TypeError, match="unexpected parser failure"):
+        BDFBiosemi64Plugin().process_events(raw)
+
+
+def test_biosemi_process_events_does_not_swallow_unexpected_find_events_value_error(
+    monkeypatch,
+):
+    """Unexpected Status-channel ValueErrors should remain visible to callers."""
+    info = mne.create_info(
+        ch_names=["Fp1", "Status"], sfreq=100.0, ch_types=["eeg", "stim"]
+    )
+    raw = mne.io.RawArray(np.zeros((2, 10)), info, verbose=False)
+
+    monkeypatch.setattr(
+        mne,
+        "events_from_annotations",
+        lambda *args, **kwargs: (np.empty((0, 3), dtype=int), {}),
+    )
+
+    def raise_unexpected_value_error(*args, **kwargs):
+        raise ValueError("unexpected Status parser failure")
+
+    monkeypatch.setattr(mne, "find_events", raise_unexpected_value_error)
+
+    with pytest.raises(ValueError, match="unexpected Status parser failure"):
+        BDFBiosemi64Plugin().process_events(raw)
 
 
 @pytest.mark.parametrize(
