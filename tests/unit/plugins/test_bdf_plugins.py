@@ -11,6 +11,7 @@ from autoclean.io.import_ import (
     _PLUGIN_REGISTRY,
     find_plugin_for_combination,
     get_format_from_extension,
+    normalize_montage_name,
     register_plugin,
 )
 from autoclean.plugins.eeg_plugins.bdf_biosemi32_plugin import BDFBiosemi32Plugin
@@ -631,10 +632,24 @@ def test_biosemi_bdf_format_and_plugin_registry_routes_all_supported_montages():
         assert _PLUGIN_REGISTRY[("BIOSEMI_BDF", "biosemi64")] is BDFBiosemi64Plugin
         assert _PLUGIN_REGISTRY[("BIOSEMI_BDF", "biosemi128")] is BDFBiosemi128Plugin
         assert _PLUGIN_REGISTRY[("BIOSEMI_BDF", "biosemi256")] is BDFBiosemi256Plugin
+        assert (
+            find_plugin_for_combination("BIOSEMI_BDF", "BioSemi-256").__class__
+            is BDFBiosemi256Plugin
+        )
     finally:
         _PLUGIN_REGISTRY.clear()
         _PLUGIN_REGISTRY.update(original_registry)
         import_module._PLUGINS_DISCOVERED = original_discovered
+
+
+def test_biosemi_montage_aliases_accept_user_facing_names():
+    """User-facing BioSemi-32/64/128/256 names should map to plugin keys."""
+    assert normalize_montage_name("BioSemi-32") == "biosemi32"
+    assert normalize_montage_name("BioSemi-64") == "biosemi64"
+    assert normalize_montage_name("BioSemi-128") == "biosemi128"
+    assert normalize_montage_name("BioSemi-256") == "biosemi256"
+    assert normalize_montage_name("biosemi256") == "biosemi256"
+    assert normalize_montage_name("GSN-HydroCel-129") == "GSN-HydroCel-129"
 
 
 def test_biosemi_bdf_registry_rejects_unsupported_montage():
