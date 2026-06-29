@@ -16,6 +16,15 @@ from typing import Optional, Union
 
 import mne
 
+from autoclean.blocks.analysis.source_localization.caveats import (
+    SOURCE_LOCALIZATION_ATLAS,
+    SOURCE_LOCALIZATION_TEMPLATE,
+    SOURCE_LOCALIZATION_UNITS,
+    source_localization_caveats,
+    source_localization_report_notes,
+    write_source_localization_readme,
+)
+
 # Import from PyPI package
 try:
     from autoclean_eeg2source.core.converter import SequentialProcessor
@@ -280,6 +289,18 @@ class SourceLocalizationMixin:
                 if region_info_src.exists():
                     shutil.copy2(region_info_src, region_info_dst)
 
+                source_localization_params = {
+                    "method": method,
+                    "lambda2": lambda2,
+                    "montage": montage,
+                    "template": SOURCE_LOCALIZATION_TEMPLATE,
+                    "atlas": SOURCE_LOCALIZATION_ATLAS,
+                    "units": SOURCE_LOCALIZATION_UNITS,
+                }
+                readme_file = write_source_localization_readme(
+                    output_dir, source_localization_params
+                )
+
                 # Store results in task object
                 self.source_eeg = source_data
                 self.source_eeg_file = str(final_file)
@@ -315,11 +336,16 @@ class SourceLocalizationMixin:
                     "lambda2": lambda2,
                     "montage": montage,
                     "n_roi_channels": 68,
-                    "atlas": "Desikan-Killiany (aparc)",
+                    "atlas": SOURCE_LOCALIZATION_ATLAS,
+                    "template": SOURCE_LOCALIZATION_TEMPLATE,
+                    "output_units": SOURCE_LOCALIZATION_UNITS,
                     "output_file": str(final_file),
                     "region_info_file": str(region_info_dst),
+                    "readme_file": str(readme_file),
                     "package": "autocleaneeg-eeg2source",
                     "data_type": "raw" if is_raw else "epochs",
+                    "report_notes": source_localization_report_notes(),
+                    "methodological_caveats": source_localization_caveats(),
                 }
 
                 if is_raw:
