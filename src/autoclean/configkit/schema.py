@@ -766,10 +766,10 @@ def _format_received(value: object) -> str:
 
 def _suggest_fix(path: list[str], raw_message: str) -> str:
     dotted = ".".join(path)
-    if path and path[0] == "montage":
-        return "Use a supported montage name, `auto`, or None when montage should be inferred."
     if path and path[-1] == "enabled":
         return "Set `enabled` to true or false."
+    if path and path[0] == "montage":
+        return "Use a supported montage name, `auto`, or None when montage should be inferred."
     if "value" in path and "enabled" in raw_message:
         return "Use the standard step shape: {'enabled': bool, 'value': ...}."
     if dotted.startswith("filtering.value"):

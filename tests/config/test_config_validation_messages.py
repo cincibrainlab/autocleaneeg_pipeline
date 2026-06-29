@@ -4,9 +4,11 @@ import sys
 import types
 
 import pytest
+from schema import SchemaError
 
 from autoclean.configkit.schema import (
     SCHEMA_VERSION,
+    _schema_error_path,
     format_task_config_error,
     validate_task_module_config,
 )
@@ -76,6 +78,19 @@ def test_format_task_config_error_shows_bad_montage_path_received_and_fix() -> N
     assert "Expected: string (valid montage) | 'auto' | None" in message
     assert "Use a supported montage name" in message
     assert "Raw schema error" not in message
+
+
+def test_format_task_config_error_prioritizes_enabled_suggestion_for_montage_enabled() -> (
+    None
+):
+    config = _minimal_config()
+    config["montage"]["enabled"] = "yes"
+
+    message = _formatted_error(config)
+
+    assert "Config path: config['montage']['enabled']" in message
+    assert "Set `enabled` to true or false." in message
+    assert "Use a supported montage name" not in message
 
 
 def test_format_task_config_error_shows_nested_filter_value() -> None:
@@ -160,6 +175,15 @@ def test_format_task_config_error_handles_non_schema_exception() -> None:
     assert "Raw schema error" not in message
 
 
+def test_schema_error_path_parses_nested_autos() -> None:
+    error = SchemaError(
+        ["Key 'montage' error:", "Key 'enabled' error:"],
+        None,
+    )
+
+    assert _schema_error_path(error) == ["montage", "enabled"]
+
+
 def test_task_init_formats_legacy_iclabel_errors_against_migrated_config() -> None:
     module = types.ModuleType("autoclean_test_legacy_bad_task_module")
     module.__file__ = "legacy_bad_task_file.py"
@@ -170,26 +194,29 @@ def test_task_init_formats_legacy_iclabel_errors_against_migrated_config() -> No
         "value": {"ic_flags_to_reject": "brain"},
     }
     sys.modules[module.__name__] = module
+    try:
 
-    class LegacyBadTask(Task):
-        __module__ = module.__name__
+        class LegacyBadTask(Task):
+            __module__ = module.__name__
 
-        def run(self) -> None:
-            return None
+            def run(self) -> None:
+                return None
 
-    setattr(module, "LegacyBadTask", LegacyBadTask)
+        setattr(module, "LegacyBadTask", LegacyBadTask)
 
-    with pytest.raises(ValueError) as exc_info:
-        LegacyBadTask({})
+        with pytest.raises(ValueError) as exc_info:
+            LegacyBadTask({})
 
-    message = str(exc_info.value)
-    assert "Task config validation failed for LegacyBadTask" in message
-    assert (
-        "Config path: config['component_rejection']['value']['ic_flags_to_reject']"
-        in message
-    )
-    assert "Received: 'brain' (str)" in message
-    assert "Received: <missing>" not in message
+        message = str(exc_info.value)
+        assert "Task config validation failed for LegacyBadTask" in message
+        assert (
+            "Config path: config['component_rejection']['value']['ic_flags_to_reject']"
+            in message
+        )
+        assert "Received: 'brain' (str)" in message
+        assert "Received: <missing>" not in message
+    finally:
+        sys.modules.pop(module.__name__, None)
 
 
 def test_task_init_wraps_config_errors_with_actionable_message() -> None:
@@ -198,20 +225,23 @@ def test_task_init_wraps_config_errors_with_actionable_message() -> None:
     module.config = _minimal_config()
     module.config["montage"] = {"enabled": True, "value": "invalid"}
     sys.modules[module.__name__] = module
+    try:
 
-    class BadTask(Task):
-        __module__ = module.__name__
+        class BadTask(Task):
+            __module__ = module.__name__
 
-        def run(self) -> None:
-            return None
+            def run(self) -> None:
+                return None
 
-    setattr(module, "BadTask", BadTask)
+        setattr(module, "BadTask", BadTask)
 
-    with pytest.raises(ValueError) as exc_info:
-        BadTask({})
+        with pytest.raises(ValueError) as exc_info:
+            BadTask({})
 
-    message = str(exc_info.value)
-    assert "Task config validation failed for BadTask" in message
-    assert "Task file: bad_task_file.py" in message
-    assert "Config path: config['montage']['value']" in message
-    assert "Raw schema error" not in message
+        message = str(exc_info.value)
+        assert "Task config validation failed for BadTask" in message
+        assert "Task file: bad_task_file.py" in message
+        assert "Config path: config['montage']['value']" in message
+        assert "Raw schema error" not in message
+    finally:
+        sys.modules.pop(module.__name__, None)

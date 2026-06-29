@@ -105,7 +105,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
                 migrated_settings = migrate_legacy_task_config(dict(self.settings))
                 # Validate python task module config (raises on mismatch)
                 try:
-                    self.settings = validate_task_module_config(self.settings)
+                    self.settings = validate_task_module_config(migrated_settings)
                 except Exception as exc:
                     task_file = getattr(module, "__file__", None)
                     message_text = format_task_config_error(
