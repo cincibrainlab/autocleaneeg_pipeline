@@ -68,11 +68,20 @@ def _resolve_study_user() -> str:
 def _collect_report_notes(metadata: dict[str, Any]) -> list[str]:
     """Collect report notes emitted by processing steps."""
     report_notes: list[str] = []
-    source_metadata = metadata.get("step_apply_source_localization")
-    if isinstance(source_metadata, dict):
-        for note in source_metadata.get("report_notes", []):
-            if note and note not in report_notes:
-                report_notes.append(str(note))
+    for step_metadata in metadata.values():
+        if not isinstance(step_metadata, dict):
+            continue
+
+        notes = step_metadata.get("report_notes", [])
+        if not isinstance(notes, list):
+            continue
+
+        for note in notes:
+            if not note:
+                continue
+            note_text = str(note)
+            if note_text not in report_notes:
+                report_notes.append(note_text)
     return report_notes
 
 
