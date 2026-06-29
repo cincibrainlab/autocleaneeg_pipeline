@@ -107,6 +107,57 @@ def test_bad_channel_log_marks_channels_before_auto_detection(
     assert bad_log_meta[-1][1]["applied_channels"] == ["E1", "E3"]
 
 
+def test_bad_channel_log_disabled_does_not_apply_log(
+    monkeypatch, tmp_path: Path, dummy_raw: mne.io.Raw
+) -> None:
+    input_file = tmp_path / "subject01.set"
+    table = tmp_path / "bad_channels.csv"
+    table.write_text("file,bad_channels\nsubject01.set,E1\n", encoding="utf-8")
+    settings = _log_settings(table)
+    settings["enabled"] = False
+    task = DummyBadChannelLogTask(dummy_raw, settings, input_file)
+
+    monkeypatch.setattr(
+        "autoclean.mixins.signal_processing.channels.detect_bad_channels",
+        lambda **kwargs: {
+            "correlation": [],
+            "deviation": [],
+            "ransac": [],
+            "combined": [],
+        },
+    )
+
+    result = task.clean_bad_channels(cleaning_method=None)
+
+    assert result.info["bads"] == []
+    assert not any(item[0] == "step_bad_channel_log" for item in task.metadata_log)
+
+
+def test_manual_bad_channels_override_skips_bad_channel_log(
+    monkeypatch, tmp_path: Path, dummy_raw: mne.io.Raw
+) -> None:
+    input_file = tmp_path / "subject01.set"
+    table = tmp_path / "bad_channels.csv"
+    table.write_text("file,bad_channels\nsubject01.set,E1\n", encoding="utf-8")
+    task = DummyBadChannelLogTask(dummy_raw, _log_settings(table), input_file)
+    detect_mock = MagicMock()
+    monkeypatch.setattr(
+        "autoclean.mixins.signal_processing.channels.detect_bad_channels",
+        detect_mock,
+    )
+
+    result = task.clean_bad_channels(
+        cleaning_method=None,
+        manual_bad_channels=["E2"],
+    )
+
+    detect_mock.assert_not_called()
+    assert result.info["bads"] == ["E2"]
+    assert {entry["channel"] for entry in task.tracked_removals} == {"E2"}
+    assert all(entry["reason"] != "BAD_CHANNEL_LOG" for entry in task.tracked_removals)
+    assert not any(item[0] == "step_bad_channel_log" for item in task.metadata_log)
+
+
 def test_bad_channel_log_warns_on_missing_channels_when_not_strict(
     monkeypatch, tmp_path: Path, dummy_raw: mne.io.Raw
 ) -> None:
@@ -202,3 +253,49 @@ def test_bad_channel_log_can_match_subject_and_session_fields(
         item for item in task.metadata_log if item[0] == "step_bad_channel_log"
     ]
     assert bad_log_meta[-1][1]["matched_by"] == "field"
+
+
+def test_bad_channel_log_warns_when_configured_field_value_is_absent(
+    monkeypatch, tmp_path: Path, dummy_raw: mne.io.Raw
+) -> None:
+    input_file = tmp_path / "subject01.set"
+    table = tmp_path / "bad_channels.csv"
+    table.write_text(
+        "file,subject,session,bad_channels\nsubject01.set,sub-01,ses-1,E2\n",
+        encoding="utf-8",
+    )
+    settings = _log_settings(table)
+    settings["value"].update(
+        {
+            "subject_column": "subject",
+            "session_column": "session",
+        }
+    )
+    task = DummyBadChannelLogTask(dummy_raw, settings, input_file)
+    messages = []
+
+    monkeypatch.setattr(
+        "autoclean.mixins.signal_processing.channels.message",
+        lambda level, text: messages.append((level, text)),
+    )
+    monkeypatch.setattr(
+        "autoclean.mixins.signal_processing.channels.detect_bad_channels",
+        lambda **kwargs: {
+            "correlation": [],
+            "deviation": [],
+            "ransac": [],
+            "combined": [],
+        },
+    )
+
+    result = task.clean_bad_channels(cleaning_method=None)
+
+    assert result.info["bads"] == ["E2"]
+    assert (
+        "warning",
+        "bad_channel_log subject_column configured but no subject value was found",
+    ) in messages
+    assert (
+        "warning",
+        "bad_channel_log session_column configured but no session value was found",
+    ) in messages

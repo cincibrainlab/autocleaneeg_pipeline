@@ -431,7 +431,7 @@ def _build_task_settings_schema() -> Schema:
                     Optional("session_column"): And(str, len),
                     Optional("session"): And(str, len),
                     Optional("delimiter"): Or(str, None),
-                    Optional("action"): Or("mark"),
+                    Optional("action"): "mark",
                     Optional("strict"): bool,
                 },
             },

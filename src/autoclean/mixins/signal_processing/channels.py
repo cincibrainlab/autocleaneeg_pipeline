@@ -105,12 +105,14 @@ class ChannelsMixin:
             # Create a copy of the data
             result_raw = data.copy()
 
-            imported_bad_channels = self._apply_bad_channel_log(result_raw)
-
             manual_bad_channels = (
                 [str(ch) for ch in manual_bad_channels]
                 if manual_bad_channels is not None
                 else None
+            )
+            manual_override = bool(manual_bad_channels)
+            imported_bad_channels = (
+                [] if manual_override else self._apply_bad_channel_log(result_raw)
             )
 
             # Setup options
@@ -123,8 +125,6 @@ class ChannelsMixin:
                 "ransac_frac_bad": ransac_frac_bad,
                 "ransac_channel_wise": ransac_channel_wise,
             }
-
-            manual_override = bool(manual_bad_channels)
 
             if manual_override:
                 message(
@@ -374,13 +374,25 @@ class ChannelsMixin:
         matches: dict[str, str] = {}
         subject_column = value.get("subject_column")
         subject = value.get("subject") or self.config.get("subject")
-        if subject_column and subject:
-            matches[str(subject_column)] = str(subject)
+        if subject_column:
+            if subject:
+                matches[str(subject_column)] = str(subject)
+            else:
+                message(
+                    "warning",
+                    "bad_channel_log subject_column configured but no subject value was found",
+                )
 
         session_column = value.get("session_column")
         session = value.get("session") or self.config.get("session")
-        if session_column and session:
-            matches[str(session_column)] = str(session)
+        if session_column:
+            if session:
+                matches[str(session_column)] = str(session)
+            else:
+                message(
+                    "warning",
+                    "bad_channel_log session_column configured but no session value was found",
+                )
 
         return matches
 
