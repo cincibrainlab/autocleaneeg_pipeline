@@ -396,6 +396,7 @@ Task Commands
 
 ``autocleaneeg-pipeline task schema export --output task-schema.json``
    Export the task schema used for validation and generation tools.
+   Set ``AUTOCLEAN_CONFIG_DEBUG=1`` to include raw schema errors when debugging task validation failures.
 
    Example:
 

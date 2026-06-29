@@ -194,6 +194,16 @@ def test_format_task_config_error_extracts_path_from_real_schema_error() -> None
     assert "Received: 'beginning' (str)" in message
 
 
+def test_schema_error_path_extracts_path_from_real_schema_error() -> None:
+    config = _minimal_config()
+    config["crop_step"]["value"]["start"] = "beginning"
+
+    with pytest.raises(SchemaError) as exc_info:
+        validate_task_module_config(config)
+
+    assert _schema_error_path(exc_info.value) == ["crop_step", "value", "start"]
+
+
 def test_task_init_formats_legacy_iclabel_errors_against_migrated_config() -> None:
     module = types.ModuleType("autoclean_test_legacy_bad_task_module")
     module.__file__ = "legacy_bad_task_file.py"
