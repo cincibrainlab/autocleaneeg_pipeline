@@ -663,7 +663,10 @@ def format_task_config_error(
     task_file: str | None = None,
     debug: bool | None = None,
 ) -> str:
-    """Render a schema validation exception as an actionable task error."""
+    """Render a schema validation exception as an actionable task error.
+
+    Set AUTOCLEAN_CONFIG_DEBUG=1 to include the raw schema exception text.
+    """
 
     raw_message = str(exc)
     path = _schema_error_path(exc)
@@ -718,11 +721,14 @@ def _schema_error_path(exc: Exception) -> list[str]:
     return path
 
 
+_MISSING = object()
+
+
 def _lookup_path(config: dict, path: list[str]) -> object:
     current: object = config
     for key in path:
         if not isinstance(current, dict) or key not in current:
-            return "<missing>"
+            return _MISSING
         current = current[key]
     return current
 
@@ -753,7 +759,7 @@ def _format_config_path(path: list[str]) -> str:
 
 
 def _format_received(value: object) -> str:
-    if value == "<missing>":
+    if value is _MISSING:
         return "<missing>"
     return f"{short_repr(value)} ({type(value).__name__})"
 

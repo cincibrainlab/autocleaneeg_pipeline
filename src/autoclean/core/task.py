@@ -45,6 +45,7 @@ except ImportError as e:
 
 from autoclean.configkit.schema import (
     format_task_config_error,
+    migrate_legacy_task_config,
     validate_task_module_config,
 )
 from autoclean.utils.auth import require_authentication
@@ -101,6 +102,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
             module = inspect.getmodule(self.__class__)
             if module and hasattr(module, "config"):
                 self.settings = module.config
+                migrated_settings = migrate_legacy_task_config(dict(self.settings))
                 # Validate python task module config (raises on mismatch)
                 try:
                     self.settings = validate_task_module_config(self.settings)
@@ -108,7 +110,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
                     task_file = getattr(module, "__file__", None)
                     message_text = format_task_config_error(
                         exc,
-                        self.settings,
+                        migrated_settings,
                         task_name=self.__class__.__name__,
                         task_file=task_file,
                     )

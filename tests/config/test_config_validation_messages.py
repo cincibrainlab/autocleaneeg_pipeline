@@ -51,7 +51,7 @@ def _minimal_config() -> dict:
     }
 
 
-def _formatted_error(config: dict, *, debug: bool = False) -> str:
+def _formatted_error(config: dict, *, debug: bool | None = None) -> str:
     with pytest.raises(Exception) as exc_info:
         validate_task_module_config(config)
     return format_task_config_error(
@@ -113,6 +113,16 @@ def test_format_task_config_error_shows_wrong_key_without_dumping_config() -> No
     assert "'schema_version':" not in message
 
 
+def test_format_task_config_error_distinguishes_literal_missing_string() -> None:
+    config = _minimal_config()
+    config["extra_key"] = "<missing>"
+
+    message = _formatted_error(config)
+
+    assert "Config path: config['extra_key']" in message
+    assert "Received: '<missing>' (str)" in message
+
+
 def test_format_task_config_error_includes_raw_error_when_debug_enabled() -> None:
     config = _minimal_config()
     config["epoch_settings"]["value"]["tmin"] = "early"
@@ -122,6 +132,64 @@ def test_format_task_config_error_includes_raw_error_when_debug_enabled() -> Non
     assert "Config path: config['epoch_settings']['value']['tmin']" in message
     assert "Raw schema error:" in message
     assert "'early' should be instance" in message
+
+
+def test_format_task_config_error_includes_raw_error_when_env_debug_enabled(
+    monkeypatch,
+) -> None:
+    config = _minimal_config()
+    config["epoch_settings"]["value"]["tmin"] = "early"
+    monkeypatch.setenv("AUTOCLEAN_CONFIG_DEBUG", "1")
+
+    message = _formatted_error(config)
+
+    assert "Raw schema error:" in message
+    assert "'early' should be instance" in message
+
+
+def test_format_task_config_error_handles_non_schema_exception() -> None:
+    message = format_task_config_error(
+        RuntimeError("plain failure"),
+        {"schema_version": SCHEMA_VERSION},
+        task_name="PlainTask",
+    )
+
+    assert "Task config validation failed for PlainTask" in message
+    assert "Config path: config" in message
+    assert "Received: {'schema_version':" in message
+    assert "Raw schema error" not in message
+
+
+def test_task_init_formats_legacy_iclabel_errors_against_migrated_config() -> None:
+    module = types.ModuleType("autoclean_test_legacy_bad_task_module")
+    module.__file__ = "legacy_bad_task_file.py"
+    module.config = _minimal_config()
+    del module.config["component_rejection"]
+    module.config["ICLabel"] = {
+        "enabled": True,
+        "value": {"ic_flags_to_reject": "brain"},
+    }
+    sys.modules[module.__name__] = module
+
+    class LegacyBadTask(Task):
+        __module__ = module.__name__
+
+        def run(self) -> None:
+            return None
+
+    setattr(module, "LegacyBadTask", LegacyBadTask)
+
+    with pytest.raises(ValueError) as exc_info:
+        LegacyBadTask({})
+
+    message = str(exc_info.value)
+    assert "Task config validation failed for LegacyBadTask" in message
+    assert (
+        "Config path: config['component_rejection']['value']['ic_flags_to_reject']"
+        in message
+    )
+    assert "Received: 'brain' (str)" in message
+    assert "Received: <missing>" not in message
 
 
 def test_task_init_wraps_config_errors_with_actionable_message() -> None:
