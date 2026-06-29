@@ -262,6 +262,9 @@ def save_raw_to_set(
                     saved_paths.append(path)
                 except Exception as set_err:
                     err_str = str(set_err)
+                    # eeglabio/MNE surface MATLAB v5 .set size failures as
+                    # message text rather than a stable exception type. Keep
+                    # this fallback paired with tests so string drift is caught.
                     if "Matlab 5" in err_str or "Matrix too large" in err_str:
                         fif_path = path.with_suffix(".fif")
                         message(
@@ -625,6 +628,9 @@ def save_epochs_to_set(
                 saved_paths.append(path)
             except Exception as set_err:
                 err_str = str(set_err)
+                # eeglabio/MNE surface MATLAB v5 .set size failures as message
+                # text rather than a stable exception type. Keep this fallback
+                # paired with tests so string drift is caught.
                 if "Matlab 5" in err_str or "Matrix too large" in err_str:
                     message(
                         "warning",

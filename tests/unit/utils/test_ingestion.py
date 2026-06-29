@@ -278,6 +278,45 @@ def test_parse_serve_config_defaults(tmp_path: Path) -> None:
     assert route.id == "Resting-standard_1020-v1"
 
 
+def test_parse_serve_config_route_can_disable_sentinel_requirement(
+    tmp_path: Path,
+) -> None:
+    runtime_dir = tmp_path / "runtimes" / "test"
+    runtime_dir.mkdir(parents=True)
+    automation_root = tmp_path / "automations"
+    automation_root.mkdir()
+    ingestion_root = tmp_path / "ingest"
+    ingestion_root.mkdir()
+    config_path = tmp_path / "serve-test.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "mode: test",
+                "runtime: runtimes/test",
+                "automation_mode: true",
+                "defaults:",
+                "  automation_root: automations",
+                "  workspace_name: taskfile-montage-version",
+                "  file_globs: ['*.set']",
+                "  sentinel_ext: .ready",
+                "automations:",
+                "  - taskfile: Resting",
+                "    montage: standard_1020",
+                "    sentinel_ext:",
+                "    ingestion_folders:",
+                "      - ingest",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_serve_config(config_path)
+    serve_config, warnings = parse_serve_config(config, tmp_path, strict=False)
+
+    assert not warnings
+    assert serve_config.routes[0].sentinel_ext is None
+
+
 def test_parse_serve_config_strict_requires_ingestion_folders_exist(
     tmp_path: Path,
 ) -> None:

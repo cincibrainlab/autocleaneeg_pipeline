@@ -169,6 +169,9 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
         # Create MNE Raw object
         info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=ch_types_list)
         raw = mne.io.RawArray(data, info)
+        # MNE has no public setter for RawArray source filenames. Downstream
+        # export/provenance code reads this private attribute, so keep this
+        # assignment narrow and revisit it if MNE changes Raw._filenames.
         raw._filenames = [file_path]
 
         return raw

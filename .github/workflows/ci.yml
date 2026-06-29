@@ -30,6 +30,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install black==25.9.0 isort==6.0.1 mypy==1.18.2 ruff==0.15.20
 
+      # TODO: restore whole-repo formatting/linting once the existing baseline is clean.
       - name: Run formatting checks on changed Python files
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -59,6 +60,7 @@ jobs:
           fi
           ruff check $files
 
+      # TODO: make mypy blocking after a typed baseline or per-module allowlist exists.
       - name: Run type checks (advisory baseline)
         run: |
           mypy src/autoclean || echo "mypy baseline is currently advisory; changed-file lint remains blocking."
