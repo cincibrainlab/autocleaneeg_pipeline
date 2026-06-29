@@ -1342,20 +1342,17 @@ def merge_reprocess_database(
 
             reprocess_run_id = reprocess_run["run_id"]
             columns = [desc[0] for desc in reprocess_cursor.description]
-            placeholders = ", ".join(["?" for _ in columns])
+            insert_columns = [column for column in columns if column != "id"]
+            values_by_column = dict(reprocess_run)
+            values_by_column["supersedes_run_id"] = original_run_id
 
-            if "supersedes_run_id" in columns:
-                values = list(reprocess_run)
-                supersedes_idx = columns.index("supersedes_run_id")
-                values[supersedes_idx] = original_run_id
-            else:
-                columns.append("supersedes_run_id")
-                values = list(reprocess_run) + [original_run_id]
-                placeholders += ", ?"
+            if "supersedes_run_id" not in insert_columns:
+                insert_columns.append("supersedes_run_id")
 
+            placeholders = ", ".join(["?" for _ in insert_columns])
             original_cursor.execute(
-                f"INSERT INTO pipeline_runs ({', '.join(columns)}) VALUES ({placeholders})",
-                values,
+                f"INSERT INTO pipeline_runs ({', '.join(insert_columns)}) VALUES ({placeholders})",
+                tuple(values_by_column[column] for column in insert_columns),
             )
             print(f"[REPROCESS] Inserted reprocess run: {reprocess_run_id}")
 
