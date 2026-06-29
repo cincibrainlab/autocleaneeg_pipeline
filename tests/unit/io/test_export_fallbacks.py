@@ -3,6 +3,9 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import numpy as np
+import pytest
+
 from autoclean.io.export import save_epochs_to_set, save_raw_to_set
 
 
@@ -15,9 +18,16 @@ def _autoclean_dict(tmp_path: Path) -> dict:
     }
 
 
+@pytest.mark.parametrize(
+    "error_message",
+    [
+        "Matlab 5 file format cannot store matrix",
+        "Matrix too large for Matlab 5",
+    ],
+)
 @patch("autoclean.io.export.manage_database_conditionally")
 def test_save_raw_to_set_falls_back_to_fif_for_eeglab_size_error(
-    mock_manage_database, tmp_path: Path
+    mock_manage_database, tmp_path: Path, error_message: str
 ) -> None:
     """Raw export should save FIF when EEGLAB rejects MATLAB v5 matrix size."""
     raw = MagicMock()
@@ -25,14 +35,14 @@ def test_save_raw_to_set_falls_back_to_fif_for_eeglab_size_error(
     raw.ch_names = ["Cz", "Pz"]
     raw.info = {"sfreq": 100.0}
     raw.times = [0.0, 0.99]
-    raw.export.side_effect = RuntimeError("Matlab 5 file format cannot store matrix")
+    raw.export.side_effect = RuntimeError(error_message)
 
     result = save_raw_to_set(raw, _autoclean_dict(tmp_path), stage="post_import")
 
     assert result.suffix == ".fif"
     raw.save.assert_called_once_with(result, overwrite=True, fmt="single")
     raw.export.assert_called_once()
-    assert mock_manage_database.call_count == 2
+    assert mock_manage_database.call_count == 2  # metadata + status updates
 
 
 @patch("autoclean.io.export.manage_database_conditionally")
@@ -56,7 +66,7 @@ def test_save_epochs_to_set_falls_back_to_chunked_for_eeglab_size_error(
     epochs.times = [0.0, 0.1, 0.2]
     epochs.info = {"sfreq": 100.0}
     epochs.metadata = None
-    epochs.events = []
+    epochs.events = np.array([[1, 0, 1], [5, 0, 2]], dtype=int)
     epochs.export.side_effect = RuntimeError("Matrix too large for Matlab 5")
 
     result = save_epochs_to_set(
@@ -67,4 +77,4 @@ def test_save_epochs_to_set_falls_back_to_chunked_for_eeglab_size_error(
     mock_chunked.assert_called_once()
     mock_loadmat.assert_called_once_with(chunk_path)
     mock_savemat.assert_called_once()
-    assert mock_manage_database.call_count == 2
+    assert mock_manage_database.call_count == 2  # metadata + status updates
