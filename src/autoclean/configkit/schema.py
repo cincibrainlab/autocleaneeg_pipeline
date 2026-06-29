@@ -5,7 +5,11 @@ Exports enums and a validator for Python task module `config` dicts.
 
 from __future__ import annotations
 
-from schema import And, Optional, Or, Schema
+import os
+import re
+from reprlib import repr as short_repr
+
+from schema import And, Optional, Or, Schema, SchemaError
 
 from autoclean.utils.montage import VALID_MONTAGES
 
@@ -648,4 +652,137 @@ def validate_task_module_config(task_config: dict) -> dict:
     """
     migrated = migrate_legacy_task_config(dict(task_config))
     schema = _build_task_settings_schema()
-    return schema.validate(migrated)
+    try:
+        return schema.validate(migrated)
+    except SchemaError as exc:
+        exc.task_config = migrated
+        raise
+
+
+def format_task_config_error(
+    exc: Exception,
+    task_config: dict,
+    *,
+    task_name: str | None = None,
+    task_file: str | None = None,
+    debug: bool | None = None,
+) -> str:
+    """Render a schema validation exception as an actionable task error.
+
+    Set AUTOCLEAN_CONFIG_DEBUG=1 to include the raw schema exception text.
+    """
+
+    raw_message = str(exc)
+    path = _schema_error_path(exc)
+    received = _lookup_path(task_config, path)
+    expected = _expected_for_path(path)
+    suggestion = _suggest_fix(path, raw_message)
+
+    lines = ["Task config validation failed"]
+    if task_name:
+        lines[0] += f" for {task_name}"
+    if task_file:
+        lines.append(f"Task file: {task_file}")
+    lines.extend(
+        [
+            f"Config path: {_format_config_path(path)}",
+            f"Received: {_format_received(received)}",
+            f"Expected: {expected}",
+            f"Suggested fix: {suggestion}",
+            "Template reference: run `autocleaneeg-pipeline task schema` "
+            "or compare against a built-in task in `src/autoclean/tasks/`.",
+        ]
+    )
+
+    show_debug = (
+        bool(debug)
+        if debug is not None
+        else os.getenv("AUTOCLEAN_CONFIG_DEBUG", "").lower()
+        in {"1", "true", "yes", "on"}
+    )
+    if show_debug:
+        lines.extend(["", "Raw schema error:", raw_message])
+
+    return "\n".join(lines)
+
+
+def _schema_error_path(exc: Exception) -> list[str]:
+    autos = [item for item in getattr(exc, "autos", []) or [] if item]
+    path: list[str] = []
+    for line in autos:
+        match = re.match(r"Key '([^']+)' error:", line)
+        if match:
+            path.append(match.group(1))
+            continue
+        match = re.match(r"Missing key: '([^']+)'", line)
+        if match:
+            path.append(match.group(1))
+            continue
+        match = re.match(r"Wrong key '([^']+)'", line)
+        if match:
+            path.append(match.group(1))
+            continue
+    return path
+
+
+_MISSING = object()
+
+
+def _lookup_path(config: dict, path: list[str]) -> object:
+    current: object = config
+    for key in path:
+        if not isinstance(current, dict) or key not in current:
+            return _MISSING
+        current = current[key]
+    return current
+
+
+def _expected_for_path(path: list[str]) -> str:
+    node: object = export_task_schema_layout()["tasks"]
+    for index, key in enumerate(path):
+        if index == 0 and key == "schema_version":
+            return SCHEMA_VERSION
+        if isinstance(node, dict) and key in node:
+            node = node[key]
+        else:
+            return "see task schema"
+    if isinstance(node, dict):
+        return _summarize_shape(node)
+    return str(node)
+
+
+def _summarize_shape(node: dict) -> str:
+    keys = ", ".join(str(key) for key in node.keys())
+    return f"mapping with keys: {keys}"
+
+
+def _format_config_path(path: list[str]) -> str:
+    if not path:
+        return "config"
+    return "config" + "".join(f"[{key!r}]" for key in path)
+
+
+def _format_received(value: object) -> str:
+    if value is _MISSING:
+        return "<missing>"
+    return f"{short_repr(value)} ({type(value).__name__})"
+
+
+def _suggest_fix(path: list[str], raw_message: str) -> str:
+    dotted = ".".join(path)
+    if path and path[-1] == "enabled":
+        return "Set `enabled` to true or false."
+    if path and path[0] == "montage":
+        return "Use a supported montage name, `auto`, or None when montage should be inferred."
+
+    if dotted.startswith("filtering.value"):
+        return "Use numeric filter frequencies or None; use lists/numbers for notch settings."
+    if dotted.startswith("epoch_settings"):
+        return "Use numeric tmin/tmax, a dict or None for event_id, and valid baseline/rejection settings."
+    if dotted.startswith("apply_source_localization"):
+        return "Use source-localization fields such as method, lambda2, pick_ori, n_jobs, and convert_to_eeg."
+    if "Missing key" in raw_message:
+        return "Add the missing required key, or copy the section from a built-in task template."
+    if "Wrong key" in raw_message:
+        return "Remove the extra key or rename it to one of the supported task schema keys."
+    return "Compare this section with a built-in task template and use the expected shape above."

@@ -8,6 +8,7 @@ from .schema import (
     IC_FLAGS,
     ICA_METHODS,
     THRESHOLD_MODES,
+    format_task_config_error,
     validate_task_module_config,
 )
 
@@ -16,5 +17,6 @@ __all__ = [
     "COMP_REJ_METHODS",
     "ICA_METHODS",
     "IC_FLAGS",
+    "format_task_config_error",
     "validate_task_module_config",
 ]
