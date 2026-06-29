@@ -265,7 +265,6 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
                 f"Applied montage with {len(coords_dict)} electrode positions",
             )
 
-            
             # Step 5: Demote EEG channels with no montage position to misc.
             # The montage covers only the 30 mouse electrodes; ref/ground/aux
             # channels mislabeled "eeg" keep NaN coords and break spatial steps

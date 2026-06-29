@@ -22,15 +22,16 @@ def _make_roi_epochs(sfreq: float = 250.0) -> mne.BaseEpochs:
     template = alpha + highgamma
 
     data = np.stack(
-        [
-            np.vstack([template, template * 0.8])
-            for _ in range(n_epochs)
-        ],
+        [np.vstack([template, template * 0.8]) for _ in range(n_epochs)],
         axis=0,
     )
 
     events = np.column_stack(
-        [np.arange(n_epochs), np.zeros(n_epochs, dtype=int), np.ones(n_epochs, dtype=int)]
+        [
+            np.arange(n_epochs),
+            np.zeros(n_epochs, dtype=int),
+            np.ones(n_epochs, dtype=int),
+        ]
     )
     return mne.EpochsArray(data, info, events=events, tmin=0.0, verbose=False)
 

@@ -283,7 +283,7 @@ def save_raw_to_set(
                 )
             raise RuntimeError(error_msg) from e
     paths = saved_paths
-    stage_path = paths[0] if paths else stage_path   # keep stage_path in sync
+    stage_path = paths[0] if paths else stage_path  # keep stage_path in sync
 
     # Incremental cleanup — opt-in via task config
     if autoclean_dict.get("incremental_cleanup", {}).get("enabled"):
@@ -496,7 +496,9 @@ def save_epochs_to_set(
                                 events_in_epochs.append(
                                     [global_sample, 0, code]
                                 )  # Assuming duration 0 for point events
-                                epoch_indices_array.append(i)  # Explicit mapping: this event belongs to epoch i
+                                epoch_indices_array.append(
+                                    i
+                                )  # Explicit mapping: this event belongs to epoch i
                             except ValueError:
                                 message(
                                     "warning",
@@ -522,9 +524,21 @@ def save_epochs_to_set(
                     n_epochs = len(epochs)
 
                     if len(unique_epoch_indices) < n_epochs:
-                        missing_epochs = sorted(set(range(n_epochs)) - set(unique_epoch_indices))
-                        message("warning", f"Event export: {len(unique_epoch_indices)}/{n_epochs} epochs have events")
-                        message("warning", f"Missing epoch indices: {missing_epochs[:10]}..." if len(missing_epochs) > 10 else f"Missing epoch indices: {missing_epochs}")
+                        missing_epochs = sorted(
+                            set(range(n_epochs)) - set(unique_epoch_indices)
+                        )
+                        message(
+                            "warning",
+                            f"Event export: {len(unique_epoch_indices)}/{n_epochs} epochs have events",
+                        )
+                        message(
+                            "warning",
+                            (
+                                f"Missing epoch indices: {missing_epochs[:10]}..."
+                                if len(missing_epochs) > 10
+                                else f"Missing epoch indices: {missing_epochs}"
+                            ),
+                        )
                 else:  # If list is empty, set to None or an empty array as eeglabio expects
                     events_in_epochs = None  # Or np.empty((0,3), dtype=int) depending on eeglabio's preference for empty
                     epoch_indices_array = None

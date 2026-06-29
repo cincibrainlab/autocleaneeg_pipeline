@@ -77,7 +77,9 @@ class ServiceStartRequest(BaseModel):
         ge=0,
         description="Idle cycles before exiting (0 = keep running)",
     )
-    sleep_seconds: float = Field(default=1.0, ge=0, description="Sleep between cycles in seconds")
+    sleep_seconds: float = Field(
+        default=1.0, ge=0, description="Sleep between cycles in seconds"
+    )
     no_watch: bool = Field(default=False, description="Disable watchfiles usage")
     no_sentinel: bool = Field(default=False, description="Disable sentinel requirement")
 
@@ -155,13 +157,16 @@ def get_service_status() -> dict:
             "running": running,
             "pid": _process.pid if running else None,
             "mode": api_state.mode,
-            "uptime_seconds": (time.time() - _start_time) if running and _start_time else None,
+            "uptime_seconds": (
+                (time.time() - _start_time) if running and _start_time else None
+            ),
             "can_start": blocker is None,
             "blocked_reason": blocker,
         }
 
 
 # ── Endpoints ────────────────────────────────────────────────────────
+
 
 @router.get("/status", response_model=ServiceStatusResponse)
 async def status():
