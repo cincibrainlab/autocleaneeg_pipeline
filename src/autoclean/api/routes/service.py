@@ -131,6 +131,21 @@ def get_service_status() -> dict:
         if _process is not None:
             retcode = _process.poll()
             if retcode is not None:
+                # Diagnostic: record how the dispatcher exited before clearing state.
+                # retcode < 0 means it was killed by signal number -retcode
+                # (-15 SIGTERM, -9 SIGKILL, -1 SIGHUP). Captures even uncatchable kills.
+                try:
+                    if api_state.workspace_dir:
+                        _sig = f" (signal {-retcode})" if retcode < 0 else ""
+                        with open(
+                            api_state.workspace_dir / "dispatcher-exit.log", "a"
+                        ) as _fh:
+                            _fh.write(
+                                f"{time.strftime('%Y-%m-%d %H:%M:%S')} "
+                                f"pid={_process.pid} exited retcode={retcode}{_sig}\n"
+                            )
+                except Exception:  # pylint: disable=broad-except
+                    pass
                 # Process has exited
                 _process = None
                 _start_time = None

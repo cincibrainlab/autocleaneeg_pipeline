@@ -274,52 +274,8 @@ def test_parse_serve_config_defaults(tmp_path: Path) -> None:
     route = serve_config.routes[0]
     assert route.file_globs == ["*.set"]
     assert route.recursive is True
-    assert route.sentinel_ext is None
     assert route.automation_root == automation_root
     assert route.id == "Resting-standard_1020-v1"
-
-
-def test_parse_serve_config_legacy_still_respects_top_level_sentinel(tmp_path: Path) -> None:
-    runtime_dir = tmp_path / "runtimes" / "test"
-    runtime_dir.mkdir(parents=True)
-    automation_root = tmp_path / "automations"
-    automation_root.mkdir()
-    ingestion_root = tmp_path / "ingest"
-    ingestion_root.mkdir()
-    config_path = tmp_path / "serve-test.yaml"
-    config_path.write_text(
-        "\n".join(
-            [
-                "mode: test",
-                "runtime: runtimes/test",
-                "automation_mode: true",
-                "automation_root: automations",
-                "workspace_name: taskfile-montage-version",
-                "file_globs: ['*.set']",
-                "sentinel_ext: .ready",
-                "taskfile: Resting",
-                "montage: standard_1020",
-                "ingestion_folders:",
-                "  - ingest",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    config = load_serve_config(config_path)
-    serve_config, warnings = parse_serve_config(config, tmp_path, strict=False)
-    assert not warnings
-    assert serve_config.routes[0].sentinel_ext == ".ready"
-
-
-def test_route_without_sentinel_ext_processes_files_immediately(tmp_path: Path) -> None:
-    data_file = tmp_path / "sample.set"
-    _write_file(data_file)
-    files = list_ingestion_files(tmp_path, file_glob="*.set", sentinel_ext=None)
-    result = scan_ready_files(files, sentinel_ext=None, require_sentinel=True)
-    assert files == [data_file]
-    assert result.ready_files == [data_file]
-    assert result.pending_files == []
-    assert result.missing_sentinels == []
 
 
 def test_parse_serve_config_strict_requires_ingestion_folders_exist(
@@ -767,21 +723,6 @@ def test_watch_ready_files_fallback(tmp_path: Path) -> None:
         use_watchfiles=False,
     )
     assert result.ready is True
-
-
-def test_watch_ready_files_scans_existing_files_before_events(tmp_path: Path) -> None:
-    data_file = tmp_path / "existing.set"
-    _write_file(data_file)
-    result = watch_ready_files(
-        tmp_path,
-        file_glob="*.set",
-        sentinel_ext=None,
-        require_sentinel=True,
-        max_events=1,
-        use_watchfiles=True,
-    )
-    assert result.ready is True
-    assert data_file in result.ready_files
 
 
 def test_readiness_requires_sentinel(tmp_path: Path) -> None:

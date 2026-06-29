@@ -40,6 +40,9 @@ def calculate_roi_psd(
     output_dir=None,
     subject_id=None,
     generate_plots=True,
+    fmin=0.5,
+    fmax=45.0,
+    bands=None,
 ):
     """
     Optimized function to calculate PSD from 68-channel ROI EEG data.
@@ -63,6 +66,13 @@ def calculate_roi_psd(
         Subject identifier for file naming
     generate_plots : bool
         Whether to generate diagnostic PSD plots (default: True)
+    fmin : float
+        Minimum frequency for PSD calculation.
+    fmax : float
+        Maximum frequency for PSD calculation.
+    bands : dict | None
+        Optional mapping of band name to (low_hz, high_hz). If None, uses the
+        default EEG bands.
 
     Returns
     -------
@@ -134,10 +144,6 @@ def calculate_roi_psd(
         else:
             print(f"Using all {len(data)} epochs ({total_duration:.1f}s)")
 
-    # Define frequency parameters
-    fmin = 0.5
-    fmax = 45.0
-
     # Determine optimal window length for Welch's method
     if is_raw:
         # For Raw data, use the full available duration and ensure enough windows for averaging
@@ -157,16 +163,17 @@ def calculate_roi_psd(
     print(f"Using {window_length / sfreq:.2f}s windows with 50% overlap")
 
     # Define frequency bands
-    bands = {
-        "delta": (1, 4),
-        "theta": (4, 8),
-        "alpha": (8, 13),
-        "lowalpha": (8, 10),
-        "highalpha": (10, 13),
-        "lowbeta": (13, 20),
-        "highbeta": (20, 30),
-        "gamma": (30, 45),
-    }
+    if bands is None:
+        bands = {
+            "delta": (1, 4),
+            "theta": (4, 8),
+            "alpha": (8, 13),
+            "lowalpha": (8, 10),
+            "highalpha": (10, 13),
+            "lowbeta": (13, 20),
+            "highbeta": (20, 30),
+            "gamma": (30, 45),
+        }
 
     # Calculate PSD for each channel using MNE's compute_psd
     print("Calculating PSD for each ROI channel...")

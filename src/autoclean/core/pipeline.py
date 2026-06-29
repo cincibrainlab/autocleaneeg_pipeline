@@ -746,6 +746,14 @@ class Pipeline:
                     },
                 )
 
+            try:
+                task_object.finalize_run()
+            except Exception as finalize_err:  # pylint: disable=broad-except
+                message(
+                    "warning",
+                    f"finalize_run hook raised: {finalize_err}",
+                )
+
         except BlockDependencyError as e:
             # Handle missing block dependencies with user-friendly messages
             from rich.console import Console
