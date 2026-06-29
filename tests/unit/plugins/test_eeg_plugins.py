@@ -1,7 +1,7 @@
 """Unit tests for EEG plugins."""
 
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import mne
 import pytest
@@ -417,3 +417,52 @@ class TestPluginIntegration:
         EEGAssertions.assert_raw_properties(result)
 
 
+@pytest.mark.skipif(not PLUGIN_BASE_AVAILABLE, reason="Plugin base not available")
+@pytest.mark.parametrize(
+    "plugin_path,class_name",
+    [
+        (
+            "autoclean.plugins.eeg_plugins.eeglab_gsn124_plugin",
+            "EEGLABSetGSN124Plugin",
+        ),
+        (
+            "autoclean.plugins.eeg_plugins.eeglab_gsn129_plugin",
+            "EEGLABSetGSN129Plugin",
+        ),
+        (
+            "autoclean.plugins.eeg_plugins.eeglab_standard1020_plugin",
+            "EEGLABSetStandard1020Plugin",
+        ),
+        (
+            "autoclean.plugins.eeg_plugins.eeglab_mea30_plugin",
+            "EEGLABSetMEA30Plugin",
+        ),
+    ],
+)
+def test_eeglab_plugins_fallback_to_epochs_reader_for_epoched_set(
+    plugin_path, class_name
+):
+    module = __import__(plugin_path, fromlist=[class_name])
+    plugin_class = getattr(module, class_name)
+    epochs = mne.EpochsArray(
+        data=[[[0.0, 0.0]], [[1.0, 1.0]]],
+        info=mne.create_info(["Fz"], sfreq=100, ch_types="eeg"),
+        events=[[0, 0, 1], [100, 0, 2]],
+        event_id={"standard": 1, "target": 2},
+        tmin=0,
+        verbose=False,
+    )
+
+    with (
+        patch("mne.io.read_raw_eeglab") as read_raw,
+        patch("mne.io.read_epochs_eeglab", return_value=epochs) as read_epochs,
+    ):
+        read_raw.side_effect = ValueError(
+            "The number of trials is 2. It must be 1 for raw files. "
+            "Please use `mne.io.read_epochs_eeglab` if the .set file contains epochs."
+        )
+
+        result = plugin_class().import_and_configure(Path("sample.set"), {})
+
+    assert result is epochs
+    read_epochs.assert_called_once_with(input_fname=Path("sample.set"), verbose=True)

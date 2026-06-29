@@ -43,17 +43,19 @@ class EEGLABSetMEA30Plugin(BaseEEGPlugin):
                 raw = mne.io.read_raw_eeglab(
                     input_fname=file_path, preload=preload, verbose=True
                 )
-            except ValueError as e:
+            except (TypeError, ValueError) as e:
                 if "trials" in str(e) and "read_epochs_eeglab" in str(e):
                     raw = mne.io.read_epochs_eeglab(input_fname=file_path, verbose=True)
                 else:
-                    raise e
+                    raise
             message("success", "Successfully loaded .set file")
 
             # Step 2: Configure the MEA30 montage
             # Skip channel configuration for epochs - they already have proper setup
-            if isinstance(raw, mne.Epochs):
+            if isinstance(raw, mne.BaseEpochs):
+                # Epochs already carry events/event_id; raw annotation extraction is skipped intentionally.
                 message("info", "Epochs file detected - skipping channel configuration")
+                return raw
             else:
                 message("info", "Configuring MEA30 channels")
 

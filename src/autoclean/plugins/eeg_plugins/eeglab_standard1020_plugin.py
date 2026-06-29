@@ -51,17 +51,19 @@ class EEGLABSetStandard1020Plugin(BaseEEGPlugin):
                 ) and "must be 1 for raw files" in str(e):
                     raw = mne.io.read_epochs_eeglab(input_fname=file_path, verbose=True)
                 else:
-                    raise e
+                    raise
             except ValueError as e:
                 if "trials" in str(e) and "read_epochs_eeglab" in str(e):
                     raw = mne.io.read_epochs_eeglab(input_fname=file_path, verbose=True)
                 else:
-                    raise e
+                    raise
             message("success", "Successfully loaded .set file")
             # Step 2: Configure the standard 10-20 montage
             # Skip montage configuration for epochs - they already have channel positions
-            if isinstance(raw, mne.Epochs):
+            if isinstance(raw, mne.BaseEpochs):
+                # Epochs already carry events/event_id; raw annotation extraction is skipped intentionally.
                 message("info", "Epochs file detected - skipping montage configuration")
+                return raw
             else:
                 message("info", "Setting up standard 10-20 montage")
                 # Apply the standard 10-20 montage
