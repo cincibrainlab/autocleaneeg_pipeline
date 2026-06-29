@@ -30,8 +30,9 @@ def validate_erp_input(
         )
 
     warnings: list[str] = []
-    if analysis_window is not None:
-        start, end = float(analysis_window[0]), float(analysis_window[1])
+    analysis_bounds = _analysis_window_bounds(analysis_window)
+    if analysis_bounds is not None:
+        start, end = analysis_bounds
         if start < float(epochs.tmin) or end > float(epochs.tmax):
             warning = (
                 "ERP analysis window "
@@ -47,7 +48,7 @@ def validate_erp_input(
         "event_id": event_id,
         "condition_counts": counts,
         "analysis_window": (
-            list(analysis_window) if analysis_window is not None else None
+            list(analysis_bounds) if analysis_bounds is not None else None
         ),
         "warnings": warnings,
     }
@@ -80,6 +81,7 @@ def generate_erp_outputs(
             f"Available conditions: {available}"
         )
 
+    analysis_bounds = _analysis_window_bounds(analysis_window)
     counts = _condition_counts(epochs)
     counts_path = output_path / "erp_condition_counts.csv"
     with counts_path.open("w", newline="", encoding="utf-8") as handle:
@@ -107,6 +109,7 @@ def generate_erp_outputs(
             evoked_paths[condition] = str(evoked_path)
 
     difference_paths: dict[str, str] = {}
+    difference_evokeds: dict[str, mne.Evoked] = {}
     for spec in difference_waves or []:
         name = (
             spec.get("name")
@@ -124,14 +127,15 @@ def generate_erp_outputs(
         diff_path = output_path / f"erp_difference_{_safe_name(name)}-ave.fif"
         mne.write_evokeds(diff_path, diff, overwrite=True, verbose=False)
         difference_paths[name] = str(diff_path)
+        difference_evokeds[name] = diff
 
     amplitude_path = None
     if save_amplitudes:
         amplitude_path = output_path / "erp_amplitude_summary.csv"
         _write_amplitude_summary(
             amplitude_path,
-            {**evokeds, **_load_difference_evokeds(difference_paths)},
-            analysis_window=analysis_window,
+            {**evokeds, **difference_evokeds},
+            analysis_window=analysis_bounds,
         )
 
     return {
@@ -147,7 +151,10 @@ def _condition_counts(epochs: mne.BaseEpochs) -> dict[str, int]:
     for condition in sorted((getattr(epochs, "event_id", {}) or {}).keys()):
         try:
             counts[condition] = int(len(epochs[condition]))
-        except Exception:
+        except Exception as exc:
+            message(
+                "warning", f"Could not count epochs for condition {condition!r}: {exc}"
+            )
             counts[condition] = 0
     return counts
 
@@ -157,11 +164,14 @@ def _safe_name(value: str) -> str:
     return safe.strip("_") or "condition"
 
 
-def _load_difference_evokeds(paths: dict[str, str]) -> dict[str, mne.Evoked]:
-    evokeds: dict[str, mne.Evoked] = {}
-    for name, path in paths.items():
-        evokeds[name] = mne.read_evokeds(path, condition=0, verbose=False)
-    return evokeds
+def _analysis_window_bounds(
+    analysis_window: tuple[float, float] | list[float] | None,
+) -> tuple[float, float] | None:
+    if analysis_window is None:
+        return None
+    if len(analysis_window) < 2:
+        raise ValueError("ERP analysis_window must contain start and end times.")
+    return float(analysis_window[0]), float(analysis_window[1])
 
 
 def _write_amplitude_summary(

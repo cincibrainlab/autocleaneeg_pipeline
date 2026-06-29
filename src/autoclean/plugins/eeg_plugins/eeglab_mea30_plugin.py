@@ -47,7 +47,7 @@ class EEGLABSetMEA30Plugin(BaseEEGPlugin):
                 if "trials" in str(e) and "read_epochs_eeglab" in str(e):
                     raw = mne.io.read_epochs_eeglab(input_fname=file_path, verbose=True)
                 else:
-                    raise e
+                    raise
             message("success", "Successfully loaded .set file")
 
             # Step 2: Configure the MEA30 montage

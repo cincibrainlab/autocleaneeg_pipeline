@@ -7,7 +7,11 @@ import numpy as np
 import pytest
 
 from autoclean.configkit.schema import validate_task_module_config
-from autoclean.utils.erp import generate_erp_outputs, validate_erp_input
+from autoclean.utils.erp import (
+    _condition_counts,
+    generate_erp_outputs,
+    validate_erp_input,
+)
 
 
 def _epochs() -> mne.EpochsArray:
@@ -69,7 +73,38 @@ def test_validate_erp_input_warns_when_window_exceeds_epochs() -> None:
     assert "outside epoch coverage" in result["warnings"][0]
 
 
+def test_validate_erp_input_rejects_short_analysis_window() -> None:
+    with pytest.raises(ValueError, match="analysis_window must contain start and end"):
+        validate_erp_input(_epochs(), analysis_window=[0.1])
+
+
+def test_generate_erp_outputs_rejects_short_analysis_window(tmp_path) -> None:
+    with pytest.raises(ValueError, match="analysis_window must contain start and end"):
+        generate_erp_outputs(_epochs(), tmp_path, analysis_window=[0.1])
+
+
+def test_condition_counts_warns_when_condition_slice_fails(monkeypatch) -> None:
+    messages = []
+
+    class BrokenEpochs:
+        event_id = {"bad": 1}
+
+        def __getitem__(self, condition):
+            raise RuntimeError(f"cannot slice {condition}")
+
+    monkeypatch.setattr(
+        "autoclean.utils.erp.message",
+        lambda level, text: messages.append((level, text)),
+    )
+
+    assert _condition_counts(BrokenEpochs()) == {"bad": 0}
+    assert messages == [
+        ("warning", "Could not count epochs for condition 'bad': cannot slice bad")
+    ]
+
+
 def test_generate_erp_outputs_clamps_out_of_range_amplitude_window(tmp_path) -> None:
+
     result = generate_erp_outputs(
         _epochs(),
         tmp_path,
@@ -83,7 +118,13 @@ def test_generate_erp_outputs_clamps_out_of_range_amplitude_window(tmp_path) -> 
 
 def test_generate_erp_outputs_writes_counts_evokeds_difference_and_amplitudes(
     tmp_path,
+    monkeypatch,
 ) -> None:
+    def fail_if_difference_evokeds_are_reloaded(*args, **kwargs):
+        raise AssertionError("difference evokeds should stay in memory")
+
+    monkeypatch.setattr(mne, "read_evokeds", fail_if_difference_evokeds_are_reloaded)
+
     result = generate_erp_outputs(
         _epochs(),
         tmp_path,
