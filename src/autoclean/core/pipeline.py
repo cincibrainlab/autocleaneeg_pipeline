@@ -94,8 +94,9 @@ from autoclean.utils.config import (
 from autoclean.utils.database import (
     create_isolated_database,
     get_run_record,
-    manage_database,
-    manage_database_conditionally,
+)
+from autoclean.utils.database import manage_database_conditionally as manage_database
+from autoclean.utils.database import (
     set_database_path,
 )
 from autoclean.utils.exclusion_list import ExclusionListResult, evaluate_exclusion_list
@@ -1562,7 +1563,3 @@ class Pipeline:
 
         message("success", f"✓ File '{file_path}' found")
         return path
-
-
-# Backward compatibility: expose manage_database for test patches
-manage_database = manage_database_conditionally
