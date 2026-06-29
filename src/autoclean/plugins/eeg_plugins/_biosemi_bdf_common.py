@@ -161,7 +161,7 @@ def process_biosemi_bdf_events(raw: mne.io.Raw) -> tuple:
     message("info", "Processing events from BDF status channel")
     try:
         events, event_id = mne.events_from_annotations(raw, verbose=False)
-        if events is None or len(events) == 0:
+        if len(events) == 0:
             stim_channels = [
                 name
                 for name, kind in zip(raw.ch_names, raw.get_channel_types())
@@ -174,18 +174,24 @@ def process_biosemi_bdf_events(raw: mne.io.Raw) -> tuple:
                 return None, None, None
 
             status_channel = "Status" if "Status" in stim_channels else stim_channels[0]
-            events = mne.find_events(
-                raw,
-                stim_channel=status_channel,
-                shortest_event=1,
-                verbose=False,
-            )
+            try:
+                events = mne.find_events(
+                    raw,
+                    stim_channel=status_channel,
+                    shortest_event=1,
+                    verbose=False,
+                )
+            except ValueError as exc:
+                if "No events found" in str(exc):
+                    message("warning", "No events found in the BDF status channel")
+                    return None, None, None
+                raise
             event_id = {
                 f"Status-{event_code}": int(event_code)
                 for event_code in sorted(set(events[:, 2]))
             }
 
-        if events is None or len(events) == 0:
+        if len(events) == 0:
             message("warning", "No events found in the BDF status channel")
             return None, None, None
 

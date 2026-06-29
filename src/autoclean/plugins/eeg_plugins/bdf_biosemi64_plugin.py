@@ -14,7 +14,6 @@ from autoclean.plugins.eeg_plugins._biosemi_bdf_common import (
     import_biosemi_bdf,
     process_biosemi_bdf_events,
 )
-from autoclean.utils.logging import message
 
 
 class BDFBiosemi64Plugin(BaseEEGPlugin):

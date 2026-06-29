@@ -11,6 +11,7 @@ from autoclean.io.import_ import (
     _PLUGIN_REGISTRY,
     find_plugin_for_combination,
     get_format_from_extension,
+    get_plugin_for_combination,
     normalize_montage_name,
     register_plugin,
 )
@@ -652,8 +653,8 @@ def test_biosemi_montage_aliases_accept_user_facing_names():
     assert normalize_montage_name("GSN-HydroCel-129") == "GSN-HydroCel-129"
 
 
-def test_biosemi_bdf_registry_rejects_unsupported_montage():
-    """Unsupported BioSemi BDF montages should fail instead of using a wrong plugin."""
+def test_find_plugin_returns_none_for_unsupported_biosemi_montage():
+    """Unsupported BioSemi BDF montages should not fall back to a wrong plugin."""
     original_registry = _PLUGIN_REGISTRY.copy()
     import_module = __import__("autoclean.io.import_", fromlist=["_PLUGINS_DISCOVERED"])
     original_discovered = import_module._PLUGINS_DISCOVERED
@@ -669,6 +670,30 @@ def test_biosemi_bdf_registry_rejects_unsupported_montage():
             register_plugin(plugin_class)
 
         assert find_plugin_for_combination("BIOSEMI_BDF", "biosemi16") is None
+    finally:
+        _PLUGIN_REGISTRY.clear()
+        _PLUGIN_REGISTRY.update(original_registry)
+        import_module._PLUGINS_DISCOVERED = original_discovered
+
+
+def test_get_plugin_raises_helpful_error_for_unsupported_biosemi_montage():
+    """Direct plugin lookup should explain supported BioSemi BDF montages."""
+    original_registry = _PLUGIN_REGISTRY.copy()
+    import_module = __import__("autoclean.io.import_", fromlist=["_PLUGINS_DISCOVERED"])
+    original_discovered = import_module._PLUGINS_DISCOVERED
+    import_module._PLUGINS_DISCOVERED = True
+    _PLUGIN_REGISTRY.clear()
+    try:
+        for plugin_class in (
+            BDFBiosemi32Plugin,
+            BDFBiosemi64Plugin,
+            BDFBiosemi128Plugin,
+            BDFBiosemi256Plugin,
+        ):
+            register_plugin(plugin_class)
+
+        with pytest.raises(ValueError, match="Supported montages for BIOSEMI_BDF"):
+            get_plugin_for_combination("BIOSEMI_BDF", "biosemi16")
     finally:
         _PLUGIN_REGISTRY.clear()
         _PLUGIN_REGISTRY.update(original_registry)
