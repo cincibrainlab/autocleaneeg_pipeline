@@ -7,16 +7,16 @@ import mne
 import numpy as np
 import pytest
 
-from autoclean.plugins.eeg_plugins.bdf_biosemi32_plugin import BDFBiosemi32Plugin
-from autoclean.plugins.eeg_plugins.bdf_biosemi64_plugin import BDFBiosemi64Plugin
-from autoclean.plugins.eeg_plugins.bdf_biosemi128_plugin import BDFBiosemi128Plugin
-from autoclean.plugins.eeg_plugins.bdf_biosemi256_plugin import BDFBiosemi256Plugin
 from autoclean.io.import_ import (
     _PLUGIN_REGISTRY,
     find_plugin_for_combination,
     get_format_from_extension,
     register_plugin,
 )
+from autoclean.plugins.eeg_plugins.bdf_biosemi32_plugin import BDFBiosemi32Plugin
+from autoclean.plugins.eeg_plugins.bdf_biosemi64_plugin import BDFBiosemi64Plugin
+from autoclean.plugins.eeg_plugins.bdf_biosemi128_plugin import BDFBiosemi128Plugin
+from autoclean.plugins.eeg_plugins.bdf_biosemi256_plugin import BDFBiosemi256Plugin
 from tests.fixtures.synthetic_data import create_synthetic_raw
 from tests.fixtures.test_utils import EEGAssertions
 
