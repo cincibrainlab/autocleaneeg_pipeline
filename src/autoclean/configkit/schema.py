@@ -9,7 +9,7 @@ import os
 import re
 from reprlib import repr as short_repr
 
-from schema import And, Optional, Or, Schema
+from schema import And, Optional, Or, Schema, SchemaError
 
 from autoclean.utils.montage import VALID_MONTAGES
 
@@ -652,7 +652,11 @@ def validate_task_module_config(task_config: dict) -> dict:
     """
     migrated = migrate_legacy_task_config(dict(task_config))
     schema = _build_task_settings_schema()
-    return schema.validate(migrated)
+    try:
+        return schema.validate(migrated)
+    except SchemaError as exc:
+        exc.task_config = migrated
+        raise
 
 
 def format_task_config_error(
@@ -770,8 +774,7 @@ def _suggest_fix(path: list[str], raw_message: str) -> str:
         return "Set `enabled` to true or false."
     if path and path[0] == "montage":
         return "Use a supported montage name, `auto`, or None when montage should be inferred."
-    if "value" in path and "enabled" in raw_message:
-        return "Use the standard step shape: {'enabled': bool, 'value': ...}."
+
     if dotted.startswith("filtering.value"):
         return "Use numeric filter frequencies or None; use lists/numbers for notch settings."
     if dotted.startswith("epoch_settings"):
