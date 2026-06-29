@@ -39,6 +39,7 @@ __all__ = [
     "BaseEventProcessor",
     "register_event_processor",
     "get_event_processor_for_task",
+    "normalize_montage_name",
 ]
 
 # Registry to store format mappings and plugins
@@ -57,6 +58,23 @@ _CORE_FORMATS = {
     "bdf": "BIOSEMI_BDF",
     "cnt": "NEUROSCAN_CNT",
 }
+
+_BIOSEMI_MONTAGE_ALIASES = {
+    "biosemi-32": "biosemi32",
+    "biosemi32": "biosemi32",
+    "biosemi-64": "biosemi64",
+    "biosemi64": "biosemi64",
+    "biosemi-128": "biosemi128",
+    "biosemi128": "biosemi128",
+    "biosemi-256": "biosemi256",
+    "biosemi256": "biosemi256",
+}
+
+
+def normalize_montage_name(montage_name: str) -> str:
+    """Normalize supported montage aliases while preserving unknown names."""
+    normalized_key = str(montage_name).strip().lower()
+    return _BIOSEMI_MONTAGE_ALIASES.get(normalized_key, montage_name)
 
 
 def register_format(extension: str, format_id: str) -> None:
@@ -211,6 +229,10 @@ def register_plugin(plugin_class: Type[BaseEEGPlugin]) -> None:
             "GSN-HydroCel-129",
             "GSN-HydroCel-124",
             "standard_1020",
+            "BioSemi-32",
+            "BioSemi-64",
+            "BioSemi-128",
+            "BioSemi-256",
             "biosemi32",
             "biosemi64",
             "biosemi128",
@@ -307,16 +329,17 @@ def get_plugin_for_combination(format_id: str, montage_name: str) -> BaseEEGPlug
     """
     # Ensure plugins are discovered (will only run once)
     discover_plugins()
+    normalized_montage_name = normalize_montage_name(montage_name)
 
     # Try to get an exact match
-    key = (format_id, montage_name)
+    key = (format_id, normalized_montage_name)
     if key in _PLUGIN_REGISTRY:
         plugin_class = _PLUGIN_REGISTRY[key]
         return plugin_class()
 
     # If no exact match, look for plugins that claim they can handle this combination
     for plugin_class in set(_PLUGIN_REGISTRY.values()):
-        if plugin_class.supports_format_montage(format_id, montage_name):
+        if plugin_class.supports_format_montage(format_id, normalized_montage_name):
             return plugin_class()
 
     # If still no match, try to find a plugin that supports this format with any montage
@@ -333,7 +356,8 @@ def get_plugin_for_combination(format_id: str, montage_name: str) -> BaseEEGPlug
             if plugin_format == format_id
         )
         raise ValueError(
-            f"No plugin found for format '{format_id}' and montage '{montage_name}'. "
+            f"No plugin found for format '{format_id}' and montage '{montage_name}' "
+            f"(normalized to '{normalized_montage_name}'). "
             f"Supported montages for {format_id}: {', '.join(supported_montages)}"
         )
 
@@ -439,7 +463,7 @@ def import_eeg(
                 "import_function": "import_eeg",
                 "plugin_used": plugin.__class__.__name__,
                 "file_format": format_id,
-                "montage_name": montage_name,
+                "montage_name": normalize_montage_name(montage_name),
                 "creationDateTime": datetime.now().isoformat(),
                 "unprocessedFile": str(unprocessed_file.name),
                 "eegSystem": autoclean_dict["eeg_system"],

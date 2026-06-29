@@ -198,6 +198,6 @@ def process_biosemi_bdf_events(raw: mne.io.Raw) -> tuple:
         message("info", f"Event counts: {events_df['type'].value_counts().to_dict()}")
         return events, event_id, events_df
 
-    except Exception as e:  # pylint: disable=broad-except
+    except (RuntimeError, ValueError) as e:
         message("warning", f"Failed to process events: {str(e)}")
         return None, None, None
