@@ -334,6 +334,25 @@ def _bad_channel_log_descriptor() -> dict:
     }
 
 
+def _exclusion_list_descriptor() -> dict:
+    return {
+        "enabled": "bool",
+        "value": {
+            "path": "string",
+            "file_column": "string (default: file)",
+            "subject_column": "string|null",
+            "subject": "string|null",
+            "session_column": "string|null",
+            "session": "string|null",
+            "exclude_column": "string (default: exclude)",
+            "reason_column": "string (default: reason)",
+            "delimiter": "string|null (default inferred from extension)",
+            "mode": "'tag'|'skip'",
+            "strict": "bool (default: false)",
+        },
+    }
+
+
 def _build_task_settings_schema() -> Schema:
     """Schema for Python task module `config` dictionaries.
 
@@ -432,6 +451,22 @@ def _build_task_settings_schema() -> Schema:
                     Optional("session"): And(str, len),
                     Optional("delimiter"): Or(str, None),
                     Optional("action"): "mark",
+                    Optional("strict"): bool,
+                },
+            },
+            Optional("exclusion_list"): {
+                "enabled": bool,
+                "value": {
+                    "path": And(str, len),
+                    Optional("file_column"): And(str, len),
+                    Optional("subject_column"): And(str, len),
+                    Optional("subject"): And(str, len),
+                    Optional("session_column"): And(str, len),
+                    Optional("session"): And(str, len),
+                    Optional("exclude_column"): And(str, len),
+                    Optional("reason_column"): And(str, len),
+                    Optional("delimiter"): Or(str, None),
+                    Optional("mode"): Or("tag", "skip"),
                     Optional("strict"): bool,
                 },
             },
@@ -626,6 +661,7 @@ def export_task_schema_layout() -> dict:
             "filtering": _filtering_descriptor(),
             "drop_outerlayer": {"enabled": "bool", "value": "list|None"},
             "bad_channel_log": _bad_channel_log_descriptor(),
+            "exclusion_list": _exclusion_list_descriptor(),
             "eog_step": {
                 "enabled": "bool",
                 "value": "dict{eog_indices:list[int]|None, eog_drop:bool|None} | list | None",

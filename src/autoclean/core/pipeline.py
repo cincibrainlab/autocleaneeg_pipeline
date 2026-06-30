@@ -94,9 +94,12 @@ from autoclean.utils.config import (
 from autoclean.utils.database import (
     create_isolated_database,
     get_run_record,
-    manage_database_conditionally,
+)
+from autoclean.utils.database import manage_database_conditionally as manage_database
+from autoclean.utils.database import (
     set_database_path,
 )
+from autoclean.utils.exclusion_list import ExclusionListResult, evaluate_exclusion_list
 from autoclean.utils.file_system import (
     STATUS_DIR_NAME,
     step_prepare_directories,
@@ -312,6 +315,70 @@ class Pipeline:
             return False
         return bool(auto_backup)
 
+    def _exclusion_list_config_for_task(self, task: str) -> Optional[dict]:
+        task_config = self.session_task_configs.get(task.lower()) or {}
+        config_block = task_config.get("exclusion_list")
+        if config_block is None:
+            from autoclean.utils.task_discovery import extract_config_from_task
+
+            config_block = extract_config_from_task(task, "exclusion_list")
+
+        if not isinstance(config_block, dict) or not config_block.get("enabled", False):
+            return None
+
+        value = config_block.get("value") or {}
+        return value if isinstance(value, dict) else None
+
+    def _evaluate_exclusion_skip(
+        self, task: str, unprocessed_file: Path
+    ) -> ExclusionListResult | None:
+        config_value = self._exclusion_list_config_for_task(task)
+        if config_value is None:
+            return None
+
+        result = evaluate_exclusion_list(config_value, unprocessed_file)
+        if result.mode != "skip":
+            return None
+        return result
+
+    def _record_exclusion_skip(
+        self,
+        *,
+        run_record: dict,
+        task: str,
+        unprocessed_file: Path,
+        result: ExclusionListResult,
+    ) -> None:
+        reason = result.reason or "Recording matched exclusion list"
+        metadata = {
+            "step_exclusion_list": result.metadata,
+            "skip_reason": f"EXCLUSION_LIST: {reason}",
+        }
+        manage_database(
+            operation="update",
+            update_record={
+                "run_id": run_record["run_id"],
+                "status": "skipped",
+                "success": True,
+                "metadata": metadata,
+            },
+        )
+        manage_database(
+            operation="add_access_log",
+            run_record={
+                "timestamp": datetime.now().isoformat(),
+                "operation": "exclusion_list_skip",
+                "user_context": get_current_user_for_audit(),
+                "details": {
+                    "task": task,
+                    "unprocessed_file": str(unprocessed_file),
+                    "reason": reason,
+                    "metadata": result.metadata,
+                },
+            },
+        )
+        message("warning", f"Skipped by exclusion list: {reason}")
+
     def _entrypoint(
         self, unprocessed_file: Path, task: str, run_id: Optional[str] = None
     ) -> None:
@@ -377,6 +444,19 @@ class Pipeline:
         try:
             # Perform core validation steps
             self._validate_file(unprocessed_file)
+
+            skip_decision = self._evaluate_exclusion_skip(task, unprocessed_file)
+            if skip_decision is not None:
+                if skip_decision.warning:
+                    message("warning", skip_decision.warning)
+                if skip_decision.excluded:
+                    self._record_exclusion_skip(
+                        run_record=run_record,
+                        task=task,
+                        unprocessed_file=unprocessed_file,
+                        result=skip_decision,
+                    )
+                    return
 
             # Extract dataset_name from task configuration if available
             # First check session configs (for tasks loaded via --task-file)
@@ -1483,7 +1563,3 @@ class Pipeline:
 
         message("success", f"✓ File '{file_path}' found")
         return path
-
-
-# Backward compatibility: expose manage_database for test patches
-manage_database = manage_database_conditionally

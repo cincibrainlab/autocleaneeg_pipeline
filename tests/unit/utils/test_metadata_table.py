@@ -28,6 +28,20 @@ def test_load_metadata_table_infers_tsv(tmp_path: Path) -> None:
     assert rows == [{"file": "subject01", "bad_channels": "E3|E4"}]
 
 
+def test_load_metadata_table_reads_xlsx(tmp_path: Path) -> None:
+    pytest.importorskip("openpyxl")
+    import pandas as pd
+
+    table = tmp_path / "exclusions.xlsx"
+    pd.DataFrame(
+        [{"file": " subject01.set ", "exclude": " yes ", "reason": " artifact "}]
+    ).to_excel(table, index=False)
+
+    rows = load_metadata_table(table)
+
+    assert rows == [{"file": "subject01.set", "exclude": "yes", "reason": "artifact"}]
+
+
 def test_match_recording_row_by_filename_or_stem(tmp_path: Path) -> None:
     rows = [
         {"file": "other.set", "bad_channels": "E1"},

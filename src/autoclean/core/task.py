@@ -11,6 +11,7 @@ import mne  # Core EEG processing library for data containers and processing
 
 from autoclean.io.export import save_epochs_to_set, save_raw_to_set
 from autoclean.io.import_ import import_eeg
+from autoclean.utils.exclusion_list import evaluate_exclusion_list
 from autoclean.utils.logging import message
 
 # Local imports
@@ -175,11 +176,12 @@ class Task(ABC, *DISCOVERED_MIXINS):
         """
 
         self.raw = import_eeg(self.config)
+        self._apply_exclusion_list_tag()
         if self.raw.duration < 60:
-            self.flagged = True
-            self.flagged_reasons = [
-                f"WARNING: Initial duration ({float(self.raw.duration):.1f}s) less than 1 minute"
-            ]
+            self._update_flagged_status(
+                flagged=True,
+                reason=f"WARNING: Initial duration ({float(self.raw.duration):.1f}s) less than 1 minute",
+            )
 
         self.create_bids_path()
 
@@ -201,6 +203,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
         """
 
         self.epochs = import_eeg(self.config)
+        self._apply_exclusion_list_tag()
 
         self.create_bids_path(use_epochs=True)
 
@@ -210,6 +213,30 @@ class Task(ABC, *DISCOVERED_MIXINS):
             stage="post_import",
             flagged=self.flagged,
         )
+
+    def _apply_exclusion_list_tag(self) -> None:
+        """Tag recordings listed in a configured user exclusion table."""
+
+        is_enabled, config_value = self._check_step_enabled("exclusion_list")
+        if not is_enabled:
+            return
+
+        value = (config_value or {}).get("value") or {}
+        result = evaluate_exclusion_list(value, self.config.get("unprocessed_file", ""))
+        if result.mode != "tag":
+            return
+
+        self._update_metadata("step_exclusion_list", result.metadata)
+
+        if result.warning:
+            message("warning", result.warning)
+
+        if result.excluded:
+            reason = result.reason or "Recording matched exclusion list"
+            self._update_flagged_status(
+                flagged=True,
+                reason=f"EXCLUSION_LIST: {reason}",
+            )
 
     @abstractmethod
     @require_authentication
