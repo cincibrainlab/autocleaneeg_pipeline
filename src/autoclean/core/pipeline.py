@@ -122,7 +122,7 @@ matplotlib.use("Agg")
 
 
 def _expand_brace_glob(pattern: str) -> list[str]:
-    """Expand simple brace globs like '*.{raw,set,bdf}' into ['*.raw', '*.set', '*.bdf'].
+    """Expand simple brace globs like '*.{raw,set,bdf, mff, edf}' into ['*.raw', '*.set', '*.bdf', '*mff', '*edf'].
 
     This supports a single pair of braces with comma-separated options.
     If no braces are present, returns the pattern as a single-item list.
@@ -1030,7 +1030,7 @@ class Pipeline:
         self,
         directory: Optional[str | Path] = None,
         task: str = "",
-        pattern: str = "*.{raw,set,bdf}",
+        pattern: str = "*.{raw,set,bdf,mff,edf}",
         recursive: bool = False,
     ) -> None:
         """Processes all files matching a pattern within a directory sequentially.
@@ -1043,7 +1043,7 @@ class Pipeline:
         task : str
             The name of the task to perform (e.g., 'RestingEyesOpen').
         pattern : str, optional
-            Glob pattern to match files within the directory, default is `*.{raw,set,bdf}`.
+            Glob pattern to match files within the directory, default is `*.{raw,set,bdf, mff, edf}`.
         recursive : bool, optional
             If True, searches subdirectories recursively, by default False.
 
@@ -1062,11 +1062,11 @@ class Pipeline:
         >>> pipeline.process_directory(
         ...     directory='data/rest_state/',
         ...     task='rest_eyesopen',
-        ...     pattern='*.{raw,set,bdf}',
+        ...     pattern='*.{raw,set,bdf, mff, edf}',
         ...     recursive=True
         ... )
         >>> # Or use input_path from task config
-        >>> pipeline.process_directory(task='rest_eyesopen', pattern='*.{raw,set,bdf}')
+        >>> pipeline.process_directory(task='rest_eyesopen', pattern='*.{raw,set,bdf, mff, edf}')
         """
         # Use input_path from task config if directory not provided
         if directory is None:
@@ -1103,10 +1103,11 @@ class Pipeline:
         all_files = list(directory.iterdir())
         message(
             "debug",
-            f"All files in directory ({len(all_files)}): {[f.name for f in all_files if f.is_file()]}",
+            f"All files in directory ({len(all_files)}): "
+            f"{[f.name for f in all_files if f.is_file() or f.suffix.lower() == '.mff']}",
         )
 
-        # Support brace expansion patterns like '*.{raw,set,bdf}'
+        # Support brace expansion patterns like '*.{raw,set,bdf, mff, edf}'
         files: list[Path] = []
         seen: set[Path] = set()
         for pat in _expand_brace_glob(search_pattern):
@@ -1164,7 +1165,7 @@ class Pipeline:
         self,
         directory_path: Optional[str | Path] = None,
         task: str = "",
-        pattern: str = "*.{raw,set,bdf}",
+        pattern: str = "*.{raw,set,bdf,mff,edf}",
         sub_directories: bool = False,
         max_concurrent: int = 3,
     ) -> None:
@@ -1178,7 +1179,7 @@ class Pipeline:
         task : str
             The name of the task to perform (e.g., 'RestingEyesOpen').
         pattern : str, optional
-            Glob pattern to match files within the directory, default is `*.{raw,set,bdf}`.
+            Glob pattern to match files within the directory, default is `*.{raw,set,bdf, mff, edf}`.
         sub_directories : bool, optional
             If True, searches subdirectories recursively, by default False.
         max_concurrent : int, optional
@@ -1233,7 +1234,7 @@ class Pipeline:
             f"All files in directory ({len(all_files)}): {[f.name for f in all_files if f.is_file()]}",
         )
 
-        # Support brace expansion patterns like '*.{raw,set,bdf}'
+        # Support brace expansion patterns like '*.{raw,set,bdf, mff, edf}'
         files: list[Path] = []
         seen: set[Path] = set()
         for pat in _expand_brace_glob(search_pattern):
