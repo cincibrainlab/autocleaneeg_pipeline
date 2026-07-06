@@ -406,6 +406,13 @@ class IcaMixin:
             meaning both `run_ica` and `classify_ica_components` have run.
         """
         message("header", "Applying ICA component rejection")
+        # Snapshot pre-rejection data so ICA reports can show original component
+        # activity/PSD even for components that get rejected below. Only do this
+        # when we're operating on self.raw (not an arbitrary externally-provided
+        # data object), since that's the object generate_ica_reports() reads from.
+
+        if data_to_clean is None:
+            self.raw_prerejection = self.raw.copy()
 
         if not hasattr(self, "final_ica") or self.final_ica is None:
             message(
@@ -513,6 +520,8 @@ class IcaMixin:
 
         # Determine data to clean
         target_data = data_to_clean if data_to_clean is not None else self.raw
+        
+    
         data_source_name = (
             "provided data object" if data_to_clean is not None else "self.raw"
         )

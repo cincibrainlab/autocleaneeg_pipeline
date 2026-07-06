@@ -197,6 +197,27 @@ class TestApplyICAComponentRejection:
 
         mock_ica.apply.assert_not_called()  # Nothing applied when disabled
 
+class TestGetIcaReportData:
+    def test_uses_prerejection_snapshot_when_present(self, task):
+        """Report data should come from the pre-rejection snapshot, not self.raw."""
+        original_raw = task.raw
+        task.raw_prerejection = original_raw.copy()
+
+        # Mutate self.raw to simulate what ica.apply() does in place
+        task.raw._data[:] = 0
+
+        result = task._get_ica_report_data()
+
+        assert result is task.raw_prerejection
+        assert not np.allclose(result.get_data(), task.raw.get_data())
+
+    def test_falls_back_to_raw_when_no_snapshot(self, task):
+        """Without a snapshot, report data should just be self.raw."""
+        assert not hasattr(task, "raw_prerejection")
+
+        result = task._get_ica_report_data()
+
+        assert result is task.raw
 
 # ---------------------------------------------------------------------------
 # classify_ica_components
