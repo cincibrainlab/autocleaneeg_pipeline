@@ -513,6 +513,15 @@ class IcaMixin:
 
         # Determine data to clean
         target_data = data_to_clean if data_to_clean is not None else self.raw
+
+        # Snapshot pre-rejection data so ICA reports can show original component
+        # activity/PSD even for components that get rejected below. Only do this
+        # when we're operating on self.raw (not an arbitrary externally-provided
+        # data object), and only take the snapshot once per task instance so a
+        # second call can't overwrite it with already-partially-rejected data.
+        if data_to_clean is None and not hasattr(self, "raw_prerejection"):
+            self.raw_prerejection = self.raw.copy()
+
         data_source_name = (
             "provided data object" if data_to_clean is not None else "self.raw"
         )

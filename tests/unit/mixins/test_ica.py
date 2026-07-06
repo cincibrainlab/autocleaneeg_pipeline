@@ -18,9 +18,7 @@ except ImportError:
     TASK_AVAILABLE = False
 
 
-pytestmark = pytest.mark.skipif(
-    not TASK_AVAILABLE, reason="Task module not available"
-)
+pytestmark = pytest.mark.skipif(not TASK_AVAILABLE, reason="Task module not available")
 
 
 class _ICATask(Task):
@@ -128,12 +126,11 @@ class TestApplyICAComponentRejection:
         mock_ica.apply = MagicMock()
         task.final_ica = mock_ica
 
-        with patch.object(task, "_update_metadata"), patch.object(
-            task, "_auto_export_if_enabled"
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_auto_export_if_enabled"),
         ):
-            task.apply_ica_component_rejection(
-                manual_rejected_components=[0, 2]
-            )
+            task.apply_ica_component_rejection(manual_rejected_components=[0, 2])
 
         assert task.final_ica.exclude == [0, 2]
         mock_ica.apply.assert_called_once()
@@ -144,8 +141,9 @@ class TestApplyICAComponentRejection:
         mock_ica.apply = MagicMock()
         task.final_ica = mock_ica
 
-        with patch.object(task, "_update_metadata"), patch.object(
-            task, "_auto_export_if_enabled"
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_auto_export_if_enabled"),
         ):
             task.apply_ica_component_rejection(manual_rejected_components=[])
 
@@ -157,8 +155,9 @@ class TestApplyICAComponentRejection:
         mock_ica.apply = MagicMock()
         task.final_ica = mock_ica
 
-        with patch.object(task, "_update_metadata"), patch.object(
-            task, "_auto_export_if_enabled"
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_auto_export_if_enabled"),
         ):
             task.apply_ica_component_rejection(
                 manual_rejected_components=[3, 1, 1, 3, 0]
@@ -198,6 +197,29 @@ class TestApplyICAComponentRejection:
         mock_ica.apply.assert_not_called()  # Nothing applied when disabled
 
 
+class TestGetIcaReportData:
+    def test_uses_prerejection_snapshot_when_present(self, task):
+        """Report data should come from the pre-rejection snapshot, not self.raw."""
+        original_raw = task.raw
+        task.raw_prerejection = original_raw.copy()
+
+        # Mutate self.raw to simulate what ica.apply() does in place
+        task.raw._data[:] = 0
+
+        result = task._get_ica_report_data()
+
+        assert result is task.raw_prerejection
+        assert not np.allclose(result.get_data(), task.raw.get_data())
+
+    def test_falls_back_to_raw_when_no_snapshot(self, task):
+        """Without a snapshot, report data should just be self.raw."""
+        assert not hasattr(task, "raw_prerejection")
+
+        result = task._get_ica_report_data()
+
+        assert result is task.raw
+
+
 # ---------------------------------------------------------------------------
 # classify_ica_components
 # ---------------------------------------------------------------------------
@@ -227,9 +249,7 @@ class TestClassifyICAComponents:
         assert result is None
 
     @patch("autoclean.mixins.signal_processing.ica.classify_ica_components")
-    def test_calls_classification_function_and_stores_flags(
-        self, mock_classify, task
-    ):
+    def test_calls_classification_function_and_stores_flags(self, mock_classify, task):
         """After classify, self.ica_flags is the DataFrame returned by the function."""
         mock_flags = pd.DataFrame({"label": ["brain", "eye blink"]})
         mock_classify.return_value = mock_flags
@@ -354,9 +374,7 @@ class TestRunICASettings:
 
     @patch("autoclean.mixins.signal_processing.ica.save_ica_to_fif")
     @patch("autoclean.mixins.signal_processing.ica.fit_ica")
-    def test_run_ica_uses_method_from_settings(
-        self, mock_fit, mock_save_fif, tmp_path
-    ):
+    def test_run_ica_uses_method_from_settings(self, mock_fit, mock_save_fif, tmp_path):
         """method from settings[ICA][value] must be forwarded to fit_ica."""
         settings = {
             "ICA": {
@@ -383,9 +401,7 @@ class TestRunICASettings:
 
     @patch("autoclean.mixins.signal_processing.ica.save_ica_to_fif")
     @patch("autoclean.mixins.signal_processing.ica.fit_ica")
-    def test_run_ica_saves_post_ica_stage_file(
-        self, mock_fit, mock_save_fif, task
-    ):
+    def test_run_ica_saves_post_ica_stage_file(self, mock_fit, mock_save_fif, task):
         """save_ica_to_fif must be called after a successful fit."""
         mock_fit.return_value = _make_mock_ica()
 
@@ -433,8 +449,6 @@ class TestApplyICAStageFile:
             patch.object(task, "_update_metadata"),
             patch.object(task, "_auto_export_if_enabled") as mock_export,
         ):
-            task.apply_ica_component_rejection(
-                manual_rejected_components=[0]
-            )
+            task.apply_ica_component_rejection(manual_rejected_components=[0])
 
         mock_export.assert_called_once()

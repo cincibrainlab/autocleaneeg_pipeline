@@ -91,7 +91,7 @@ class ICAReportingMixin:
             - The method respects configuration settings via the `ica_full_plot_step` config
         """
         # Get raw and ICA from pipeline
-        raw = self.raw.copy()
+        raw = self._get_ica_report_data().copy()
         ica = self.final_ica
         ic_labels = self.ica_flags
 
@@ -300,7 +300,7 @@ class ICAReportingMixin:
             )
             return None
 
-        raw = self.raw
+        raw = self._get_ica_report_data()
         ica = self.final_ica
         ic_labels = getattr(self, "ica_flags", None)
         psd_fmax = self._resolve_psd_fmax()
@@ -597,6 +597,16 @@ class ICAReportingMixin:
             Cache statistics including size, entries, and utilization
         """
         return get_ica_cache_stats()
+
+    def _get_ica_report_data(self):
+        """Return the data object to use for ICA report plotting.
+
+        Prefers the pre-rejection snapshot (if available) so that rejected
+        components still show their original activity/PSD instead of the
+        zeroed-out values left behind after ICA.apply() runs.
+        """
+        snapshot = getattr(self, "raw_prerejection", None)
+        return snapshot if snapshot is not None else self.raw
 
     def clear_ica_sources_cache(self):
         """Clear all cached ICA sources to free memory."""
