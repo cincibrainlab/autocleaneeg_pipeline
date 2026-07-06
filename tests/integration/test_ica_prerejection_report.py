@@ -58,7 +58,7 @@ def test_rejected_component_retains_activity_after_manual_rejection(
     """
     task = ica_integration_task
 
-   # Step 1 & 2: Real ICA fit + manual rejection, with database writes
+    # Step 1 & 2: Real ICA fit + manual rejection, with database writes
     # patched out (this test cares about ICA data flow, not persistence).
     with patch("autoclean.utils.database.manage_database", return_value=None):
         task.run_ica()

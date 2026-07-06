@@ -597,7 +597,7 @@ class ICAReportingMixin:
             Cache statistics including size, entries, and utilization
         """
         return get_ica_cache_stats()
-    
+
     def _get_ica_report_data(self):
         """Return the data object to use for ICA report plotting.
 
@@ -605,9 +605,8 @@ class ICAReportingMixin:
         components still show their original activity/PSD instead of the
         zeroed-out values left behind after ICA.apply() runs.
         """
-        return getattr(self, "raw_prerejection", None) or self.raw
-
-
+        snapshot = getattr(self, "raw_prerejection", None)
+        return snapshot if snapshot is not None else self.raw
 
     def clear_ica_sources_cache(self):
         """Clear all cached ICA sources to free memory."""
