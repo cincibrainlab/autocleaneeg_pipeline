@@ -16,12 +16,68 @@ from mne.preprocessing import ICA
 from autoclean.utils.logging import message
 
 # Optional import for ICVision
+# Optional import for ICVision
 try:
     from icvision.compat import label_components
 
     ICVISION_AVAILABLE = True
 except ImportError:
     ICVISION_AVAILABLE = False
+
+
+# Canonical IC type labels as actually emitted by the supported classifiers
+# (mne_icalabel's ICLabel implementation and the ICVision compat wrapper both
+# write these exact short codes into `ica.labels_`).
+CANONICAL_IC_TYPES = frozenset(
+    {"brain", "muscle", "eog", "ecg", "line_noise", "ch_noise", "other"}
+)
+
+# Historically-documented / schema-level spellings that never actually match
+# what a classifier produces (see issue #226). Mapped here to their canonical
+# equivalent so config values, classifier outputs, and report labels are all
+# compared on equal footing regardless of which spelling was used.
+_IC_TYPE_ALIASES = {
+    "eye": "eog",
+    "heart": "ecg",
+    "cardiac": "ecg",
+    "channel_noise": "ch_noise",
+}
+
+
+def normalize_ic_type(value: Optional[str]) -> Optional[str]:
+    """Normalize an IC type/flag string to its canonical classifier label.
+
+    Handles case differences (e.g. ``"Ecg"`` -> ``"ecg"``) and known aliases
+    used in configs or historical docs (e.g. ``"heart"`` -> ``"ecg"``,
+    ``"channel_noise"`` -> ``"ch_noise"``, ``"eye"`` -> ``"eog"``). Values that
+    are not recognized aliases are lowercased and returned unchanged so
+    custom/future classifier labels still pass through untouched.
+
+    Parameters
+    ----------
+    value : str or None
+        The IC type or configured rejection flag to normalize.
+
+    Returns
+    -------
+    str or None
+        The canonical label, or ``None`` if ``value`` was ``None``.
+
+    Examples
+    --------
+    >>> normalize_ic_type("heart")
+    'ecg'
+    >>> normalize_ic_type("Ecg")
+    'ecg'
+    >>> normalize_ic_type("channel_noise")
+    'ch_noise'
+    >>> normalize_ic_type("brain")
+    'brain'
+    """
+    if value is None:
+        return None
+    normalized = str(value).strip().lower()
+    return _IC_TYPE_ALIASES.get(normalized, normalized)
 
 
 def fit_ica(
@@ -274,7 +330,9 @@ def classify_ica_components(
             # Default to strip layout for ~88% API cost reduction
             icvision_kwargs = {"layout": "strip", **kwargs}  # Allow user override
             try:
-                label_components(raw, ica, component_indices=component_indices, **icvision_kwargs)
+                label_components(
+                    raw, ica, component_indices=component_indices, **icvision_kwargs
+                )
 
                 # Prepare containers for vision-only metadata
                 vision_ic_type = [None] * n_comp
@@ -284,23 +342,26 @@ def classify_ica_components(
                 merged_ic_type = [""] * n_comp
                 # Fill from ICLabel first
                 for lbl, comps in iclabel_labels_dict.items():
+                    normalized_lbl = normalize_ic_type(lbl)
                     for ci in comps:
                         if 0 <= ci < n_comp:
-                            merged_ic_type[ci] = lbl
+                            merged_ic_type[ci] = normalized_lbl
                 # Overlay ICVision labels for the processed subset (as provided by icvision)
                 icvision_labels_dict = {
                     k: list(v) for k, v in getattr(ica, "labels_", {}).items()
                 }
                 for lbl, comps in icvision_labels_dict.items():
+                    normalized_lbl = normalize_ic_type(lbl)
                     for ci in comps:
                         if 0 <= ci < n_comp:
-                            merged_ic_type[ci] = lbl
-                            vision_ic_type[ci] = lbl
+                            merged_ic_type[ci] = normalized_lbl
+                            vision_ic_type[ci] = normalized_lbl
 
                 # Build merged confidence matrix: start from ICLabel scores, then replace subset rows with ICVision
                 # If ICLabel didn't provide scores, initialize to ones
                 if iclabel_scores is None or (
-                    hasattr(iclabel_scores, "shape") and iclabel_scores.shape[0] != n_comp
+                    hasattr(iclabel_scores, "shape")
+                    and iclabel_scores.shape[0] != n_comp
                 ):
                     # Initialize with 1.0 confidence for lack of better info
                     merged_scores = _np.ones((n_comp, 7), dtype=float)
@@ -321,7 +382,9 @@ def classify_ica_components(
                                 vision_confidence[comp_idx] = max_prob
                                 # Ensure number of classes aligns; if not, take max prob only
                                 if icvision_scores.shape[1] == merged_scores.shape[1]:
-                                    merged_scores[comp_idx, :] = icvision_scores[row_idx, :]
+                                    merged_scores[comp_idx, :] = icvision_scores[
+                                        row_idx, :
+                                    ]
                                 else:
                                     # Fallback: keep existing distribution but update max/confidence
                                     merged_scores[comp_idx, :] = max_prob
@@ -633,14 +696,25 @@ def apply_ica_component_rejection(
     if ic_rejection_overrides is None:
         ic_rejection_overrides = {}
 
+    # Normalize both sides of the comparison so alias spellings (e.g. the
+    # commonly-configured "heart") and case differences (e.g. "Ecg") match
+    # the canonical labels classifiers actually produce (see issue #226).
+    normalized_flags_to_reject = {
+        normalize_ic_type(flag) for flag in ic_flags_to_reject
+    }
+    normalized_overrides = {
+        normalize_ic_type(flag): threshold
+        for flag, threshold in ic_rejection_overrides.items()
+    }
+
     rejected_components = []
     for idx, row in labels_df.iterrows():
-        ic_type = row["ic_type"]
+        ic_type = normalize_ic_type(row["ic_type"])
         confidence = row["confidence"]
 
-        if ic_type in ic_flags_to_reject:
+        if ic_type in normalized_flags_to_reject:
             # Use override threshold if available, otherwise global threshold
-            threshold = ic_rejection_overrides.get(ic_type, ic_rejection_threshold)
+            threshold = normalized_overrides.get(ic_type, ic_rejection_threshold)
 
             if confidence > threshold:
                 rejected_components.append(idx)
