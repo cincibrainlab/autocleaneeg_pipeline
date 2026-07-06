@@ -16,7 +16,6 @@ from mne.preprocessing import ICA
 from autoclean.utils.logging import message
 
 # Optional import for ICVision
-# Optional import for ICVision
 try:
     from icvision.compat import label_components
 
@@ -542,10 +541,14 @@ def _icalabel_to_dataframe(ica: ICA) -> pd.DataFrame:
     # Initialize ic_type array with empty strings
     ic_type = [""] * ica.n_components_
 
-    # Fill in the component types based on labels
+    # Fill in the component types based on labels. Normalize here so every
+    # downstream consumer (rejection matching, reports, control sheet) sees
+    # the same canonical spelling regardless of which classifier produced
+    # the label or what casing it used (see issue #226).
     for label, comps in ica.labels_.items():
+        normalized_label = normalize_ic_type(label)
         for comp in comps:
-            ic_type[comp] = label
+            ic_type[comp] = normalized_label
 
     # Create DataFrame matching the original format with component index as DataFrame index
     results = pd.DataFrame(
