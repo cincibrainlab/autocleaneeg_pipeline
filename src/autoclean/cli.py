@@ -4994,9 +4994,7 @@ def cmd_exclude(args) -> int:
             return 1
 
         # Import lazily to avoid requiring GUI deps for non-GUI commands
-        from autoclean.tools.autoclean_exclude import (
-            run_autoclean_exclusion_tool,
-        )
+        from autoclean.tools.autoclean_exclude import run_autoclean_exclusion_tool
 
         message("info", f"Starting exclusion GUI at: {exports_dir}")
         run_autoclean_exclusion_tool(exports_dir=exports_dir, task_root=task_root)
