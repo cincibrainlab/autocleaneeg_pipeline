@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 from autoclean.utils.task_discovery import (
     DiscoveredTask,
     InvalidTaskFile,
@@ -131,7 +130,9 @@ class DuplicateTask(Task):
     # picking an arbitrary file.
     duplicate_tasks = [t for t in valid_tasks if t.name == "DuplicateTask"]
     assert duplicate_tasks == []
-    duplicate_errors = [f for f in invalid_files if "Duplicate task definition" in f.error]
+    duplicate_errors = [
+        f for f in invalid_files if "Duplicate task definition" in f.error
+    ]
     assert len(duplicate_errors) >= 2
 
 
@@ -231,9 +232,7 @@ class NormalTask(Task):
 
     custom_tasks = [t for t in valid_tasks if str(tasks_dir) in t.source]
     skipped_sources = {Path(entry.source).name for entry in skipped_files}
-    skipped_reasons = {
-        Path(entry.source).name: entry.reason for entry in skipped_files
-    }
+    skipped_reasons = {Path(entry.source).name: entry.reason for entry in skipped_files}
 
     assert [task.name for task in custom_tasks] == ["NormalTask"]
     assert "._resource_task.py" in skipped_sources
@@ -242,6 +241,65 @@ class NormalTask(Task):
         == "macOS resource fork file (starts with '._')"
     )
     assert not any("._resource_task.py" in entry.source for entry in invalid_files)
+
+
+def test_reserved_builtin_folder_skipped(monkeypatch, tmp_path):
+    """Files under a reserved built-in/reference subfolder are skipped, not loaded."""
+    tasks_dir = tmp_path / "tasks"
+    tasks_dir.mkdir()
+
+    # Real user task, nested a level deep - should still be discovered.
+    nested_dir = tasks_dir / "custom"
+    nested_dir.mkdir()
+    nested_task = nested_dir / "MyCustomTask.py"
+    nested_task.write_text(
+        """
+from autoclean.core.task import Task
+
+class MyCustomTask(Task):
+    def run(self):
+        pass
+""",
+        encoding="utf-8",
+    )
+
+    # Generated built-in reference copies under tasks/builtin/ - should be skipped.
+    builtin_dir = tasks_dir / "builtin"
+    builtin_dir.mkdir()
+    builtin_task = builtin_dir / "RestingEyesOpen.py"
+    builtin_task.write_text(
+        """
+from autoclean.core.task import Task
+
+class RestingEyesOpen(Task):
+    def run(self):
+        pass
+""",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        "autoclean.utils.user_config.user_config.tasks_dir",
+        tasks_dir,
+    )
+
+    valid_tasks, invalid_files, skipped_files = safe_discover_tasks()
+
+    custom_tasks = [t for t in valid_tasks if str(tasks_dir) in t.source]
+    task_names = {t.name for t in custom_tasks}
+
+    # Real user task discovered recursively.
+    assert "MyCustomTask" in task_names
+    # Built-in reference copy not treated as a user task.
+    assert "RestingEyesOpen" not in task_names
+
+    skipped_reasons = {Path(entry.source).name: entry.reason for entry in skipped_files}
+    assert (
+        skipped_reasons.get("RestingEyesOpen.py") == "Generated built-in reference task"
+    )
+
+    # Skipped, not flagged as invalid.
+    assert not any("RestingEyesOpen.py" in entry.source for entry in invalid_files)
 
 
 def test_error_messages_are_helpful(monkeypatch, tmp_path):
