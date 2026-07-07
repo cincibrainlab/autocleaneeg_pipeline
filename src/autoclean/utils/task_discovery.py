@@ -68,6 +68,9 @@ class TaskOverride(NamedTuple):
 
 # Folder names under the workspace tasks directory that are reserved for
 # generated/reference content and must never be discovered as user tasks.
+# "builtin" is the actual folder _copy_builtin_tasks() writes reference copies
+# to; ".cache" and "__pycache__" aren't created there today but are excluded
+# preemptively since nothing under them should ever be a real user task.
 RESERVED_TASK_DISCOVERY_DIRS = {"builtin", ".cache", "__pycache__"}
 
 
