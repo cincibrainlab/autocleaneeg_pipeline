@@ -1,6 +1,5 @@
 """Unit tests for BIDSMixin."""
 
-from pathlib import Path
 from unittest.mock import patch
 
 import mne
@@ -60,6 +59,71 @@ def task_with_epochs(tmp_path):
     t.epochs = mne.Epochs(
         raw, events, tmin=0, tmax=2.0, baseline=None, preload=True, verbose=False
     )
+    return t
+
+
+@pytest.fixture
+def task_with_two_condition_epochs(tmp_path):
+    """Epochs with two distinct event IDs, as in a pre-epoched ERP dataset."""
+    config = {
+        "run_id": "test",
+        "unprocessed_file": tmp_path / "test.fif",
+        "task": "test",
+    }
+    t = _BIDSTask(config)
+    raw = create_synthetic_raw(
+        montage="standard_1020", n_channels=8, duration=30.0, sfreq=250.0
+    )
+    fixed_events = mne.make_fixed_length_events(raw, duration=2.0)
+    fixed_events[::2, 2] = 1
+    fixed_events[1::2, 2] = 2
+    event_id = {"FREQ": 1, "RARE": 2}
+    t.epochs = mne.Epochs(
+        raw,
+        fixed_events,
+        event_id=event_id,
+        tmin=0,
+        tmax=2.0,
+        baseline=None,
+        preload=True,
+        verbose=False,
+    )
+    return t
+
+
+@pytest.fixture
+def task_with_real_meas_date_epochs(tmp_path):
+    """Epochs derived from a Raw with a real meas_date set, as with real recordings.
+
+    epochs.annotations.orig_time is non-None in this case, which previously
+    crashed condition-label annotation building in create_mock_raw_from_epochs
+    (mne.Annotations concatenation requires matching orig_time).
+    """
+    config = {
+        "run_id": "test",
+        "unprocessed_file": tmp_path / "test.fif",
+        "task": "test",
+    }
+    t = _BIDSTask(config)
+    raw = create_synthetic_raw(
+        montage="standard_1020", n_channels=8, duration=30.0, sfreq=250.0
+    )
+    raw.set_meas_date(1_600_000_000)
+    fixed_events = mne.make_fixed_length_events(raw, duration=2.0)
+    fixed_events[::2, 2] = 1
+    fixed_events[1::2, 2] = 2
+    event_id = {"FREQ": 1, "RARE": 2}
+    t.epochs = mne.Epochs(
+        raw,
+        fixed_events,
+        event_id=event_id,
+        tmin=0,
+        tmax=2.0,
+        baseline=None,
+        preload=True,
+        verbose=False,
+    )
+    assert t.epochs.annotations.orig_time is not None
     return t
 
 
@@ -258,3 +322,50 @@ class TestCreateMockRawFromEpochs:
         np.testing.assert_array_almost_equal(
             result.get_data(), expected_data
         )
+
+    def test_preserves_condition_labels_as_annotations(
+        self, task_with_two_condition_epochs
+    ):
+        """Condition structure must survive the epochs -> mock raw conversion."""
+        result = _create_mock_raw(task_with_two_condition_epochs)
+
+        descriptions = set(result.annotations.description)
+        assert descriptions == {"FREQ", "RARE"}
+
+    def test_annotation_count_matches_epoch_count(
+        self, task_with_two_condition_epochs
+    ):
+        epochs = task_with_two_condition_epochs.epochs
+        result = _create_mock_raw(task_with_two_condition_epochs)
+
+        assert len(result.annotations) == len(epochs)
+
+    def test_annotation_counts_per_condition_match_event_id(
+        self, task_with_two_condition_epochs
+    ):
+        epochs = task_with_two_condition_epochs.epochs
+        result = _create_mock_raw(task_with_two_condition_epochs)
+
+        from collections import Counter
+
+        orig_counts = Counter(epochs.events[:, 2].tolist())
+        code_to_label = {code: label for label, code in epochs.event_id.items()}
+        expected = Counter(
+            {code_to_label[code]: count for code, count in orig_counts.items()}
+        )
+        actual = Counter(result.annotations.description.tolist())
+        assert actual == expected
+
+    def test_does_not_raise_when_epochs_have_a_real_orig_time(
+        self, task_with_real_meas_date_epochs
+    ):
+        """Regression test: mne.Annotations concatenation requires matching
+        orig_time. Real recordings carry a non-None orig_time on
+        epochs.annotations (from the source Raw's meas_date), which must not
+        crash condition-label annotation building."""
+        result = _create_mock_raw(task_with_real_meas_date_epochs)
+
+        epochs = task_with_real_meas_date_epochs.epochs
+        descriptions = set(result.annotations.description)
+        assert descriptions == {"FREQ", "RARE"}
+        assert len(result.annotations) == len(epochs)
