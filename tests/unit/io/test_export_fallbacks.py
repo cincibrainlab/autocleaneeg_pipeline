@@ -1,12 +1,13 @@
 """Tests for export fallbacks used by large EEGLAB outputs."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
+import mne
 import numpy as np
 import pytest
 
-from autoclean.io.export import save_epochs_to_set, save_raw_to_set
+from autoclean.io.export import save_epochs_to_set, save_ica_to_fif, save_raw_to_set
 
 
 def _autoclean_dict(tmp_path: Path) -> dict:
@@ -78,3 +79,48 @@ def test_save_epochs_to_set_falls_back_to_chunked_for_eeglab_size_error(
     mock_loadmat.assert_called_once_with(chunk_path)
     mock_savemat.assert_called_once()
     assert mock_manage_database.call_count == 2  # metadata + status updates
+
+
+def _ica_autoclean_dict(tmp_path: Path) -> dict:
+    return {
+        "run_id": "run-001",
+        "unprocessed_file": str(tmp_path / "sample.set"),
+        "derivatives_dir": tmp_path / "derivatives",
+        "ica_dir": tmp_path / "ica",
+    }
+
+
+@patch("autoclean.io.export.manage_database_conditionally")
+@patch("autoclean.io.export.save_raw_to_set")
+@patch("autoclean.io.export.save_epochs_to_set")
+def test_save_ica_to_fif_dispatches_to_save_epochs_to_set_for_epochs(
+    mock_save_epochs, mock_save_raw, mock_manage_database, tmp_path: Path
+) -> None:
+    """save_ica_to_fif should save epochs (not raw) when pre_ica_raw is Epochs."""
+    ica = MagicMock()
+    ica.exclude = []
+    epochs = MagicMock(spec=mne.BaseEpochs)
+    mock_save_epochs.return_value = tmp_path / "pre_ica_epo.set"
+
+    save_ica_to_fif(ica, _ica_autoclean_dict(tmp_path), epochs)
+
+    mock_save_epochs.assert_called_once_with(epochs, ANY, stage="pre_ica")
+    mock_save_raw.assert_not_called()
+
+
+@patch("autoclean.io.export.manage_database_conditionally")
+@patch("autoclean.io.export.save_raw_to_set")
+@patch("autoclean.io.export.save_epochs_to_set")
+def test_save_ica_to_fif_dispatches_to_save_raw_to_set_for_raw(
+    mock_save_epochs, mock_save_raw, mock_manage_database, tmp_path: Path
+) -> None:
+    """save_ica_to_fif should save raw (not epochs) when pre_ica_raw is Raw."""
+    ica = MagicMock()
+    ica.exclude = []
+    raw = MagicMock(spec=mne.io.BaseRaw)
+    mock_save_raw.return_value = tmp_path / "pre_ica_raw.set"
+
+    save_ica_to_fif(ica, _ica_autoclean_dict(tmp_path), raw)
+
+    mock_save_raw.assert_called_once_with(raw, ANY, stage="pre_ica")
+    mock_save_epochs.assert_not_called()
