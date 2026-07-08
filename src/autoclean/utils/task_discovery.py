@@ -66,6 +66,14 @@ class TaskOverride(NamedTuple):
     description: str
 
 
+# Folder names under the workspace tasks directory that are reserved for
+# generated/reference content and must never be discovered as user tasks.
+# "builtin" is the actual folder _copy_builtin_tasks() writes reference copies
+# to; ".cache" and "__pycache__" aren't created there today but are excluded
+# preemptively since nothing under them should ever be a real user task.
+RESERVED_TASK_DISCOVERY_DIRS = {"builtin", ".cache", "__pycache__"}
+
+
 def _extract_task_description(task_class: Type[Task]) -> str:
     """Extract a clean description from a task's docstring."""
     if not task_class.__doc__:
@@ -175,6 +183,17 @@ def _discover_custom_tasks() -> (
 
     # Scan for Python files recursively (including subdirectories)
     for task_file in user_config.tasks_dir.rglob("*.py"):
+        # Skip generated built-in/reference task copies stored under a reserved
+        # subfolder (e.g. tasks/builtin/) so they aren't discovered as user tasks
+        relative_parts = task_file.relative_to(user_config.tasks_dir).parts
+        if RESERVED_TASK_DISCOVERY_DIRS.intersection(relative_parts):
+            skipped_files.append(
+                SkippedTaskFile(
+                    source=str(task_file),
+                    reason="Generated built-in reference task",
+                )
+            )
+            continue
         # Skip macOS resource fork files, private files, templates, and test fixtures
         if task_file.name.startswith("._"):
             skipped_files.append(
@@ -327,23 +346,20 @@ def safe_discover_tasks() -> (
         else:
             # Found duplicate - workspace task overrides built-in task
             existing_task = seen_names[task.name]
-            existing_source = Path(existing_task.source).name
             override_source = Path(task.source).name
 
             # Determine if this is a workspace override of a built-in task
             # Check if sources are workspace vs built-in by checking if they're in the workspace tasks dir
-            existing_is_workspace = (
-                USER_CONFIG_AVAILABLE
-                and str(existing_task.source).startswith(str(user_config.tasks_dir))
-            )
-            current_is_workspace = (
-                USER_CONFIG_AVAILABLE
-                and str(task.source).startswith(str(user_config.tasks_dir))
-            )
+            existing_is_workspace = USER_CONFIG_AVAILABLE and str(
+                existing_task.source
+            ).startswith(str(user_config.tasks_dir))
+            current_is_workspace = USER_CONFIG_AVAILABLE and str(
+                task.source
+            ).startswith(str(user_config.tasks_dir))
             # If it's not a workspace task, it's a built-in task (since we discover custom tasks first)
             existing_is_builtin = not existing_is_workspace
             current_is_builtin = not current_is_workspace
-            
+
             if existing_is_workspace and current_is_builtin:
                 # Workspace task is already loaded, built-in task is being skipped
                 # This is expected behavior - workspace tasks override built-in ones
@@ -363,10 +379,10 @@ def safe_discover_tasks() -> (
                 if task.name not in duplicate_workspace_tasks:
                     duplicate_workspace_tasks[task.name] = [existing_task]
                 duplicate_workspace_tasks[task.name].append(task)
-                
+
                 # Remove the first occurrence from unique_tasks since it's actually a duplicate
                 unique_tasks = [t for t in unique_tasks if t.name != task.name]
-                
+
                 # Flag the second file as invalid (first will be flagged after the loop)
                 override_info.append(
                     InvalidTaskFile(
@@ -374,7 +390,7 @@ def safe_discover_tasks() -> (
                         error=f"Duplicate task definition detected. Class '{task.name}' exists in multiple files. Update the class name in {override_source} to a unique value.",
                     )
                 )
-    
+
     # Flag the first file in each duplicate pair (after loop to avoid double-processing)
     for task_name, duplicate_files in duplicate_workspace_tasks.items():
         if len(duplicate_files) > 1:
