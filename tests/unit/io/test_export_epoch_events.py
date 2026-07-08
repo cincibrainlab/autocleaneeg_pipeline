@@ -45,9 +45,7 @@ def test_export_reopen_preserves_event_labels_and_codes(
     """No additional_events metadata: epochs.event_id must survive export/reopen."""
     epochs = _make_epochs()
 
-    result = save_epochs_to_set(
-        epochs, _autoclean_dict(tmp_path), stage="post_import"
-    )
+    result = save_epochs_to_set(epochs, _autoclean_dict(tmp_path), stage="post_import")
     reopened = mne.io.read_epochs_eeglab(str(result), verbose=False)
 
     assert reopened.event_id == {"FREQ": 1, "RARE": 2}
@@ -62,9 +60,7 @@ def test_export_reopen_preserves_counts_per_condition(
 ) -> None:
     epochs = _make_epochs(n_epochs=12)
 
-    result = save_epochs_to_set(
-        epochs, _autoclean_dict(tmp_path), stage="post_import"
-    )
+    result = save_epochs_to_set(epochs, _autoclean_dict(tmp_path), stage="post_import")
     reopened = mne.io.read_epochs_eeglab(str(result), verbose=False)
 
     for label, code in epochs.event_id.items():
@@ -83,16 +79,10 @@ def test_export_with_valid_metadata_still_preserves_codes(
     epochs = _make_epochs(n_epochs=6)
     labels = ["FREQ", "RARE"]
     epochs.metadata = pd.DataFrame(
-        {
-            "additional_events": [
-                [(labels[i % 2], 0.0)] for i in range(len(epochs))
-            ]
-        }
+        {"additional_events": [[(labels[i % 2], 0.0)] for i in range(len(epochs))]}
     )
 
-    result = save_epochs_to_set(
-        epochs, _autoclean_dict(tmp_path), stage="post_import"
-    )
+    result = save_epochs_to_set(epochs, _autoclean_dict(tmp_path), stage="post_import")
     reopened = mne.io.read_epochs_eeglab(str(result), verbose=False)
 
     assert reopened.event_id == {"FREQ": 1, "RARE": 2}

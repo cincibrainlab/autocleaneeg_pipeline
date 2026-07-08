@@ -20,7 +20,9 @@ from autoclean.utils.logging import message
 __all__ = ["extract_epoch_events"]
 
 
-def _primary_events(epochs: mne.BaseEpochs) -> Tuple[np.ndarray, Dict[str, int], np.ndarray]:
+def _primary_events(
+    epochs: mne.BaseEpochs,
+) -> Tuple[np.ndarray, Dict[str, int], np.ndarray]:
     """Build one event per epoch directly from epochs.events / epochs.event_id."""
     n_epochs = len(epochs)
     event_id = dict(epochs.event_id) if epochs.event_id else {}
@@ -96,7 +98,11 @@ def _rebuild_from_metadata(
     event_id_rebuilt: Dict[str, int] = {}
     for label in all_labels:
         match = next(
-            (code for orig_label, code in epochs.event_id.items() if str(orig_label) == label),
+            (
+                code
+                for orig_label, code in epochs.event_id.items()
+                if str(orig_label) == label
+            ),
             None,
         )
         if match is None:
