@@ -92,8 +92,14 @@ def _rebuild_from_metadata(
         if not isinstance(entry, list):
             continue
         for event_tuple in entry:
-            if isinstance(event_tuple, (list, tuple)) and len(event_tuple) >= 1:
-                all_labels.add(str(event_tuple[0]))
+            if not isinstance(event_tuple, (list, tuple)) or len(event_tuple) != 2:
+                message(
+                    "warning",
+                    "Malformed additional_events entry encountered; falling back "
+                    "to epochs.events/epochs.event_id.",
+                )
+                return None
+            all_labels.add(str(event_tuple[0]))
 
     event_id_rebuilt: Dict[str, int] = {}
     for label in all_labels:
@@ -122,7 +128,8 @@ def _rebuild_from_metadata(
     for i, entry in enumerate(metadata["additional_events"].head(n_rows)):
         if not isinstance(entry, list):
             continue
-        for label, rel_time in entry:
+        for event_tuple in entry:
+            label, rel_time = event_tuple
             try:
                 sample_in_epoch = int(round((float(rel_time) - epochs.tmin) * sfreq))
             except (TypeError, ValueError):

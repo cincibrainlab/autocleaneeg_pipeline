@@ -127,6 +127,24 @@ class TestMetadataSource:
         # Original condition codes must not be silently replaced/renumbered.
         assert event_id == {"FREQ": 1, "RARE": 2}
 
+    def test_falls_back_to_primary_when_metadata_entry_malformed(self):
+        epochs = _make_epochs(n_epochs=4)
+        epochs.metadata = pd.DataFrame(
+            {
+                "additional_events": [
+                    [("FREQ", 0.0)],
+                    [("RARE",)],
+                    [("FREQ", 0.0)],
+                    [("RARE", 0.0)],
+                ]
+            }
+        )
+
+        _events, event_id, _epoch_indices, source = extract_epoch_events(epochs)
+
+        assert source == "primary"
+        assert event_id == {"FREQ": 1, "RARE": 2}
+
     def test_never_invents_codes_outside_original_event_id(self):
         epochs = _make_epochs(n_epochs=4)
         epochs.metadata = pd.DataFrame(
