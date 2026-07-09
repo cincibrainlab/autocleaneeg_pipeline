@@ -15,9 +15,7 @@ except ImportError:
     TASK_AVAILABLE = False
 
 
-pytestmark = pytest.mark.skipif(
-    not TASK_AVAILABLE, reason="Task module not available"
-)
+pytestmark = pytest.mark.skipif(not TASK_AVAILABLE, reason="Task module not available")
 
 
 class _PSDTask(Task):
@@ -104,9 +102,7 @@ class TestApplySensorPsd:
 
         class _DisabledTask(_PSDTask):
             def __init__(self, c):
-                self.settings = {
-                    "apply_sensor_psd": {"enabled": False, "value": {}}
-                }
+                self.settings = {"apply_sensor_psd": {"enabled": False, "value": {}}}
                 super(_PSDTask, self).__init__(c)
 
             def run(self):
@@ -131,7 +127,6 @@ class TestApplySensorPsd:
         with pytest.raises(ValueError, match="No epochs available"):
             task.apply_sensor_psd()
 
-
     def test_custom_bands_and_time_windows_are_reflected_in_outputs(self, task):
         """Custom bands/windows should be accepted and written into PSD tables."""
         with (
@@ -152,7 +147,6 @@ class TestApplySensorPsd:
         assert metadata["time_windows"] == {"early": [0.0, 1.0]}
         assert metadata["freq_bands"]["skip_me"] is None
 
-
     def test_freq_bands_none_skips_band_summary(self, task):
         """freq_bands=None should skip band-power rows instead of using defaults."""
         with (
@@ -169,6 +163,7 @@ class TestApplySensorPsd:
         assert band_df.empty
         metadata = update_metadata.call_args.args[1]
         assert metadata["freq_bands"] == {}
+
     def test_custom_band_outside_psd_range_raises(self, task):
         """Bands outside the computed PSD range fail with an actionable error."""
         with pytest.raises(ValueError, match="outside PSD range"):
@@ -178,6 +173,7 @@ class TestApplySensorPsd:
                 fmax=20,
                 freq_bands={"gamma": [30, 45]},
             )
+
     def test_raises_type_error_for_non_epochs_input(self, task):
         """apply_sensor_psd raises TypeError when passed a non-Epochs object."""
         with pytest.raises(TypeError):

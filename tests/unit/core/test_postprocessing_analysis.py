@@ -91,7 +91,48 @@ def test_postprocessing_analysis_runs_enabled_blocks_in_documented_order(task):
         "source_psd",
     ]
     update_metadata.assert_called_once()
-    assert (task.config["reports_dir"] / "postprocessing_analysis" / "resolved_settings.json").exists()
+    assert (
+        task.config["reports_dir"]
+        / "postprocessing_analysis"
+        / "resolved_settings.json"
+    ).exists()
+
+
+def test_postprocessing_analysis_disabled_returns_empty_list(task):
+    task.settings = {"postprocessing_analysis": {"enabled": False, "value": {}}}
+
+    results = task.run_postprocessing_analysis()
+
+    assert results == []
+    assert task.calls == []
+
+
+def test_postprocessing_analysis_rejects_non_dict_value(task):
+    task.settings = {
+        "postprocessing_analysis": {"enabled": True, "value": "not-a-dict"}
+    }
+
+    with pytest.raises(ValueError, match="must be a dictionary"):
+        task.run_postprocessing_analysis()
+
+
+def test_postprocessing_analysis_propagates_block_errors(task):
+    task.settings = {
+        "postprocessing_analysis": {
+            "enabled": True,
+            "value": {
+                "sensor_psd": {"enabled": True, "input": "clean_epochs"},
+            },
+        }
+    }
+
+    def _raise(**kwargs):
+        raise RuntimeError("boom")
+
+    task.apply_sensor_psd = _raise
+
+    with pytest.raises(RuntimeError, match="boom"):
+        task.run_postprocessing_analysis()
 
 
 def test_postprocessing_analysis_rejects_missing_input(task):
@@ -106,6 +147,7 @@ def test_postprocessing_analysis_rejects_missing_input(task):
 
     with pytest.raises(ValueError, match="source_psd.*not available"):
         task.run_postprocessing_analysis()
+
 
 def test_postprocessing_fooof_consumes_sensor_psd_table(task):
     task.sensor_psd_result = {

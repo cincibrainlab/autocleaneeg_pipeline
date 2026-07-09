@@ -679,7 +679,15 @@ class Pipeline:
                             )
 
             task_object.run()
-            task_object.run_postprocessing_analysis()
+
+            try:
+                task_object.run_postprocessing_analysis()
+            except Exception as postprocessing_error:  # pylint: disable=broad-except
+                message(
+                    "warning",
+                    "Postprocessing analysis failed and was skipped: "
+                    f"{postprocessing_error}",
+                )
 
             try:
                 flagged, flagged_reasons = task_object.get_flagged_status()

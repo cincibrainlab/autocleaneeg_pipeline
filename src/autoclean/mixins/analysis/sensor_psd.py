@@ -39,9 +39,15 @@ class SensorPSDMixin:
         adaptive: bool = False,
         low_bias: bool = True,
         normalization: str = "length",
-        freq_bands: Optional[Union[str, Dict[str, Optional[Tuple[float, float]]]]] = "default",
-        time_windows: Optional[Union[List[float], Tuple[float, float], Dict[str, Any]]] = None,
-        baseline: Optional[Union[List[Optional[float]], Tuple[Optional[float], Optional[float]]]] = None,
+        freq_bands: Optional[
+            Union[str, Dict[str, Optional[Tuple[float, float]]]]
+        ] = "default",
+        time_windows: Optional[
+            Union[List[float], Tuple[float, float], Dict[str, Any]]
+        ] = None,
+        baseline: Optional[
+            Union[List[Optional[float]], Tuple[Optional[float], Optional[float]]]
+        ] = None,
         stage_name: str = "apply_sensor_psd",
     ) -> tuple:
         """Calculate scalp-electrode PSD summaries from Raw or epoched EEG data."""
@@ -77,10 +83,14 @@ class SensorPSDMixin:
             elif hasattr(self, "raw") and self.raw is not None:
                 data = self.raw
             else:
-                raise ValueError("No epochs available and no raw data available for sensor PSD.")
+                raise ValueError(
+                    "No epochs available and no raw data available for sensor PSD."
+                )
 
         if not isinstance(data, (mne.io.BaseRaw, mne.BaseEpochs)):
-            raise TypeError(f"data must be an MNE Raw or Epochs object, got {type(data)}")
+            raise TypeError(
+                f"data must be an MNE Raw or Epochs object, got {type(data)}"
+            )
 
         method = str(method).lower()
         if method not in {"welch", "multitaper"}:
@@ -103,6 +113,7 @@ class SensorPSDMixin:
         psd_rows = []
         band_rows = []
         metadata_windows = {}
+        window_details: Dict[str, Dict[str, Any]] = {}
         last_freqs = None
         last_psd_kwargs = {}
         n_channels = 0
@@ -117,7 +128,9 @@ class SensorPSDMixin:
                 raise ValueError("No channels selected for sensor PSD analysis.")
 
             if window_limits is not None:
-                start, stop = self._validate_sensor_psd_time_window(data_to_use, window_limits)
+                start, stop = self._validate_sensor_psd_time_window(
+                    data_to_use, window_limits
+                )
                 data_to_use.crop(tmin=start, tmax=stop)
                 metadata_windows[window_name] = [float(start), float(stop)]
             else:
@@ -142,7 +155,9 @@ class SensorPSDMixin:
                 if local_n_fft is None:
                     local_n_fft = max(2, min(int(round(4 * sfreq)), sample_count))
                 if local_n_overlap is None:
-                    local_n_overlap = min(max(0, local_n_fft // 2), max(0, local_n_fft - 1))
+                    local_n_overlap = min(
+                        max(0, local_n_fft // 2), max(0, local_n_fft - 1)
+                    )
                 psd_kwargs.update(
                     {
                         "n_fft": int(local_n_fft),
@@ -172,10 +187,11 @@ class SensorPSDMixin:
 
             if isinstance(data_to_use, mne.BaseEpochs):
                 mean_psd = np.mean(psd_values, axis=0)
-                n_observations += len(data_to_use)
+                window_n_observations = len(data_to_use)
             else:
                 mean_psd = psd_values
-                n_observations += 1
+                window_n_observations = 1
+            n_observations += window_n_observations
 
             n_channels = len(data_to_use.ch_names)
             last_freqs = freqs
@@ -183,6 +199,30 @@ class SensorPSDMixin:
             valid_bands = self._validate_sensor_psd_freq_bands(
                 requested_bands, freqs, fmin=float(fmin), fmax=float(fmax)
             )
+
+            window_detail = {
+                "frequency_range": (
+                    [float(freqs[0]), float(freqs[-1])] if len(freqs) else []
+                ),
+                "n_frequencies": int(len(freqs)),
+                "n_observations_analyzed": int(window_n_observations),
+                "n_channels": int(len(data_to_use.ch_names)),
+            }
+            if method == "welch":
+                window_detail["n_fft"] = int(psd_kwargs.get("n_fft", 0))
+                window_detail["n_overlap"] = int(psd_kwargs.get("n_overlap", 0))
+            else:
+                window_detail["bandwidth"] = (
+                    float(psd_kwargs["bandwidth"])
+                    if "bandwidth" in psd_kwargs
+                    else None
+                )
+                window_detail["adaptive"] = bool(psd_kwargs.get("adaptive", False))
+                window_detail["low_bias"] = bool(psd_kwargs.get("low_bias", True))
+                window_detail["normalization"] = psd_kwargs.get(
+                    "normalization", normalization
+                )
+            window_details[window_name] = window_detail
 
             for ch_idx, ch_name in enumerate(data_to_use.ch_names):
                 channel_psd = mean_psd[ch_idx]
@@ -200,7 +240,9 @@ class SensorPSDMixin:
                 for band_name, (band_min, band_max) in valid_bands.items():
                     band_mask = (freqs >= band_min) & (freqs < band_max)
                     band_power = (
-                        float(np.mean(channel_psd[band_mask])) if np.any(band_mask) else 0.0
+                        float(np.mean(channel_psd[band_mask]))
+                        if np.any(band_mask)
+                        else 0.0
                     )
                     band_rows.append(
                         {
@@ -228,7 +270,15 @@ class SensorPSDMixin:
             "stage_name": stage_name,
             "method": method,
             "input_type": "epochs" if isinstance(data, mne.BaseEpochs) else "raw",
-            "frequency_range": [float(freqs[0]), float(freqs[-1])] if len(freqs) else [],
+            # Per-window breakdown (authoritative when multiple time windows are
+            # requested, since window length/cropping can change frequency
+            # resolution between windows).
+            "windows": window_details,
+            # Convenience top-level fields mirroring the last window processed;
+            # only reliable when a single time window was requested.
+            "frequency_range": (
+                [float(freqs[0]), float(freqs[-1])] if len(freqs) else []
+            ),
             "n_frequencies": int(len(freqs)),
             "n_observations_analyzed": int(n_observations),
             "n_channels": int(n_channels),
@@ -258,7 +308,7 @@ class SensorPSDMixin:
 
     @staticmethod
     def _normalize_sensor_psd_time_windows(
-        time_windows: Optional[Union[List[float], Tuple[float, float], Dict[str, Any]]]
+        time_windows: Optional[Union[List[float], Tuple[float, float], Dict[str, Any]]],
     ) -> Dict[str, Optional[Tuple[float, float]]]:
         if time_windows is None:
             return {"all": None}
@@ -279,7 +329,9 @@ class SensorPSDMixin:
         raise ValueError("time_windows must be None, [start, stop], or a mapping")
 
     @staticmethod
-    def _validate_sensor_psd_time_window(data, limits: Tuple[float, float]) -> Tuple[float, float]:
+    def _validate_sensor_psd_time_window(
+        data, limits: Tuple[float, float]
+    ) -> Tuple[float, float]:
         start, stop = float(limits[0]), float(limits[1])
         if start >= stop:
             raise ValueError("time window start must be less than stop")
@@ -309,7 +361,9 @@ class SensorPSDMixin:
                 raise ValueError("freq_bands values must be None or [low, high] Hz")
             low, high = float(limits[0]), float(limits[1])
             if low >= high:
-                raise ValueError(f"frequency band '{name}' start must be less than stop")
+                raise ValueError(
+                    f"frequency band '{name}' start must be less than stop"
+                )
             if low < min_freq or high > max_freq:
                 raise ValueError(
                     f"frequency band '{name}' [{low}, {high}] is outside PSD range "
@@ -317,6 +371,7 @@ class SensorPSDMixin:
                 )
             valid[str(name)] = (low, high)
         return valid
+
     def _save_sensor_psd_tables(
         self,
         psd_df: pd.DataFrame,

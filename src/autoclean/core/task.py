@@ -20,7 +20,7 @@ try:
     from autoclean.mixins import DISCOVERED_MIXINS
 
     if not DISCOVERED_MIXINS:
-        print("ðŸš¨ CRITICAL ERROR: DISCOVERED_MIXINS is empty!")
+        print("🚨 CRITICAL ERROR: DISCOVERED_MIXINS is empty!")
         print("Task class will be missing all mixin functionality!")
         print("Check autoclean.mixins package for import errors.")
 
@@ -34,7 +34,7 @@ try:
 
         DISCOVERED_MIXINS = (_EmptyMixinFallback,)
 except ImportError as e:
-    print("ðŸš¨ CRITICAL ERROR: Could not import DISCOVERED_MIXINS!")
+    print("🚨 CRITICAL ERROR: Could not import DISCOVERED_MIXINS!")
     print(f"Import error: {e}")
     print("Task class will be missing all mixin functionality!")
 
@@ -340,7 +340,9 @@ class Task(ABC, *DISCOVERED_MIXINS):
         if block_name == "sensor_psd":
             method = getattr(self, "apply_sensor_psd", None)
             if method is None:
-                raise ValueError("sensor_psd requested but apply_sensor_psd is unavailable")
+                raise ValueError(
+                    "sensor_psd requested but apply_sensor_psd is unavailable"
+                )
             freq_range = settings.get("freq_range", [1.0, 45.0])
             psd_kwargs = {
                 "data": data_object,
@@ -393,7 +395,9 @@ class Task(ABC, *DISCOVERED_MIXINS):
         if block_name == "source_psd":
             method = getattr(self, "apply_source_psd", None)
             if method is None:
-                raise ValueError("source_psd requested but apply_source_psd is unavailable")
+                raise ValueError(
+                    "source_psd requested but apply_source_psd is unavailable"
+                )
             psd_df, file_path = self._call_postprocessing_method(
                 method,
                 "apply_source_psd",
@@ -433,7 +437,9 @@ class Task(ABC, *DISCOVERED_MIXINS):
             aperiodic = getattr(self, "apply_fooof_aperiodic", None)
             periodic = getattr(self, "apply_fooof_periodic", None)
             if aperiodic is None:
-                raise ValueError("fooof requested but apply_fooof_aperiodic is unavailable")
+                raise ValueError(
+                    "fooof requested but apply_fooof_aperiodic is unavailable"
+                )
             freq_range = settings.get("freq_range", [1.0, 45.0])
             aperiodic_df, aperiodic_file = self._call_postprocessing_method(
                 aperiodic,
@@ -474,7 +480,13 @@ class Task(ABC, *DISCOVERED_MIXINS):
         settings: dict[str, Any],
         **kwargs: Any,
     ) -> Any:
-        """Call legacy analysis methods from the new postprocessing block config."""
+        """Call legacy analysis methods from the new postprocessing block config.
+
+        Temporarily stages `settings` under `legacy_step_name` in
+        `self.settings` so the legacy mixin's own `_check_step_enabled`-based
+        config parsing sees it as enabled, without duplicating that parsing
+        here. Safe under sequential block execution; do not call concurrently.
+        """
 
         legacy_value = {
             key: value
@@ -521,7 +533,13 @@ class Task(ABC, *DISCOVERED_MIXINS):
         settings: dict[str, Any],
         input_name: str,
     ) -> tuple[Any, Path, Any, Optional[Path]]:
-        """Parameterize spectra already represented as a PSD table."""
+        """Parameterize spectra already represented as a PSD table.
+
+        This lightweight log-log parameterization estimates peak center
+        frequency and power but not bandwidth, so peak rows always report
+        ``bandwidth: None`` (unlike ``apply_fooof_periodic``, which fits full
+        Gaussian peaks and can estimate bandwidth directly).
+        """
 
         import numpy as np
         import pandas as pd
@@ -624,7 +642,9 @@ class Task(ABC, *DISCOVERED_MIXINS):
         periodic_df = pd.DataFrame(peak_rows)
         periodic_file = None
         if settings.get("run_periodic", True):
-            periodic_file = output_dir / f"{subject_id}_postprocessing_fooof_periodic.csv"
+            periodic_file = (
+                output_dir / f"{subject_id}_postprocessing_fooof_periodic.csv"
+            )
             periodic_df.to_csv(periodic_file, index=False)
             self.fooof_periodic_df = periodic_df
             self.fooof_periodic_file = str(periodic_file)
@@ -726,6 +746,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
         output_file = output_dir / "resolved_settings.json"
         with output_file.open("w", encoding="utf-8") as handle:
             json.dump(results, handle, indent=2, default=str)
+
     def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate the complete task configuration.
 
