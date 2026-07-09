@@ -3010,6 +3010,11 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     return parser
 
 
+def _is_single_eeg_input_path(path: Path) -> bool:
+    """Return True for a single EEG recording, including directory packages."""
+    return path.is_file() or (path.is_dir() and path.suffix.lower() == ".mff")
+
+
 def _show_process_guard(args) -> bool:
     """Show interactive guard with key information before processing.
 
@@ -3121,7 +3126,7 @@ def _show_process_guard(args) -> bool:
         console.print(f"   Path: [accent]{input_path}[/accent]")
 
         if input_path.exists():
-            if input_path.is_file():
+            if _is_single_eeg_input_path(input_path):
                 console.print("   Type: [accent]Single File[/accent]")
                 # Show file size
                 try:
@@ -3562,7 +3567,7 @@ def cmd_process(args) -> int:
             return 0
 
         # Process files
-        if args.final_input.is_file():
+        if _is_single_eeg_input_path(args.final_input):
             message("info", f"Processing single file: {args.final_input}")
             pipeline.process_file(file_path=args.final_input, task=task_name)
         else:

@@ -113,9 +113,16 @@ except ImportError:
 matplotlib.use("Agg")
 
 
-def _expand_brace_glob(pattern: str) -> list[str]:
-    """Expand simple brace globs like '*.{raw,set,bdf, mff, edf}' into ['*.raw', '*.set', '*.bdf', '*mff', '*edf'].
+def _is_eeg_directory_package(path: Path) -> bool:
+    """Return True for directory-backed EEG package inputs."""
+    return path.is_dir() and path.suffix.lower() == ".mff"
 
+
+def _expand_brace_glob(pattern: str) -> list[str]:
+    """Expand simple brace globs like '*.{raw,set,bdf,mff,edf}'.
+
+    Example: '*.{raw,set,bdf,mff,edf}' expands to
+    ['*.raw', '*.set', '*.bdf', '*.mff', '*.edf'].
     This supports a single pair of braces with comma-separated options.
     If no braces are present, returns the pattern as a single-item list.
     """
@@ -1093,10 +1100,12 @@ class Pipeline:
 
         # List all files in directory for debugging
         all_files = list(directory.iterdir())
+        all_file_names = [
+            f.name for f in all_files if f.is_file() or _is_eeg_directory_package(f)
+        ]
         message(
             "debug",
-            f"All files in directory ({len(all_files)}): "
-            f"{[f.name for f in all_files if f.is_file() or f.suffix.lower() == '.mff']}",
+            f"All files in directory ({len(all_files)}): {all_file_names}",
         )
 
         # Support brace expansion patterns like '*.{raw,set,bdf, mff, edf}'
@@ -1114,7 +1123,6 @@ class Pipeline:
 
         if not files:
             message("warning", f"No files matching '{pattern}' found in {directory}")
-            all_file_names = [f.name for f in all_files if f.is_file()]
             message("info", f"Available files: {all_file_names}")
 
             # No need for manual suggestion since auto-correction happens above
@@ -1221,9 +1229,12 @@ class Pipeline:
 
         # List all files in directory for debugging
         all_files = list(directory_path.iterdir())
+        all_file_names = [
+            f.name for f in all_files if f.is_file() or _is_eeg_directory_package(f)
+        ]
         message(
             "debug",
-            f"All files in directory ({len(all_files)}): {[f.name for f in all_files if f.is_file()]}",
+            f"All files in directory ({len(all_files)}): {all_file_names}",
         )
 
         # Support brace expansion patterns like '*.{raw,set,bdf, mff, edf}'
@@ -1243,7 +1254,6 @@ class Pipeline:
             message(
                 "warning", f"No files matching '{pattern}' found in {directory_path}"
             )
-            all_file_names = [f.name for f in all_files if f.is_file()]
             message("info", f"Available files: {all_file_names}")
 
             # No need for manual suggestion since auto-correction happens above

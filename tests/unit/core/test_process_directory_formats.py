@@ -6,10 +6,12 @@ them as top-level inputs (with .mff treated as a single package, not
 descended into), and it should never regress back to a narrower default.
 """
 
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 
+from autoclean.cli import _is_single_eeg_input_path, cmd_process
 from autoclean.core.pipeline import Pipeline
 
 
@@ -65,3 +67,48 @@ def test_no_regression_to_narrower_default_pattern():
     )
     assert "mff" in default_pattern
     assert "edf" in default_pattern
+
+
+def test_direct_mff_directory_is_single_eeg_input(tmp_path):
+    mff_dir = tmp_path / "direct_recording.mff"
+    mff_dir.mkdir()
+
+    assert _is_single_eeg_input_path(mff_dir)
+
+
+def test_process_command_routes_direct_mff_to_process_file(tmp_path, monkeypatch):
+    mff_dir = tmp_path / "direct_recording.mff"
+    mff_dir.mkdir()
+    output_dir = tmp_path / "output"
+    calls = []
+
+    class DummyPipeline:
+        def __init__(self, **_kwargs):
+            pass
+
+        def process_file(self, file_path, task):
+            calls.append(("file", file_path, task))
+
+        def process_directory(self, **_kwargs):
+            calls.append(("directory",))
+
+    monkeypatch.setattr("autoclean.cli.PIPELINE_AVAILABLE", True)
+    monkeypatch.setattr("autoclean.cli.Pipeline", DummyPipeline)
+    monkeypatch.setattr("autoclean.cli.get_task_by_name", lambda _name: object())
+    monkeypatch.setattr("autoclean.cli.has_logged_errors", lambda: False)
+
+    args = SimpleNamespace(
+        output=output_dir,
+        automation=None,
+        verbose=False,
+        task_file=None,
+        final_task="RestingEyesOpen",
+        final_input=mff_dir,
+        dry_run=False,
+        format="*.{raw,set,bdf,mff,edf}",
+        recursive=False,
+        parallel=None,
+    )
+
+    assert cmd_process(args) == 0
+    assert calls == [("file", mff_dir, "RestingEyesOpen")]
