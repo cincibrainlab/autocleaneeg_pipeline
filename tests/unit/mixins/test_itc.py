@@ -1,10 +1,8 @@
 """Unit tests for InterTrialCoherenceMixin (mixins/analysis/inter_trial_coherence.py)."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import mne
-import numpy as np
 import pytest
 
 from tests.fixtures.synthetic_data import create_synthetic_raw

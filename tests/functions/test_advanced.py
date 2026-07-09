@@ -43,7 +43,6 @@ class TestAutoRejectEpochs:
             mock_ar.return_value = mock_instance
 
             # Mock cleaned epochs (remove some epochs to simulate rejection)
-            clean_data = epochs.get_data()[::2]  # Keep every other epoch
             mock_cleaned_epochs = epochs.copy()[::2]
             mock_instance.fit_transform.return_value = mock_cleaned_epochs
 
