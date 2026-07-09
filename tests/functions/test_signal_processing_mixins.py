@@ -83,6 +83,40 @@ class TestGFPCleanEpochsMixin:
 class TestOutlierDetectionMixin:
     """Test outlier detection accepts BaseEpochs subclasses."""
 
+    def test_detect_outlier_epochs_rejects_non_epochs(self):
+        """Outlier detection should reject non-Epochs data."""
+        from autoclean.mixins.signal_processing.outlier_detection import (
+            OutlierDetectionMixin,
+        )
+
+        class MockPipeline(OutlierDetectionMixin):
+            def __init__(self):
+                self.epochs = None
+
+            def _get_data_object(self, data, use_epochs=False):
+                return data if data is not None else self.epochs
+
+            def _check_step_enabled(self, step_name):
+                return (True, None)
+
+            def _update_metadata(self, *args, **kwargs):
+                pass
+
+            def _update_instance_data(self, *args, **kwargs):
+                pass
+
+            def _save_epochs_result(self, *args, **kwargs):
+                pass
+
+            def _auto_export_if_enabled(self, *args, **kwargs):
+                pass
+
+        pipeline = MockPipeline()
+
+        # Should raise TypeError for raw data
+        with pytest.raises(TypeError):
+            pipeline.detect_outlier_epochs(epochs="not_epochs")
+
     def test_detect_outlier_epochs_accepts_baseepochs_type(self):
         """Outlier detection should accept BaseEpochs subclasses."""
         from autoclean.mixins.signal_processing.outlier_detection import (

@@ -13,7 +13,7 @@ from autoreject import AutoReject
 
 
 def autoreject_epochs(
-    epochs: mne.Epochs,
+    epochs: mne.BaseEpochs,
     n_interpolate: Optional[List[int]] = None,
     consensus: Optional[List[float]] = None,
     n_jobs: int = 1,
@@ -22,7 +22,7 @@ def autoreject_epochs(
     picks: Optional[List[str]] = None,
     thresh_method: str = "bayesian_optimization",
     verbose: Optional[bool] = None,
-) -> Tuple[mne.Epochs, Dict]:
+) -> Tuple[mne.BaseEpochs, Dict]:
     """Apply AutoReject for automatic epoch cleaning and channel interpolation.
 
     This function applies the AutoReject algorithm to clean epochs by identifying
@@ -43,7 +43,7 @@ def autoreject_epochs(
 
     Parameters
     ----------
-    epochs : mne.Epochs
+    epochs : mne.BaseEpochs
         The epoched EEG data to clean. Must have at least 4 epochs for
         cross-validation to work properly.
     n_interpolate : list of int or None, default None
@@ -77,7 +77,7 @@ def autoreject_epochs(
 
     Returns
     -------
-    epochs_clean : mne.Epochs
+    epochs_clean : mne.BaseEpochs
         The cleaned epochs object with bad epochs removed and bad channels
         interpolated. May contain fewer epochs than the input.
     metadata : dict
@@ -184,9 +184,9 @@ def autoreject_epochs(
     workshop on pattern recognition in neuroimaging (PRNI) (pp. 1-4). IEEE.
     """
     # Input validation
-    if not isinstance(epochs, mne.Epochs):
+    if not isinstance(epochs, mne.BaseEpochs):
         raise TypeError(
-            f"Data must be an MNE Epochs object, got {type(epochs).__name__}"
+            f"Data must be an MNE BaseEpochs object, got {type(epochs).__name__}"
         )
 
     if len(epochs) < cv:

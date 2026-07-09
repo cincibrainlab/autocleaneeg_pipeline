@@ -97,7 +97,9 @@ class TestComputeItcAnalysis:
     def test_raises_type_error_for_non_epochs_input(self, task):
         """Passing a non-Epochs object raises TypeError."""
         with patch.object(task, "_check_step_enabled", return_value=(True, {})):
-            with pytest.raises(TypeError, match="epochs must be an MNE Epochs object"):
+            with pytest.raises(
+                TypeError, match="epochs must be an MNE BaseEpochs object"
+            ):
                 task.compute_itc_analysis(epochs="not_epochs")
 
     def test_returns_power_and_itc_from_mocked_function(self, task):

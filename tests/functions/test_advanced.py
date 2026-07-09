@@ -114,7 +114,7 @@ class TestAutoRejectEpochs:
         raw = create_synthetic_raw(duration=5.0, sfreq=250, n_channels=16)
 
         # Test invalid data type
-        with pytest.raises(TypeError, match="Data must be an MNE Epochs object"):
+        with pytest.raises(TypeError, match="Data must be an MNE BaseEpochs object"):
             autoreject_epochs(raw)  # Pass Raw instead of Epochs
 
         # Create valid epochs for other tests

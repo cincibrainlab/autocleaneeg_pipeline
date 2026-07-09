@@ -72,7 +72,7 @@ class BasicStepsMixin:
 
         Returns
         -------
-        inst : instance of mne.io.Raw or mne.io.BaseEpochs
+        inst : instance of mne.io.Raw or mne.BaseEpochs
             The data object after applying all enabled basic processing steps.
         """
         warnings.warn(
@@ -474,7 +474,7 @@ class BasicStepsMixin:
 
         Returns
         -------
-        inst : instance of mne.io.Raw or mne.io.BaseEpochs
+        inst : instance of mne.io.Raw or mne.BaseEpochs
             The rereferenced data object (same type as input)
 
         Examples
@@ -549,7 +549,7 @@ class BasicStepsMixin:
             If True and data is None, uses self.epochs instead of self.raw.
 
         Returns:
-            inst : instance of mne.io.Raw or mne.io.BaseEpochs
+            inst : instance of mne.io.Raw or mne.BaseEpochs
             The data object with outer layer channels removed.
         """
         data = self._get_data_object(data, use_epochs)
@@ -621,7 +621,7 @@ class BasicStepsMixin:
             If True and data is None, uses self.epochs instead of self.raw.
 
         Returns:
-            inst : instance of mne.io.Raw or mne.io.BaseEpochs
+            inst : instance of mne.io.Raw or mne.BaseEpochs
             The data object with EOG channels assigned.
         """
         data = self._get_data_object(data, use_epochs)
@@ -724,7 +724,7 @@ class BasicStepsMixin:
             If True and data is None, uses self.epochs instead of self.raw.
 
         Returns:
-            inst : instance of mne.io.Raw or mne.io.BaseEpochs
+            inst : instance of mne.io.Raw or mne.BaseEpochs
             The data object with edges trimmed.
         """
         data = self._get_data_object(data, use_epochs)
@@ -808,7 +808,7 @@ class BasicStepsMixin:
             If True and data is None, uses self.epochs instead of self.raw.
 
         Returns:
-            inst : instance of mne.io.Raw or mne.io.BaseEpochs
+            inst : instance of mne.io.Raw or mne.BaseEpochs
             The data object cropped to the specified duration.
         """
         data = self._get_data_object(data, use_epochs)
