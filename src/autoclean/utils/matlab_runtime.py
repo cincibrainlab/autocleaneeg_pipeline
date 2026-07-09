@@ -103,8 +103,7 @@ def _read_engine_arch_file(matlab_pkg: Any) -> tuple[Optional[str], Optional[str
             return None, None
 
         lines = [
-            line.strip()
-            for line in arch_file.read_text(encoding="utf-8").splitlines()
+            line.strip() for line in arch_file.read_text(encoding="utf-8").splitlines()
         ]
         if len(lines) < 2:
             return None, None
@@ -147,14 +146,18 @@ def inspect_taskfile_for_matlab(taskfile: Path | str) -> MatlabTaskfileInspectio
     if taskfile_path.suffix != ".py":
         return inspection
     if not taskfile_path.exists():
-        inspection.warnings.append(f"Task file not found for MATLAB inspection: {taskfile_path}")
+        inspection.warnings.append(
+            f"Task file not found for MATLAB inspection: {taskfile_path}"
+        )
         return inspection
 
     try:
         source = taskfile_path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(taskfile_path))
     except Exception as exc:
-        inspection.warnings.append(f"Unable to inspect task file for MATLAB usage: {exc}")
+        inspection.warnings.append(
+            f"Unable to inspect task file for MATLAB usage: {exc}"
+        )
         return inspection
 
     matlab_aliases: set[str] = set()
@@ -229,7 +232,9 @@ def inspect_taskfile_for_matlab(taskfile: Path | str) -> MatlabTaskfileInspectio
                 base_name = _node_to_dotted_name(base)
                 if not base_name:
                     continue
-                if base_name in matlab_mixin_names or base_name.endswith(".MatlabExecutionMixin"):
+                if base_name in matlab_mixin_names or base_name.endswith(
+                    ".MatlabExecutionMixin"
+                ):
                     inspection.requires_matlab = True
                     inspection.reasons.append(
                         f"class {node.name} inherits {base_name.split('.')[-1]}"
@@ -239,13 +244,18 @@ def inspect_taskfile_for_matlab(taskfile: Path | str) -> MatlabTaskfileInspectio
             call_name = _node_to_dotted_name(node.func)
             if not call_name:
                 continue
-            if call_name in matlab_call_names or call_name.split(".")[-1] in matlab_call_names:
+            if (
+                call_name in matlab_call_names
+                or call_name.split(".")[-1] in matlab_call_names
+            ):
                 inspection.requires_matlab = True
                 inspection.reasons.append(f"calls {call_name.split('.')[-1]}")
 
     if inspection.requires_matlab:
         inspection.reasons = list(dict.fromkeys(inspection.reasons))
-        inspection.matlab_config_keys = list(dict.fromkeys(inspection.matlab_config_keys))
+        inspection.matlab_config_keys = list(
+            dict.fromkeys(inspection.matlab_config_keys)
+        )
 
     return inspection
 
@@ -468,7 +478,9 @@ def run_matlab_script(
     except MatlabRuntimeError:
         raise
     except Exception as exc:  # pragma: no cover - depends on local MATLAB runtime
-        raise MatlabExecutionError(f"Failed to run MATLAB script '{script}': {exc}") from exc
+        raise MatlabExecutionError(
+            f"Failed to run MATLAB script '{script}': {exc}"
+        ) from exc
     finally:
         if created_engine and not keep_engine:
             shutdown_matlab_engine(local_engine)

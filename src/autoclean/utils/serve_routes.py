@@ -212,7 +212,9 @@ def upsert_route_spec(
     return path, cleaned, status
 
 
-def promote_route_spec(workspace_dir: Path, route_id: str) -> tuple[Path, dict[str, Any], str]:
+def promote_route_spec(
+    workspace_dir: Path, route_id: str
+) -> tuple[Path, dict[str, Any], str]:
     """Add live mode to an existing route spec."""
     path = route_spec_path(workspace_dir, route_id)
     if not path.exists():
@@ -237,7 +239,9 @@ def set_route_archived(
     return upsert_route_spec(workspace_dir, route_id, updates)
 
 
-def archive_route_spec(workspace_dir: Path, route_id: str) -> tuple[Path, dict[str, Any], str]:
+def archive_route_spec(
+    workspace_dir: Path, route_id: str
+) -> tuple[Path, dict[str, Any], str]:
     """Archive an existing route spec."""
     return set_route_archived(workspace_dir, route_id, True)
 
@@ -280,7 +284,9 @@ def _route_modes(route: dict[str, Any]) -> list[str]:
     return _normalize_modes(route.get("modes"))
 
 
-def _render_compiled_config(base_config: dict[str, Any], mode: str, routes: Iterable[dict[str, Any]]) -> str:
+def _render_compiled_config(
+    base_config: dict[str, Any], mode: str, routes: Iterable[dict[str, Any]]
+) -> str:
     compiled: dict[str, Any] = {}
     for key, value in base_config.items():
         if key in _LEGACY_TOP_LEVEL_ROUTE_KEYS or key == "automations":

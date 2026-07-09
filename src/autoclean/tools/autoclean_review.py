@@ -15,9 +15,9 @@ import matplotlib.pyplot as plt
 import mne
 import scipy.io as sio
 from dotenv import load_dotenv
-from PyQt6.QtWidgets import *  # noqa: F403
 from PyQt6.QtCore import QAbstractItemModel, QModelIndex, Qt, pyqtRemoveInputHook
 from PyQt6.QtGui import QColor, QImage, QPalette, QPixmap
+from PyQt6.QtWidgets import *  # noqa: F403
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,

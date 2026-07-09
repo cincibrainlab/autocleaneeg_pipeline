@@ -95,7 +95,10 @@ from qtpy.QtWidgets import (  # noqa: E402
 )
 
 from autoclean.io.export import save_epochs_to_set  # noqa: E402
-from autoclean.utils.database import get_run_record, merge_reprocess_database  # noqa: E402
+from autoclean.utils.database import (  # noqa: E402
+    get_run_record,
+    merge_reprocess_database,
+)
 from autoclean.utils.logging import message  # noqa: E402
 from autoclean.utils.path_resolution import resolve_moved_path  # noqa: E402
 from autoclean.utils.reprocess_overrides import (  # noqa: E402
@@ -827,7 +830,9 @@ class ReviewBase(QWidget):
         if self.current_dir:
             self.status_bar.showMessage(f"Workspace: {self.current_dir}")
         else:
-            self.status_bar.showMessage("Select a folder with EEG files (.set, .raw, .bdf)")
+            self.status_bar.showMessage(
+                "Select a folder with EEG files (.set, .raw, .bdf)"
+            )
 
     def selectDirectory(self) -> None:  # noqa: N802 - public API compatibility
         dir_path = QFileDialog.getExistingDirectory(
@@ -3997,9 +4002,7 @@ class ExclusionFileSelector(ReviewBase):
                 return (folder.lower(), relative.name.lower())
 
             all_set_files = [
-                f
-                for ext in ("*.set", "*.raw", "*.bdf")
-                for f in root_path.rglob(ext)
+                f for ext in ("*.set", "*.raw", "*.bdf") for f in root_path.rglob(ext)
             ]
 
             # Filter backup and reprocess folders if toggle is off
@@ -4131,7 +4134,9 @@ class ExclusionFileSelector(ReviewBase):
             QTimer.singleShot(0, _select_initial)
         else:
             if self.status_bar is not None:
-                self.status_bar.showMessage("Select a folder with EEG files (.set, .raw, .bdf)")
+                self.status_bar.showMessage(
+                    "Select a folder with EEG files (.set, .raw, .bdf)"
+                )
 
     def selectDirectory(self) -> None:  # noqa: N802 - inherited public API
         dir_path = QFileDialog.getExistingDirectory(
@@ -5155,9 +5160,7 @@ class ExclusionFileSelector(ReviewBase):
             bad_ch_count = len(payload["modifications"]["bad_channels"]["modified"])
             ica_count = len(payload["modifications"]["rejected_ica"]["modified"])
             epoch_count = int(
-                payload.get("modifications", {})
-                .get("epoch_review", {})
-                .get("count", 0)
+                payload.get("modifications", {}).get("epoch_review", {}).get("count", 0)
             )
 
             confirm_msg = (

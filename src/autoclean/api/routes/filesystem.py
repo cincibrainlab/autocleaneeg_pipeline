@@ -121,11 +121,15 @@ async def browse_directory(
             FolderEntry(name=root.name or str(root), path=str(root), is_dir=True)
             for root in _allowed_roots()
         ]
-        unique_entries: dict[str, FolderEntry] = {entry.path: entry for entry in entries}
+        unique_entries: dict[str, FolderEntry] = {
+            entry.path: entry for entry in entries
+        }
         return BrowseResponse(
             path=str(target),
             parent=None,
-            entries=sorted(unique_entries.values(), key=lambda entry: entry.path.lower()),
+            entries=sorted(
+                unique_entries.values(), key=lambda entry: entry.path.lower()
+            ),
         )
 
     # Must be an existing directory
@@ -149,9 +153,7 @@ async def browse_directory(
             # Skip hidden directories (dotfiles)
             if child.name.startswith("."):
                 continue
-            entries.append(
-                FolderEntry(name=child.name, path=str(child), is_dir=True)
-            )
+            entries.append(FolderEntry(name=child.name, path=str(child), is_dir=True))
     except PermissionError:
         raise HTTPException(
             status_code=403,

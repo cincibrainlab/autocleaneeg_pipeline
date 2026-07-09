@@ -14,6 +14,10 @@ import sys
 from pathlib import Path
 from typing import List, Tuple
 
+if sys.stdout.encoding is not None and sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
 
 class CodeQualityChecker:
     """Run code quality checks locally using uv tool."""
@@ -45,7 +49,13 @@ class CodeQualityChecker:
 
         try:
             result = subprocess.run(
-                cmd, capture_output=True, text=True, check=False, cwd=Path.cwd()
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+                cwd=Path.cwd(),
             )
 
             success = result.returncode == 0
@@ -70,12 +80,19 @@ class CodeQualityChecker:
                 print(f"   ❌ {error_msg}")
             return False, error_msg
 
+    # Pinned to match the versions installed in .github/workflows/ci.yml so
+    # local results agree with CI instead of drifting to whatever "latest" is
+    # cached by `uv tool run`.
+    BLACK_VERSION = "black==25.9.0"
+    ISORT_VERSION = "isort==6.0.1"
+    RUFF_VERSION = "ruff==0.15.20"
+
     def check_black(self) -> Tuple[bool, str]:
         """Check code formatting with Black."""
         if self.use_uv:
-            cmd = ["uv", "tool", "run", "black", "--check", "--diff", str(self.src_dir)]
+            cmd = ["uv", "tool", "run", self.BLACK_VERSION, "--check", "--diff", str(self.src_dir)]
             if self.fix:
-                cmd = ["uv", "tool", "run", "black", str(self.src_dir)]
+                cmd = ["uv", "tool", "run", self.BLACK_VERSION, str(self.src_dir)]
         else:
             cmd = ["black", "--check", "--diff", str(self.src_dir)]
             if self.fix:
@@ -86,9 +103,9 @@ class CodeQualityChecker:
     def check_isort(self) -> Tuple[bool, str]:
         """Check import sorting with isort."""
         if self.use_uv:
-            cmd = ["uv", "tool", "run", "isort", "--check-only", "--diff", str(self.src_dir)]
+            cmd = ["uv", "tool", "run", self.ISORT_VERSION, "--check-only", "--diff", str(self.src_dir)]
             if self.fix:
-                cmd = ["uv", "tool", "run", "isort", str(self.src_dir)]
+                cmd = ["uv", "tool", "run", self.ISORT_VERSION, str(self.src_dir)]
         else:
             cmd = ["isort", "--check-only", "--diff", str(self.src_dir)]
             if self.fix:
@@ -99,9 +116,9 @@ class CodeQualityChecker:
     def check_ruff(self) -> Tuple[bool, str]:
         """Check code with Ruff linter."""
         if self.use_uv:
-            cmd = ["uv", "tool", "run", "ruff", "check", str(self.src_dir)]
+            cmd = ["uv", "tool", "run", self.RUFF_VERSION, "check", str(self.src_dir)]
             if self.fix:
-                cmd = ["uv", "tool", "run", "ruff", "check", "--fix", str(self.src_dir)]
+                cmd = ["uv", "tool", "run", self.RUFF_VERSION, "check", "--fix", str(self.src_dir)]
         else:
             cmd = ["ruff", "check", str(self.src_dir)]
             if self.fix:

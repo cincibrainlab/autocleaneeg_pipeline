@@ -95,7 +95,9 @@ class ActivityScreen(Screen):
 
             # Log entries
             with VerticalScroll(id="log-scroll", classes="log-container"):
-                yield Static("No activity logged yet", classes="empty-state", id="empty-log")
+                yield Static(
+                    "No activity logged yet", classes="empty-state", id="empty-log"
+                )
 
             # Status
             yield Static("", id="log-status", classes="help-text")
@@ -123,9 +125,7 @@ class ActivityScreen(Screen):
         events = app.state.activity_log
 
         if not events:
-            log_scroll.mount(
-                Static("No activity logged yet", classes="empty-state")
-            )
+            log_scroll.mount(Static("No activity logged yet", classes="empty-state"))
             self._update_status(0, 0)
             return
 

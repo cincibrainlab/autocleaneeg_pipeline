@@ -160,9 +160,7 @@ class SensorPSDMixin:
             for band_name, (band_min, band_max) in DEFAULT_SENSOR_PSD_BANDS.items():
                 band_mask = (freqs >= band_min) & (freqs < band_max)
                 band_power = (
-                    float(np.mean(channel_psd[band_mask]))
-                    if np.any(band_mask)
-                    else 0.0
+                    float(np.mean(channel_psd[band_mask])) if np.any(band_mask) else 0.0
                 )
                 band_rows.append(
                     {

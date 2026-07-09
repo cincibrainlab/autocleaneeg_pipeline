@@ -37,13 +37,15 @@ def _get_rq_workers() -> list[dict[str, Any]]:
         result = []
         for w in workers:
             current_job = w.get_current_job()
-            result.append({
-                "name": w.name,
-                "state": w.state,
-                "current_job_id": current_job.id if current_job else None,
-                "queues": [q.name for q in w.queues],
-                "pid": w.pid,
-            })
+            result.append(
+                {
+                    "name": w.name,
+                    "state": w.state,
+                    "current_job_id": current_job.id if current_job else None,
+                    "queues": [q.name for q in w.queues],
+                    "pid": w.pid,
+                }
+            )
         return result
     except Exception:
         return []
@@ -203,7 +205,11 @@ async def list_jobs(
     try:
         from rq import Queue
         from rq.job import Job
-        from rq.registry import FailedJobRegistry, FinishedJobRegistry, StartedJobRegistry
+        from rq.registry import (
+            FailedJobRegistry,
+            FinishedJobRegistry,
+            StartedJobRegistry,
+        )
 
         q = Queue(connection=api_state.redis)
         jobs = []

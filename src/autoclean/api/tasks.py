@@ -8,9 +8,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-
 MATLAB_PREFLIGHT_TIMEOUT_SECONDS = 120
 MATLAB_STARTUP_TIMEOUT_SECONDS = 60.0
+
 
 def _timestamp() -> str:
     """Get current ISO timestamp."""
@@ -64,7 +64,9 @@ def _build_process_command(
     return cmd
 
 
-def _run_matlab_preflight(cli_path: Path, taskfile: str, workspace: Path) -> dict[str, Any]:
+def _run_matlab_preflight(
+    cli_path: Path, taskfile: str, workspace: Path
+) -> dict[str, Any]:
     """Run MATLAB readiness checks for MATLAB-backed Python task files."""
     from autoclean.utils.ingestion import resolve_taskfile_path
     from autoclean.utils.matlab_runtime import inspect_taskfile_for_matlab
@@ -296,7 +298,6 @@ def run_ingestion_cycle(
         Dict with cycle results.
     """
     from autoclean.utils.ingestion import (
-        IngestionQueue,
         run_ingestion_service,
     )
 

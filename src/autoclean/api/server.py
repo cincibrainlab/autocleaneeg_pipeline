@@ -11,11 +11,9 @@ from typing import Any, Optional
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.openapi.utils import get_openapi
 from fastapi.responses import Response
 
-from autoclean.api.state import APIState, api_state
-
+from autoclean.api.state import api_state
 
 # OpenAPI tag metadata for better documentation
 TAGS_METADATA = [
@@ -199,7 +197,9 @@ def _workspace_meta_path(workspace_dir: Path) -> Path:
 def _read_workspace_metadata(workspace_dir: Path) -> dict[str, Any]:
     """Load lightweight Serve metadata for the workspace."""
     try:
-        raw = json.loads(_workspace_meta_path(workspace_dir).read_text(encoding="utf-8"))
+        raw = json.loads(
+            _workspace_meta_path(workspace_dir).read_text(encoding="utf-8")
+        )
     except Exception:
         return {}
     return raw if isinstance(raw, dict) else {}
@@ -255,7 +255,10 @@ def _workspace_checklist(workspace_dir: Path) -> list[dict[str, Any]]:
     for mode in ("test", "live"):
         runtime_dir = paths[f"runtimes_{mode}"]
         venv_dir = runtime_dir / ".venv"
-        python_candidates = [venv_dir / "bin" / "python", venv_dir / "Scripts" / "python.exe"]
+        python_candidates = [
+            venv_dir / "bin" / "python",
+            venv_dir / "Scripts" / "python.exe",
+        ]
         checks.append(
             {
                 "label": f"{mode} runtime ready",
@@ -291,7 +294,11 @@ def _workspace_doctor(workspace_dir: Path) -> dict[str, Any]:
             "Apply the current configuration in Settings or run 'autocleaneeg-pipeline serve deploy --mode <test|live>' after validation."
         )
 
-    summary = "Workspace looks healthy" if not blocking_issues else f"Found {len(blocking_issues)} blocking issue(s)"
+    summary = (
+        "Workspace looks healthy"
+        if not blocking_issues
+        else f"Found {len(blocking_issues)} blocking issue(s)"
+    )
     return {
         "ok": not blocking_issues,
         "summary": summary,
@@ -466,7 +473,22 @@ REST API for managing automated EEG file processing pipelines.
 
     # Import routes here to avoid circular imports
     from autoclean.api import events
-    from autoclean.api.routes import config, event_analyzer, exclude, filesystem, montage_browser, queue, results, serve_routes, service, task_browser, task_manager, tunnel, tutorial, worker
+    from autoclean.api.routes import (
+        config,
+        event_analyzer,
+        exclude,
+        filesystem,
+        montage_browser,
+        queue,
+        results,
+        serve_routes,
+        service,
+        task_browser,
+        task_manager,
+        tunnel,
+        tutorial,
+        worker,
+    )
 
     # Include routers
     app.include_router(queue.router, prefix="/api/queue", tags=["Queue"])
@@ -478,8 +500,12 @@ REST API for managing automated EEG file processing pipelines.
     app.include_router(tutorial.router, prefix="/api/tutorial", tags=["Tutorial"])
     app.include_router(filesystem.router, prefix="/api/filesystem", tags=["Filesystem"])
     app.include_router(task_browser.router, prefix="/api/tasks", tags=["Tasks"])
-    app.include_router(task_manager.router, prefix="/api/task-manager", tags=["Task Manager"])
-    app.include_router(montage_browser.router, prefix="/api/montages", tags=["Montages"])
+    app.include_router(
+        task_manager.router, prefix="/api/task-manager", tags=["Task Manager"]
+    )
+    app.include_router(
+        montage_browser.router, prefix="/api/montages", tags=["Montages"]
+    )
     app.include_router(results.router, prefix="/api/results", tags=["Results"])
     app.include_router(exclude.router, prefix="/api/exclude", tags=["Exclude"])
     app.include_router(event_analyzer.router, prefix="/api/events", tags=["Events"])
@@ -528,6 +554,7 @@ REST API for managing automated EEG file processing pipelines.
                     return await call_next(request)
             except Exception as _auth_exc:
                 import logging as _logging
+
                 _logging.getLogger(__name__).debug(
                     "tunnel_auth_middleware: credential decode error: %s", _auth_exc
                 )
@@ -546,6 +573,7 @@ REST API for managing automated EEG file processing pipelines.
         and returns the new mode.
         """
         from fastapi import HTTPException as _HTTPExc
+
         from autoclean.api.routes.service import get_service_status, stop_service
 
         new_mode = body.get("mode", "").lower()
@@ -553,7 +581,11 @@ REST API for managing automated EEG file processing pipelines.
             raise _HTTPExc(status_code=400, detail="Mode must be 'test' or 'live'")
 
         if new_mode == api_state.mode:
-            return {"success": True, "mode": new_mode, "message": f"Already in {new_mode} mode"}
+            return {
+                "success": True,
+                "mode": new_mode,
+                "message": f"Already in {new_mode} mode",
+            }
 
         # Stop running service before switching
         try:
@@ -593,6 +625,7 @@ REST API for managing automated EEG file processing pipelines.
         # Stop running service before switching workspaces
         try:
             from autoclean.api.routes.service import get_service_status, stop_service
+
             if get_service_status().get("running"):
                 await stop_service()
         except Exception:
@@ -655,7 +688,9 @@ REST API for managing automated EEG file processing pipelines.
             )
 
         # Configure API state in-place — no restart required
-        api_state.configure(workspace_dir, api_state.mode or "test", api_state.redis_url)
+        api_state.configure(
+            workspace_dir, api_state.mode or "test", api_state.redis_url
+        )
 
         # Persist workspace path for future launches
         try:
@@ -693,7 +728,8 @@ REST API for managing automated EEG file processing pipelines.
             "workspace_dir": str(workspace_dir),
             "selected_workspace_path": str(workspace_dir),
             "bootstrap_origin": _workspace_bootstrap_origin(workspace_dir),
-            "bootstrapped_from_autoclean": _workspace_bootstrap_origin(workspace_dir) == "bootstrapped_autoclean",
+            "bootstrapped_from_autoclean": _workspace_bootstrap_origin(workspace_dir)
+            == "bootstrapped_autoclean",
             "workspace_details": {
                 "serve_test_exists": paths["serve_test"].exists(),
                 "serve_live_exists": paths["serve_live"].exists(),
@@ -718,22 +754,36 @@ REST API for managing automated EEG file processing pipelines.
             if not ws.exists():
                 continue
             routes_dir = ws / "routes"
-            has_routes = routes_dir.exists() and any(routes_dir.iterdir()) if routes_dir.exists() else False
-            n_routes = len(list(routes_dir.glob("*.yaml"))) if routes_dir.exists() else 0
+            has_routes = (
+                routes_dir.exists() and any(routes_dir.iterdir())
+                if routes_dir.exists()
+                else False
+            )
+            n_routes = (
+                len(list(routes_dir.glob("*.yaml"))) if routes_dir.exists() else 0
+            )
             has_runtime_test = (ws / "runtimes" / "test" / ".venv").exists()
             has_runtime_live = (ws / "runtimes" / "live" / ".venv").exists()
-            results.append({
-                "path": str(ws),
-                "name": ws.name,
-                "has_routes": has_routes,
-                "n_routes": n_routes,
-                "has_runtime_test": has_runtime_test,
-                "has_runtime_live": has_runtime_live,
-                "is_current": str(ws) == str(api_state.workspace_dir) if api_state.workspace_dir else False,
-            })
+            results.append(
+                {
+                    "path": str(ws),
+                    "name": ws.name,
+                    "has_routes": has_routes,
+                    "n_routes": n_routes,
+                    "has_runtime_test": has_runtime_test,
+                    "has_runtime_live": has_runtime_live,
+                    "is_current": (
+                        str(ws) == str(api_state.workspace_dir)
+                        if api_state.workspace_dir
+                        else False
+                    ),
+                }
+            )
         return {
             "workspaces": results,
-            "current": str(api_state.workspace_dir) if api_state.workspace_dir else None,
+            "current": (
+                str(api_state.workspace_dir) if api_state.workspace_dir else None
+            ),
         }
 
     @app.get("/health")
@@ -851,9 +901,7 @@ REST API for managing automated EEG file processing pipelines.
                         if not r.get("archived", False) and r.get("enabled", True)
                     ]
                 ),
-                "archived": len(
-                    [r for r in routes if r.get("archived", False)]
-                ),
+                "archived": len([r for r in routes if r.get("archived", False)]),
             },
             "queue": queue_stats,
             "config": {
@@ -875,8 +923,8 @@ REST API for managing automated EEG file processing pipelines.
     # Serve built frontend if available
     static_dir = Path(__file__).parent / "static"
     if static_dir.is_dir() and (static_dir / "index.html").exists():
-        from fastapi.staticfiles import StaticFiles
         from fastapi.responses import FileResponse
+        from fastapi.staticfiles import StaticFiles
 
         # SPA catch-all: return index.html for client-side routes only
         _API_PREFIXES = ("api/", "ws/", "health", "docs", "redoc", "openapi.json")
@@ -886,6 +934,7 @@ REST API for managing automated EEG file processing pipelines.
             # Never intercept API or infrastructure paths
             if path.startswith(_API_PREFIXES):
                 from fastapi.responses import JSONResponse
+
                 return JSONResponse({"detail": f"Not found: /{path}"}, status_code=404)
             # Serve actual static files if they exist
             file_path = (static_dir / path).resolve()
@@ -902,6 +951,7 @@ REST API for managing automated EEG file processing pipelines.
         if assets_dir.is_dir():
             app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
     else:
+
         @app.get("/")
         async def root() -> dict[str, str]:
             """Root endpoint with API info."""
@@ -949,6 +999,7 @@ def run_server(
         reload: Enable auto-reload for development.
     """
     import os
+
     import uvicorn
 
     # Publish the API port so the tunnel route can bind cloudflared to the

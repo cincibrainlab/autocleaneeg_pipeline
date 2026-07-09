@@ -57,6 +57,7 @@ def _serve_task_discovery_context(workspace_dir: Path):
 
 # ── List / Read ──────────────────────────────────────────────────────
 
+
 @router.get("/discovery/tasks", response_model=list[TaskOption])
 async def list_tasks():
     """Return available task files that can be assigned to routes."""
@@ -132,6 +133,7 @@ async def get_route(route_id: str):
 
 # ── Create / Update ─────────────────────────────────────────────────
 
+
 @router.post("", response_model=RouteActionResponse)
 async def upsert_route(body: RouteUpsertRequest):
     """Create or update a route spec."""
@@ -155,6 +157,7 @@ async def upsert_route(body: RouteUpsertRequest):
 
 # ── Delete ───────────────────────────────────────────────────────────
 
+
 @router.delete("/{route_id}", response_model=RouteActionResponse)
 async def delete_route(route_id: str):
     """Delete a route spec (must be archived first)."""
@@ -172,6 +175,7 @@ async def delete_route(route_id: str):
 
 
 # ── Lifecycle actions ────────────────────────────────────────────────
+
 
 @router.post("/{route_id}/promote", response_model=RouteActionResponse)
 async def promote_route(route_id: str):
@@ -265,6 +269,7 @@ async def disable_route(route_id: str):
 
 # ── Sync ─────────────────────────────────────────────────────────────
 
+
 @router.post("/sync", response_model=SyncResponse)
 async def sync_routes():
     """Recompile route spec files into serve-*.yaml configs."""
@@ -272,9 +277,7 @@ async def sync_routes():
     from autoclean.utils.serve_routes import sync_route_registry
 
     try:
-        result = sync_route_registry(
-            api_state.workspace_dir, modes=("test", "live")
-        )
+        result = sync_route_registry(api_state.workspace_dir, modes=("test", "live"))
         synced_modes = list(result.keys()) if isinstance(result, dict) else []
         test_info = result.get("test", {}) if isinstance(result, dict) else {}
         live_info = result.get("live", {}) if isinstance(result, dict) else {}
@@ -294,6 +297,7 @@ async def sync_routes():
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
+
 
 def _compute_output_folder(spec: dict) -> str:
     """Compute the output folder path for a route spec."""

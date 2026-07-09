@@ -37,19 +37,39 @@ class ServiceScreen(Screen):
             with Vertical(classes="service-params"):
                 with Horizontal(classes="param-row"):
                     yield Label("Max Cycles:", classes="param-label")
-                    yield Input(value="1000", placeholder="Maximum cycles to run", id="input-max-cycles", classes="param-input")
+                    yield Input(
+                        value="1000",
+                        placeholder="Maximum cycles to run",
+                        id="input-max-cycles",
+                        classes="param-input",
+                    )
 
                 with Horizontal(classes="param-row"):
                     yield Label("Idle Limit:", classes="param-label")
-                    yield Input(value="10", placeholder="Idle cycles before exit", id="input-idle-limit", classes="param-input")
+                    yield Input(
+                        value="10",
+                        placeholder="Idle cycles before exit",
+                        id="input-idle-limit",
+                        classes="param-input",
+                    )
 
                 with Horizontal(classes="param-row"):
                     yield Label("Sleep (sec):", classes="param-label")
-                    yield Input(value="1.0", placeholder="Seconds between cycles", id="input-sleep", classes="param-input")
+                    yield Input(
+                        value="1.0",
+                        placeholder="Seconds between cycles",
+                        id="input-sleep",
+                        classes="param-input",
+                    )
 
                 with Horizontal(classes="param-row"):
                     yield Label("Max Events:", classes="param-label")
-                    yield Input(value="1", placeholder="Max watch events per cycle", id="input-max-events", classes="param-input")
+                    yield Input(
+                        value="1",
+                        placeholder="Max watch events per cycle",
+                        id="input-max-events",
+                        classes="param-input",
+                    )
 
             yield Static("Options", classes="section-header")
 
@@ -57,12 +77,16 @@ class ServiceScreen(Screen):
                 with Horizontal(classes="param-row"):
                     yield Label("Dry Run:", classes="param-label")
                     yield Switch(value=False, id="switch-dry-run")
-                    yield Static("Print commands without executing", classes="help-text")
+                    yield Static(
+                        "Print commands without executing", classes="help-text"
+                    )
 
                 with Horizontal(classes="param-row"):
                     yield Label("Watch Mode:", classes="param-label")
                     yield Switch(value=True, id="switch-watch")
-                    yield Static("Use watchfiles for file monitoring", classes="help-text")
+                    yield Static(
+                        "Use watchfiles for file monitoring", classes="help-text"
+                    )
 
                 with Horizontal(classes="param-row"):
                     yield Label("Require Sentinel:", classes="param-label")
@@ -146,7 +170,8 @@ class ServiceScreen(Screen):
         service_events = [
             e
             for e in app.state.activity_log
-            if e.event_type.startswith("service") or e.event_type in ("error", "complete")
+            if e.event_type.startswith("service")
+            or e.event_type in ("error", "complete")
         ][:5]
 
         if not service_events:
@@ -215,7 +240,9 @@ class ServiceScreen(Screen):
             params["use_watchfiles"] = True
 
         try:
-            params["require_sentinel"] = self.query_one("#switch-sentinel", Switch).value
+            params["require_sentinel"] = self.query_one(
+                "#switch-sentinel", Switch
+            ).value
         except Exception:
             params["require_sentinel"] = True
 
