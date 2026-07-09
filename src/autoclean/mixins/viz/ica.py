@@ -26,14 +26,14 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 from mne.preprocessing import ICA
 
-from autoclean.functions.visualization.icvision_layouts import (
-    plot_component_for_classification,
-    plot_ica_topographies_overview,
-)
 from autoclean.functions.visualization._ica_sources_cache import (
     get_cached_ica_sources,
     get_ica_cache_stats,
     invalidate_ica_cache,
+)
+from autoclean.functions.visualization.icvision_layouts import (
+    plot_component_for_classification,
+    plot_ica_topographies_overview,
 )
 from autoclean.utils.logging import message
 
@@ -507,6 +507,7 @@ class ICAReportingMixin:
                 get_cached_component_psds(
                     ica, raw_fast, component_indices, fmax=psd_fmax
                 )
+                get_cached_topographies(ica, component_indices)
 
                 message(
                     "info",
