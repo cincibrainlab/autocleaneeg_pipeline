@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import mne
-import numpy as np
 import scipy.io as sio
 from eeglabio.epochs import export_set
 
@@ -14,6 +13,7 @@ from eeglabio.epochs import export_set
 from mne.export._eeglab import _get_als_coords_from_chs
 
 from autoclean.utils.database import manage_database_conditionally
+from autoclean.utils.epoch_events import extract_epoch_events
 from autoclean.utils.logging import message
 
 __all__ = [
@@ -373,187 +373,20 @@ def save_epochs_to_set(
     # Only save to stage directory - final files will be copied separately
     paths = [stage_path]
 
-    # Handle epoch metadata for event preservation
-    if epochs.metadata is None:
-        message("warning", "No additional event metadata found for epochs")
+    # Extract event codes for EEGLAB export. Prefers the richer per-epoch
+    # additional_events metadata when it validly covers every epoch, but always
+    # falls back to epochs.events/epochs.event_id (the authoritative source of
+    # truth) rather than risk losing or renumbering condition codes.
+    try:
+        events_in_epochs, event_id_rebuilt, epoch_indices_array, event_source = (
+            extract_epoch_events(epochs)
+        )
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        message("error", f"Failed to extract epoch events: {str(e)}")
         events_in_epochs = None
         event_id_rebuilt = None
-    else:
-        try:
-            # Check for metadata-events alignment
-            if len(epochs.metadata) != len(epochs.events):
-                message(
-                    "warning",
-                    "Mismatch in metadata vs events: "
-                    f"{len(epochs.metadata)} vs {len(epochs.events)} — truncating to align.",
-                )
-
-            # Extract events from metadata if available
-            if (
-                "additional_events"
-                in epochs.metadata.columns
-                # and not epochs.metadata["additional_events"].empty # This check might be too simple if NaNs are present
-            ):
-                # Calculate timing parameters for event reconstruction
-                sfreq = epochs.info["sfreq"]
-                # offset = int(round(-epochs.tmin * sfreq))  # Samples from epoch start to time 0. Will recalculate sample pos directly.
-                n_samples = len(epochs.times)  # Total samples per epoch
-
-                # Build event dictionary from all unique event labels
-                all_labels = set()
-                # Iterate over potentially NaN-containing 'additional_events' Series safely
-                for additional_event_list_for_epoch in epochs.metadata[
-                    "additional_events"
-                ].dropna():
-                    if isinstance(additional_event_list_for_epoch, list):
-                        for event_tuple in additional_event_list_for_epoch:
-                            # Ensure the event_tuple is a tuple/list and has at least one element (the label)
-                            if (
-                                isinstance(event_tuple, (list, tuple))
-                                and len(event_tuple) >= 1
-                            ):
-                                label = event_tuple[0]  # Get the label
-                                all_labels.add(str(label))  # Ensure label is a string
-                            else:
-                                message(
-                                    "debug",
-                                    f"Skipping malformed event tuple: {event_tuple} in additional_events.",
-                                )
-                    # else: it's not a list after dropna(), so it was NaN or another non-list type.
-
-                # Preserve original event codes instead of creating sequential ones
-                event_id_rebuilt = {}
-                if hasattr(epochs, "event_id") and epochs.event_id:
-                    # Use original event codes from epochs object
-                    for label in all_labels:
-                        # Find matching event code from original event_id
-                        for orig_label, orig_code in epochs.event_id.items():
-                            if str(orig_label) == str(label):
-                                event_id_rebuilt[label] = orig_code
-                                break
-                        else:
-                            # Fallback: if no match found, use sequential numbering
-                            event_id_rebuilt[label] = len(event_id_rebuilt) + 1
-                else:
-                    # Fallback: if no original event_id available, use sequential numbering
-                    event_id_rebuilt = {
-                        label: idx + 1
-                        for idx, label in enumerate(sorted(list(all_labels)))
-                    }
-                # Reconstruct events array with global sample positions
-                events_in_epochs = []
-                epoch_indices_array = []  # Track which epoch each event belongs to
-                used_samples = set()  # Track used samples to prevent collisions
-
-                # Iterate through metadata rows, but ensure we don't go beyond the actual number of events
-                # This directly addresses the "82 vs 77" mismatch.
-                for i, meta_row_tuple in enumerate(
-                    epochs.metadata.head(len(epochs.events)).itertuples(
-                        index=False, name="Row"
-                    )
-                ):
-                    current_additional_events_for_epoch = getattr(
-                        meta_row_tuple, "additional_events", None
-                    )
-                    if isinstance(current_additional_events_for_epoch, list):
-                        for label, rel_time in current_additional_events_for_epoch:
-                            try:
-                                # rel_time is time from epoch's t=0 (trigger).
-                                # epochs.tmin is the start of the epoch data window relative to t=0.
-                                # Sample index for rel_time within the epoch's data array (0 to n_samples-1) is:
-                                event_sample_within_epoch_data = int(
-                                    round((float(rel_time) - epochs.tmin) * sfreq)
-                                )
-
-                                # Check bounds: sample must be within the current epoch's data segment [0, n_samples-1]
-                                if not (
-                                    0 <= event_sample_within_epoch_data < n_samples
-                                ):
-                                    message(
-                                        "warning",
-                                        f"Epoch {i}, event '{label}': rel_time {rel_time}s -> sample {event_sample_within_epoch_data} is outside epoch data window [0, {n_samples-1}]. Skipping.",
-                                    )
-                                    continue
-
-                                # global_sample is for concatenated data, as expected by eeglabio.export_set
-                                # It's the start of the i-th epoch's data block + the sample within that block.
-                                global_sample = (
-                                    i * n_samples
-                                ) + event_sample_within_epoch_data
-
-                                # Prevent sample collisions by incrementing if needed
-                                while global_sample in used_samples:
-                                    global_sample += 1
-                                used_samples.add(global_sample)
-
-                                str_label = str(
-                                    label
-                                )  # Ensure label is string for dict lookup
-                                if str_label not in event_id_rebuilt:
-                                    message(
-                                        "warning",
-                                        f"Label '{str_label}' (from epoch {i}, rel_time {rel_time}) not found in rebuilt event_id. Available: {list(event_id_rebuilt.keys())}. Skipping this event.",
-                                    )
-                                    continue
-                                code = event_id_rebuilt[str_label]
-                                events_in_epochs.append(
-                                    [global_sample, 0, code]
-                                )  # Assuming duration 0 for point events
-                                epoch_indices_array.append(
-                                    i
-                                )  # Explicit mapping: this event belongs to epoch i
-                            except ValueError:
-                                message(
-                                    "warning",
-                                    f"Epoch {i}, event '{label}': Could not convert rel_time '{rel_time}' to float. Skipping this event.",
-                                )
-                                continue
-                            except (
-                                Exception
-                            ) as e_inner:  # pylint: disable=broad-exception-caught
-                                message(
-                                    "error",
-                                    f"Unexpected error processing event '{label}' in epoch {i} (rel_time: {rel_time}): {e_inner}",
-                                )
-                                continue
-                    # else: current_additional_events_for_epoch is not a list (e.g., NaN), so skip for this epoch.
-
-                if events_in_epochs:  # Only convert to numpy array if list is not empty
-                    events_in_epochs = np.array(events_in_epochs, dtype=int)
-                    epoch_indices_array = np.array(epoch_indices_array, dtype=int)
-
-                    # Check if all epochs are covered
-                    unique_epoch_indices = np.unique(epoch_indices_array)
-                    n_epochs = len(epochs)
-
-                    if len(unique_epoch_indices) < n_epochs:
-                        missing_epochs = sorted(
-                            set(range(n_epochs)) - set(unique_epoch_indices)
-                        )
-                        message(
-                            "warning",
-                            f"Event export: {len(unique_epoch_indices)}/{n_epochs} epochs have events",
-                        )
-                        message(
-                            "warning",
-                            (
-                                f"Missing epoch indices: {missing_epochs[:10]}..."
-                                if len(missing_epochs) > 10
-                                else f"Missing epoch indices: {missing_epochs}"
-                            ),
-                        )
-                else:  # If list is empty, set to None or an empty array as eeglabio expects
-                    events_in_epochs = None  # Or np.empty((0,3), dtype=int) depending on eeglabio's preference for empty
-                    epoch_indices_array = None
-
-            else:
-                message(
-                    "warning",
-                    "No 'additional_events' column found in epochs.metadata or it is empty.",
-                )
-                events_in_epochs = None
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            message("error", f"Failed to rebuild events_in_epochs: {str(e)}")
+        epoch_indices_array = None
+        event_source = "primary"
 
     # Save to all target paths
     epochs.info["description"] = autoclean_dict["run_id"]
@@ -595,7 +428,11 @@ def save_epochs_to_set(
 
             try:
                 # Use specialized export for preserving complex event structures
-                if events_in_epochs is not None and len(events_in_epochs) > 0:
+                if (
+                    event_source == "metadata"
+                    and events_in_epochs is not None
+                    and len(events_in_epochs) > 0
+                ):
                     ## Channel locations fix 10/19/2025
                     drop_chs = ["epoc", "STI 014"]
                     ch_names = [ch for ch in epochs.ch_names if ch not in drop_chs]

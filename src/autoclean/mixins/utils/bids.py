@@ -6,6 +6,7 @@ from typing import Any, Dict, Tuple
 import mne
 
 from autoclean.utils.bids import step_convert_to_bids
+from autoclean.utils.epoch_events import extract_epoch_events
 from autoclean.utils.logging import message
 
 
@@ -106,7 +107,9 @@ class BIDSMixin:
 
         The BIDS conversion functions expect mne.io.Raw objects, but we have epoched data.
         This method creates a synthetic Raw object that contains the concatenated epoch
-        data and mimics the required attributes for BIDS conversion.
+        data and mimics the required attributes for BIDS conversion. Condition labels
+        (epochs.event_id) are preserved as annotations on the mock Raw so downstream
+        BIDS conversion doesn't lose the event structure.
 
         Args:
             epochs: The epochs data to convert
@@ -143,7 +146,31 @@ class BIDSMixin:
 
         # Copy any annotations if they exist
         if hasattr(epochs, "annotations") and epochs.annotations:
-            mock_raw.set_annotations(epochs.annotations)
+            mock_raw.set_annotations(epochs.annotations.copy())
+
+        # Preserve condition codes as annotations so BIDS conversion doesn't
+        # lose the event structure needed later for export or reporting.
+        try:
+            events, event_id, _epoch_indices, _source = extract_epoch_events(epochs)
+            code_to_label = {code: label for label, code in event_id.items()}
+            sfreq = epochs.info["sfreq"]
+            existing = mock_raw.annotations
+            event_annotations = mne.Annotations(
+                onset=events[:, 0] / sfreq,
+                duration=[0.0] * len(events),
+                description=[
+                    code_to_label.get(code, str(code)) for code in events[:, 2]
+                ],
+                # Match the mock raw's own orig_time (often the real
+                # recording's meas_date) -- mismatched orig_time raises on +.
+                orig_time=existing.orig_time,
+            )
+            mock_raw.set_annotations(existing + event_annotations)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            message(
+                "warning",
+                f"Failed to preserve epoch condition codes as annotations: {e}",
+            )
 
         message(
             "success",
