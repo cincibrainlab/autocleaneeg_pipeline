@@ -27,8 +27,13 @@ _PID_FILE = None  # Set at runtime for cleanup
 # ── Shared HTTP helper ────────────────────────────────────────────────
 
 
-def _api_request(port: int, path: str, method: str = "GET",
-                 body: dict | None = None, timeout: int = 20) -> dict[str, Any]:
+def _api_request(
+    port: int,
+    path: str,
+    method: str = "GET",
+    body: dict | None = None,
+    timeout: int = 20,
+) -> dict[str, Any]:
     """Make a JSON request to the local API server."""
     import urllib.request
 
@@ -43,7 +48,9 @@ def _api_request(port: int, path: str, method: str = "GET",
     return json.loads(resp.read())
 
 
-def _wait_for_health(port: int, attempts: int = 30, delay: float = 0.5) -> dict[str, Any] | None:
+def _wait_for_health(
+    port: int, attempts: int = 30, delay: float = 0.5
+) -> dict[str, Any] | None:
     """Wait for the local API to become healthy."""
     import time
 
@@ -70,7 +77,9 @@ def _ensure_operational_service(port: int) -> tuple[bool, list[str]]:
         return False, [f"Could not inspect Serve status: {exc}"]
 
     if not status.get("configured"):
-        messages.append("Workspace not configured yet. Open the UI to choose or create a workspace.")
+        messages.append(
+            "Workspace not configured yet. Open the UI to choose or create a workspace."
+        )
         return False, messages
 
     workspace_dir = status.get("workspace_dir", "unknown workspace")
@@ -84,11 +93,15 @@ def _ensure_operational_service(port: int) -> tuple[bool, list[str]]:
         return True, messages
 
     if routes.get("total", 0) == 0:
-        messages.append("Serve UI started, but no routes exist yet. Add a route before processing can start.")
+        messages.append(
+            "Serve UI started, but no routes exist yet. Add a route before processing can start."
+        )
         return False, messages
 
     if config.get("errors"):
-        messages.append("Serve UI started, but processing was not started because configuration is invalid.")
+        messages.append(
+            "Serve UI started, but processing was not started because configuration is invalid."
+        )
         return False, messages
 
     if config.get("needs_deploy"):
@@ -115,7 +128,9 @@ def _ensure_operational_service(port: int) -> tuple[bool, list[str]]:
             timeout=10,
         )
     except Exception as exc:
-        messages.append(f"Serve UI started, but processing service failed to start: {exc}")
+        messages.append(
+            f"Serve UI started, but processing service failed to start: {exc}"
+        )
         return False, messages
 
     success = bool(result.get("success"))
@@ -124,7 +139,9 @@ def _ensure_operational_service(port: int) -> tuple[bool, list[str]]:
         pending = queue.get("pending", 0)
         processing = queue.get("processing", 0)
         if pending or processing:
-            messages.append(f"Queue currently has {pending} pending and {processing} active file(s).")
+            messages.append(
+                f"Queue currently has {pending} pending and {processing} active file(s)."
+            )
         return True, messages
 
     messages.append(result.get("message", "Processing service did not start."))
@@ -141,24 +158,33 @@ def main() -> None:
         description="AutoCleanEEG Serve",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="Commands:\n"
-               "  (none)    Start server in foreground (Ctrl+C to stop)\n"
-               "  up        Start server as background daemon\n"
-               "  down      Stop the running server\n"
-               "  restart   Stop + start as background daemon\n"
-               "  status    Show whether server is running\n"
-               "  share     Manage public tunnel [start|stop|status|setup|clear]\n",
+        "  (none)    Start server in foreground (Ctrl+C to stop)\n"
+        "  up        Start server as background daemon\n"
+        "  down      Stop the running server\n"
+        "  restart   Stop + start as background daemon\n"
+        "  status    Show whether server is running\n"
+        "  share     Manage public tunnel [start|stop|status|setup|clear]\n",
     )
-    parser.add_argument("command", nargs="?", default=None,
-                        choices=["up", "down", "restart", "status", "share"],
-                        help="Server command (omit for foreground start)")
+    parser.add_argument(
+        "command",
+        nargs="?",
+        default=None,
+        choices=["up", "down", "restart", "status", "share"],
+        help="Server command (omit for foreground start)",
+    )
     parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("--host", type=str, default="0.0.0.0",
-                        help="Bind address (use 127.0.0.1 for localhost only)")
+    parser.add_argument(
+        "--host",
+        type=str,
+        default="0.0.0.0",
+        help="Bind address (use 127.0.0.1 for localhost only)",
+    )
     parser.add_argument("--path", type=str, default=None, help="Workspace path")
     parser.add_argument("--mode", choices=["test", "live"], default="test")
     parser.add_argument("--no-browser", action="store_true")
-    parser.add_argument("--force", action="store_true",
-                        help="Allow starting a second server instance")
+    parser.add_argument(
+        "--force", action="store_true", help="Allow starting a second server instance"
+    )
 
     # Pre-scan for share sub-action before argparse consumes it
     raw_args = sys.argv[1:]
@@ -202,7 +228,7 @@ def _cmd_foreground(args) -> None:
             pid, port, _health = existing
             print(f"AutoCleanEEG Serve is already running (pid {pid}, port {port}).")
             print(f"  Open: http://127.0.0.1:{port}")
-            print(f"  Use --force to start another instance.")
+            print("  Use --force to start another instance.")
             sys.exit(0)
 
     port = _resolve_port(args)
@@ -212,7 +238,9 @@ def _cmd_foreground(args) -> None:
     if workspace:
         print(f"AutoCleanEEG Serve starting with workspace: {workspace}")
     else:
-        print("AutoCleanEEG Serve starting — workspace setup required (will open in browser)")
+        print(
+            "AutoCleanEEG Serve starting — workspace setup required (will open in browser)"
+        )
 
     listen_display = "0.0.0.0 (LAN accessible)" if host == "0.0.0.0" else host
     print(f"Listening on http://{listen_display}:{port}")
@@ -264,12 +292,29 @@ def _cmd_up(args) -> int:
     # Build command
     exe = shutil.which("autocleaneeg-serve")
     if exe:
-        cmd = [exe, "--no-browser", "--port", str(args.port),
-               "--host", args.host, "--mode", args.mode]
+        cmd = [
+            exe,
+            "--no-browser",
+            "--port",
+            str(args.port),
+            "--host",
+            args.host,
+            "--mode",
+            args.mode,
+        ]
     else:
-        cmd = [sys.executable, "-m", "autoclean.serve_launcher",
-               "--no-browser", "--port", str(args.port),
-               "--host", args.host, "--mode", args.mode]
+        cmd = [
+            sys.executable,
+            "-m",
+            "autoclean.serve_launcher",
+            "--no-browser",
+            "--port",
+            str(args.port),
+            "--host",
+            args.host,
+            "--mode",
+            args.mode,
+        ]
 
     if args.path:
         cmd.extend(["--path", args.path])
@@ -326,7 +371,9 @@ def _cmd_up(args) -> int:
         if service_running:
             print("  Operational state: UI + processing service are running.")
         else:
-            print("  Operational state: UI is running; processing still needs attention.")
+            print(
+                "  Operational state: UI is running; processing still needs attention."
+            )
         return 0
 
     _print_startup_failure_diagnostics(
@@ -448,7 +495,9 @@ def _cmd_down(quiet: bool = False) -> int:
         except OSError:
             pass
         if not quiet:
-            print(f"PID {pid} is alive but not an AutoClean server (stale PID file cleaned up).")
+            print(
+                f"PID {pid} is alive but not an AutoClean server (stale PID file cleaned up)."
+            )
         return 1
 
     try:
@@ -459,6 +508,7 @@ def _cmd_down(quiet: bool = False) -> int:
         return 1
 
     import time
+
     for _ in range(20):
         time.sleep(0.5)
         try:
@@ -511,7 +561,9 @@ def _cmd_status(default_port: int) -> int:
     if health:
         mode = health.get("mode", "?")
         version = health.get("pipeline_version", "?")
-        workspace = "configured" if health.get("workspace_configured") else "not configured"
+        workspace = (
+            "configured" if health.get("workspace_configured") else "not configured"
+        )
         print(f"  Mode: {mode}  |  Version: {version}  |  Workspace: {workspace}")
 
     try:
@@ -538,7 +590,11 @@ def _cmd_status(default_port: int) -> int:
     print(
         "  Routes: "
         f"{routes.get('active', 0)} active"
-        + (f", {routes.get('archived', 0)} archived" if routes.get("archived", 0) else "")
+        + (
+            f", {routes.get('archived', 0)} archived"
+            if routes.get("archived", 0)
+            else ""
+        )
     )
     print(
         "  Queue: "
@@ -560,7 +616,9 @@ def _cmd_status(default_port: int) -> int:
         elif config.get("errors"):
             print("  Next: fix configuration errors, then start processing.")
         else:
-            print("  Next: restart with 'autocleaneeg-pipeline serve up' or start processing from the UI.")
+            print(
+                "  Next: restart with 'autocleaneeg-pipeline serve up' or start processing from the UI."
+            )
     return 0
 
 
@@ -572,12 +630,18 @@ def _cmd_share(default_port: int, action: str = "start") -> int:
         return 1
 
     _pid, port, _health = existing
-    api = lambda method, path, body=None: _api_request(port, path, method, body)
+
+    def api(method, path, body=None):
+        return _api_request(port, path, method, body)
 
     if action == "stop":
         try:
             result = api("POST", "/api/tunnel/stop")
-            print("Tunnel stopped." if result.get("success") else result.get("message", "No tunnel is active."))
+            print(
+                "Tunnel stopped."
+                if result.get("success")
+                else result.get("message", "No tunnel is active.")
+            )
         except Exception as e:
             print(f"Error: {e}")
 
@@ -594,7 +658,7 @@ def _cmd_share(default_port: int, action: str = "start") -> int:
             label = "Permanent" if tunnel.get("mode") == "named" else "Temporary"
             print(f"  Tunnel:   Active ({label})")
             print(f"  URL:      {tunnel.get('url')}")
-            print(f"  Username: autoclean")
+            print("  Username: autoclean")
             print(f"  Password: {tunnel.get('password')}")
         else:
             print("  Tunnel:   Not active")
@@ -661,7 +725,7 @@ def _cmd_share(default_port: int, action: str = "start") -> int:
             label = "Permanent" if tunnel.get("mode") == "named" else "Temporary"
             print(f"Tunnel already active ({label}):")
             print(f"  URL:      {tunnel.get('url')}")
-            print(f"  Username: autoclean")
+            print("  Username: autoclean")
             print(f"  Password: {tunnel.get('password')}")
             return 0
 
@@ -672,7 +736,7 @@ def _cmd_share(default_port: int, action: str = "start") -> int:
                 label = "Permanent" if data.get("mode") == "named" else "Temporary"
                 print(f"Tunnel active ({label}):")
                 print(f"  URL:      {data.get('url')}")
-                print(f"  Username: autoclean")
+                print("  Username: autoclean")
                 print(f"  Password: {data.get('password')}")
                 if data.get("mode") != "named":
                     print("\n  This URL is temporary and changes on restart.")
@@ -692,6 +756,7 @@ def _cmd_share(default_port: int, action: str = "start") -> int:
 def _get_lan_addresses() -> list[str]:
     """Return LAN IP addresses (non-loopback IPv4)."""
     import socket
+
     addrs = []
     try:
         for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
@@ -733,7 +798,7 @@ def _resolve_port(args) -> int:
             print(f"Port {args.port} in use — using port {port}")
         else:
             print(f"Port {args.port} is in use by another process.")
-            print(f"  Use --force to start on the next available port.")
+            print("  Use --force to start on the next available port.")
             sys.exit(1)
     return port
 
@@ -812,7 +877,10 @@ def _write_pid_file(port: int) -> None:
 
     def _sigterm_handler(signum, frame):
         _cleanup_pid_file()
-        if callable(prev_handler) and prev_handler not in (signal.SIG_DFL, signal.SIG_IGN):
+        if callable(prev_handler) and prev_handler not in (
+            signal.SIG_DFL,
+            signal.SIG_IGN,
+        ):
             prev_handler(signum, frame)
         sys.exit(0)
 

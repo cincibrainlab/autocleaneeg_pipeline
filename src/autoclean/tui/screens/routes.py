@@ -172,7 +172,9 @@ class RouteEditorScreen(Screen):
         app: AutoCleanTUI = self.app  # type: ignore
         ok, error = app.upsert_route_spec(
             route_id=self.query_one("#input-route-id", Input).value,
-            existing_route_id=str(self.route_spec.get("id")) if self.is_edit_mode else None,
+            existing_route_id=(
+                str(self.route_spec.get("id")) if self.is_edit_mode else None
+            ),
             taskfile=self.query_one("#input-taskfile", Input).value,
             montage=self.query_one("#input-montage", Input).value,
             ingestion_folders=self.query_one("#input-folders", Input).value.split(","),
@@ -291,7 +293,9 @@ class RoutesScreen(Screen):
             live_str = "[green]Yes[/]" if "live" in modes else "[dim]-[/]"
             state_str = "[yellow]Archived[/]" if archived else "[green]Active[/]"
             enabled_str = "[green]Yes[/]" if enabled else "[red]No[/]"
-            task_label = Path(str(route.get("taskfile", ""))).name or str(route.get("taskfile", ""))
+            task_label = Path(str(route.get("taskfile", ""))).name or str(
+                route.get("taskfile", "")
+            )
             table.add_row(
                 str(route["id"]),
                 draft_str,
@@ -405,7 +409,9 @@ class RoutesScreen(Screen):
             self.notify("Route not found", severity="error")
             return
         if route.get("archived", False):
-            self.notify("Restore the route before changing enabled state", severity="warning")
+            self.notify(
+                "Restore the route before changing enabled state", severity="warning"
+            )
             return
 
         enabled = not bool(route.get("enabled", True))

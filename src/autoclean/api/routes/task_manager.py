@@ -68,10 +68,12 @@ class TaskActionResponse(BaseModel):
 
 # ── Helpers ─────────────────────────────────────────────────────────
 
+
 def _get_workspace_dir() -> Optional[Path]:
     """Return the active Serve workspace tasks directory when available."""
     try:
         from autoclean.utils.user_config import UserConfigManager
+
         mgr = UserConfigManager()
         return mgr.get_serve_tasks_dir() or mgr.tasks_dir
     except Exception as exc:
@@ -89,6 +91,7 @@ def _registry_status() -> RegistryInfo:
     """Return high-level registry sync metadata."""
     try:
         from autoclean.utils.builtins import BuiltinRegistry
+
         reg = BuiltinRegistry()
         status = reg.registry_status()
         tasks = reg.list_tasks()
@@ -102,10 +105,13 @@ def _registry_status() -> RegistryInfo:
         return RegistryInfo()
 
 
-def _build_detail_for(discovered_task: Any) -> tuple[Optional[TaskConfig], list[str], str]:
+def _build_detail_for(
+    discovered_task: Any,
+) -> tuple[Optional[TaskConfig], list[str], str]:
     """Return (config, pipeline, source_code) by delegating to task_browser logic."""
     try:
         from autoclean.api.routes.task_browser import _build_task_detail
+
         detail = _build_task_detail(discovered_task)
         if detail is None:
             return None, [], ""
@@ -115,7 +121,9 @@ def _build_detail_for(discovered_task: Any) -> tuple[Optional[TaskConfig], list[
         return None, [], ""
 
 
-def _sync_status_for_builtin(name: str, workspace_dir: Optional[Path]) -> tuple[str, Optional[str]]:
+def _sync_status_for_builtin(
+    name: str, workspace_dir: Optional[Path]
+) -> tuple[str, Optional[str]]:
     """Return (sync_status, workspace_path) for a registry task.
 
     Maps BuiltinRegistry status strings onto our frontend vocabulary:
@@ -126,6 +134,7 @@ def _sync_status_for_builtin(name: str, workspace_dir: Optional[Path]) -> tuple[
     """
     try:
         from autoclean.utils.builtins import BuiltinRegistry
+
         reg = BuiltinRegistry()
         info = reg.task_sync_status(name, workspace_dir)
         raw = info.get("status", "not_installed")
@@ -144,6 +153,7 @@ def _sync_status_for_builtin(name: str, workspace_dir: Optional[Path]) -> tuple[
 
 # ── GET /api/task-manager ────────────────────────────────────────────
 
+
 @router.get("", response_model=TaskManagerResponse)
 async def get_task_manager() -> TaskManagerResponse:
     """Return unified task catalog merging library, builtin, and workspace tasks."""
@@ -155,6 +165,7 @@ async def get_task_manager() -> TaskManagerResponse:
     library_names: set[str] = set()
     try:
         from autoclean.utils.builtins import BuiltinRegistry
+
         reg = BuiltinRegistry()
         for bt in reg.list_tasks():
             library_names.add(bt.name)
@@ -165,13 +176,11 @@ async def get_task_manager() -> TaskManagerResponse:
     discovered_tasks: list[Any] = []
     try:
         from autoclean.utils.task_discovery import safe_discover_tasks
+
         valid_tasks, _invalid, _skipped = safe_discover_tasks()
         discovered_tasks = valid_tasks
     except Exception as exc:
         logger.error("Task discovery failed: %s", exc)
-
-    # Build a name -> discovered_task lookup
-    discovered_by_name: dict[str, Any] = {t.name: t for t in discovered_tasks}
 
     # -- 3. Determine workspace task names (files in workspace tasks dir)
     workspace_task_names: set[str] = set()
@@ -190,9 +199,8 @@ async def get_task_manager() -> TaskManagerResponse:
         source_path = dt.source
 
         # Is this task in the workspace directory?
-        is_workspace = (
-            workspace_dir is not None
-            and str(source_path).startswith(str(workspace_dir))
+        is_workspace = workspace_dir is not None and str(source_path).startswith(
+            str(workspace_dir)
         )
 
         # Determine source label
@@ -220,36 +228,41 @@ async def get_task_manager() -> TaskManagerResponse:
         # Derive category from task_browser helper
         try:
             from autoclean.api.routes.task_browser import _derive_category
+
             category = _derive_category(source_path)
         except Exception:
             category = "custom"
 
-        tasks.append(ManagedTask(
-            name=name,
-            description=dt.description,
-            category=category,
-            source=source_label,
-            sync_status=sync_status,
-            workspace_path=wp,
-            config=config,
-            pipeline=pipeline,
-            source_code=source_code,
-        ))
+        tasks.append(
+            ManagedTask(
+                name=name,
+                description=dt.description,
+                category=category,
+                source=source_label,
+                sync_status=sync_status,
+                workspace_path=wp,
+                config=config,
+                pipeline=pipeline,
+                source_code=source_code,
+            )
+        )
 
     # Pass B: library tasks not yet discovered (i.e., not installed anywhere)
     discovered_names = {t.name for t in discovered_tasks}
     for lib_name in sorted(library_names - discovered_names):
-        tasks.append(ManagedTask(
-            name=lib_name,
-            description="",
-            category="builtin",
-            source="library",
-            sync_status="not_installed",
-            workspace_path=None,
-            config=None,
-            pipeline=[],
-            source_code="",
-        ))
+        tasks.append(
+            ManagedTask(
+                name=lib_name,
+                description="",
+                category="builtin",
+                source="library",
+                sync_status="not_installed",
+                workspace_path=None,
+                config=None,
+                pipeline=[],
+                source_code="",
+            )
+        )
 
     return TaskManagerResponse(
         tasks=tasks,
@@ -259,6 +272,7 @@ async def get_task_manager() -> TaskManagerResponse:
 
 
 # ── POST /api/task-manager/install ──────────────────────────────────
+
 
 @router.post("/install", response_model=TaskActionResponse)
 async def install_task(body: InstallRequest) -> TaskActionResponse:
@@ -271,6 +285,7 @@ async def install_task(body: InstallRequest) -> TaskActionResponse:
 
     try:
         from autoclean.utils.builtins import BuiltinRegistry
+
         reg = BuiltinRegistry()
         dest_path = reg.materialize_task_to(task_name, workspace_dir)
         return TaskActionResponse(
@@ -288,6 +303,7 @@ async def install_task(body: InstallRequest) -> TaskActionResponse:
 
 # ── POST /api/task-manager/create ───────────────────────────────────
 
+
 @router.post("/create", response_model=TaskActionResponse)
 async def create_task(body: CreateRequest) -> TaskActionResponse:
     """Create a new task from the custom task template."""
@@ -300,6 +316,7 @@ async def create_task(body: CreateRequest) -> TaskActionResponse:
     # Validate identifier
     try:
         from autoclean.utils.template_renderer import validate_python_identifier
+
         validate_python_identifier(class_name, label="class_name")
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
@@ -307,17 +324,21 @@ async def create_task(body: CreateRequest) -> TaskActionResponse:
     # Locate template
     try:
         import autoclean
+
         package_dir = Path(autoclean.__file__).parent
     except Exception:
         package_dir = Path(__file__).parent.parent.parent
 
     template_path = package_dir / "templates" / "custom_task_template.jinja"
     if not template_path.exists():
-        raise HTTPException(status_code=500, detail=f"Template not found: {template_path}")
+        raise HTTPException(
+            status_code=500, detail=f"Template not found: {template_path}"
+        )
 
     # Render template
     try:
         from autoclean.utils.template_renderer import render_template
+
         rendered = render_template(template_path, {"class_name": class_name})
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Template render failed: {exc}")
@@ -346,12 +367,14 @@ async def create_task(body: CreateRequest) -> TaskActionResponse:
 
 # ── POST /api/task-manager/refresh-library ──────────────────────────
 
+
 @router.post("/refresh-library", response_model=TaskActionResponse)
 async def refresh_library() -> TaskActionResponse:
     """Refresh the GitHub registry cache."""
 
     try:
         from autoclean.utils.builtins import BuiltinRegistry
+
         reg = BuiltinRegistry()
         message = reg.update_cache(allow_network=True)
         return TaskActionResponse(
@@ -368,6 +391,7 @@ async def refresh_library() -> TaskActionResponse:
 
 # ── POST /api/task-manager/{task_name}/update ───────────────────────
 
+
 @router.post("/{task_name}/update", response_model=TaskActionResponse)
 async def update_task(task_name: str) -> TaskActionResponse:
     """Re-materialize a task from the registry to pick up the latest version."""
@@ -382,6 +406,7 @@ async def update_task(task_name: str) -> TaskActionResponse:
 
     try:
         from autoclean.utils.builtins import BuiltinRegistry
+
         reg = BuiltinRegistry()
         dest_path = reg.materialize_task_to(task_name, workspace_dir)
         return TaskActionResponse(
@@ -398,6 +423,7 @@ async def update_task(task_name: str) -> TaskActionResponse:
 
 
 # ── DELETE /api/task-manager/{task_name} ────────────────────────────
+
 
 @router.delete("/{task_name}", response_model=TaskActionResponse)
 async def remove_task(task_name: str) -> TaskActionResponse:

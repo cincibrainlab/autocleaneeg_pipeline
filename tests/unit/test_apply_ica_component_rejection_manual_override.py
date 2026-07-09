@@ -103,3 +103,33 @@ def test_manual_ica_override_empty_list(monkeypatch, dummy_raw):
     nested = metadata["ica"]
     assert nested["method"] == "ManualOverride"
     assert nested["final_excluded_indices"] == []
+
+
+def test_prerejection_snapshot_created_before_apply(monkeypatch, dummy_raw):
+    task = DummyICATask(dummy_raw)
+
+    auto_rejection_mock = MagicMock()
+    monkeypatch.setattr(
+        "autoclean.mixins.signal_processing.ica.apply_ica_component_rejection",
+        auto_rejection_mock,
+    )
+    monkeypatch.setattr(ica_module, "CACHE_AVAILABLE", False)
+
+    original_data = task.raw.get_data().copy()
+
+    task.apply_ica_component_rejection(
+        manual_rejected_components=[0],
+    )
+
+    # A pre-rejection snapshot should now exist
+    assert hasattr(task, "raw_prerejection")
+    assert task.raw_prerejection is not None
+
+    # It must be a distinct object, not the same reference as self.raw
+    assert task.raw_prerejection is not task.raw
+
+    # Its data should match what self.raw contained before rejection ran
+    np.testing.assert_array_equal(task.raw_prerejection.get_data(), original_data)
+
+    # The actual rejection should still have been applied to self.raw itself
+    assert task.final_ica.applied_to == [task.raw]

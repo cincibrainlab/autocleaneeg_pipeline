@@ -168,7 +168,9 @@ def _resolve_pick_indices(
         return [int(pick) for pick in picks_list]
     if all(isinstance(pick, str) for pick in picks_list):
         return list(mne.pick_channels(data.ch_names, include=picks_list, ordered=True))
-    raise TypeError("picks must be None, a channel name, or a sequence of names/indices")
+    raise TypeError(
+        "picks must be None, a channel name, or a sequence of names/indices"
+    )
 
 
 def _extract_channel_signal(

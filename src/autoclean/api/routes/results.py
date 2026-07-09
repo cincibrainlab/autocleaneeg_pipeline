@@ -142,15 +142,31 @@ def _find_run(run_id: str, workspace: Path) -> tuple[dict[str, Any], Path] | Non
 
 # ── Asset path resolution ────────────────────────────────────────────
 
+
 def _resolve_asset(task_root: Path, stem: str, asset: str) -> Path | None:
     """Return the Path for a named asset, or None if it does not exist."""
     candidates: dict[str, Path] = {
-        "report": task_root / "reports" / "run_reports" / f"{stem}_autoclean_report.pdf",
-        "ica_report": task_root / "reports" / "ica_components" / f"{stem}_ica_components_all.pdf",
+        "report": task_root
+        / "reports"
+        / "run_reports"
+        / f"{stem}_autoclean_report.pdf",
+        "ica_report": task_root
+        / "reports"
+        / "ica_components"
+        / f"{stem}_ica_components_all.pdf",
         "psd": task_root / "reports" / "psd_topo" / f"{stem}_psd_topo_figure.png",
-        "overlay": task_root / "reports" / "raw_vs_cleaned_overlay" / f"{stem}_raw_vs_cleaned_overlay.png",
-        "metadata": task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json",
-        "channels": task_root / "reports" / "run_reports" / f"{stem}_autoclean_report_flagged_channels.tsv",
+        "overlay": task_root
+        / "reports"
+        / "raw_vs_cleaned_overlay"
+        / f"{stem}_raw_vs_cleaned_overlay.png",
+        "metadata": task_root
+        / "reports"
+        / "run_reports"
+        / f"{stem}_autoclean_metadata.json",
+        "channels": task_root
+        / "reports"
+        / "run_reports"
+        / f"{stem}_autoclean_report_flagged_channels.tsv",
     }
     path = candidates.get(asset)
     if path and path.exists():
@@ -159,6 +175,7 @@ def _resolve_asset(task_root: Path, stem: str, asset: str) -> Path | None:
 
 
 # ── Metrics extraction ───────────────────────────────────────────────
+
 
 def _extract_metrics(meta: dict[str, Any]) -> dict[str, Any]:
     """Pull processing metrics out of the pipeline metadata dict defensively."""
@@ -184,7 +201,11 @@ def _extract_metrics(meta: dict[str, Any]) -> dict[str, Any]:
     epoch_step = meta.get("step_create_regular_epochs", {})
     epochs_total: int | None = epoch_step.get("initial_epoch_count")
     epochs_kept_raw: int | None = save_epochs.get("n_epochs")
-    epochs_kept: int | None = epochs_kept_raw if epochs_kept_raw is not None else epoch_step.get("final_epoch_count")
+    epochs_kept: int | None = (
+        epochs_kept_raw
+        if epochs_kept_raw is not None
+        else epoch_step.get("final_epoch_count")
+    )
 
     # ICA
     ica_step = meta.get("step_run_ica", {})
@@ -199,7 +220,9 @@ def _extract_metrics(meta: dict[str, Any]) -> dict[str, Any]:
         ica_method = ica_kwargs.get("method", "")
 
     rejection_step = meta.get("step_apply_ica_component_rejection", {})
-    rejection_ica = rejection_step.get("ica", {}) if isinstance(rejection_step, dict) else {}
+    rejection_ica = (
+        rejection_step.get("ica", {}) if isinstance(rejection_step, dict) else {}
+    )
     ica_removed: list[int] = []
     raw_excluded = rejection_ica.get("final_excluded_indices", [])
     if isinstance(raw_excluded, list):
@@ -287,6 +310,7 @@ def _extract_metrics(meta: dict[str, Any]) -> dict[str, Any]:
 
 # ── Pydantic models ──────────────────────────────────────────────────
 
+
 class RunSummary(BaseModel):
     run_id: str
     created_at: str
@@ -345,6 +369,7 @@ class RunDetail(BaseModel):
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
+
 def _require_workspace() -> Path:
     if not api_state.workspace_dir:
         raise HTTPException(status_code=409, detail="Workspace not configured")
@@ -353,8 +378,8 @@ def _require_workspace() -> Path:
 
 def _route_output_map(workspace: Path) -> dict[str, Path]:
     try:
-        from autoclean.utils.serve_routes import load_route_specs
         from autoclean.utils.ingestion import build_workspace_name
+        from autoclean.utils.serve_routes import load_route_specs
     except Exception:
         return {}
 
@@ -423,11 +448,14 @@ def _get_stem_and_asset(
     stem = _extract_stem(Path(unprocessed).name)
     asset_path = _resolve_asset(task_root, stem, asset)
     if not asset_path:
-        raise HTTPException(status_code=404, detail=f"Asset '{asset}' not available for run '{run_id}'")
+        raise HTTPException(
+            status_code=404, detail=f"Asset '{asset}' not available for run '{run_id}'"
+        )
     return row, task_root, stem, asset_path
 
 
 # ── Endpoints ────────────────────────────────────────────────────────
+
 
 @router.get("", response_model=ResultsListResponse)
 async def list_results(
@@ -437,7 +465,9 @@ async def list_results(
     workspace = _require_workspace()
     all_runs = _find_all_runs(workspace)
     route_outputs = _route_output_map(workspace)
-    summaries = [_row_to_summary(row, task_root, route_outputs) for row, task_root in all_runs]
+    summaries = [
+        _row_to_summary(row, task_root, route_outputs) for row, task_root in all_runs
+    ]
     if route_id:
         summaries = [summary for summary in summaries if summary.route_id == route_id]
     return ResultsListResponse(runs=summaries, total=len(summaries))
@@ -508,7 +538,9 @@ async def get_run_detail(run_id: str) -> RunDetail:
 async def get_report(run_id: str) -> FileResponse:
     """Serve the autoclean PDF report for a run."""
     workspace = _require_workspace()
-    _row, _task_root, _stem, asset_path = _get_stem_and_asset(run_id, workspace, "report")
+    _row, _task_root, _stem, asset_path = _get_stem_and_asset(
+        run_id, workspace, "report"
+    )
     return FileResponse(path=str(asset_path), media_type="application/pdf")
 
 
@@ -516,7 +548,9 @@ async def get_report(run_id: str) -> FileResponse:
 async def get_ica_report(run_id: str) -> FileResponse:
     """Serve the ICA components PDF report for a run."""
     workspace = _require_workspace()
-    _row, _task_root, _stem, asset_path = _get_stem_and_asset(run_id, workspace, "ica_report")
+    _row, _task_root, _stem, asset_path = _get_stem_and_asset(
+        run_id, workspace, "ica_report"
+    )
     return FileResponse(path=str(asset_path), media_type="application/pdf")
 
 
@@ -536,7 +570,9 @@ async def get_psd(run_id: str) -> FileResponse:
 async def get_overlay(run_id: str) -> FileResponse:
     """Serve the raw-vs-cleaned overlay PNG for a run."""
     workspace = _require_workspace()
-    _row, _task_root, _stem, asset_path = _get_stem_and_asset(run_id, workspace, "overlay")
+    _row, _task_root, _stem, asset_path = _get_stem_and_asset(
+        run_id, workspace, "overlay"
+    )
     return FileResponse(
         path=str(asset_path),
         media_type="image/png",
@@ -571,7 +607,9 @@ async def get_metadata(run_id: str) -> JSONResponse:
         except Exception:
             pass
 
-    raise HTTPException(status_code=404, detail=f"Metadata not available for run '{run_id}'")
+    raise HTTPException(
+        status_code=404, detail=f"Metadata not available for run '{run_id}'"
+    )
 
 
 @router.get("/{run_id}/channels")
@@ -605,13 +643,17 @@ async def get_channels(run_id: str) -> JSONResponse:
         rows = [dict(r) for r in reader]
         # Normalise to {channel, reason} shape expected by the frontend
         normalised = [
-            {"channel": r.get("channel", r.get("label", "")),
-             "reason": r.get("label", r.get("reason", ""))}
+            {
+                "channel": r.get("channel", r.get("label", "")),
+                "reason": r.get("label", r.get("reason", "")),
+            }
             for r in rows
         ]
         return JSONResponse(content={"channels": normalised})
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to parse channels file: {exc}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to parse channels file: {exc}"
+        )
 
 
 # ── ICA PDF endpoints ─────────────────────────────────────────────
@@ -643,12 +685,14 @@ async def get_run_events(run_id: str) -> JSONResponse:
                     reader = csv.DictReader(f, delimiter="\t")
                     for ev_row in reader:
                         try:
-                            events_timeline.append({
-                                "onset": float(ev_row.get("onset") or 0),
-                                "duration": float(ev_row.get("duration") or 0),
-                                "trial_type": ev_row.get("trial_type", "unknown"),
-                                "value": ev_row.get("value", ""),
-                            })
+                            events_timeline.append(
+                                {
+                                    "onset": float(ev_row.get("onset") or 0),
+                                    "duration": float(ev_row.get("duration") or 0),
+                                    "trial_type": ev_row.get("trial_type", "unknown"),
+                                    "value": ev_row.get("value", ""),
+                                }
+                            )
                         except (ValueError, TypeError):
                             continue  # skip malformed rows
             except Exception:
@@ -669,14 +713,25 @@ async def get_run_events(run_id: str) -> JSONResponse:
         for label, code in event_dict.items():
             typed_onsets = type_onsets.get(label, type_onsets.get(str(code), []))
             count = len(typed_onsets)
-            per_isis = [typed_onsets[i + 1] - typed_onsets[i] for i in range(len(typed_onsets) - 1)]
-            type_summary.append({
-                "label": label, "code": code, "count": count,
-                "first_onset": round(typed_onsets[0], 3) if typed_onsets else None,
-                "last_onset": round(typed_onsets[-1], 3) if typed_onsets else None,
-                "mean_isi": round(statistics.mean(per_isis), 3) if per_isis else None,
-                "median_isi": round(statistics.median(per_isis), 3) if per_isis else None,
-            })
+            per_isis = [
+                typed_onsets[i + 1] - typed_onsets[i]
+                for i in range(len(typed_onsets) - 1)
+            ]
+            type_summary.append(
+                {
+                    "label": label,
+                    "code": code,
+                    "count": count,
+                    "first_onset": round(typed_onsets[0], 3) if typed_onsets else None,
+                    "last_onset": round(typed_onsets[-1], 3) if typed_onsets else None,
+                    "mean_isi": (
+                        round(statistics.mean(per_isis), 3) if per_isis else None
+                    ),
+                    "median_isi": (
+                        round(statistics.median(per_isis), 3) if per_isis else None
+                    ),
+                }
+            )
 
     # Global ISI, long gaps
     isi_stats: dict[str, Any] | None = None
@@ -685,37 +740,60 @@ async def get_run_events(run_id: str) -> JSONResponse:
         isis = [onsets[i + 1] - onsets[i] for i in range(len(onsets) - 1)]
         if isis:
             isi_stats = {
-                "min": round(min(isis), 3), "max": round(max(isis), 3),
-                "mean": round(statistics.mean(isis), 3), "median": round(statistics.median(isis), 3),
-                "std": round(statistics.stdev(isis), 3) if len(isis) > 1 else 0, "count": len(isis),
+                "min": round(min(isis), 3),
+                "max": round(max(isis), 3),
+                "mean": round(statistics.mean(isis), 3),
+                "median": round(statistics.median(isis), 3),
+                "std": round(statistics.stdev(isis), 3) if len(isis) > 1 else 0,
+                "count": len(isis),
             }
         long_gaps = [
-            {"start": round(onsets[i], 3), "end": round(onsets[i + 1], 3), "duration": round(onsets[i + 1] - onsets[i], 3)}
-            for i in range(len(onsets) - 1) if onsets[i + 1] - onsets[i] > 30.0
+            {
+                "start": round(onsets[i], 3),
+                "end": round(onsets[i + 1], 3),
+                "duration": round(onsets[i + 1] - onsets[i], 3),
+            }
+            for i in range(len(onsets) - 1)
+            if onsets[i + 1] - onsets[i] > 30.0
         ][:10]
 
     # Transitions (uses sorted timeline order)
     transitions_counter: Counter[tuple[str, str]] = Counter()
     for i in range(len(events_timeline) - 1):
-        transitions_counter[(events_timeline[i]["trial_type"], events_timeline[i + 1]["trial_type"])] += 1
-    top_transitions = [{"from": f, "to": t, "count": c} for (f, t), c in transitions_counter.most_common(10)]
+        transitions_counter[
+            (events_timeline[i]["trial_type"], events_timeline[i + 1]["trial_type"])
+        ] += 1
+    top_transitions = [
+        {"from": f, "to": t, "count": c}
+        for (f, t), c in transitions_counter.most_common(10)
+    ]
 
     # Duration and rate
     duration_sec = round(onsets[-1] - onsets[0], 3) if onsets else None
-    events_per_min = round(len(onsets) / (duration_sec / 60.0), 2) if duration_sec and duration_sec > 0 else None
+    events_per_min = (
+        round(len(onsets) / (duration_sec / 60.0), 2)
+        if duration_sec and duration_sec > 0
+        else None
+    )
 
-    return JSONResponse(content={
-        "has_events": has_events,
-        "event_count": event_count,
-        "event_types": type_summary,
-        "unique_type_count": len(unique_types),
-        "isi_stats": isi_stats,
-        "recording_type": "event_related" if has_events and event_count > _MIN_EVENT_RELATED else "resting_state",
-        "long_gaps": long_gaps,
-        "transitions": top_transitions,
-        "duration_sec": duration_sec,
-        "events_per_min": events_per_min,
-    })
+    return JSONResponse(
+        content={
+            "has_events": has_events,
+            "event_count": event_count,
+            "event_types": type_summary,
+            "unique_type_count": len(unique_types),
+            "isi_stats": isi_stats,
+            "recording_type": (
+                "event_related"
+                if has_events and event_count > _MIN_EVENT_RELATED
+                else "resting_state"
+            ),
+            "long_gaps": long_gaps,
+            "transitions": top_transitions,
+            "duration_sec": duration_sec,
+            "events_per_min": events_per_min,
+        }
+    )
 
 
 @router.get("/export/csv")
@@ -730,14 +808,16 @@ async def export_results_csv() -> Response:
     for row, _task_root in all_runs:
         unprocessed = row.get("unprocessed_file") or ""
         filename = Path(unprocessed).name if unprocessed else ""
-        writer.writerow([
-            row.get("run_id", ""),
-            row.get("created_at", ""),
-            row.get("task", ""),
-            filename,
-            row.get("status", ""),
-            "Yes" if row.get("success") else "No",
-        ])
+        writer.writerow(
+            [
+                row.get("run_id", ""),
+                row.get("created_at", ""),
+                row.get("task", ""),
+                filename,
+                row.get("status", ""),
+                "Yes" if row.get("success") else "No",
+            ]
+        )
 
     return Response(
         content=buf.getvalue(),
@@ -758,7 +838,14 @@ async def download_run_artifacts(run_id: str) -> Response:
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for asset_name in ("report", "ica_report", "psd", "overlay", "metadata", "channels"):
+        for asset_name in (
+            "report",
+            "ica_report",
+            "psd",
+            "overlay",
+            "metadata",
+            "channels",
+        ):
             asset_path = _resolve_asset(task_root, stem, asset_name)
             if asset_path:
                 zf.write(str(asset_path), asset_path.name)
@@ -817,7 +904,10 @@ async def get_ica_page(
         raise HTTPException(status_code=404, detail="ICA report not found")
 
     try:
-        from autoclean.api.pdf_extractor import get_ica_page_count, render_ica_page  # noqa: PLC0415
+        from autoclean.api.pdf_extractor import (  # noqa: PLC0415
+            get_ica_page_count,
+            render_ica_page,
+        )
 
         total = get_ica_page_count(pdf_path)
     except ImportError:
@@ -839,7 +929,9 @@ async def get_ica_page(
         png_b64 = render_ica_page(pdf_path, page_num, dpi=dpi)
         png_bytes = base64.b64decode(png_b64)
     except Exception as exc:
-        logger.exception("ICA page render failed for run %s page %d: %s", run_id, page_num, exc)
+        logger.exception(
+            "ICA page render failed for run %s page %d: %s", run_id, page_num, exc
+        )
         raise HTTPException(status_code=500, detail=f"Page render failed: {exc}")
 
     return Response(content=png_bytes, media_type="image/png")
@@ -885,13 +977,15 @@ def _decisions_to_csv(decisions: dict[str, Any]) -> str:
     writer = csv.writer(buf)
     writer.writerow(["run_id", "filename", "decision", "notes", "decided_at"])
     for rec in decisions.values():
-        writer.writerow([
-            rec.get("run_id", ""),
-            rec.get("filename", ""),
-            rec.get("decision", ""),
-            rec.get("notes", ""),
-            rec.get("decided_at", ""),
-        ])
+        writer.writerow(
+            [
+                rec.get("run_id", ""),
+                rec.get("filename", ""),
+                rec.get("decision", ""),
+                rec.get("notes", ""),
+                rec.get("decided_at", ""),
+            ]
+        )
     return buf.getvalue()
 
 
@@ -905,9 +999,7 @@ async def get_decisions() -> DecisionsResponse:
     """Return all review decisions for the current workspace."""
     workspace = _require_workspace()
     decisions = _load_decisions(workspace)
-    records = {
-        k: DecisionRecord(**v) for k, v in decisions.items()
-    }
+    records = {k: DecisionRecord(**v) for k, v in decisions.items()}
     return DecisionsResponse(decisions=records, total=len(records))
 
 
@@ -938,7 +1030,9 @@ async def set_decision(run_id: str, body: DecisionInput) -> JSONResponse:
 
     _save_decisions(workspace, decisions)
 
-    return JSONResponse(content={"success": True, "run_id": run_id, "decision": body.decision})
+    return JSONResponse(
+        content={"success": True, "run_id": run_id, "decision": body.decision}
+    )
 
 
 @router.get("/decisions/export/csv")

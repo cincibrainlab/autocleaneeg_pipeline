@@ -87,10 +87,18 @@ class DashboardScreen(Screen):
             yield Static("Lane Overview", classes="section-header")
 
             with Horizontal(classes="stats-container"):
-                yield StatBox(0, "Waiting", "pending", id="stat-pending", classes="stat-box")
-                yield StatBox(0, "Running", "running", id="stat-running", classes="stat-box")
-                yield StatBox(0, "Completed", "ready", id="stat-completed", classes="stat-box")
-                yield StatBox(0, "Needs attention", "failed", id="stat-failed", classes="stat-box")
+                yield StatBox(
+                    0, "Waiting", "pending", id="stat-pending", classes="stat-box"
+                )
+                yield StatBox(
+                    0, "Running", "running", id="stat-running", classes="stat-box"
+                )
+                yield StatBox(
+                    0, "Completed", "ready", id="stat-completed", classes="stat-box"
+                )
+                yield StatBox(
+                    0, "Needs attention", "failed", id="stat-failed", classes="stat-box"
+                )
 
             with Horizontal(classes="service-controls"):
                 yield Button("Start Service", id="btn-start", variant="success")
@@ -100,7 +108,9 @@ class DashboardScreen(Screen):
             yield Static("Recent Activity", classes="section-header")
 
             with Vertical(id="activity-feed", classes="activity-container"):
-                yield Static("No recent activity", classes="empty-state", id="empty-activity")
+                yield Static(
+                    "No recent activity", classes="empty-state", id="empty-activity"
+                )
 
     def on_mount(self) -> None:
         self.set_interval(2.0, self.refresh_data)

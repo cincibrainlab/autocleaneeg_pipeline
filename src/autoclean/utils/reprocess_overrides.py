@@ -15,7 +15,9 @@ EPOCH_CREATION_METHODS = {
 }
 
 
-def epoch_review_override_from_record(record: Optional[dict[str, Any]]) -> dict[str, Any]:
+def epoch_review_override_from_record(
+    record: Optional[dict[str, Any]],
+) -> dict[str, Any]:
     """Normalize manual epoch-review data from an exclusion decision record."""
     record = record or {}
     return {
@@ -57,9 +59,7 @@ def generate_reprocess_task_from_original(
     file_stem = payload.get("file_stem", "unknown")
     dataset_name = f"{file_stem}_{timestamp}"
 
-    bad_channels = [
-        ch for ch in bad_channels_raw if ch not in EOG_CHANNEL_PATTERNS
-    ]
+    bad_channels = [ch for ch in bad_channels_raw if ch not in EOG_CHANNEL_PATTERNS]
 
     class ConfigModifier(ast.NodeTransformer):
         def visit_Assign(self, node: ast.Assign):  # type: ignore[override]
@@ -85,12 +85,8 @@ def generate_reprocess_task_from_original(
                 f"- Manual ICA component rejection: {rejected_ica}",
             ]
             if manual_bad_epoch_indices:
-                doc_lines.append(
-                    f"- Manual bad epochs: {manual_bad_epoch_indices}"
-                )
-            new_docstring = ast.Expr(
-                value=ast.Constant(value="\n".join(doc_lines))
-            )
+                doc_lines.append(f"- Manual bad epochs: {manual_bad_epoch_indices}")
+            new_docstring = ast.Expr(value=ast.Constant(value="\n".join(doc_lines)))
 
             if (
                 node.body

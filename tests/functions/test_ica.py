@@ -27,6 +27,16 @@ def mock_raw():
 
 
 @pytest.fixture
+def mock_epochs():
+    """Create a mock epochs object for testing."""
+    epochs = MagicMock(spec=mne.BaseEpochs)
+    epochs.info = {"sfreq": 500.0, "nchan": 64}
+    epochs.get_data.return_value = np.random.randn(20, 64, 500)
+    epochs.copy.return_value = epochs
+    return epochs
+
+
+@pytest.fixture
 def mock_ica():
     """Create a mock ICA object for testing."""
     ica = MagicMock(spec=ICA)
@@ -66,7 +76,7 @@ class TestFitIca:
         mock_ica_instance = MagicMock(spec=ICA)
         mock_ica_class.return_value = mock_ica_instance
 
-        result = fit_ica(
+        fit_ica(
             mock_raw,
             n_components=15,
             method="infomax",
@@ -109,6 +119,17 @@ class TestFitIca:
 
         with pytest.raises(RuntimeError, match="Failed to fit ICA"):
             fit_ica(mock_raw)
+
+    @patch("autoclean.functions.ica.ica_processing.ICA")
+    def test_accepts_epochs(self, mock_ica_class, mock_epochs):
+        """fit_ica should accept mne.BaseEpochs, not just Raw."""
+        mock_ica_instance = MagicMock(spec=ICA)
+        mock_ica_class.return_value = mock_ica_instance
+
+        result = fit_ica(mock_epochs)
+
+        mock_ica_instance.fit.assert_called_once()
+        assert result == mock_ica_instance
 
 
 class TestClassifyIcaComponents:
@@ -161,6 +182,27 @@ class TestClassifyIcaComponents:
 
         with pytest.raises(RuntimeError, match="Failed to classify ICA components"):
             classify_ica_components(mock_raw, mock_ica)
+
+    @patch("autoclean.functions.ica.ica_processing.mne_icalabel.label_components")
+    def test_accepts_epochs_when_raw_unavailable(
+        self, mock_label_components, mock_epochs, mock_ica
+    ):
+        """classify_ica_components should accept epochs (e.g. when only
+        epoched data was used to fit ICA and no raw object exists)."""
+
+        def side_effect(inst, ica, method="iclabel", verbose=None):
+            ica.labels_ = {"brain": list(range(ica.n_components_))}
+            ica.labels_scores_ = MagicMock()
+            ica.labels_scores_.max.return_value = np.ones(ica.n_components_)
+
+        mock_label_components.side_effect = side_effect
+
+        result = classify_ica_components(mock_epochs, mock_ica)
+
+        mock_label_components.assert_called_once_with(
+            mock_epochs, mock_ica, method="iclabel"
+        )
+        assert isinstance(result, pd.DataFrame)
 
     def test_dataframe_structure(self, mock_raw, mock_ica):
         """Test that returned DataFrame has correct structure."""
@@ -229,9 +271,7 @@ class TestClassifyIcaComponents:
             ica.labels_scores_ = MagicMock()
             ica.labels_scores_.max.return_value = np.ones(ica.n_components_)
 
-        def icvision_side_effect(
-            raw, ica, component_indices=None, **kwargs
-        ):
+        def icvision_side_effect(raw, ica, component_indices=None, **kwargs):
             ica.labels_ = {"brain": list(range(1, ica.n_components_)), "eog": [0]}
             ica.labels_scores_ = np.ones((len(component_indices or []), 7))
 
@@ -291,7 +331,7 @@ class TestApplyIcaRejection:
 
     def test_empty_component_list(self, mock_raw, mock_ica):
         """Test with empty component rejection list."""
-        result = apply_ica_rejection(mock_raw, mock_ica, [])
+        apply_ica_rejection(mock_raw, mock_ica, [])
 
         # Should still work with empty list
         mock_ica.copy.assert_called_once()
@@ -310,9 +350,7 @@ class TestApplyIcaRejection:
 
         # Test with copy=False
         apply_ica_rejection(mock_raw, mock_ica, components_to_reject, copy=False)
-        mock_ica.copy.return_value.apply.assert_called_with(
-            mock_raw, verbose=None
-        )
+        mock_ica.copy.return_value.apply.assert_called_with(mock_raw, verbose=None)
 
     def test_rejection_failure(self, mock_raw, mock_ica):
         """Test handling of ICA rejection failures."""
@@ -321,16 +359,23 @@ class TestApplyIcaRejection:
         with pytest.raises(RuntimeError, match="Failed to apply ICA rejection"):
             apply_ica_rejection(mock_raw, mock_ica, [0, 1])
 
+    def test_accepts_epochs(self, mock_epochs, mock_ica):
+        """apply_ica_rejection should accept mne.BaseEpochs, not just Raw."""
+        result = apply_ica_rejection(mock_epochs, mock_ica, [0, 2])
+
+        mock_ica.copy.assert_called_once()
+        mock_ica.copy.return_value.apply.assert_called_once()
+        assert result == mock_ica.copy.return_value.apply.return_value
+
 
 class TestIntegration:
     """Integration tests for ICA functions."""
 
     @patch("autoclean.functions.ica.ica_processing.ICA.fit", autospec=True)
     @patch("autoclean.functions.ica.ica_processing.mne_icalabel.label_components")
-    def test_complete_ica_workflow(
-        self, mock_label_components, mock_ica_fit, mock_raw
-    ):
+    def test_complete_ica_workflow(self, mock_label_components, mock_ica_fit, mock_raw):
         """Test complete ICA workflow: fit -> classify -> reject."""
+
         def fit_side_effect(self, raw, picks=None, verbose=None):
             self.n_components_ = 10
             return self

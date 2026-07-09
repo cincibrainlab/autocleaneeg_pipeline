@@ -417,11 +417,15 @@ def parse_serve_config(
         return config.get(key)
 
     default_file_globs = _normalize_file_globs(
-        defaults_raw.get("file_globs")
-        if "file_globs" in defaults_raw
-        else defaults_raw.get("file_glob")
-        if "file_glob" in defaults_raw
-        else config.get("file_globs", config.get("file_glob")),
+        (
+            defaults_raw.get("file_globs")
+            if "file_globs" in defaults_raw
+            else (
+                defaults_raw.get("file_glob")
+                if "file_glob" in defaults_raw
+                else config.get("file_globs", config.get("file_glob"))
+            )
+        ),
         errors,
         "file_globs",
     )
@@ -489,11 +493,15 @@ def parse_serve_config(
             version_value = str(version_value)
 
         route_file_globs = _normalize_file_globs(
-            route_data.get("file_globs")
-            if "file_globs" in route_data
-            else route_data.get("file_glob")
-            if "file_glob" in route_data
-            else default_file_globs,
+            (
+                route_data.get("file_globs")
+                if "file_globs" in route_data
+                else (
+                    route_data.get("file_glob")
+                    if "file_glob" in route_data
+                    else default_file_globs
+                )
+            ),
             errors,
             f"automations[{idx}].file_globs",
         )
@@ -542,12 +550,16 @@ def parse_serve_config(
         )
         if ingestion_excludes and ingestion_folders:
             for exclude in ingestion_excludes:
-                if not any(_is_relative_to(exclude, root) for root in ingestion_folders):
+                if not any(
+                    _is_relative_to(exclude, root) for root in ingestion_folders
+                ):
                     errors.append(
                         f"{exclude} is not under any ingestion_folders for automations[{idx}]"
                     )
 
-        automation_root_value = route_data.get("automation_root", default_automation_root)
+        automation_root_value = route_data.get(
+            "automation_root", default_automation_root
+        )
         if not automation_root_value:
             if strict:
                 errors.append(f"automations[{idx}].automation_root is required")
@@ -579,11 +591,15 @@ def parse_serve_config(
 
         route_id = route_data.get("id")
         if not route_id:
-            route_id = _normalize_route_id(str(taskfile_value), str(montage_value), version_value)
+            route_id = _normalize_route_id(
+                str(taskfile_value), str(montage_value), version_value
+            )
         route_id = _normalize_workspace_name(str(route_id))
 
         requires_matlab = False
-        taskfile_path = resolve_taskfile_path(str(taskfile_value), workspace_dir, strict=False)
+        taskfile_path = resolve_taskfile_path(
+            str(taskfile_value), workspace_dir, strict=False
+        )
         if taskfile_path is not None:
             try:
                 from autoclean.utils.matlab_runtime import inspect_taskfile_for_matlab
@@ -655,12 +671,15 @@ def parse_serve_config(
     if runtime_path is None:
         runtime_path = workspace_dir
 
-    return ServeConfig(
-        mode=str(mode),
-        runtime_path=runtime_path,
-        routes=routes,
-        legacy=legacy,
-    ), warnings
+    return (
+        ServeConfig(
+            mode=str(mode),
+            runtime_path=runtime_path,
+            routes=routes,
+            legacy=legacy,
+        ),
+        warnings,
+    )
 
 
 def resolve_ingestion_roots(
@@ -1011,7 +1030,9 @@ def _matches_route(route: ServeRoute, file_path: Path) -> Optional[RouteMatch]:
     for root in route.ingestion_folders:
         if not _is_relative_to(file_path, root):
             continue
-        if any(_is_relative_to(file_path, exclude) for exclude in route.ingestion_excludes):
+        if any(
+            _is_relative_to(file_path, exclude) for exclude in route.ingestion_excludes
+        ):
             continue
         rel_path = file_path.relative_to(root)
         if not route.recursive and len(rel_path.parts) > 1:
@@ -1019,14 +1040,21 @@ def _matches_route(route: ServeRoute, file_path: Path) -> Optional[RouteMatch]:
         rel_posix = PurePosixPath(rel_path.as_posix())
         for pattern in route.file_globs:
             patterns = [pattern]
-            if route.recursive and "/" not in pattern and "\\" not in pattern and "**" not in pattern:
+            if (
+                route.recursive
+                and "/" not in pattern
+                and "\\" not in pattern
+                and "**" not in pattern
+            ):
                 patterns.append(f"**/{pattern}")
             for match_pattern in patterns:
                 if rel_posix.match(match_pattern):
                     spec = _glob_specificity(match_pattern)
                     depth = len(root.parts)
-                    if best_spec is None or spec > best_spec or (
-                        spec == best_spec and depth > best_depth
+                    if (
+                        best_spec is None
+                        or spec > best_spec
+                        or (spec == best_spec and depth > best_depth)
                     ):
                         best_spec = spec
                         best_depth = depth
@@ -1047,13 +1075,13 @@ def _select_route_for_file(
     if not matches:
         return None
     max_priority = max(match.route.priority for match in matches)
-    priority_matches = [match for match in matches if match.route.priority == max_priority]
+    priority_matches = [
+        match for match in matches if match.route.priority == max_priority
+    ]
     priority_matches.sort(key=lambda match: match.specificity, reverse=True)
     best = priority_matches[0]
     tied = [
-        match
-        for match in priority_matches
-        if match.specificity == best.specificity
+        match for match in priority_matches if match.specificity == best.specificity
     ]
     if len(tied) > 1:
         tied_ids = ", ".join(match.route.id for match in tied)
@@ -1866,9 +1894,11 @@ class IngestionQueue:
                 QueueEntry(
                     path=Path(path_str),
                     route_id=entry_route,
-                    ingestion_root=Path(ingestion_root)
-                    if isinstance(ingestion_root, str)
-                    else None,
+                    ingestion_root=(
+                        Path(ingestion_root)
+                        if isinstance(ingestion_root, str)
+                        else None
+                    ),
                 )
             )
         return pending

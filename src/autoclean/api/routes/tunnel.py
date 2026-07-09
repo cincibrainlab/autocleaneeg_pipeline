@@ -264,15 +264,20 @@ def _start_tunnel_blocking(port: int, password: str) -> TunnelStartResponse:
             _tunnel_mode = "named"
             _tunnel_url = config.get("url", "")
             cmd = [
-                "cloudflared", "tunnel", "run",
-                "--token", config["token"],
+                "cloudflared",
+                "tunnel",
+                "run",
+                "--token",
+                config["token"],
             ]
         else:
             # Quick tunnel: ephemeral URL
             _tunnel_mode = "quick"
             cmd = [
-                "cloudflared", "tunnel",
-                "--url", f"http://127.0.0.1:{port}",
+                "cloudflared",
+                "tunnel",
+                "--url",
+                f"http://127.0.0.1:{port}",
             ]
 
         try:
