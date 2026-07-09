@@ -167,6 +167,7 @@ class IcaMixin:
                 "ica_kwargs": ica_kwargs,
                 "ica_components": self.final_ica.n_components_,
                 "temp_highpass_for_ica": temp_highpass_for_ica,
+                "ica_fit_data_type": "epochs" if use_epochs else "raw",
             }
         }
 
