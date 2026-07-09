@@ -100,7 +100,9 @@ class ResolvedBadChannelSettings:
             "deviation_thresh": self.deviation_thresh,
             "ransac_sample_prop": self.ransac_sample_prop,
             # A corr_thresh of 0 disables RANSAC in detect_bad_channels().
-            "ransac_corr_thresh": self.ransac_corr_thresh if self.ransac_enabled else 0.0,
+            "ransac_corr_thresh": (
+                self.ransac_corr_thresh if self.ransac_enabled else 0.0
+            ),
             "ransac_frac_bad": self.ransac_frac_bad,
             "ransac_channel_wise": self.ransac_channel_wise,
         }
@@ -135,7 +137,9 @@ def merge_channel_count_bins(
     return merged
 
 
-def select_density_bin(channel_count: int, channel_count_bins: Dict[str, Dict[str, Any]]) -> str:
+def select_density_bin(
+    channel_count: int, channel_count_bins: Dict[str, Dict[str, Any]]
+) -> str:
     """Pick the bin whose [min_channels, max_channels] range contains ``channel_count``.
 
     Falls back to the closest bin by boundary distance if no bin's range
@@ -192,7 +196,11 @@ def resolve_bad_channel_settings(
             f"{sorted(VALID_PRESETS)}"
         )
 
-    bins = channel_count_bins if channel_count_bins is not None else DEFAULT_CHANNEL_COUNT_BINS
+    bins = (
+        channel_count_bins
+        if channel_count_bins is not None
+        else DEFAULT_CHANNEL_COUNT_BINS
+    )
 
     resolved: Dict[str, Any] = dict(BASE_DEFAULTS)
     density_bin: Optional[str] = None
@@ -221,7 +229,11 @@ def resolve_bad_channel_settings(
         if not source:
             continue
         resolved.update(
-            {key: value for key, value in source.items() if key in _OVERRIDABLE_KEYS and value is not None}
+            {
+                key: value
+                for key, value in source.items()
+                if key in _OVERRIDABLE_KEYS and value is not None
+            }
         )
 
     return ResolvedBadChannelSettings(

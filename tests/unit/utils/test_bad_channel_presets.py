@@ -140,7 +140,11 @@ class TestResolveBadChannelSettings:
 
     def test_custom_channel_count_bins_are_honored(self):
         custom_bins = {
-            "tiny": {"max_channels": 8, "correlation_thresh": 0.1, "ransac_enabled": False},
+            "tiny": {
+                "max_channels": 8,
+                "correlation_thresh": 0.1,
+                "ransac_enabled": False,
+            },
             "big": {"min_channels": 9, "correlation_thresh": 0.4},
         }
         resolved = resolve_bad_channel_settings(

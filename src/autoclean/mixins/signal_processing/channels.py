@@ -196,7 +196,9 @@ class ChannelsMixin:
                 },
             )
             final_cleaning_method = (
-                cleaning_method if cleaning_method is not _UNSET else resolved.cleaning_method
+                cleaning_method
+                if cleaning_method is not _UNSET
+                else resolved.cleaning_method
             )
 
             message(

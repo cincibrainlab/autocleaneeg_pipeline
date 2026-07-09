@@ -1,6 +1,5 @@
 """Unit tests for ChannelsMixin."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import mne
@@ -16,9 +15,7 @@ except ImportError:
     TASK_AVAILABLE = False
 
 
-pytestmark = pytest.mark.skipif(
-    not TASK_AVAILABLE, reason="Task module not available"
-)
+pytestmark = pytest.mark.skipif(not TASK_AVAILABLE, reason="Task module not available")
 
 
 class _ChannelTask(Task):
@@ -54,10 +51,11 @@ class TestDropChannels:
         channels_to_drop = [task.raw.ch_names[0], task.raw.ch_names[1]]
         original_count = len(task.raw.ch_names)
 
-        with patch.object(task, "_update_metadata"), patch.object(
-            task, "_save_raw_result"
-        ), patch.object(task, "_update_instance_data"), patch.object(
-            task, "_track_channel_removal"
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_raw_result"),
+            patch.object(task, "_update_instance_data"),
+            patch.object(task, "_track_channel_removal"),
         ):
             result = task.drop_channels(data=task.raw, channels=channels_to_drop)
 
@@ -71,10 +69,11 @@ class TestDropChannels:
         task.settings = settings
         # Passing channels=[] explicitly: config path is not used; empty list passed
         original_count = len(task.raw.ch_names)
-        with patch.object(task, "_update_metadata"), patch.object(
-            task, "_save_raw_result"
-        ), patch.object(task, "_update_instance_data"), patch.object(
-            task, "_track_channel_removal"
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_raw_result"),
+            patch.object(task, "_update_instance_data"),
+            patch.object(task, "_track_channel_removal"),
         ):
             result = task.drop_channels(data=task.raw, channels=[])
         # MNE silently accepts empty drop list
@@ -86,10 +85,11 @@ class TestDropChannels:
 
     def test_returned_raw_does_not_include_dropped_channels(self, task):
         ch_to_drop = task.raw.ch_names[5]
-        with patch.object(task, "_update_metadata"), patch.object(
-            task, "_save_raw_result"
-        ), patch.object(task, "_update_instance_data"), patch.object(
-            task, "_track_channel_removal"
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_raw_result"),
+            patch.object(task, "_update_instance_data"),
+            patch.object(task, "_track_channel_removal"),
         ):
             result = task.drop_channels(data=task.raw, channels=[ch_to_drop])
         assert ch_to_drop not in result.ch_names
@@ -104,10 +104,11 @@ class TestSetChannelTypes:
     def test_updates_channel_type_in_raw_info(self, task):
         """Mapping a channel to 'eog' should change its type in info."""
         ch_name = task.raw.ch_names[0]
-        with patch.object(task, "_update_metadata"), patch.object(
-            task, "_save_raw_result"
-        ), patch.object(task, "_update_instance_data"), patch.object(
-            task, "_track_channel_removal"
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_raw_result"),
+            patch.object(task, "_update_instance_data"),
+            patch.object(task, "_track_channel_removal"),
         ):
             result = task.set_channel_types(
                 data=task.raw, ch_types_dict={ch_name: "eog"}
@@ -121,10 +122,11 @@ class TestSetChannelTypes:
         ch_to_remove = task.raw.ch_names[0]
         original_count = len(task.raw.ch_names)
 
-        with patch.object(task, "_update_metadata"), patch.object(
-            task, "_save_raw_result"
-        ), patch.object(task, "_update_instance_data"), patch.object(
-            task, "_track_channel_removal"
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_raw_result"),
+            patch.object(task, "_update_instance_data"),
+            patch.object(task, "_track_channel_removal"),
         ):
             result = task.set_channel_types(
                 data=task.raw,
@@ -138,10 +140,11 @@ class TestSetChannelTypes:
     def test_drop_mode_silently_skips_missing_channels(self, task):
         """Channels not present in data should be silently ignored when drop=True."""
         original_count = len(task.raw.ch_names)
-        with patch.object(task, "_update_metadata"), patch.object(
-            task, "_save_raw_result"
-        ), patch.object(task, "_update_instance_data"), patch.object(
-            task, "_track_channel_removal"
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_raw_result"),
+            patch.object(task, "_update_instance_data"),
+            patch.object(task, "_track_channel_removal"),
         ):
             result = task.set_channel_types(
                 data=task.raw,
@@ -309,7 +312,9 @@ class TestCleanBadChannelsPresets:
                 detect_mock,
             ),
         ):
-            task.clean_bad_channels(data=task.raw, preset="legacy", cleaning_method=None)
+            task.clean_bad_channels(
+                data=task.raw, preset="legacy", cleaning_method=None
+            )
 
         call_kwargs = detect_mock.call_args.kwargs
         assert call_kwargs["correlation_thresh"] == 0.35
@@ -414,7 +419,9 @@ class TestCleanBadChannelsPresets:
                     },
                 ),
             ):
-                task.clean_bad_channels(data=task.raw, preset=preset, cleaning_method=None)
+                task.clean_bad_channels(
+                    data=task.raw, preset=preset, cleaning_method=None
+                )
             return task.flagged
 
         assert _run("auto") is True
