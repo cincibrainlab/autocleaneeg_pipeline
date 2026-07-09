@@ -48,7 +48,7 @@ def extract_ica_summary(pdf_path: Path) -> list[dict[str, Any]]:
             if "Component" not in text or "Confidence" not in text:
                 continue
 
-            lines = [l.strip() for l in text.split("\n") if l.strip()]
+            lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
             i = 0
             while i < len(lines):
                 line = lines[i]
@@ -61,12 +61,14 @@ def extract_ica_summary(pdf_path: Path) -> list[dict[str, Any]]:
                         except ValueError:
                             conf = 0.0
                         rejected = lines[i + 3].strip().lower() == "yes"
-                        components.append({
-                            "component": comp,
-                            "type": candidate_type,
-                            "confidence": round(conf, 3),
-                            "rejected": rejected,
-                        })
+                        components.append(
+                            {
+                                "component": comp,
+                                "type": candidate_type,
+                                "confidence": round(conf, 3),
+                                "rejected": rejected,
+                            }
+                        )
                         seen.add(comp)
                         i += 4
                         continue
@@ -141,13 +143,17 @@ def get_ica_structure(pdf_path: Path) -> dict[str, Any]:
                 continue
 
             # Topo grid pages contain "Topographies Overview" or "Topograph...Batch"
-            if "Topographies Overview" in text or ("Topograph" in text and "Batch" in text):
+            if "Topographies Overview" in text or (
+                "Topograph" in text and "Batch" in text
+            ):
                 topo_grid_pages.append(page_idx)
                 continue
 
             # Per-component detail pages contain "IC<N> Topography" or
             # "ICA Component IC<N>"
-            ic_match = re.search(r"(?:ICA Component |^)\s*(IC\d+)\s+(?:Topography|Analysis)", text)
+            ic_match = re.search(
+                r"(?:ICA Component |^)\s*(IC\d+)\s+(?:Topography|Analysis)", text
+            )
             if ic_match:
                 comp_name = ic_match.group(1)
                 detail_page_map[comp_name] = page_idx
@@ -163,7 +169,9 @@ def get_ica_structure(pdf_path: Path) -> dict[str, Any]:
             "summary_pages": summary_pages,
             "topo_grid_page": topo_grid_pages[0] if topo_grid_pages else None,
             "topo_grid_pages": topo_grid_pages,
-            "detail_start_page": min(detail_page_map.values()) if detail_page_map else None,
+            "detail_start_page": (
+                min(detail_page_map.values()) if detail_page_map else None
+            ),
             "n_detail_pages": len(detail_page_map),
             "detail_page_map": detail_page_map,
         }
@@ -200,7 +208,7 @@ def extract_ica_full(pdf_path: Path) -> dict[str, Any]:
                 summary_pages.append(page_idx)
                 # Extract component rows from this page
                 full_text = page.get_text()
-                lines = [l.strip() for l in full_text.split("\n") if l.strip()]
+                lines = [ln.strip() for ln in full_text.split("\n") if ln.strip()]
                 i = 0
                 while i < len(lines):
                     line = lines[i]
@@ -212,12 +220,14 @@ def extract_ica_full(pdf_path: Path) -> dict[str, Any]:
                             except ValueError:
                                 conf = 0.0
                             rejected = lines[i + 3].strip().lower() == "yes"
-                            components.append({
-                                "component": line,
-                                "type": candidate_type,
-                                "confidence": round(conf, 3),
-                                "rejected": rejected,
-                            })
+                            components.append(
+                                {
+                                    "component": line,
+                                    "type": candidate_type,
+                                    "confidence": round(conf, 3),
+                                    "rejected": rejected,
+                                }
+                            )
                             seen.add(line)
                             i += 4
                             continue
@@ -225,12 +235,16 @@ def extract_ica_full(pdf_path: Path) -> dict[str, Any]:
                 continue
 
             # Topo grid pages
-            if "Topographies Overview" in text or ("Topograph" in text and "Batch" in text):
+            if "Topographies Overview" in text or (
+                "Topograph" in text and "Batch" in text
+            ):
                 topo_grid_pages.append(page_idx)
                 continue
 
             # Per-component detail pages
-            ic_match = re.search(r"(?:ICA Component |^)\s*(IC\d+)\s+(?:Topography|Analysis)", text)
+            ic_match = re.search(
+                r"(?:ICA Component |^)\s*(IC\d+)\s+(?:Topography|Analysis)", text
+            )
             if ic_match:
                 detail_page_map[ic_match.group(1)] = page_idx
                 continue
@@ -251,14 +265,18 @@ def extract_ica_full(pdf_path: Path) -> dict[str, Any]:
                 component_page_map[summary_name] = detail_page_map[summary_name]
             # Positional fallback (handles 1-indexed summary vs 0-indexed detail)
             elif i < len(detail_names_sorted):
-                component_page_map[summary_name] = detail_page_map[detail_names_sorted[i]]
+                component_page_map[summary_name] = detail_page_map[
+                    detail_names_sorted[i]
+                ]
 
         structure = {
             "total_pages": n_pages,
             "summary_pages": summary_pages,
             "topo_grid_page": topo_grid_pages[0] if topo_grid_pages else None,
             "topo_grid_pages": topo_grid_pages,
-            "detail_start_page": min(detail_page_map.values()) if detail_page_map else None,
+            "detail_start_page": (
+                min(detail_page_map.values()) if detail_page_map else None
+            ),
             "n_detail_pages": len(detail_page_map),
             "detail_page_map": component_page_map,  # Keyed by SUMMARY names
         }

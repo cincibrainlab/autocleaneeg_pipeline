@@ -293,9 +293,7 @@ def apply_cached_topography(
         ):
             origin = origins[idx] if idx < len(origins) else "upper"
             interpolation = (
-                interpolations[idx]
-                if idx < len(interpolations)
-                else "antialiased"
+                interpolations[idx] if idx < len(interpolations) else "antialiased"
             )
             alpha = alphas[idx] if idx < len(alphas) else None
             ax.imshow(

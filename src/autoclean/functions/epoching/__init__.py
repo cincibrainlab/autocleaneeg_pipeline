@@ -59,6 +59,7 @@ def create_sl_epochs(
             raise ValueError("No events found") from exc
         raise
 
+
 __all__ = [
     "create_regular_epochs",
     "create_eventid_epochs",

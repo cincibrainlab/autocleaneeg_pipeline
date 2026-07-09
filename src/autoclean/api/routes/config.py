@@ -20,9 +20,7 @@ router = APIRouter()
 def _load_config():
     """Load and parse the serve configuration."""
     from autoclean.utils.ingestion import (
-        ServeConfigError,
         load_serve_config,
-        parse_serve_config,
     )
 
     config_path = api_state.get_config_path(deployed=False)

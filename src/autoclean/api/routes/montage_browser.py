@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import matplotlib
+
 if matplotlib.get_backend() != "Agg":
     matplotlib.use("Agg")  # Non-interactive backend — only set if not already Agg
 import matplotlib.pyplot as plt
@@ -54,8 +55,10 @@ def _categorize(name: str) -> str:
 
 def _montage_data_dir() -> Path:
     """Return the path to bundled custom montage files."""
-    import autoclean
     import inspect
+
+    import autoclean
+
     pkg_root = Path(inspect.getfile(autoclean)).parent
     return pkg_root / "data" / "montages"
 
@@ -83,7 +86,12 @@ def _load_montage(name: str) -> Any:
             try:
                 return mne.channels.read_custom_montage(str(candidate))
             except Exception as exc:
-                logger.debug("Could not read custom montage '%s' from %s: %s", name, candidate, exc)
+                logger.debug(
+                    "Could not read custom montage '%s' from %s: %s",
+                    name,
+                    candidate,
+                    exc,
+                )
 
     return None
 
@@ -125,21 +133,43 @@ def _generate_topomap(montage: Any, name: str = "") -> str:
 
         head_radius = 0.095
         theta = np.linspace(0, 2 * np.pi, 100)
-        ax.plot(head_radius * np.cos(theta), head_radius * np.sin(theta),
-                color="#3ecf8e", linewidth=1.5, alpha=0.4)
-        ax.plot([0, 0.01, 0], [head_radius, head_radius + 0.01, head_radius],
-                color="#3ecf8e", linewidth=1.5, alpha=0.4)
+        ax.plot(
+            head_radius * np.cos(theta),
+            head_radius * np.sin(theta),
+            color="#3ecf8e",
+            linewidth=1.5,
+            alpha=0.4,
+        )
+        ax.plot(
+            [0, 0.01, 0],
+            [head_radius, head_radius + 0.01, head_radius],
+            color="#3ecf8e",
+            linewidth=1.5,
+            alpha=0.4,
+        )
         for sign in (-1, 1):
-            ax.plot([sign * head_radius, sign * (head_radius + 0.01), sign * head_radius],
-                    [0.01, 0, -0.01], color="#3ecf8e", linewidth=1.5, alpha=0.3)
+            ax.plot(
+                [sign * head_radius, sign * (head_radius + 0.01), sign * head_radius],
+                [0.01, 0, -0.01],
+                color="#3ecf8e",
+                linewidth=1.5,
+                alpha=0.3,
+            )
 
         ax.scatter(xs_arr, ys_arr, c="#3ecf8e", s=20, alpha=0.8, zorder=5)
 
         if len(names) <= 64:
             for ch_name, x, y in zip(names, xs, ys):
-                ax.annotate(ch_name, (x, y), fontsize=4, color="#a1a1aa",
-                            ha="center", va="bottom", xytext=(0, 2),
-                            textcoords="offset points")
+                ax.annotate(
+                    ch_name,
+                    (x, y),
+                    fontsize=4,
+                    color="#a1a1aa",
+                    ha="center",
+                    va="bottom",
+                    xytext=(0, 2),
+                    textcoords="offset points",
+                )
 
         ax.set_xlim(-0.12, 0.12)
         ax.set_ylim(-0.12, 0.12)
@@ -170,6 +200,7 @@ def _load_montage_yaml() -> dict[str, str]:
     Returns a dict of {name: description}.
     """
     import inspect
+
     import autoclean
 
     pkg_root = Path(inspect.getfile(autoclean)).parent
@@ -180,14 +211,19 @@ def _load_montage_yaml() -> dict[str, str]:
         if candidate.exists():
             try:
                 import yaml  # type: ignore[import-untyped]
+
                 with candidate.open() as fh:
                     data = yaml.safe_load(fh)
                 return data.get("valid_montages", {})
             except Exception as exc:
-                logger.warning("Failed to parse montages.yaml at %s: %s", candidate, exc)
+                logger.warning(
+                    "Failed to parse montages.yaml at %s: %s", candidate, exc
+                )
                 return {}
 
-    logger.warning("configs/montages.yaml not found relative to package root %s", pkg_root)
+    logger.warning(
+        "configs/montages.yaml not found relative to package root %s", pkg_root
+    )
     return {}
 
 
@@ -197,9 +233,10 @@ def _discover_task_montages() -> dict[str, list[str]]:
     Gracefully returns an empty dict if task discovery fails.
     """
     try:
-        from autoclean.utils.task_discovery import safe_discover_tasks
         import importlib.util
         import sys
+
+        from autoclean.utils.task_discovery import safe_discover_tasks
 
         valid_tasks, _invalid, _skipped = safe_discover_tasks()
     except Exception as exc:
@@ -240,6 +277,7 @@ def _discover_task_montages() -> dict[str, list[str]]:
 
 
 # ── Response models ─────────────────────────────────────────────────
+
 
 class MontageInfo(BaseModel):
     """Summary info for the montage list view."""
@@ -282,6 +320,7 @@ class MontageDetail(BaseModel):
 
 
 # ── Endpoints ───────────────────────────────────────────────────────
+
 
 @router.get("", response_model=MontageListResponse)
 async def list_montages() -> MontageListResponse:

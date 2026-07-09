@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from importlib import import_module
 
-
 _FUNCTION_EXPORTS = {
     "autoreject_epochs": ("autoclean.functions.advanced", "autoreject_epochs"),
     "call_matlab": ("autoclean.functions.matlab", "call_matlab"),

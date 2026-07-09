@@ -56,7 +56,9 @@ def _resolve_exports_root_for_route(route_id: str | None) -> Path:
             from autoclean.utils.ingestion import build_workspace_name
             from autoclean.utils.serve_routes import load_route_specs
         except Exception as exc:
-            raise HTTPException(status_code=500, detail=f"Could not resolve route exports: {exc}")
+            raise HTTPException(
+                status_code=500, detail=f"Could not resolve route exports: {exc}"
+            )
 
         for spec in load_route_specs(workspace):
             if str(spec.get("id") or "") != route_id:
@@ -64,25 +66,37 @@ def _resolve_exports_root_for_route(route_id: str | None) -> Path:
             taskfile = str(spec.get("taskfile") or "").strip()
             montage = str(spec.get("montage") or "").strip()
             if not taskfile or not montage:
-                raise HTTPException(status_code=400, detail=f"Route '{route_id}' is missing task or montage")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Route '{route_id}' is missing task or montage",
+                )
             workspace_name = build_workspace_name(
                 spec.get("workspace_name", "taskfile-montage-version"),
                 taskfile=Path(taskfile).name.replace(".py", ""),
                 montage=montage,
                 version=spec.get("version"),
             )
-            automation_root = workspace / str(spec.get("automation_root", "automations"))
+            automation_root = workspace / str(
+                spec.get("automation_root", "automations")
+            )
             route_root = (automation_root / workspace_name).resolve()
             direct_exports = route_root / "exports"
             if direct_exports.exists() and direct_exports.is_dir():
                 return direct_exports
             nested_exports = sorted(
-                [path.resolve() for path in route_root.rglob("exports") if path.is_dir()],
+                [
+                    path.resolve()
+                    for path in route_root.rglob("exports")
+                    if path.is_dir()
+                ],
                 key=lambda path: len(path.parts),
             )
             if nested_exports:
                 return nested_exports[0]
-            raise HTTPException(status_code=404, detail=f"No exports directory found for route '{route_id}'")
+            raise HTTPException(
+                status_code=404,
+                detail=f"No exports directory found for route '{route_id}'",
+            )
 
         raise HTTPException(status_code=404, detail=f"Route '{route_id}' not found")
 
@@ -97,7 +111,9 @@ def _resolve_exports_root_for_route(route_id: str | None) -> Path:
     if candidates:
         return candidates[0]
 
-    raise HTTPException(status_code=404, detail="No exports directory found in workspace")
+    raise HTTPException(
+        status_code=404, detail="No exports directory found in workspace"
+    )
 
 
 def _decisions_paths(root: Path) -> tuple[Path, Path]:
@@ -191,7 +207,9 @@ def _save_decisions(root: Path, decisions: dict[str, dict[str, Any]]) -> None:
                     "bad_epoch_events": record.get("bad_epoch_events", ""),
                     "total_epochs": record.get("total_epochs", 0),
                     "epoch_rejection_rate": record.get("epoch_rejection_rate", 0.0),
-                    "manual_bad_channels": ",".join(record.get("manual_bad_channels", [])),
+                    "manual_bad_channels": ",".join(
+                        record.get("manual_bad_channels", [])
+                    ),
                     "manual_rejected_ica": ",".join(
                         str(v) for v in record.get("manual_rejected_ica", [])
                     ),
@@ -232,10 +250,19 @@ def _related_paths(root: Path, file_path: Path) -> dict[str, Optional[Path]]:
     stem = _strip_suffixes(file_path.stem)
     task_root = root.parent
     candidates = {
-        "run_report": task_root / "reports" / "run_reports" / f"{stem}_autoclean_report.pdf",
-        "ica_report": task_root / "reports" / "ica_components" / f"{stem}_ica_components_all.pdf",
+        "run_report": task_root
+        / "reports"
+        / "run_reports"
+        / f"{stem}_autoclean_report.pdf",
+        "ica_report": task_root
+        / "reports"
+        / "ica_components"
+        / f"{stem}_ica_components_all.pdf",
         "psd": task_root / "reports" / "psd_topo" / f"{stem}_psd_topo_figure.png",
-        "metadata": task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json",
+        "metadata": task_root
+        / "reports"
+        / "run_reports"
+        / f"{stem}_autoclean_metadata.json",
         "processing_log": task_root / "exports" / f"{stem}_processing_log.csv",
         "postedit": _postedit_path(task_root, file_path),
     }
@@ -259,7 +286,9 @@ def _parse_metadata(path: Optional[Path]) -> dict[str, Any]:
         if isinstance(removals, list):
             result["channel_removals"] = removals
             result["bad_channels"] = [
-                r.get("channel", "") for r in removals if isinstance(r, dict) and r.get("channel")
+                r.get("channel", "")
+                for r in removals
+                if isinstance(r, dict) and r.get("channel")
             ]
         legacy = metadata.get("step_clean_bad_channels", {}).get("bads", [])
         if not result["bad_channels"] and isinstance(legacy, list):
@@ -271,7 +300,9 @@ def _parse_metadata(path: Optional[Path]) -> dict[str, Any]:
             .get("final_excluded_indices", [])
         )
         if isinstance(rejected, list):
-            result["rejected_ica"] = [int(v) for v in rejected if isinstance(v, (int, float))]
+            result["rejected_ica"] = [
+                int(v) for v in rejected if isinstance(v, (int, float))
+            ]
 
         valid_channels = metadata.get("import_eeg", {}).get("originalChannelNames", [])
         if isinstance(valid_channels, list):
@@ -296,7 +327,9 @@ def _resolve_override_validation_context(
     related: dict[str, Optional[Path]],
     metadata: dict[str, Any],
 ) -> tuple[list[str], int]:
-    valid_channels = [str(v) for v in metadata.get("valid_channels", []) if str(v).strip()]
+    valid_channels = [
+        str(v) for v in metadata.get("valid_channels", []) if str(v).strip()
+    ]
     max_components = int(metadata.get("max_components", 0) or 0)
 
     if not valid_channels:
@@ -341,7 +374,9 @@ def _read_processing_metrics(path: Optional[Path]) -> dict[str, Any]:
     }
 
 
-def _record_for(decisions: dict[str, dict[str, Any]], key: str, relative_path: str) -> dict[str, Any]:
+def _record_for(
+    decisions: dict[str, dict[str, Any]], key: str, relative_path: str
+) -> dict[str, Any]:
     record = decisions.setdefault(key, _default_record(relative_path))
     record["relative_path"] = relative_path
     if "modified_source" not in record:
@@ -386,7 +421,9 @@ def _build_manual_fix_payload(
     task_file_relative = None
     if task_file and task_file.exists():
         task_file_relative = f"status/{task_file.name}"
-        task_file_hash = __import__("hashlib").sha256(task_file.read_bytes()).hexdigest()
+        task_file_hash = (
+            __import__("hashlib").sha256(task_file.read_bytes()).hexdigest()
+        )
 
     ica_file_path = task_root / "ica" / f"{stem}-ica.fif"
     ica_file_relative = f"ica/{stem}-ica.fif" if ica_file_path.exists() else None
@@ -504,7 +541,11 @@ def _validate_override_values(
     manual_rejected_ica: list[int],
 ) -> None:
     valid_channel_set = {str(value).upper() for value in valid_channels}
-    invalid_channels = [channel for channel in manual_bad_channels if channel.upper() not in valid_channel_set]
+    invalid_channels = [
+        channel
+        for channel in manual_bad_channels
+        if channel.upper() not in valid_channel_set
+    ]
     if invalid_channels:
         raise HTTPException(
             status_code=400,
@@ -512,7 +553,11 @@ def _validate_override_values(
         )
 
     if max_components > 0:
-        invalid_ica = [component for component in manual_rejected_ica if component < 0 or component >= max_components]
+        invalid_ica = [
+            component
+            for component in manual_rejected_ica
+            if component < 0 or component >= max_components
+        ]
         if invalid_ica:
             raise HTTPException(
                 status_code=400,
@@ -531,7 +576,9 @@ def _backup_existing_file(path: Path, backups_dir: Path) -> None:
     shutil.copy2(path, backups_dir / path.name)
 
 
-def _backup_and_remove_matching_files(base_dir: Path, patterns: list[str], backups_dir: Path) -> None:
+def _backup_and_remove_matching_files(
+    base_dir: Path, patterns: list[str], backups_dir: Path
+) -> None:
     if not base_dir.exists():
         return
     seen: set[Path] = set()
@@ -544,7 +591,9 @@ def _backup_and_remove_matching_files(base_dir: Path, patterns: list[str], backu
             path.unlink(missing_ok=True)
 
 
-def _replace_existing_reprocess_artifacts(task_root: Path, stem: str, backups_dir: Path) -> None:
+def _replace_existing_reprocess_artifacts(
+    task_root: Path, stem: str, backups_dir: Path
+) -> None:
     _backup_and_remove_matching_files(
         task_root / "exports",
         [f"{stem}*.set", f"{stem}*.fdt", f"{stem}*_processing_log.csv"],
@@ -575,7 +624,11 @@ def _replace_existing_reprocess_artifacts(task_root: Path, stem: str, backups_di
 def _drop_bad_epochs(epochs: mne.BaseEpochs, bad_indices: list[int]) -> None:
     if not bad_indices:
         return
-    selection = epochs.selection.tolist() if hasattr(epochs.selection, "tolist") else list(epochs.selection)
+    selection = (
+        epochs.selection.tolist()
+        if hasattr(epochs.selection, "tolist")
+        else list(epochs.selection)
+    )
     bad_selection_indices: list[int] = []
     for bad_num in bad_indices:
         if bad_num in selection:
@@ -590,7 +643,9 @@ def _calculate_export_hash(file_key: str, record: dict[str, Any]) -> str:
         "bad_epoch_indices": record.get("bad_epoch_indices", ""),
         "total_epochs": record.get("total_epochs", 0),
     }
-    return hashlib.sha256(json.dumps(metadata, sort_keys=True).encode("utf-8")).hexdigest()
+    return hashlib.sha256(
+        json.dumps(metadata, sort_keys=True).encode("utf-8")
+    ).hexdigest()
 
 
 def _preprocessing_log_path(task_root: Path) -> Path:
@@ -608,7 +663,9 @@ def _load_preprocessing_log_rows(task_root: Path) -> list[dict[str, str]]:
         return []
 
 
-def _create_qa_preprocessing_log(task_root: Path, decisions: dict[str, dict[str, Any]]) -> Optional[Path]:
+def _create_qa_preprocessing_log(
+    task_root: Path, decisions: dict[str, dict[str, Any]]
+) -> Optional[Path]:
     rows = _load_preprocessing_log_rows(task_root)
     qa_dir = task_root / "qa"
     if not rows or not qa_dir.exists():
@@ -647,7 +704,9 @@ def _create_qa_preprocessing_log(task_root: Path, decisions: dict[str, dict[str,
                 epoch_badtrials += float(qa.get("manual_bad_epochs", 0) or 0)
                 merged["epoch_badtrials"] = epoch_badtrials
                 if epoch_trials > 0:
-                    merged["epoch_percent"] = (epoch_trials - epoch_badtrials) / epoch_trials
+                    merged["epoch_percent"] = (
+                        epoch_trials - epoch_badtrials
+                    ) / epoch_trials
             except Exception:
                 pass
         merged_rows.append(merged)
@@ -679,7 +738,11 @@ def _export_file_to_qa(
     current_hash = _calculate_export_hash(file_key, record)
     existing_hash = str(record.get("qa_export_hash", ""))
     if existing_hash == current_hash and str(record.get("qa_export_path", "")):
-        return {"exported": False, "skipped": True, "path": record.get("qa_export_path", "")}
+        return {
+            "exported": False,
+            "skipped": True,
+            "path": record.get("qa_export_path", ""),
+        }
 
     epochs = _load_epochs(file_path)
     _drop_bad_epochs(epochs, _manual_bad_epoch_indices(record))
@@ -697,7 +760,9 @@ def _postedit_path(task_root: Path, file_path: Path) -> Path:
     return task_root / "postedit" / f"{stem}_postedit.set"
 
 
-def _sync_postedit_export(task_root: Path, file_path: Path, record: dict[str, Any]) -> Optional[str]:
+def _sync_postedit_export(
+    task_root: Path, file_path: Path, record: dict[str, Any]
+) -> Optional[str]:
     postedit_path = _postedit_path(task_root, file_path)
     bad_indices = _manual_bad_epoch_indices(record)
     if not bad_indices:
@@ -712,13 +777,19 @@ def _sync_postedit_export(task_root: Path, file_path: Path, record: dict[str, An
     return str(postedit_path)
 
 
-def _inject_reprocess_metadata(task_root: Path, stem: str, timestamp: str, payload: dict[str, Any]) -> None:
-    metadata_json_path = task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json"
+def _inject_reprocess_metadata(
+    task_root: Path, stem: str, timestamp: str, payload: dict[str, Any]
+) -> None:
+    metadata_json_path = (
+        task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json"
+    )
     if metadata_json_path.exists():
         metadata = json.loads(metadata_json_path.read_text(encoding="utf-8"))
         metadata["reprocessed"] = True
         metadata["reprocessed_timestamp"] = datetime.now().isoformat()
-        metadata["reprocess_reason"] = f"manual_override_{payload.get('fix_type', 'unknown')}"
+        metadata["reprocess_reason"] = (
+            f"manual_override_{payload.get('fix_type', 'unknown')}"
+        )
         metadata["manual_overrides"] = payload.get("modifications", {})
         metadata["original_backup"] = f"exports/backups/{stem}_{timestamp}/"
         metadata_json_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
@@ -743,7 +814,9 @@ def _inject_reprocess_metadata(task_root: Path, stem: str, timestamp: str, paylo
         writer.writerows(rows)
 
 
-def _save_manual_fix_payload(task_root: Path, stem: str, payload: dict[str, Any]) -> Path:
+def _save_manual_fix_payload(
+    task_root: Path, stem: str, payload: dict[str, Any]
+) -> Path:
     payload_dir = task_root / "qa" / "manual_fixes"
     payload_dir.mkdir(parents=True, exist_ok=True)
     payload_path = payload_dir / f"{stem}_manual_fix.json"
@@ -813,7 +886,9 @@ def _finalize_reprocess_job(job_id: str) -> None:
         payload_path = Path(str(job["payload_path"]))
         if payload_path.exists():
             payload = json.loads(payload_path.read_text(encoding="utf-8"))
-        _inject_reprocess_metadata(task_root, str(job["stem"]), str(job["timestamp"]), payload)
+        _inject_reprocess_metadata(
+            task_root, str(job["stem"]), str(job["timestamp"]), payload
+        )
         try:
             file_path, _relative_path = _resolve_file(root, str(job["file_key"]))
             _sync_postedit_export(task_root, file_path, record)
@@ -822,7 +897,9 @@ def _finalize_reprocess_job(job_id: str) -> None:
         _touch_record(record)
         _save_decisions(root, decisions)
         job["status"] = "completed"
-        job["message"] = "Reprocess completed and outputs copied into the original task folder."
+        job["message"] = (
+            "Reprocess completed and outputs copied into the original task folder."
+        )
     except Exception as exc:
         job["status"] = "failed"
         job["message"] = f"Reprocess completed but finalization failed: {exc}"
@@ -932,13 +1009,17 @@ class OverridesUpdate(BaseModel):
 
 
 @router.get("/root", response_model=ExcludeRootResponse)
-async def get_exclude_root(route_id: str | None = Query(default=None)) -> ExcludeRootResponse:
+async def get_exclude_root(
+    route_id: str | None = Query(default=None),
+) -> ExcludeRootResponse:
     root = _resolve_exports_root_for_route(route_id)
     return ExcludeRootResponse(exports_root=str(root))
 
 
 @router.get("/files", response_model=ExcludeFilesResponse)
-async def list_exclude_files(route_id: str | None = Query(default=None)) -> ExcludeFilesResponse:
+async def list_exclude_files(
+    route_id: str | None = Query(default=None),
+) -> ExcludeFilesResponse:
     root = _resolve_exports_root_for_route(route_id)
     decisions = _load_decisions(root)
     files: list[ExcludeFileSummary] = []
@@ -954,7 +1035,10 @@ async def list_exclude_files(route_id: str | None = Query(default=None)) -> Excl
                 notes_present=bool(record.get("notes")),
                 epochs_reviewed=bool(record.get("epochs_reviewed")),
                 bad_epochs_count=int(record.get("bad_epochs_count", 0) or 0),
-                has_overrides=bool(record.get("manual_bad_channels") or record.get("manual_rejected_ica")),
+                has_overrides=bool(
+                    record.get("manual_bad_channels")
+                    or record.get("manual_rejected_ica")
+                ),
                 status=str(record.get("status", "UNSET")),
             )
         )
@@ -962,7 +1046,9 @@ async def list_exclude_files(route_id: str | None = Query(default=None)) -> Excl
 
 
 @router.get("/files/{file_key:path}/artifacts/{asset_name}")
-async def get_exclude_artifact(file_key: str, asset_name: str, route_id: str | None = Query(default=None)):
+async def get_exclude_artifact(
+    file_key: str, asset_name: str, route_id: str | None = Query(default=None)
+):
     root = _resolve_exports_root_for_route(route_id)
     file_path, _relative_path = _resolve_file(root, file_key)
     related = _related_paths(root, file_path)
@@ -973,7 +1059,9 @@ async def get_exclude_artifact(file_key: str, asset_name: str, route_id: str | N
 
 
 @router.get("/files/{file_key:path}/ica-summary")
-async def get_exclude_ica_summary(file_key: str, route_id: str | None = Query(default=None)) -> dict[str, Any]:
+async def get_exclude_ica_summary(
+    file_key: str, route_id: str | None = Query(default=None)
+) -> dict[str, Any]:
     root = _resolve_exports_root_for_route(route_id)
     file_path, _relative_path = _resolve_file(root, file_key)
     related = _related_paths(root, file_path)
@@ -1009,7 +1097,9 @@ def _render_epoch_topography(
 
     eeg_picks = mne.pick_types(epochs.info, eeg=True, exclude=[])
     if len(eeg_picks) == 0:
-        raise HTTPException(status_code=400, detail="No EEG channels available for topography")
+        raise HTTPException(
+            status_code=400, detail="No EEG channels available for topography"
+        )
 
     sample_index = max(0, min(sample_index, len(epochs.times) - 1))
     epoch_data = epochs.get_data()[epoch_index]
@@ -1066,19 +1156,25 @@ def _render_epoch_topography(
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Could not render topography: {exc}")
+        raise HTTPException(
+            status_code=400, detail=f"Could not render topography: {exc}"
+        )
     finally:
         plt.close(fig)
 
 
 @router.get("/files/{file_key:path}/eeg/manifest", response_model=EpochManifest)
-async def get_eeg_manifest(file_key: str, route_id: str | None = Query(default=None)) -> EpochManifest:
+async def get_eeg_manifest(
+    file_key: str, route_id: str | None = Query(default=None)
+) -> EpochManifest:
     root = _resolve_exports_root_for_route(route_id)
     file_path, relative_path = _resolve_file(root, file_key)
     decisions = _load_decisions(root)
     record = _record_for(decisions, file_key, relative_path)
     epochs = _load_epochs(file_path)
-    existing_bad = [int(v) for v in str(record.get("bad_epoch_indices", "")).split(",") if v.strip()]
+    existing_bad = [
+        int(v) for v in str(record.get("bad_epoch_indices", "")).split(",") if v.strip()
+    ]
     return EpochManifest(
         file_key=file_key,
         relative_path=relative_path,
@@ -1087,7 +1183,9 @@ async def get_eeg_manifest(file_key: str, route_id: str | None = Query(default=N
         n_channels=len(epochs.ch_names),
         n_epochs=len(epochs),
         epoch_length_samples=int(len(epochs.times)),
-        epoch_duration_seconds=float(epochs.times[-1] - epochs.times[0]) if len(epochs.times) > 1 else 0.0,
+        epoch_duration_seconds=(
+            float(epochs.times[-1] - epochs.times[0]) if len(epochs.times) > 1 else 0.0
+        ),
         existing_bad_epoch_indices=existing_bad,
     )
 
@@ -1144,12 +1242,16 @@ async def get_eeg_epochs(
         count=len(payload),
         channel_names=selected_channels,
         sampling_rate=sfreq,
-        epoch_duration_seconds=float(epochs.times[-1] - epochs.times[0]) if len(epochs.times) > 1 else 0.0,
+        epoch_duration_seconds=(
+            float(epochs.times[-1] - epochs.times[0]) if len(epochs.times) > 1 else 0.0
+        ),
         epochs=payload,
     )
 
 
-@router.get("/files/{file_key:path}/eeg/topography", response_model=EpochTopographyResponse)
+@router.get(
+    "/files/{file_key:path}/eeg/topography", response_model=EpochTopographyResponse
+)
 async def get_eeg_topography(
     file_key: str,
     epoch_index: int = Query(..., ge=0),
@@ -1168,13 +1270,19 @@ async def get_eeg_topography(
 
 
 @router.get("/files/{file_key:path}/epoch-review")
-async def get_epoch_review(file_key: str, route_id: str | None = Query(default=None)) -> dict[str, Any]:
+async def get_epoch_review(
+    file_key: str, route_id: str | None = Query(default=None)
+) -> dict[str, Any]:
     root = _resolve_exports_root_for_route(route_id)
     _, relative_path = _resolve_file(root, file_key)
     decisions = _load_decisions(root)
     record = _record_for(decisions, file_key, relative_path)
     return {
-        "bad_epoch_indices": [int(v) for v in str(record.get("bad_epoch_indices", "")).split(",") if v.strip()],
+        "bad_epoch_indices": [
+            int(v)
+            for v in str(record.get("bad_epoch_indices", "")).split(",")
+            if v.strip()
+        ],
         "bad_epochs_count": int(record.get("bad_epochs_count", 0) or 0),
         "total_epochs": int(record.get("total_epochs", 0) or 0),
         "epoch_rejection_rate": float(record.get("epoch_rejection_rate", 0.0) or 0.0),
@@ -1194,7 +1302,9 @@ async def save_epoch_review(
     record = _record_for(decisions, file_key, relative_path)
     epochs = _load_epochs(file_path)
 
-    bad_epochs = sorted(set(int(v) for v in body.bad_epoch_indices if 0 <= int(v) < len(epochs)))
+    bad_epochs = sorted(
+        set(int(v) for v in body.bad_epoch_indices if 0 <= int(v) < len(epochs))
+    )
     epoch_times: list[str] = []
     epoch_events: list[str] = []
     if hasattr(epochs, "events"):
@@ -1211,7 +1321,9 @@ async def save_epoch_review(
     record["bad_epoch_times"] = ",".join(epoch_times)
     record["bad_epoch_events"] = ",".join(epoch_events)
     record["total_epochs"] = total_epochs
-    record["epoch_rejection_rate"] = (len(bad_epochs) / total_epochs * 100.0) if total_epochs else 0.0
+    record["epoch_rejection_rate"] = (
+        (len(bad_epochs) / total_epochs * 100.0) if total_epochs else 0.0
+    )
     _touch_record(record)
     _save_decisions(root, decisions)
     warning: Optional[str] = None
@@ -1231,7 +1343,9 @@ async def save_epoch_review(
 
 
 @router.get("/files/{file_key:path}", response_model=ExcludeFileDetail)
-async def get_exclude_file_detail(file_key: str, route_id: str | None = Query(default=None)) -> ExcludeFileDetail:
+async def get_exclude_file_detail(
+    file_key: str, route_id: str | None = Query(default=None)
+) -> ExcludeFileDetail:
     root = _resolve_exports_root_for_route(route_id)
     file_path, relative_path = _resolve_file(root, file_key)
     decisions = _load_decisions(root)
@@ -1257,12 +1371,20 @@ async def get_exclude_file_detail(file_key: str, route_id: str | None = Query(de
             "epochs_reviewed": bool(record.get("epochs_reviewed")),
             "bad_epochs_count": int(record.get("bad_epochs_count", 0) or 0),
             "bad_epoch_indices": [
-                int(v) for v in str(record.get("bad_epoch_indices", "")).split(",") if v.strip()
+                int(v)
+                for v in str(record.get("bad_epoch_indices", "")).split(",")
+                if v.strip()
             ],
-            "bad_epoch_times": [v for v in str(record.get("bad_epoch_times", "")).split(",") if v],
-            "bad_epoch_events": [v for v in str(record.get("bad_epoch_events", "")).split(",") if v],
+            "bad_epoch_times": [
+                v for v in str(record.get("bad_epoch_times", "")).split(",") if v
+            ],
+            "bad_epoch_events": [
+                v for v in str(record.get("bad_epoch_events", "")).split(",") if v
+            ],
             "total_epochs": int(record.get("total_epochs", 0) or 0),
-            "epoch_rejection_rate": float(record.get("epoch_rejection_rate", 0.0) or 0.0),
+            "epoch_rejection_rate": float(
+                record.get("epoch_rejection_rate", 0.0) or 0.0
+            ),
         },
         qa_export={
             "hash": str(record.get("qa_export_hash", "")),
@@ -1276,32 +1398,58 @@ async def get_exclude_file_detail(file_key: str, route_id: str | None = Query(de
         },
         artifacts={
             "run_report": (
-                f"/api/exclude/files/{file_key}/artifacts/run_report?route_id={route_id}" if related["run_report"] and route_id else
-                f"/api/exclude/files/{file_key}/artifacts/run_report" if related["run_report"] else None
+                f"/api/exclude/files/{file_key}/artifacts/run_report?route_id={route_id}"
+                if related["run_report"] and route_id
+                else (
+                    f"/api/exclude/files/{file_key}/artifacts/run_report"
+                    if related["run_report"]
+                    else None
+                )
             ),
             "ica_report": (
-                f"/api/exclude/files/{file_key}/artifacts/ica_report?route_id={route_id}" if related["ica_report"] and route_id else
-                f"/api/exclude/files/{file_key}/artifacts/ica_report" if related["ica_report"] else None
+                f"/api/exclude/files/{file_key}/artifacts/ica_report?route_id={route_id}"
+                if related["ica_report"] and route_id
+                else (
+                    f"/api/exclude/files/{file_key}/artifacts/ica_report"
+                    if related["ica_report"]
+                    else None
+                )
             ),
             "psd": (
-                f"/api/exclude/files/{file_key}/artifacts/psd?route_id={route_id}" if related["psd"] and route_id else
-                f"/api/exclude/files/{file_key}/artifacts/psd" if related["psd"] else None
+                f"/api/exclude/files/{file_key}/artifacts/psd?route_id={route_id}"
+                if related["psd"] and route_id
+                else (
+                    f"/api/exclude/files/{file_key}/artifacts/psd"
+                    if related["psd"]
+                    else None
+                )
             ),
             "metadata": (
-                f"/api/exclude/files/{file_key}/artifacts/metadata?route_id={route_id}" if related["metadata"] and route_id else
-                f"/api/exclude/files/{file_key}/artifacts/metadata" if related["metadata"] else None
+                f"/api/exclude/files/{file_key}/artifacts/metadata?route_id={route_id}"
+                if related["metadata"] and route_id
+                else (
+                    f"/api/exclude/files/{file_key}/artifacts/metadata"
+                    if related["metadata"]
+                    else None
+                )
             ),
             "postedit": (
-                f"/api/exclude/files/{file_key}/artifacts/postedit?route_id={route_id}" if related["postedit"] and route_id else
-                f"/api/exclude/files/{file_key}/artifacts/postedit" if related["postedit"] else None
+                f"/api/exclude/files/{file_key}/artifacts/postedit?route_id={route_id}"
+                if related["postedit"] and route_id
+                else (
+                    f"/api/exclude/files/{file_key}/artifacts/postedit"
+                    if related["postedit"]
+                    else None
+                )
             ),
         },
     )
 
 
 @router.put("/files/{file_key:path}/notes")
-async def save_notes(file_key: str, body: NotesUpdate, route_id: str | None = Query(default=None)) -> dict[str, Any]:
-    from datetime import datetime
+async def save_notes(
+    file_key: str, body: NotesUpdate, route_id: str | None = Query(default=None)
+) -> dict[str, Any]:
 
     root = _resolve_exports_root_for_route(route_id)
     _, relative_path = _resolve_file(root, file_key)
@@ -1312,12 +1460,17 @@ async def save_notes(file_key: str, body: NotesUpdate, route_id: str | None = Qu
         record["status"] = body.status
     _touch_record(record)
     _save_decisions(root, decisions)
-    return {"saved": True, "last_updated": record["last_updated"], "server_revision": record["revision"]}
+    return {
+        "saved": True,
+        "last_updated": record["last_updated"],
+        "server_revision": record["revision"],
+    }
 
 
 @router.put("/files/{file_key:path}/overrides")
-async def save_overrides(file_key: str, body: OverridesUpdate, route_id: str | None = Query(default=None)) -> dict[str, Any]:
-    from datetime import datetime
+async def save_overrides(
+    file_key: str, body: OverridesUpdate, route_id: str | None = Query(default=None)
+) -> dict[str, Any]:
 
     root = _resolve_exports_root_for_route(route_id)
     file_path, relative_path = _resolve_file(root, file_key)
@@ -1372,24 +1525,34 @@ async def start_reprocess(
     file_path, relative_path = _resolve_file(root, file_key)
     task_root = root.parent
     if "reprocess" in task_root.parts:
-        raise HTTPException(status_code=400, detail="Cannot reprocess from inside a reprocess folder")
+        raise HTTPException(
+            status_code=400, detail="Cannot reprocess from inside a reprocess folder"
+        )
 
     related = _related_paths(root, file_path)
     metadata_path = related.get("metadata")
     if metadata_path is None or not metadata_path.exists():
-        raise HTTPException(status_code=404, detail="Metadata file not found for selected export")
+        raise HTTPException(
+            status_code=404, detail="Metadata file not found for selected export"
+        )
 
     metadata_json = json.loads(metadata_path.read_text())
     raw_file = metadata_json.get("unprocessed_file")
     if not raw_file:
-        raise HTTPException(status_code=400, detail="Original raw file path missing from metadata")
+        raise HTTPException(
+            status_code=400, detail="Original raw file path missing from metadata"
+        )
     raw_path = Path(raw_file)
     if not raw_path.exists():
-        raise HTTPException(status_code=404, detail=f"Original raw file not found: {raw_path}")
+        raise HTTPException(
+            status_code=404, detail=f"Original raw file not found: {raw_path}"
+        )
 
     task_file = _find_task_file(task_root)
     if task_file is None or not task_file.exists():
-        raise HTTPException(status_code=404, detail="Original task file not found in status/")
+        raise HTTPException(
+            status_code=404, detail="Original task file not found in status/"
+        )
 
     metadata = _parse_metadata(metadata_path)
     valid_channels, max_components = _resolve_override_validation_context(
@@ -1440,7 +1603,11 @@ async def start_reprocess(
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     sanitized = stem.replace("-", "_").replace(" ", "_")
     sanitized = "".join(c if c.isalnum() or c == "_" else "_" for c in sanitized)
-    class_name = f"Task_{sanitized}_Reprocess" if sanitized and sanitized[0].isdigit() else f"{sanitized}_Reprocess"
+    class_name = (
+        f"Task_{sanitized}_Reprocess"
+        if sanitized and sanitized[0].isdigit()
+        else f"{sanitized}_Reprocess"
+    )
     task_output_path = task_root / "status" / f"{stem}_Reprocess.py"
     rendered_task = generate_reprocess_task_from_original(
         task_file, payload, class_name, timestamp
@@ -1484,7 +1651,9 @@ async def start_reprocess(
         "relative_path": relative_path,
         "exports_root": str(root),
     }
-    return ReprocessResponse(job_id=job_id, status="running", message=f"Started reprocess for {stem}")
+    return ReprocessResponse(
+        job_id=job_id, status="running", message=f"Started reprocess for {stem}"
+    )
 
 
 @router.get("/reprocess/{job_id}")

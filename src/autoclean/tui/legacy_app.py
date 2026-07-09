@@ -15,9 +15,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.reactive import reactive
-from textual.screen import Screen
 from textual.widgets import (
-    Button,
     Footer,
     Header,
     Label,
@@ -29,10 +27,10 @@ from textual.widgets import (
 from autoclean.tui.screens.activity import ActivityScreen
 from autoclean.tui.screens.config import ConfigScreen
 from autoclean.tui.screens.dashboard import DashboardScreen
-from autoclean.utils.ingestion import ServeConfigError
 from autoclean.tui.screens.queue import QueueScreen
 from autoclean.tui.screens.routes import RoutesScreen
 from autoclean.tui.screens.service import ServiceScreen
+from autoclean.utils.ingestion import ServeConfigError
 
 
 @dataclass
@@ -117,7 +115,9 @@ class StatusBar(Static):
     service_running = reactive(False)
 
     def render(self) -> str:
-        mode_display = "[bold cyan]Draft[/]" if self.mode == "test" else "[bold cyan]Production[/]"
+        mode_display = (
+            "[bold cyan]Draft[/]" if self.mode == "test" else "[bold cyan]Production[/]"
+        )
         if self.service_running:
             status = "[bold green]Running[/]"
         else:
@@ -363,7 +363,9 @@ class AutoCleanTUI(App):
                     processing += 1
                 elif status == "failed":
                     failed += 1
-                    failed_at = str(entry_data.get("failed_at") or entry_data.get("added_at") or "")
+                    failed_at = str(
+                        entry_data.get("failed_at") or entry_data.get("added_at") or ""
+                    )
                     if failed_at >= latest_failed_at:
                         latest_failed_at = failed_at
                         self.state.last_failed_file = Path(path_str).name
@@ -371,7 +373,9 @@ class AutoCleanTUI(App):
                 elif status == "processed":
                     processed += 1
                     processed_at = str(
-                        entry_data.get("processed_at") or entry_data.get("added_at") or ""
+                        entry_data.get("processed_at")
+                        or entry_data.get("added_at")
+                        or ""
                     )
                     if processed_at >= latest_processed_at:
                         latest_processed_at = processed_at
@@ -733,7 +737,10 @@ class AutoCleanTUI(App):
             return False, "At least one ingestion folder is required"
 
         try:
-            from autoclean.utils.serve_routes import sync_route_registry, upsert_route_spec
+            from autoclean.utils.serve_routes import (
+                sync_route_registry,
+                upsert_route_spec,
+            )
 
             modes = ["test", "live"] if mode_scope == "both" else ["test"]
             updates: dict[str, Any] = {
@@ -773,7 +780,9 @@ class AutoCleanTUI(App):
             "taskfile": taskfile.strip(),
             "montage": montage.strip(),
             "folders": [],
-            "mode_scope": "Draft + Production" if mode_scope == "both" else "Draft only",
+            "mode_scope": (
+                "Draft + Production" if mode_scope == "both" else "Draft only"
+            ),
             "matches": [],
             "warnings": [],
         }
@@ -791,7 +800,9 @@ class AutoCleanTUI(App):
                 continue
             patterns = globs or ["*"]
             for pattern in patterns:
-                iterator = resolved.rglob(pattern) if recursive else resolved.glob(pattern)
+                iterator = (
+                    resolved.rglob(pattern) if recursive else resolved.glob(pattern)
+                )
                 for match in iterator:
                     if match.is_file():
                         preview["matches"].append(str(match))
@@ -806,7 +817,9 @@ class AutoCleanTUI(App):
         if not montage.strip():
             preview["warnings"].append("Montage is required.")
         if not preview["matches"]:
-            preview["warnings"].append("No matching files found in the selected folders yet.")
+            preview["warnings"].append(
+                "No matching files found in the selected folders yet."
+            )
         return preview
 
     def set_route_enabled(self, route_id: str, enabled: bool) -> bool:
@@ -816,7 +829,10 @@ class AutoCleanTUI(App):
             return False
 
         try:
-            from autoclean.utils.serve_routes import sync_route_registry, upsert_route_spec
+            from autoclean.utils.serve_routes import (
+                sync_route_registry,
+                upsert_route_spec,
+            )
 
             upsert_route_spec(workspace_dir, route_id, {"enabled": enabled})
             sync_route_registry(workspace_dir)
@@ -855,7 +871,10 @@ class AutoCleanTUI(App):
             return False
 
         try:
-            from autoclean.utils.serve_routes import promote_route_spec, sync_route_registry
+            from autoclean.utils.serve_routes import (
+                promote_route_spec,
+                sync_route_registry,
+            )
 
             promote_route_spec(workspace_dir, route_id)
             sync_route_registry(workspace_dir)
@@ -887,20 +906,36 @@ class AutoCleanTUI(App):
         queue_path = self.get_queue_path()
         uptime = None
         if self.state.service_started_at is not None and self.state.service_running:
-            uptime_seconds = int((datetime.now() - self.state.service_started_at).total_seconds())
+            uptime_seconds = int(
+                (datetime.now() - self.state.service_started_at).total_seconds()
+            )
             minutes, seconds = divmod(uptime_seconds, 60)
             hours, minutes = divmod(minutes, 60)
             uptime = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
         return {
             "lane": self.get_mode_label(),
-            "workspace": str(self.state.workspace_dir) if self.state.workspace_dir else "Not configured",
+            "workspace": (
+                str(self.state.workspace_dir)
+                if self.state.workspace_dir
+                else "Not configured"
+            ),
             "queue_path": str(queue_path) if queue_path else "Unavailable",
             "config_source": self.state.service_last_config_source or config_source,
             "config_path": str(config_path) if config_path else "Unavailable",
-            "log_path": str(self.state.service_log_path) if self.state.service_log_path else "Unavailable",
-            "pid": self.state.service_process.pid if self.state.service_process else None,
+            "log_path": (
+                str(self.state.service_log_path)
+                if self.state.service_log_path
+                else "Unavailable"
+            ),
+            "pid": (
+                self.state.service_process.pid if self.state.service_process else None
+            ),
             "uptime": uptime,
-            "command": " ".join(self.state.service_last_command) if self.state.service_last_command else "Not started yet",
+            "command": (
+                " ".join(self.state.service_last_command)
+                if self.state.service_last_command
+                else "Not started yet"
+            ),
             "completed": self.state.last_completed_file,
             "failed": self.state.last_failed_file,
             "failed_error": self.state.last_failed_error,
@@ -1040,4 +1075,5 @@ Examples:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

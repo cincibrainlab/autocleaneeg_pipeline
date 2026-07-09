@@ -7,7 +7,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Optional, Sequence
 
-
 STATUS_ORDER = {"failed": 0, "processing": 1, "pending": 2, "processed": 3}
 
 
@@ -166,7 +165,9 @@ def _build_route_health(route: dict[str, Any], lane: str) -> RouteHealth:
             issues.append("No file globs configured.")
         if lane == "live" and "live" not in modes:
             state = "Draft only"
-            summary = "Route is available in Draft but has not been promoted to Production."
+            summary = (
+                "Route is available in Draft but has not been promoted to Production."
+            )
         elif issues:
             state = "Attention"
             summary = issues[0]
@@ -350,9 +351,15 @@ def build_workspace_snapshot(
         needs_deploy=_config_needs_deploy(operator_config_path, deployed_config_path),
     )
     service = ServiceHealth(
-        lane=str(service_snapshot.get("lane") or ("Draft" if mode == "test" else "Production")),
+        lane=str(
+            service_snapshot.get("lane")
+            or ("Draft" if mode == "test" else "Production")
+        ),
         running=bool(service_snapshot.get("pid") or service_snapshot.get("uptime")),
-        workspace=str(service_snapshot.get("workspace") or (str(workspace_dir) if workspace_dir else "Not configured")),
+        workspace=str(
+            service_snapshot.get("workspace")
+            or (str(workspace_dir) if workspace_dir else "Not configured")
+        ),
         queue_path=str(service_snapshot.get("queue_path") or "Unavailable"),
         config_source=str(service_snapshot.get("config_source") or config_source),
         config_path=str(service_snapshot.get("config_path") or "Unavailable"),

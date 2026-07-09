@@ -66,10 +66,18 @@ class QueueEntry(BaseModel):
     path: str = Field(description="Full file path")
     status: QueueStatus = Field(description="Entry status")
     route_id: Optional[str] = Field(default=None, description="Assigned route ID")
-    ingestion_root: Optional[str] = Field(default=None, description="Ingestion root path")
-    added_at: Optional[str] = Field(default=None, description="ISO timestamp when added")
-    processed_at: Optional[str] = Field(default=None, description="ISO timestamp when processed")
-    failed_at: Optional[str] = Field(default=None, description="ISO timestamp when failed")
+    ingestion_root: Optional[str] = Field(
+        default=None, description="Ingestion root path"
+    )
+    added_at: Optional[str] = Field(
+        default=None, description="ISO timestamp when added"
+    )
+    processed_at: Optional[str] = Field(
+        default=None, description="ISO timestamp when processed"
+    )
+    failed_at: Optional[str] = Field(
+        default=None, description="ISO timestamp when failed"
+    )
     last_error: Optional[str] = Field(default=None, description="Last error message")
 
 
@@ -142,7 +150,9 @@ class WorkerInfo(BaseModel):
     name: str = Field(description="Worker name")
     status: WorkerStatus = Field(description="Current status")
     current_job: Optional[str] = Field(default=None, description="Current job ID")
-    queues: list[str] = Field(default_factory=list, description="Queues being processed")
+    queues: list[str] = Field(
+        default_factory=list, description="Queues being processed"
+    )
     pid: Optional[int] = Field(default=None, description="Process ID")
 
 
@@ -288,34 +298,54 @@ class RouteSpecResponse(BaseModel):
     taskfile: str = Field(description="Task file or task name")
     montage: str = Field(description="Montage identifier")
     version: Optional[str] = Field(default=None, description="Optional version tag")
-    ingestion_folders: list[str] = Field(default_factory=list, description="Input roots")
-    ingestion_excludes: list[str] = Field(default_factory=list, description="Excluded subpaths")
+    ingestion_folders: list[str] = Field(
+        default_factory=list, description="Input roots"
+    )
+    ingestion_excludes: list[str] = Field(
+        default_factory=list, description="Excluded subpaths"
+    )
     file_globs: list[str] = Field(default_factory=list, description="File patterns")
     recursive: bool = Field(default=False, description="Whether scanning is recursive")
     sentinel_ext: Optional[str] = Field(default=None, description="Sentinel extension")
-    automation_root: Optional[str] = Field(default=None, description="Automation output root")
-    workspace_name: Optional[str] = Field(default=None, description="Workspace naming template")
-    output_path: Optional[str] = Field(default=None, description="Resolved automation output path")
+    automation_root: Optional[str] = Field(
+        default=None, description="Automation output root"
+    )
+    workspace_name: Optional[str] = Field(
+        default=None, description="Workspace naming template"
+    )
+    output_path: Optional[str] = Field(
+        default=None, description="Resolved automation output path"
+    )
 
 
 class RouteUpsertRequest(BaseModel):
     """Create/update payload for one route spec."""
 
     id: str = Field(description="Route ID")
-    modes: list[str] = Field(default_factory=lambda: ["test"], description="Target modes")
+    modes: list[str] = Field(
+        default_factory=lambda: ["test"], description="Target modes"
+    )
     enabled: bool = Field(default=True, description="Whether the route is enabled")
     archived: bool = Field(default=False, description="Whether the route is archived")
     priority: int = Field(default=0, description="Route priority")
     taskfile: str = Field(description="Task file or task name")
     montage: str = Field(description="Montage identifier")
     version: Optional[str] = Field(default=None, description="Optional version tag")
-    ingestion_folders: list[str] = Field(default_factory=list, description="Input roots")
-    ingestion_excludes: list[str] = Field(default_factory=list, description="Excluded subpaths")
+    ingestion_folders: list[str] = Field(
+        default_factory=list, description="Input roots"
+    )
+    ingestion_excludes: list[str] = Field(
+        default_factory=list, description="Excluded subpaths"
+    )
     file_globs: list[str] = Field(default_factory=list, description="File patterns")
     recursive: bool = Field(default=False, description="Whether scanning is recursive")
     sentinel_ext: Optional[str] = Field(default=None, description="Sentinel extension")
-    automation_root: Optional[str] = Field(default=None, description="Automation output root")
-    workspace_name: Optional[str] = Field(default=None, description="Workspace naming template")
+    automation_root: Optional[str] = Field(
+        default=None, description="Automation output root"
+    )
+    workspace_name: Optional[str] = Field(
+        default=None, description="Workspace naming template"
+    )
 
 
 class RouteActionResponse(BaseModel):
@@ -331,8 +361,12 @@ class SyncResponse(BaseModel):
 
     success: bool = Field(description="Whether sync succeeded")
     message: str = Field(description="Status message")
-    test_path: Optional[str] = Field(default=None, description="Compiled test config path")
-    live_path: Optional[str] = Field(default=None, description="Compiled live config path")
+    test_path: Optional[str] = Field(
+        default=None, description="Compiled test config path"
+    )
+    live_path: Optional[str] = Field(
+        default=None, description="Compiled live config path"
+    )
 
 
 class ServiceStatusResponse(BaseModel):
@@ -341,7 +375,9 @@ class ServiceStatusResponse(BaseModel):
     running: bool = Field(description="Whether the dispatcher is running")
     pid: Optional[int] = Field(default=None, description="Dispatcher PID")
     mode: str = Field(description="Current serve mode")
-    uptime_seconds: Optional[float] = Field(default=None, description="Dispatcher uptime in seconds")
+    uptime_seconds: Optional[float] = Field(
+        default=None, description="Dispatcher uptime in seconds"
+    )
     can_start: bool = Field(
         default=True,
         description="Whether the dispatcher can be started with the current workspace state",

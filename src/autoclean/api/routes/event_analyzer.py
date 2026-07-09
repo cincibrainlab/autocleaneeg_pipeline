@@ -38,7 +38,9 @@ def _analyze_file(file_path: Path) -> dict[str, Any]:
         ".edf": lambda p: mne.io.read_raw_edf(str(p), preload=False, verbose=False),
         ".bdf": lambda p: mne.io.read_raw_bdf(str(p), preload=False, verbose=False),
         ".fif": lambda p: mne.io.read_raw_fif(str(p), preload=False, verbose=False),
-        ".vhdr": lambda p: mne.io.read_raw_brainvision(str(p), preload=False, verbose=False),
+        ".vhdr": lambda p: mne.io.read_raw_brainvision(
+            str(p), preload=False, verbose=False
+        ),
     }
     reader = readers.get(ext)
     if reader is None:
@@ -117,15 +119,19 @@ def _analyze_file(file_path: Path) -> dict[str, Any]:
         typed = type_onsets.get(label, [])
         count = len(typed)
         per_isis = [typed[i + 1] - typed[i] for i in range(len(typed) - 1)]
-        type_summary.append({
-            "label": label,
-            "code": code,
-            "count": count,
-            "first_onset": round(typed[0], 3) if typed else None,
-            "last_onset": round(typed[-1], 3) if typed else None,
-            "mean_isi": round(statistics.mean(per_isis), 3) if per_isis else None,
-            "median_isi": round(statistics.median(per_isis), 3) if per_isis else None,
-        })
+        type_summary.append(
+            {
+                "label": label,
+                "code": code,
+                "count": count,
+                "first_onset": round(typed[0], 3) if typed else None,
+                "last_onset": round(typed[-1], 3) if typed else None,
+                "mean_isi": round(statistics.mean(per_isis), 3) if per_isis else None,
+                "median_isi": (
+                    round(statistics.median(per_isis), 3) if per_isis else None
+                ),
+            }
+        )
 
     # Global ISI
     isi_stats = None
