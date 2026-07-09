@@ -22,19 +22,25 @@ if sys.stdout.encoding is not None and sys.stdout.encoding.lower() != "utf-8":
 class CodeQualityChecker:
     """Run code quality checks locally using uv tool."""
 
-    def __init__(self, src_dir: Path = None, fix: bool = False, verbose: bool = True, use_uv: bool = None):
+    def __init__(
+        self,
+        src_dir: Path = None,
+        fix: bool = False,
+        verbose: bool = True,
+        use_uv: bool = None,
+    ):
         """Initialize code quality checker."""
         self.src_dir = src_dir or Path("src/autoclean")
         self.fix = fix
         self.verbose = verbose
         self.results = []
-        
+
         # Auto-detect uv if not specified
         if use_uv is None:
-            self.use_uv = shutil.which('uv') is not None
+            self.use_uv = shutil.which("uv") is not None
         else:
             self.use_uv = use_uv
-            
+
         if self.verbose and self.use_uv:
             print("📦 Using uv tool for isolated command execution")
 
@@ -90,7 +96,15 @@ class CodeQualityChecker:
     def check_black(self) -> Tuple[bool, str]:
         """Check code formatting with Black."""
         if self.use_uv:
-            cmd = ["uv", "tool", "run", self.BLACK_VERSION, "--check", "--diff", str(self.src_dir)]
+            cmd = [
+                "uv",
+                "tool",
+                "run",
+                self.BLACK_VERSION,
+                "--check",
+                "--diff",
+                str(self.src_dir),
+            ]
             if self.fix:
                 cmd = ["uv", "tool", "run", self.BLACK_VERSION, str(self.src_dir)]
         else:
@@ -103,7 +117,15 @@ class CodeQualityChecker:
     def check_isort(self) -> Tuple[bool, str]:
         """Check import sorting with isort."""
         if self.use_uv:
-            cmd = ["uv", "tool", "run", self.ISORT_VERSION, "--check-only", "--diff", str(self.src_dir)]
+            cmd = [
+                "uv",
+                "tool",
+                "run",
+                self.ISORT_VERSION,
+                "--check-only",
+                "--diff",
+                str(self.src_dir),
+            ]
             if self.fix:
                 cmd = ["uv", "tool", "run", self.ISORT_VERSION, str(self.src_dir)]
         else:
@@ -118,7 +140,15 @@ class CodeQualityChecker:
         if self.use_uv:
             cmd = ["uv", "tool", "run", self.RUFF_VERSION, "check", str(self.src_dir)]
             if self.fix:
-                cmd = ["uv", "tool", "run", self.RUFF_VERSION, "check", "--fix", str(self.src_dir)]
+                cmd = [
+                    "uv",
+                    "tool",
+                    "run",
+                    self.RUFF_VERSION,
+                    "check",
+                    "--fix",
+                    str(self.src_dir),
+                ]
         else:
             cmd = ["ruff", "check", str(self.src_dir)]
             if self.fix:
@@ -129,7 +159,14 @@ class CodeQualityChecker:
     def check_mypy(self) -> Tuple[bool, str]:
         """Check types with mypy."""
         if self.use_uv:
-            cmd = ["uv", "tool", "run", "mypy", str(self.src_dir), "--ignore-missing-imports"]
+            cmd = [
+                "uv",
+                "tool",
+                "run",
+                "mypy",
+                str(self.src_dir),
+                "--ignore-missing-imports",
+            ]
         else:
             cmd = ["mypy", str(self.src_dir), "--ignore-missing-imports"]
 
@@ -149,7 +186,9 @@ class CodeQualityChecker:
             print("=" * 50)
             print(f"Source directory: {self.src_dir}")
             print(f"Fix mode: {'ON' if self.fix else 'OFF'}")
-            print(f"Tool execution: {'uv tool run' if self.use_uv else 'direct command'}")
+            print(
+                f"Tool execution: {'uv tool run' if self.use_uv else 'direct command'}"
+            )
 
         all_passed = True
 
@@ -217,7 +256,9 @@ Examples:
     )
     parser.add_argument("--quiet", action="store_true", help="Reduce output verbosity")
     parser.add_argument(
-        "--no-uv", action="store_true", help="Use direct commands instead of 'uv tool run'"
+        "--no-uv",
+        action="store_true",
+        help="Use direct commands instead of 'uv tool run'",
     )
     parser.add_argument(
         "--check",
@@ -235,10 +276,7 @@ Examples:
 
     # Initialize checker
     checker = CodeQualityChecker(
-        src_dir=args.src, 
-        fix=args.fix, 
-        verbose=not args.quiet,
-        use_uv=not args.no_uv
+        src_dir=args.src, fix=args.fix, verbose=not args.quiet, use_uv=not args.no_uv
     )
 
     # Run checks
