@@ -26,14 +26,14 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 from mne.preprocessing import ICA
 
-from autoclean.functions.visualization.icvision_layouts import (
-    plot_component_for_classification,
-    plot_ica_topographies_overview,
-)
 from autoclean.functions.visualization._ica_sources_cache import (
     get_cached_ica_sources,
     get_ica_cache_stats,
     invalidate_ica_cache,
+)
+from autoclean.functions.visualization.icvision_layouts import (
+    plot_component_for_classification,
+    plot_ica_topographies_overview,
 )
 from autoclean.utils.logging import message
 
@@ -62,7 +62,7 @@ class ICAReportingMixin:
     - `verify_topography_plot`: Use a basicica topograph to verify MEA channel placement.
     """
 
-    def plot_ica_full(self) -> plt.Figure:
+    def plot_ica_full(self) -> Optional[plt.Figure]:
         """Plot ICA components over the full time series with their labels and probabilities.
 
         This method creates a figure showing each ICA component's time course over the full
@@ -71,8 +71,9 @@ class ICAReportingMixin:
 
         Returns
         -------
-        matplotlib.figure.Figure
-            The generated figure with ICA components.
+        matplotlib.figure.Figure or None
+            The generated figure with ICA components, or None if raw/ICA data
+            is unavailable (e.g. ICA was fit on epochs - this plot is raw-only).
 
         Raises
         ------
@@ -91,7 +92,15 @@ class ICAReportingMixin:
             - The method respects configuration settings via the `ica_full_plot_step` config
         """
         # Get raw and ICA from pipeline
-        raw = self._get_ica_report_data().copy()
+        report_data = self._get_ica_report_data()
+        if report_data is None:
+            message(
+                "warning",
+                "plot_ica_full skipped because raw or ICA data is missing "
+                "(this plot is raw-only; epochs-only tasks are not supported).",
+            )
+            return None
+        raw = report_data.copy()
         ica = self.final_ica
         ic_labels = self.ica_flags
 
@@ -287,7 +296,8 @@ class ICAReportingMixin:
             'all' to plot all components, 'rejected' to plot only rejected components.
         """
         # Safety guards - input validation
-        if self.raw is None or self.final_ica is None:
+        report_data = self._get_ica_report_data()
+        if report_data is None or self.final_ica is None:
             message(
                 "warning", "ICA plotting skipped because raw or ICA data is missing."
             )
@@ -300,7 +310,7 @@ class ICAReportingMixin:
             )
             return None
 
-        raw = self._get_ica_report_data()
+        raw = report_data
         ica = self.final_ica
         ic_labels = getattr(self, "ica_flags", None)
         psd_fmax = self._resolve_psd_fmax()
@@ -494,9 +504,6 @@ class ICAReportingMixin:
             from autoclean.functions.visualization._ica_psd_cache import (
                 get_cached_component_psds,
             )
-            from autoclean.functions.visualization._ica_topography_cache import (
-                get_cached_topographies,
-            )
 
             try:
                 # Pre-compute all PSDs for the components we'll plot
@@ -604,9 +611,16 @@ class ICAReportingMixin:
         Prefers the pre-rejection snapshot (if available) so that rejected
         components still show their original activity/PSD instead of the
         zeroed-out values left behind after ICA.apply() runs.
+
+        ICA reports currently only support raw-based plotting. If ICA was fit
+        on epochs (`self._ica_used_epochs`), there is no raw-shaped data to
+        report on, so this returns None rather than silently falling back to
+        a stale/incompatible `self.raw` left over from an earlier step.
         """
+        if getattr(self, "_ica_used_epochs", False):
+            return None
         snapshot = getattr(self, "raw_prerejection", None)
-        return snapshot if snapshot is not None else self.raw
+        return snapshot if snapshot is not None else getattr(self, "raw", None)
 
     def clear_ica_sources_cache(self):
         """Clear all cached ICA sources to free memory."""

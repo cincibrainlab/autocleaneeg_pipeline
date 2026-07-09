@@ -19,8 +19,6 @@ from typing import Union
 import mne
 import numpy as np
 
-from autoclean.utils.logging import message
-
 
 class OutlierDetectionMixin:
     """Mixin class providing functionality for outlier detection in epochs.
@@ -89,6 +87,7 @@ class OutlierDetectionMixin:
 
         if not is_enabled:
             from autoclean.utils.logging import message
+
             message("info", "Outlier epoch detection step is disabled in configuration")
             return None
 

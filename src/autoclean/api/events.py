@@ -83,11 +83,13 @@ async def websocket_events(websocket: WebSocket) -> None:
 
     try:
         # Send initial connection event
-        await websocket.send_json({
-            "type": "connected",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "data": {"message": "Connected to event stream"},
-        })
+        await websocket.send_json(
+            {
+                "type": "connected",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "data": {"message": "Connected to event stream"},
+            }
+        )
 
         # Keep connection alive and handle incoming messages
         while True:
@@ -105,10 +107,12 @@ async def websocket_events(websocket: WebSocket) -> None:
             except asyncio.TimeoutError:
                 # Send keepalive ping
                 try:
-                    await websocket.send_json({
-                        "type": "ping",
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "ping",
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        }
+                    )
                 except Exception:
                     break
 
@@ -119,6 +123,7 @@ async def websocket_events(websocket: WebSocket) -> None:
 
 
 # Convenience functions for broadcasting events
+
 
 async def emit_queue_update(
     action: str,

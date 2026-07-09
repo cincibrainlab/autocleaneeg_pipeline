@@ -106,7 +106,10 @@ class QueueScreen(Screen):
             return True
         self._confirm_key = token
         self._confirm_started_at = now
-        self.notify(f"Press again within 5 seconds to confirm {action}: {target}", severity="warning")
+        self.notify(
+            f"Press again within 5 seconds to confirm {action}: {target}",
+            severity="warning",
+        )
         return False
 
     def refresh_data(self) -> None:
@@ -270,7 +273,11 @@ class QueueScreen(Screen):
 
             queue = IngestionQueue(queue_path)
             entries = queue.entries()
-            to_remove = [path for path, data in entries.items() if data.get("status") == "processed"]
+            to_remove = [
+                path
+                for path, data in entries.items()
+                if data.get("status") == "processed"
+            ]
             for path in to_remove:
                 del entries[path]
             if to_remove:

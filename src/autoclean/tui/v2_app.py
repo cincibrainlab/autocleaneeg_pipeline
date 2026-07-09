@@ -25,12 +25,12 @@ from textual.widgets import (
     Select,
     Static,
     Switch,
-    TabPane,
     TabbedContent,
+    TabPane,
 )
 
-from autoclean.utils.ingestion import ServeConfigError
 from autoclean.tui.v2_state import ServeWorkspaceSnapshot, build_workspace_snapshot
+from autoclean.utils.ingestion import ServeConfigError
 
 
 @dataclass
@@ -100,8 +100,16 @@ class TitleBar(Static):
     last_refresh = reactive("Never")
 
     def render(self) -> str:
-        lane = "[bold cyan]Draft[/]" if self.mode == "test" else "[bold magenta]Production[/]"
-        service = "[bold green]running[/]" if self.service_running else "[bold yellow]stopped[/]"
+        lane = (
+            "[bold cyan]Draft[/]"
+            if self.mode == "test"
+            else "[bold magenta]Production[/]"
+        )
+        service = (
+            "[bold green]running[/]"
+            if self.service_running
+            else "[bold yellow]stopped[/]"
+        )
         return (
             "AutoClean Serve"
             f"  •  {lane}"
@@ -172,8 +180,12 @@ class AutoCleanTUI(App):
                     yield Static("", id="home-publish", classes="card")
                     yield Static("", id="home-service", classes="card")
                 with Horizontal(classes="action-row"):
-                    yield Button("Follow next action", id="btn-home-next", variant="primary")
-                    yield Button("Refresh snapshot", id="btn-home-refresh", variant="default")
+                    yield Button(
+                        "Follow next action", id="btn-home-next", variant="primary"
+                    )
+                    yield Button(
+                        "Refresh snapshot", id="btn-home-refresh", variant="default"
+                    )
                 with VerticalScroll(classes="detail-scroll"):
                     yield Static("", id="home-events", classes="detail-block")
             with TabPane("Routes", id="tab-routes"):
@@ -182,7 +194,11 @@ class AutoCleanTUI(App):
                         with Horizontal(classes="filter-row"):
                             yield Label("View")
                             yield Select(
-                                [("Active", "active"), ("Archived", "archived"), ("All", "all")],
+                                [
+                                    ("Active", "active"),
+                                    ("Archived", "archived"),
+                                    ("All", "all"),
+                                ],
                                 value="active",
                                 id="routes-view",
                             )
@@ -191,8 +207,12 @@ class AutoCleanTUI(App):
                             yield Button("New", id="btn-route-new", variant="primary")
                             yield Button("Edit", id="btn-route-edit")
                             yield Button("Enable/Disable", id="btn-route-toggle")
-                            yield Button("Promote", id="btn-route-promote", variant="success")
-                            yield Button("Archive", id="btn-route-archive", variant="warning")
+                            yield Button(
+                                "Promote", id="btn-route-promote", variant="success"
+                            )
+                            yield Button(
+                                "Archive", id="btn-route-archive", variant="warning"
+                            )
                             yield Button("Sync", id="btn-route-sync")
                     with VerticalScroll(classes="pane detail-pane"):
                         yield Static("", id="route-detail", classes="detail-block")
@@ -200,23 +220,35 @@ class AutoCleanTUI(App):
                         with Vertical(id="route-editor", classes="editor-block"):
                             with Horizontal(classes="editor-row"):
                                 yield Label("Route ID", classes="editor-label")
-                                yield Input(placeholder="resting-biosemi64", id="route-id")
+                                yield Input(
+                                    placeholder="resting-biosemi64", id="route-id"
+                                )
                             with Horizontal(classes="editor-row"):
                                 yield Label("Task File", classes="editor-label")
-                                yield Input(placeholder="/path/to/Task.py", id="route-taskfile")
+                                yield Input(
+                                    placeholder="/path/to/Task.py", id="route-taskfile"
+                                )
                             with Horizontal(classes="editor-row"):
                                 yield Label("Montage", classes="editor-label")
                                 yield Input(placeholder="biosemi64", id="route-montage")
                             with Horizontal(classes="editor-row"):
                                 yield Label("Folders", classes="editor-label")
-                                yield Input(placeholder="/data/incoming, /data/incoming2", id="route-folders")
+                                yield Input(
+                                    placeholder="/data/incoming, /data/incoming2",
+                                    id="route-folders",
+                                )
                             with Horizontal(classes="editor-row"):
                                 yield Label("File globs", classes="editor-label")
-                                yield Input(placeholder="*.set, *_rest.set", id="route-globs")
+                                yield Input(
+                                    placeholder="*.set, *_rest.set", id="route-globs"
+                                )
                             with Horizontal(classes="editor-row"):
                                 yield Label("Scope", classes="editor-label")
                                 yield Select(
-                                    [("Draft only", "test"), ("Draft + Production", "both")],
+                                    [
+                                        ("Draft only", "test"),
+                                        ("Draft + Production", "both"),
+                                    ],
                                     value="test",
                                     id="route-scope",
                                 )
@@ -227,7 +259,9 @@ class AutoCleanTUI(App):
                                 yield Switch(value=True, id="route-recursive")
                             with Horizontal(classes="action-row"):
                                 yield Button("Preview", id="btn-route-preview")
-                                yield Button("Save", id="btn-route-save", variant="success")
+                                yield Button(
+                                    "Save", id="btn-route-save", variant="success"
+                                )
                                 yield Button("Reset", id="btn-route-reset")
                             yield Static("", id="route-preview", classes="detail-block")
             with TabPane("Queue", id="tab-queue"):
@@ -247,11 +281,19 @@ class AutoCleanTUI(App):
                                 id="queue-status-filter",
                             )
                             yield Label("Route")
-                            yield Select([("All Routes", "all")], value="all", id="queue-route-filter")
+                            yield Select(
+                                [("All Routes", "all")],
+                                value="all",
+                                id="queue-route-filter",
+                            )
                         yield DataTable(id="queue-table")
                         with Horizontal(classes="action-row"):
-                            yield Button("Retry failed", id="btn-queue-retry", variant="warning")
-                            yield Button("Remove", id="btn-queue-remove", variant="error")
+                            yield Button(
+                                "Retry failed", id="btn-queue-retry", variant="warning"
+                            )
+                            yield Button(
+                                "Remove", id="btn-queue-remove", variant="error"
+                            )
                             yield Button("Clear completed", id="btn-queue-clear")
                             yield Button("Refresh", id="btn-queue-refresh")
                     with VerticalScroll(classes="pane detail-pane"):
@@ -261,11 +303,17 @@ class AutoCleanTUI(App):
                     with VerticalScroll(classes="pane detail-pane"):
                         yield Static("", id="publish-summary", classes="detail-block")
                         with Horizontal(classes="action-row"):
-                            yield Button("Validate", id="btn-publish-validate", variant="primary")
-                            yield Button("Deploy", id="btn-publish-deploy", variant="success")
+                            yield Button(
+                                "Validate", id="btn-publish-validate", variant="primary"
+                            )
+                            yield Button(
+                                "Deploy", id="btn-publish-deploy", variant="success"
+                            )
                             yield Button("Refresh", id="btn-publish-refresh")
                     with VerticalScroll(classes="pane detail-pane"):
-                        yield Static("", id="publish-yaml", classes="detail-block code-block")
+                        yield Static(
+                            "", id="publish-yaml", classes="detail-block code-block"
+                        )
             with TabPane("Service", id="tab-service"):
                 with Horizontal(classes="split"):
                     with Vertical(classes="pane detail-pane"):
@@ -292,11 +340,17 @@ class AutoCleanTUI(App):
                                 yield Label("Sentinel", classes="editor-label")
                                 yield Switch(value=True, id="service-sentinel")
                             with Horizontal(classes="action-row"):
-                                yield Button("Start", id="btn-service-start", variant="success")
-                                yield Button("Stop", id="btn-service-stop", variant="error")
+                                yield Button(
+                                    "Start", id="btn-service-start", variant="success"
+                                )
+                                yield Button(
+                                    "Stop", id="btn-service-stop", variant="error"
+                                )
                                 yield Button("Refresh", id="btn-service-refresh")
                     with VerticalScroll(classes="pane detail-pane"):
-                        yield Static("", id="service-log", classes="detail-block code-block")
+                        yield Static(
+                            "", id="service-log", classes="detail-block code-block"
+                        )
         yield StatusBar(id="status-bar")
 
     def on_mount(self) -> None:
@@ -321,7 +375,9 @@ class AutoCleanTUI(App):
         title_bar = self.query_one("#title-bar", TitleBar)
         title_bar.mode = self.state.mode
         title_bar.service_running = self.state.service_running
-        title_bar.config_source = self.state.service_last_config_source or self.get_service_config_source()[0]
+        title_bar.config_source = (
+            self.state.service_last_config_source or self.get_service_config_source()[0]
+        )
         title_bar.queue_summary = (
             f"Queue: {self.state.failed_count} failed / {self.state.running_count} running / "
             f"{self.state.pending_count} waiting"
@@ -425,7 +481,9 @@ class AutoCleanTUI(App):
 
             raw_config = load_serve_config(config_file)
             parse_serve_config(raw_config, self.state.workspace_dir, strict=True)
-            _, warnings = parse_serve_config(raw_config, self.state.workspace_dir, strict=False)
+            _, warnings = parse_serve_config(
+                raw_config, self.state.workspace_dir, strict=False
+            )
             self.state.config_valid = True
             self.state.config_errors = []
             self.state.config_warnings = list(warnings)
@@ -472,17 +530,25 @@ class AutoCleanTUI(App):
                     self.state.running_count += 1
                 elif status == "processed":
                     self.state.completed_count += 1
-                    processed_at = str(entry_data.get("processed_at") or entry_data.get("added_at") or "")
+                    processed_at = str(
+                        entry_data.get("processed_at")
+                        or entry_data.get("added_at")
+                        or ""
+                    )
                     if processed_at >= latest_processed_at:
                         latest_processed_at = processed_at
                         self.state.last_completed_file = Path(path_str).name
                 elif status == "failed":
                     self.state.failed_count += 1
-                    failed_at = str(entry_data.get("failed_at") or entry_data.get("added_at") or "")
+                    failed_at = str(
+                        entry_data.get("failed_at") or entry_data.get("added_at") or ""
+                    )
                     if failed_at >= latest_failed_at:
                         latest_failed_at = failed_at
                         self.state.last_failed_file = Path(path_str).name
-                        self.state.last_failed_error = str(entry_data.get("last_error") or "")
+                        self.state.last_failed_error = str(
+                            entry_data.get("last_error") or ""
+                        )
         except Exception:
             pass
 
@@ -494,12 +560,16 @@ class AutoCleanTUI(App):
             from watchfiles import watch
 
             paths_to_watch = [self.state.workspace_dir]
-            for changes in watch(*paths_to_watch, recursive=False, stop_event=self._watcher_stop_event):
+            for changes in watch(
+                *paths_to_watch, recursive=False, stop_event=self._watcher_stop_event
+            ):
                 if self._watcher_stop_event.is_set():
                     break
                 for _, path in changes:
                     changed_path = Path(path)
-                    if changed_path.name.startswith("queue-") or changed_path.name.startswith("serve-"):
+                    if changed_path.name.startswith(
+                        "queue-"
+                    ) or changed_path.name.startswith("serve-"):
                         self.call_from_thread(self.refresh_snapshot)
                         break
         except Exception:
@@ -532,7 +602,9 @@ class AutoCleanTUI(App):
             from autoclean.utils.ingestion import load_serve_config, parse_serve_config
 
             raw_config = load_serve_config(config_file)
-            config, _ = parse_serve_config(raw_config, self.state.workspace_dir, strict=False)
+            config, _ = parse_serve_config(
+                raw_config, self.state.workspace_dir, strict=False
+            )
             return config.routes
         except Exception:
             return []
@@ -601,14 +673,19 @@ class AutoCleanTUI(App):
         if not folders:
             return False, "At least one ingestion folder is required"
         try:
-            from autoclean.utils.serve_routes import sync_route_registry, upsert_route_spec
+            from autoclean.utils.serve_routes import (
+                sync_route_registry,
+                upsert_route_spec,
+            )
 
             modes = ["test", "live"] if mode_scope == "both" else ["test"]
             updates: dict[str, Any] = {
                 "modes": modes,
                 "taskfile": str(Path(taskfile).expanduser().resolve()),
                 "montage": montage,
-                "ingestion_folders": [str(Path(item).expanduser().resolve()) for item in folders],
+                "ingestion_folders": [
+                    str(Path(item).expanduser().resolve()) for item in folders
+                ],
                 "enabled": enabled,
                 "recursive": recursive,
             }
@@ -617,7 +694,9 @@ class AutoCleanTUI(App):
             upsert_route_spec(workspace_dir, route_id, updates)
             sync_route_registry(workspace_dir)
             self._load_config()
-            self._add_activity_event("route_saved", f"Saved route {route_id}", route_id=route_id)
+            self._add_activity_event(
+                "route_saved", f"Saved route {route_id}", route_id=route_id
+            )
             return True, ""
         except Exception as exc:
             return False, str(exc)
@@ -638,7 +717,9 @@ class AutoCleanTUI(App):
             "taskfile": taskfile.strip(),
             "montage": montage.strip(),
             "folders": [],
-            "mode_scope": "Draft + Production" if mode_scope == "both" else "Draft only",
+            "mode_scope": (
+                "Draft + Production" if mode_scope == "both" else "Draft only"
+            ),
             "matches": [],
             "warnings": [],
         }
@@ -656,7 +737,9 @@ class AutoCleanTUI(App):
                 continue
             patterns = globs or ["*"]
             for pattern in patterns:
-                iterator = resolved.rglob(pattern) if recursive else resolved.glob(pattern)
+                iterator = (
+                    resolved.rglob(pattern) if recursive else resolved.glob(pattern)
+                )
                 for match in iterator:
                     if match.is_file():
                         preview["matches"].append(str(match))
@@ -671,14 +754,19 @@ class AutoCleanTUI(App):
         if not montage.strip():
             preview["warnings"].append("Montage is required.")
         if not preview["matches"]:
-            preview["warnings"].append("No matching files found in the selected folders yet.")
+            preview["warnings"].append(
+                "No matching files found in the selected folders yet."
+            )
         return preview
 
     def set_route_enabled(self, route_id: str, enabled: bool) -> bool:
         if self.state.workspace_dir is None:
             return False
         try:
-            from autoclean.utils.serve_routes import sync_route_registry, upsert_route_spec
+            from autoclean.utils.serve_routes import (
+                sync_route_registry,
+                upsert_route_spec,
+            )
 
             upsert_route_spec(self.state.workspace_dir, route_id, {"enabled": enabled})
             sync_route_registry(self.state.workspace_dir)
@@ -696,7 +784,11 @@ class AutoCleanTUI(App):
         if self.state.workspace_dir is None:
             return False
         try:
-            from autoclean.utils.serve_routes import archive_route_spec, sync_route_registry, unarchive_route_spec
+            from autoclean.utils.serve_routes import (
+                archive_route_spec,
+                sync_route_registry,
+                unarchive_route_spec,
+            )
 
             if archived:
                 archive_route_spec(self.state.workspace_dir, route_id)
@@ -717,12 +809,17 @@ class AutoCleanTUI(App):
         if self.state.workspace_dir is None:
             return False
         try:
-            from autoclean.utils.serve_routes import promote_route_spec, sync_route_registry
+            from autoclean.utils.serve_routes import (
+                promote_route_spec,
+                sync_route_registry,
+            )
 
             promote_route_spec(self.state.workspace_dir, route_id)
             sync_route_registry(self.state.workspace_dir)
             self._load_config()
-            self._add_activity_event("route_promote", f"Promoted route {route_id}", route_id=route_id)
+            self._add_activity_event(
+                "route_promote", f"Promoted route {route_id}", route_id=route_id
+            )
             return True
         except Exception:
             return False
@@ -744,20 +841,36 @@ class AutoCleanTUI(App):
         queue_path = self.get_queue_path()
         uptime = None
         if self.state.service_started_at is not None and self.state.service_running:
-            uptime_seconds = int((datetime.now() - self.state.service_started_at).total_seconds())
+            uptime_seconds = int(
+                (datetime.now() - self.state.service_started_at).total_seconds()
+            )
             minutes, seconds = divmod(uptime_seconds, 60)
             hours, minutes = divmod(minutes, 60)
             uptime = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
         return {
             "lane": self.get_mode_label(),
-            "workspace": str(self.state.workspace_dir) if self.state.workspace_dir else "Not configured",
+            "workspace": (
+                str(self.state.workspace_dir)
+                if self.state.workspace_dir
+                else "Not configured"
+            ),
             "queue_path": str(queue_path) if queue_path else "Unavailable",
             "config_source": self.state.service_last_config_source or config_source,
             "config_path": str(config_path) if config_path else "Unavailable",
-            "log_path": str(self.state.service_log_path) if self.state.service_log_path else "Unavailable",
-            "pid": self.state.service_process.pid if self.state.service_process else None,
+            "log_path": (
+                str(self.state.service_log_path)
+                if self.state.service_log_path
+                else "Unavailable"
+            ),
+            "pid": (
+                self.state.service_process.pid if self.state.service_process else None
+            ),
             "uptime": uptime,
-            "command": " ".join(self.state.service_last_command) if self.state.service_last_command else "Not started yet",
+            "command": (
+                " ".join(self.state.service_last_command)
+                if self.state.service_last_command
+                else "Not started yet"
+            ),
             "completed": self.state.last_completed_file,
             "failed": self.state.last_failed_file,
             "failed_error": self.state.last_failed_error,
@@ -799,7 +912,9 @@ class AutoCleanTUI(App):
             raw_config = load_serve_config(source)
             parse_serve_config(raw_config, self.state.workspace_dir, strict=True)
         except ServeConfigError as exc:
-            return False, "Cannot deploy invalid configuration: " + "; ".join(exc.errors)
+            return False, "Cannot deploy invalid configuration: " + "; ".join(
+                exc.errors
+            )
         except Exception as exc:
             return False, f"Deploy failed: {exc}"
         try:
@@ -820,8 +935,12 @@ class AutoCleanTUI(App):
         self._load_config()
         self._load_queue()
         config_source, _ = self.get_service_config_source()
-        operator_path = self.get_config_path(deployed=False) or Path("serve-missing.yaml")
-        deployed_path = self.get_config_path(deployed=True) or Path("deploy/serve-missing.yaml")
+        operator_path = self.get_config_path(deployed=False) or Path(
+            "serve-missing.yaml"
+        )
+        deployed_path = self.get_config_path(deployed=True) or Path(
+            "deploy/serve-missing.yaml"
+        )
         self._snapshot = build_workspace_snapshot(
             workspace_dir=self.state.workspace_dir,
             mode=self.state.mode,
@@ -836,7 +955,9 @@ class AutoCleanTUI(App):
             deployed_config_path=deployed_path,
             config_source=config_source,
         )
-        self.state.service_running = bool(self.state.service_process and self.state.service_process.poll() is None)
+        self.state.service_running = bool(
+            self.state.service_process and self.state.service_process.poll() is None
+        )
         self._update_status_bar()
         self._refresh_home_tab()
         self._refresh_routes_tab()
@@ -861,8 +982,12 @@ class AutoCleanTUI(App):
             f"Waiting: {snapshot.queue.pending}\nCompleted: {snapshot.queue.processed}"
         )
         ready = len([route for route in snapshot.routes if route.state == "Ready"])
-        draft_only = len([route for route in snapshot.routes if route.state == "Draft only"])
-        attention = len([route for route in snapshot.routes if route.state == "Attention"])
+        draft_only = len(
+            [route for route in snapshot.routes if route.state == "Draft only"]
+        )
+        attention = len(
+            [route for route in snapshot.routes if route.state == "Attention"]
+        )
         self.query_one("#home-routes", Static).update(
             f"[b]Routes[/b]\nReady: {ready}\nDraft only: {draft_only}\nNeeds attention: {attention}\n"
             f"Total tracked: {len(snapshot.routes)}"
@@ -898,20 +1023,40 @@ class AutoCleanTUI(App):
         for route in routes:
             lane = "Draft + Production" if "live" in route.modes else "Draft only"
             task_name = Path(route.taskfile).name if route.taskfile else "-"
-            table.add_row(route.label, route.state, lane, route.montage or "-", task_name, key=route.route_id)
+            table.add_row(
+                route.label,
+                route.state,
+                lane,
+                route.montage or "-",
+                task_name,
+                key=route.route_id,
+            )
             self._route_row_ids.append(route.route_id)
         if self._selected_route_id not in self._route_row_ids:
-            self._selected_route_id = self._route_row_ids[0] if self._route_row_ids else None
+            self._selected_route_id = (
+                self._route_row_ids[0] if self._route_row_ids else None
+            )
         self._refresh_route_detail()
         if not self._route_editor_existing_id and self._selected_route_id:
-            self._load_route_editor(self.get_route_spec(self._selected_route_id), edit_mode=False)
+            self._load_route_editor(
+                self.get_route_spec(self._selected_route_id), edit_mode=False
+            )
 
     def _refresh_route_detail(self) -> None:
         if self._snapshot is None:
             return
-        route = next((item for item in self._snapshot.routes if item.route_id == self._selected_route_id), None)
+        route = next(
+            (
+                item
+                for item in self._snapshot.routes
+                if item.route_id == self._selected_route_id
+            ),
+            None,
+        )
         if route is None:
-            self.query_one("#route-detail", Static).update("Select a route to inspect it.")
+            self.query_one("#route-detail", Static).update(
+                "Select a route to inspect it."
+            )
             return
         issues = route.issues or [route.summary]
         lanes = ", ".join(route.modes) if route.modes else "test"
@@ -939,7 +1084,15 @@ class AutoCleanTUI(App):
         self.query_one("#route-detail", Static).update("\n".join(detail))
 
     def _refresh_queue_route_filter(self) -> None:
-        routes = [item.route_id for item in self._snapshot.queue_items if item.route_id != "-"] if self._snapshot else []
+        routes = (
+            [
+                item.route_id
+                for item in self._snapshot.queue_items
+                if item.route_id != "-"
+            ]
+            if self._snapshot
+            else []
+        )
         options = [("All Routes", "all")]
         for route_id in sorted(set(routes)):
             options.append((route_id, route_id))
@@ -960,20 +1113,42 @@ class AutoCleanTUI(App):
                 continue
             if route_filter != "all" and item.route_id != route_filter:
                 continue
-            error = item.last_error[:72] + ("..." if len(item.last_error) > 72 else "") if item.last_error else "-"
+            error = (
+                item.last_error[:72] + ("..." if len(item.last_error) > 72 else "")
+                if item.last_error
+                else "-"
+            )
             when = item.updated_at or item.added_at
-            table.add_row(item.file_name, item.status, item.route_id, when[:19] or "-", error, key=item.path)
+            table.add_row(
+                item.file_name,
+                item.status,
+                item.route_id,
+                when[:19] or "-",
+                error,
+                key=item.path,
+            )
             self._queue_row_paths.append(item.path)
         if self._selected_queue_path not in self._queue_row_paths:
-            self._selected_queue_path = self._queue_row_paths[0] if self._queue_row_paths else None
+            self._selected_queue_path = (
+                self._queue_row_paths[0] if self._queue_row_paths else None
+            )
         self._refresh_queue_detail()
 
     def _refresh_queue_detail(self) -> None:
         if self._snapshot is None:
             return
-        item = next((entry for entry in self._snapshot.queue_items if entry.path == self._selected_queue_path), None)
+        item = next(
+            (
+                entry
+                for entry in self._snapshot.queue_items
+                if entry.path == self._selected_queue_path
+            ),
+            None,
+        )
         if item is None:
-            self.query_one("#queue-detail", Static).update("Select a queue item to inspect it.")
+            self.query_one("#queue-detail", Static).update(
+                "Select a queue item to inspect it."
+            )
             return
         lines = [
             f"[b]{item.file_name}[/b]",
@@ -987,7 +1162,12 @@ class AutoCleanTUI(App):
             lines.extend(["", "Last error:", item.last_error])
         else:
             lines.extend(["", "No error text recorded for this item."])
-        lines.extend(["", "Safe actions: retry failed items, remove one item, clear completed items."])
+        lines.extend(
+            [
+                "",
+                "Safe actions: retry failed items, remove one item, clear completed items.",
+            ]
+        )
         self.query_one("#queue-detail", Static).update("\n".join(lines))
 
     def _refresh_publish_tab(self) -> None:
@@ -1004,12 +1184,18 @@ class AutoCleanTUI(App):
             "",
             f"Errors ({len(publish.config_errors)}):",
         ]
-        summary.extend(f"- {error}" for error in publish.config_errors) or summary.append("- None")
+        summary.extend(
+            f"- {error}" for error in publish.config_errors
+        ) or summary.append("- None")
         summary.append("")
         summary.append(f"Warnings ({len(publish.config_warnings)}):")
-        summary.extend(f"- {warning}" for warning in publish.config_warnings) or summary.append("- None")
+        summary.extend(
+            f"- {warning}" for warning in publish.config_warnings
+        ) or summary.append("- None")
         self.query_one("#publish-summary", Static).update("\n".join(summary))
-        self.query_one("#publish-yaml", Static).update(self.get_config_yaml() or "# No operator config present")
+        self.query_one("#publish-yaml", Static).update(
+            self.get_config_yaml() or "# No operator config present"
+        )
 
     def _refresh_service_tab(self) -> None:
         if self._snapshot is None:
@@ -1032,14 +1218,18 @@ class AutoCleanTUI(App):
             summary.extend(["", "Last failure detail:", service.failed_error])
         summary.extend(["", "Command:", service.command])
         self.query_one("#service-summary", Static).update("\n".join(summary))
-        self.query_one("#service-log", Static).update(self.read_service_log_tail() or "No service log yet.")
+        self.query_one("#service-log", Static).update(
+            self.read_service_log_tail() or "No service log yet."
+        )
         self._sync_service_form_from_state()
 
     def _sync_service_form_from_state(self) -> None:
         settings = self.state.service_settings
         self.query_one("#service-max-cycles", Input).value = str(settings.max_cycles)
         self.query_one("#service-idle-limit", Input).value = str(settings.idle_limit)
-        self.query_one("#service-sleep-seconds", Input).value = str(settings.sleep_seconds)
+        self.query_one("#service-sleep-seconds", Input).value = str(
+            settings.sleep_seconds
+        )
         self.query_one("#service-max-events", Input).value = str(settings.max_events)
         self.query_one("#service-dry-run", Switch).value = settings.dry_run
         self.query_one("#service-watchfiles", Switch).value = settings.use_watchfiles
@@ -1050,14 +1240,18 @@ class AutoCleanTUI(App):
             return {
                 "max_cycles": int(self.query_one("#service-max-cycles", Input).value),
                 "idle_limit": int(self.query_one("#service-idle-limit", Input).value),
-                "sleep_seconds": float(self.query_one("#service-sleep-seconds", Input).value),
+                "sleep_seconds": float(
+                    self.query_one("#service-sleep-seconds", Input).value
+                ),
                 "max_events": int(self.query_one("#service-max-events", Input).value),
                 "dry_run": self.query_one("#service-dry-run", Switch).value,
                 "use_watchfiles": self.query_one("#service-watchfiles", Switch).value,
                 "require_sentinel": self.query_one("#service-sentinel", Switch).value,
             }
         except ValueError:
-            self.notify("Service settings must be numeric where expected", severity="error")
+            self.notify(
+                "Service settings must be numeric where expected", severity="error"
+            )
             return None
 
     def _set_active_tab(self, tab_id: str) -> None:
@@ -1099,7 +1293,9 @@ class AutoCleanTUI(App):
 
     def action_route_archive(self) -> None:
         route = self._selected_route_spec()
-        if route and self.set_route_archived(str(route.get("id")), not bool(route.get("archived", False))):
+        if route and self.set_route_archived(
+            str(route.get("id")), not bool(route.get("archived", False))
+        ):
             self.refresh_snapshot()
             self._set_last_action("Route archive state updated")
             self.notify("Route archive state updated")
@@ -1183,7 +1379,9 @@ class AutoCleanTUI(App):
 
     def action_toggle_mode(self) -> None:
         self.state.mode = "live" if self.state.mode == "test" else "test"
-        self._add_activity_event("lane_toggle", f"Switched to {self.get_mode_label()} lane")
+        self._add_activity_event(
+            "lane_toggle", f"Switched to {self.get_mode_label()} lane"
+        )
         self.refresh_snapshot()
         self._set_last_action(f"Switched to {self.get_mode_label()} lane")
         self.notify(f"Switched to {self.get_mode_label()} lane")
@@ -1201,7 +1399,9 @@ class AutoCleanTUI(App):
     @work(exclusive=True, thread=True)
     def _start_service(self) -> None:
         if not self.state.workspace_dir:
-            self.call_from_thread(self.notify, "No workspace configured", severity="error")
+            self.call_from_thread(
+                self.notify, "No workspace configured", severity="error"
+            )
             return
         try:
             from autoclean.utils.ingestion import resolve_runtime_cli
@@ -1221,7 +1421,9 @@ class AutoCleanTUI(App):
             self.state.service_last_config_source = config_source
             self.state.service_last_returncode = None
             with log_path.open("a", encoding="utf-8") as log_handle:
-                log_handle.write(f"\n[{datetime.now().isoformat()}] Starting service: {' '.join(cmd)}\n")
+                log_handle.write(
+                    f"\n[{datetime.now().isoformat()}] Starting service: {' '.join(cmd)}\n"
+                )
                 log_handle.flush()
                 self.state.service_process = subprocess.Popen(
                     cmd,
@@ -1232,8 +1434,14 @@ class AutoCleanTUI(App):
                 self.state.service_running = True
                 self.call_from_thread(self.refresh_snapshot)
                 self.call_from_thread(self._set_last_action, "Service started")
-                self.call_from_thread(self.notify, "Service started", severity="information")
-                self.call_from_thread(self._add_activity_event, "service_start", f"Service started ({log_path.name})")
+                self.call_from_thread(
+                    self.notify, "Service started", severity="information"
+                )
+                self.call_from_thread(
+                    self._add_activity_event,
+                    "service_start",
+                    f"Service started ({log_path.name})",
+                )
                 returncode = self.state.service_process.wait()
             stop_requested = self.state.service_stop_requested
             self.state.service_stop_requested = False
@@ -1244,11 +1452,21 @@ class AutoCleanTUI(App):
             self.call_from_thread(self.refresh_snapshot)
             if stop_requested or returncode == 0:
                 self.call_from_thread(self._set_last_action, "Service stopped")
-                self.call_from_thread(self.notify, "Service stopped", severity="information")
-                self.call_from_thread(self._add_activity_event, "service_stop", "Service stopped")
+                self.call_from_thread(
+                    self.notify, "Service stopped", severity="information"
+                )
+                self.call_from_thread(
+                    self._add_activity_event, "service_stop", "Service stopped"
+                )
             else:
-                self.call_from_thread(self._set_last_action, f"Service exited with code {returncode}")
-                self.call_from_thread(self.notify, f"Service exited with code {returncode}", severity="error")
+                self.call_from_thread(
+                    self._set_last_action, f"Service exited with code {returncode}"
+                )
+                self.call_from_thread(
+                    self.notify,
+                    f"Service exited with code {returncode}",
+                    severity="error",
+                )
                 self.call_from_thread(
                     self._add_activity_event,
                     "service_error",
@@ -1260,7 +1478,9 @@ class AutoCleanTUI(App):
             self.state.service_started_at = None
             self.state.service_process = None
             self.call_from_thread(self.refresh_snapshot)
-            self.call_from_thread(self.notify, f"Failed to start service: {exc}", severity="error")
+            self.call_from_thread(
+                self.notify, f"Failed to start service: {exc}", severity="error"
+            )
 
     def _stop_service(self) -> None:
         if self.state.service_process:
@@ -1270,21 +1490,41 @@ class AutoCleanTUI(App):
             self._set_last_action("Stopping service")
             self.notify("Stopping service...", severity="information")
 
-    def _load_route_editor(self, route_spec: Optional[dict[str, Any]], *, edit_mode: bool) -> None:
+    def _load_route_editor(
+        self, route_spec: Optional[dict[str, Any]], *, edit_mode: bool
+    ) -> None:
         route_spec = route_spec or {}
-        self._route_editor_mode = "edit" if edit_mode and route_spec.get("id") else "create"
-        self._route_editor_existing_id = str(route_spec.get("id")) if edit_mode and route_spec.get("id") else None
+        self._route_editor_mode = (
+            "edit" if edit_mode and route_spec.get("id") else "create"
+        )
+        self._route_editor_existing_id = (
+            str(route_spec.get("id")) if edit_mode and route_spec.get("id") else None
+        )
         route_id_input = self.query_one("#route-id", Input)
         route_id_input.disabled = bool(self._route_editor_existing_id)
         route_id_input.value = str(route_spec.get("id") or "")
-        self.query_one("#route-taskfile", Input).value = str(route_spec.get("taskfile") or "")
-        self.query_one("#route-montage", Input).value = str(route_spec.get("montage") or "")
-        self.query_one("#route-folders", Input).value = ", ".join(route_spec.get("ingestion_folders", []))
-        self.query_one("#route-globs", Input).value = ", ".join(route_spec.get("file_globs", []))
+        self.query_one("#route-taskfile", Input).value = str(
+            route_spec.get("taskfile") or ""
+        )
+        self.query_one("#route-montage", Input).value = str(
+            route_spec.get("montage") or ""
+        )
+        self.query_one("#route-folders", Input).value = ", ".join(
+            route_spec.get("ingestion_folders", [])
+        )
+        self.query_one("#route-globs", Input).value = ", ".join(
+            route_spec.get("file_globs", [])
+        )
         modes = route_spec.get("modes", ["test"])
-        self.query_one("#route-scope", Select).value = "both" if "live" in modes else "test"
-        self.query_one("#route-enabled", Switch).value = bool(route_spec.get("enabled", True))
-        self.query_one("#route-recursive", Switch).value = bool(route_spec.get("recursive", True))
+        self.query_one("#route-scope", Select).value = (
+            "both" if "live" in modes else "test"
+        )
+        self.query_one("#route-enabled", Switch).value = bool(
+            route_spec.get("enabled", True)
+        )
+        self.query_one("#route-recursive", Switch).value = bool(
+            route_spec.get("recursive", True)
+        )
         if route_spec:
             self._refresh_route_preview()
         else:
@@ -1361,7 +1601,9 @@ class AutoCleanTUI(App):
                 existing_route_id=self._route_editor_existing_id,
                 taskfile=self.query_one("#route-taskfile", Input).value,
                 montage=self.query_one("#route-montage", Input).value,
-                ingestion_folders=self.query_one("#route-folders", Input).value.split(","),
+                ingestion_folders=self.query_one("#route-folders", Input).value.split(
+                    ","
+                ),
                 file_globs=self.query_one("#route-globs", Input).value.split(","),
                 mode_scope=str(self.query_one("#route-scope", Select).value),
                 enabled=self.query_one("#route-enabled", Switch).value,
@@ -1375,10 +1617,15 @@ class AutoCleanTUI(App):
                 self.notify(error or "Failed to save route", severity="error")
                 self._refresh_route_preview()
         elif button_id == "btn-route-reset":
-            self._load_route_editor(self._selected_route_spec() if self._route_editor_existing_id else None, edit_mode=bool(self._route_editor_existing_id))
+            self._load_route_editor(
+                self._selected_route_spec() if self._route_editor_existing_id else None,
+                edit_mode=bool(self._route_editor_existing_id),
+            )
         elif button_id == "btn-route-toggle":
             route = self._selected_route_spec()
-            if route and self.set_route_enabled(str(route.get("id")), not bool(route.get("enabled", True))):
+            if route and self.set_route_enabled(
+                str(route.get("id")), not bool(route.get("enabled", True))
+            ):
                 self.refresh_snapshot()
                 self._set_last_action("Route toggled")
                 self.notify("Route updated")
@@ -1390,7 +1637,9 @@ class AutoCleanTUI(App):
                 self.notify("Route promoted to Production")
         elif button_id == "btn-route-archive":
             route = self._selected_route_spec()
-            if route and self.set_route_archived(str(route.get("id")), not bool(route.get("archived", False))):
+            if route and self.set_route_archived(
+                str(route.get("id")), not bool(route.get("archived", False))
+            ):
                 self.refresh_snapshot()
                 self._set_last_action("Route archive state updated")
                 self.notify("Route archive state updated")
@@ -1476,16 +1725,24 @@ class AutoCleanTUI(App):
         if removed is None:
             raise ValueError("Selected queue item was not found")
         file_name = Path(self._selected_queue_path).name
-        self._add_activity_event("queue_remove", f"Removed {file_name}", file_path=Path(self._selected_queue_path))
+        self._add_activity_event(
+            "queue_remove",
+            f"Removed {file_name}",
+            file_path=Path(self._selected_queue_path),
+        )
         return f"Removed {file_name}"
 
     def _clear_processed_entries(self, entries: dict[str, Any]) -> str:
-        to_remove = [path for path, data in entries.items() if data.get("status") == "processed"]
+        to_remove = [
+            path for path, data in entries.items() if data.get("status") == "processed"
+        ]
         for path in to_remove:
             del entries[path]
         if not to_remove:
             return "No completed items to clear"
-        self._add_activity_event("queue_clear", f"Cleared {len(to_remove)} completed item(s)")
+        self._add_activity_event(
+            "queue_clear", f"Cleared {len(to_remove)} completed item(s)"
+        )
         return f"Cleared {len(to_remove)} completed item(s)"
 
     def _follow_recommendation(self) -> None:
@@ -1525,7 +1782,9 @@ class AutoCleanTUI(App):
         elif event.select.id in {"queue-status-filter", "queue-route-filter"}:
             self._refresh_queue_tab()
 
-    def on_tabbed_content_tab_activated(self, event: TabbedContent.TabActivated) -> None:
+    def on_tabbed_content_tab_activated(
+        self, event: TabbedContent.TabActivated
+    ) -> None:
         self._update_status_bar()
 
     def action_quit(self) -> None:

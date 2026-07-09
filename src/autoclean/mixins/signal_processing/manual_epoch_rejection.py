@@ -24,7 +24,9 @@ class ManualEpochRejectionMixin:
         """Drop user-selected bad epochs, mapping stored epoch numbers via selection."""
         epochs = self._get_data_object(data, use_epochs=True)
         if not isinstance(epochs, mne.BaseEpochs):
-            raise TypeError("Data must be an MNE Epochs object for manual epoch rejection")
+            raise TypeError(
+                "Data must be an MNE Epochs object for manual epoch rejection"
+            )
 
         requested_indices = sorted(
             {int(idx) for idx in (manual_bad_epoch_indices or []) if int(idx) >= 0}
@@ -41,7 +43,9 @@ class ManualEpochRejectionMixin:
             else list(epochs.selection)
         )
         bad_selection_indices = [
-            selection.index(bad_num) for bad_num in requested_indices if bad_num in selection
+            selection.index(bad_num)
+            for bad_num in requested_indices
+            if bad_num in selection
         ]
         applied_bad_epoch_indices = [selection[idx] for idx in bad_selection_indices]
         skipped_bad_epoch_indices = [

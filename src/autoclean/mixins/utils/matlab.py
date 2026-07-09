@@ -34,7 +34,9 @@ class MatlabExecutionMixin:
 
         value = step_config.get("value")
         if not isinstance(value, dict):
-            raise ValueError(f"Invalid MATLAB step config for {config_key}: missing value mapping")
+            raise ValueError(
+                f"Invalid MATLAB step config for {config_key}: missing value mapping"
+            )
 
         metadata = {
             "creationDateTime": datetime.now().isoformat(),
@@ -122,7 +124,9 @@ class MatlabExecutionMixin:
             },
         )
 
-    def _update_matlab_metadata(self, operation: str, metadata_dict: dict[str, Any]) -> None:
+    def _update_matlab_metadata(
+        self, operation: str, metadata_dict: dict[str, Any]
+    ) -> None:
         """Update task metadata if the host class supports metadata tracking."""
         if hasattr(self, "_update_metadata"):
             self._update_metadata(operation, metadata_dict)

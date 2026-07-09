@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-
 DEFAULT_FOOOF_FREQS = (1.0, 55.0)
 DEFAULT_ARTIFACTS_SUBDIR = "matlab/fooof"
 

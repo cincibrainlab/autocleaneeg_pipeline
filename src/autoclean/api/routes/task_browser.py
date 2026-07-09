@@ -25,6 +25,7 @@ router = APIRouter()
 
 # ── Response model ─────────────────────────────────────────────────
 
+
 class TaskConfig(BaseModel):
     """Flattened, UI-friendly task configuration summary."""
 
@@ -96,7 +97,7 @@ def _parse_pipeline_steps(run_source: str, task_config: dict[str, Any]) -> list[
         Ordered list of human-readable step labels.
     """
     # Filter out comment lines so the regex cannot match commented-out calls.
-    lines = [l for l in run_source.splitlines() if not l.strip().startswith("#")]
+    lines = [ln for ln in run_source.splitlines() if not ln.strip().startswith("#")]
     filtered_source = "\n".join(lines)
 
     # Match self.method_name() calls, ignoring self.attribute = assignments
@@ -113,7 +114,9 @@ def _parse_pipeline_steps(run_source: str, task_config: dict[str, Any]) -> list[
     ica_val = _get_nested(task_config, "ICA", "value") or {}
     ica_method = ica_val.get("method", "")
     ica_extended = ica_val.get("fit_params", {}).get("extended", False)
-    threshold = _get_nested(task_config, "component_rejection", "value", "ic_rejection_threshold")
+    threshold = _get_nested(
+        task_config, "component_rejection", "value", "ic_rejection_threshold"
+    )
     tmin = _get_nested(task_config, "epoch_settings", "value", "tmin")
     tmax = _get_nested(task_config, "epoch_settings", "value", "tmax")
     ref_val = _get_nested(task_config, "reference_step", "value") or ""
@@ -187,6 +190,7 @@ def _is_builtin_source(source_path: str) -> str:
     """Return 'builtin' if the task is from the installed package, else the file path."""
     try:
         import autoclean
+
         pkg_root = Path(inspect.getfile(autoclean)).parent
         if Path(source_path).is_relative_to(pkg_root):
             return "builtin"
@@ -224,8 +228,12 @@ def _build_task_detail(discovered_task: Any) -> Optional[TaskDetail]:
         # Flatten config for UI
         filter_val: dict[str, Any] = _get_nested(raw_config, "filtering", "value") or {}
         ica_val: dict[str, Any] = _get_nested(raw_config, "ICA", "value") or {}
-        epoch_val: dict[str, Any] = _get_nested(raw_config, "epoch_settings", "value") or {}
-        comp_val: dict[str, Any] = _get_nested(raw_config, "component_rejection", "value") or {}
+        epoch_val: dict[str, Any] = (
+            _get_nested(raw_config, "epoch_settings", "value") or {}
+        )
+        comp_val: dict[str, Any] = (
+            _get_nested(raw_config, "component_rejection", "value") or {}
+        )
         event_id: Any = _get_nested(raw_config, "epoch_settings", "event_id")
 
         task_config = TaskConfig(
@@ -276,6 +284,7 @@ def _build_task_detail(discovered_task: Any) -> Optional[TaskDetail]:
 
 
 # ── Endpoints ──────────────────────────────────────────────────────
+
 
 @router.get("", response_model=list[TaskDetail])
 async def list_task_details() -> list[TaskDetail]:

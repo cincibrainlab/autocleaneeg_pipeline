@@ -31,4 +31,3 @@ _BlockMixin = _load_block_mixin()
 
 class MatlabFooofMixin(_BlockMixin):
     """Auto-discovered task mixin proxy for the bundled MATLAB FOOOF block."""
-
