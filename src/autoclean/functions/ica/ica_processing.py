@@ -24,7 +24,6 @@ except ImportError:
     ICVISION_AVAILABLE = False
 
 
-
 # Historically-documented / schema-level spellings that never actually match
 # what a classifier produces (see issue #226). Mapped here to their canonical
 # equivalent so config values, classifier outputs, and report labels are all

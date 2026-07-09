@@ -293,7 +293,7 @@ class IcaMixin:
                     if base_url is None and "base_url" in step_config_main_dict:
                         base_url = step_config_main_dict.get("base_url")
                     if base_url is not None:
-                        message("info", f"Using base_url from config")
+                        message("info", "Using base_url from config")
 
                 if model_name is None:
                     model_name = config_params_nested.get("model_name")
