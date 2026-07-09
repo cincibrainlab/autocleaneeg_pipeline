@@ -1,6 +1,5 @@
 """Unit tests for IcaMixin."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import mne
@@ -47,6 +46,29 @@ def task(tmp_path):
     t.raw = create_synthetic_raw(
         montage="standard_1020", n_channels=32, duration=20.0, sfreq=250.0
     )
+    return t
+
+
+@pytest.fixture
+def epochs_task(tmp_path):
+    """A task with only epoched data available (no self.raw), matching the
+    `self.import_epochs(); self.run_ica(use_epochs=True)` usage pattern."""
+    settings = {
+        "ICA": {
+            "enabled": True,
+            "value": {"n_components": 5, "method": "fastica"},
+        }
+    }
+    config = {
+        "run_id": "test",
+        "unprocessed_file": tmp_path / "test.fif",
+        "task": "test",
+    }
+    t = _ICATask(config, settings=settings)
+    raw = create_synthetic_raw(
+        montage="standard_1020", n_channels=32, duration=20.0, sfreq=250.0
+    )
+    t.epochs = mne.make_fixed_length_epochs(raw, duration=2.0, preload=True)
     return t
 
 
@@ -108,6 +130,23 @@ class TestRunICA:
         assert result is None
         assert not hasattr(t, "final_ica") or t.final_ica is None  # type: ignore[attr-defined]
 
+    @patch("autoclean.mixins.signal_processing.ica.save_ica_to_fif")
+    @patch("autoclean.mixins.signal_processing.ica.fit_ica")
+    def test_use_epochs_fits_on_self_epochs(self, mock_fit, mock_save_fif, epochs_task):
+        """run_ica(use_epochs=True) should fit on self.epochs when self.raw
+        doesn't exist, matching the `import_epochs(); run_ica(use_epochs=True)`
+        pattern from issue #218."""
+        mock_ica = _make_mock_ica()
+        mock_fit.return_value = mock_ica
+        with patch.object(epochs_task, "_update_metadata"):
+            epochs_task.run_ica(use_epochs=True)
+
+        assert epochs_task.final_ica is mock_ica
+        # run_ica fits on a .copy() of the data, so check type/identity of source
+        fit_call_kwargs = mock_fit.call_args[1]
+        assert isinstance(fit_call_kwargs["raw"], mne.BaseEpochs)
+        assert epochs_task._ica_used_epochs is True
+
 
 # ---------------------------------------------------------------------------
 # apply_ica_component_rejection
@@ -119,6 +158,23 @@ class TestApplyICAComponentRejection:
         """Calling rejection before run_ica should raise RuntimeError."""
         with pytest.raises(RuntimeError, match="final_ica"):
             task.apply_ica_component_rejection()
+
+    def test_manual_override_updates_self_epochs_when_no_raw(self, epochs_task):
+        """When ICA was fit on epochs (no self.raw), manual rejection should
+        default to and modify self.epochs instead of trying self.raw."""
+        mock_ica = _make_mock_ica()
+        mock_ica.apply = MagicMock()
+        epochs_task.final_ica = mock_ica
+        epochs_task._ica_used_epochs = True
+
+        with (
+            patch.object(epochs_task, "_update_metadata"),
+            patch.object(epochs_task, "_auto_export_if_enabled"),
+        ):
+            epochs_task.apply_ica_component_rejection(manual_rejected_components=[0, 2])
+
+        assert epochs_task.final_ica.exclude == [0, 2]
+        mock_ica.apply.assert_called_once_with(epochs_task.epochs)
 
     def test_manual_override_sets_exclude_list(self, task):
         """Manual component list bypasses auto-detection and sets exclude directly."""
@@ -219,6 +275,55 @@ class TestGetIcaReportData:
 
         assert result is task.raw
 
+    def test_returns_none_when_ica_fit_on_epochs(self, epochs_task):
+        """ICA reports are raw-only. When ICA was fit on epochs, this should
+        return None (triggering a graceful skip) rather than silently
+        returning a stale/incompatible self.raw."""
+        epochs_task._ica_used_epochs = True
+
+        result = epochs_task._get_ica_report_data()
+
+        assert result is None
+
+    def test_ignores_stale_raw_when_ica_fit_on_epochs(self, epochs_task):
+        """Even if self.raw happens to exist (e.g. left over from an earlier
+        step), report data must not silently return it when ICA was actually
+        fit on epochs - that data wasn't what ICA ran on."""
+        epochs_task.raw = create_synthetic_raw(
+            montage="standard_1020", n_channels=32, duration=5.0, sfreq=250.0
+        )
+        epochs_task._ica_used_epochs = True
+
+        result = epochs_task._get_ica_report_data()
+
+        assert result is None
+
+
+class TestPlotIcaFull:
+    def test_returns_none_instead_of_crashing_when_report_data_missing(
+        self, epochs_task
+    ):
+        """plot_ica_full should skip gracefully (not raise) when ICA was fit
+        on epochs, since this plot is raw-only."""
+        epochs_task.final_ica = _make_mock_ica()
+        epochs_task._ica_used_epochs = True
+
+        result = epochs_task.plot_ica_full()
+
+        assert result is None
+
+
+class TestPlotIcaComponentsEpochsGuard:
+    def test_skips_gracefully_when_ica_fit_on_epochs(self, epochs_task):
+        """_plot_ica_components should skip gracefully (not crash) when ICA
+        was fit on epochs, consistent with reports being raw-only."""
+        epochs_task.final_ica = _make_mock_ica()
+        epochs_task._ica_used_epochs = True
+
+        result = epochs_task._plot_ica_components()
+
+        assert result is None
+
 
 # ---------------------------------------------------------------------------
 # classify_ica_components
@@ -264,6 +369,27 @@ class TestClassifyICAComponents:
 
         assert result is mock_flags
         assert task.ica_flags is mock_flags
+
+    @patch("autoclean.mixins.signal_processing.ica.classify_ica_components")
+    def test_classifies_epochs_when_raw_unavailable(self, mock_classify, epochs_task):
+        """When ICA was fit on epochs (no self.raw), classification should
+        receive self.epochs instead of crashing on a missing self.raw."""
+        mock_flags = pd.DataFrame({"label": ["brain", "eye blink"]})
+        mock_classify.return_value = mock_flags
+        epochs_task.final_ica = _make_mock_ica()
+        epochs_task._ica_used_epochs = True
+
+        with (
+            patch.object(epochs_task, "_update_metadata"),
+            patch.object(epochs_task, "_auto_export_if_enabled"),
+            patch.object(epochs_task, "apply_ica_component_rejection"),
+        ):
+            result = epochs_task.classify_ica_components(method="iclabel", reject=False)
+
+        assert result is mock_flags
+        mock_classify.assert_called_once_with(
+            epochs_task.epochs, epochs_task.final_ica, method="iclabel"
+        )
 
     @patch("autoclean.mixins.signal_processing.ica.classify_ica_components")
     def test_classify_components_uses_iclabel_threshold(self, mock_classify, task):

@@ -25,7 +25,7 @@ except ImportError:
 
 
 def fit_ica(
-    raw: mne.io.Raw,
+    raw: Union[mne.io.BaseRaw, mne.BaseEpochs],
     n_components: Optional[int] = None,
     method: str = "fastica",
     max_iter: Union[int, str] = "auto",
@@ -42,8 +42,8 @@ def fit_ica(
 
     Parameters
     ----------
-    raw : mne.io.Raw
-        The raw EEG data to decompose with ICA.
+    raw : mne.io.Raw | mne.BaseEpochs
+        The raw or epoched EEG data to decompose with ICA.
     n_components : int or None, default None
         Number of principal components to use. If None, uses all available
         components based on the data rank.
@@ -77,8 +77,10 @@ def fit_ica(
     mne.preprocessing.ICA : MNE ICA implementation
     """
     # Input validation
-    if not isinstance(raw, mne.io.BaseRaw):
-        raise TypeError(f"Data must be an MNE Raw object, got {type(raw).__name__}")
+    if not isinstance(raw, (mne.io.BaseRaw, mne.BaseEpochs)):
+        raise TypeError(
+            f"Data must be an MNE Raw or Epochs object, got {type(raw).__name__}"
+        )
 
     if method not in ["fastica", "infomax", "picard"]:
         raise ValueError(
@@ -121,7 +123,7 @@ def fit_ica(
 
 
 def classify_ica_components(
-    raw: mne.io.Raw,
+    raw: Union[mne.io.BaseRaw, mne.BaseEpochs],
     ica: ICA,
     method: str = "iclabel",
     verbose: Optional[bool] = None,
@@ -135,8 +137,8 @@ def classify_ica_components(
 
     Parameters
     ----------
-    raw : mne.io.Raw
-        The raw EEG data used for ICA fitting.
+    raw : mne.io.Raw | mne.BaseEpochs
+        The raw or epoched EEG data used for ICA fitting.
     ica : mne.preprocessing.ICA
         The fitted ICA object to classify.
     method : str, default "iclabel"
@@ -175,8 +177,10 @@ def classify_ica_components(
     mne_icalabel.label_components : ICLabel implementation
     """
     # Input validation
-    if not isinstance(raw, mne.io.BaseRaw):
-        raise TypeError(f"Raw data must be an MNE Raw object, got {type(raw).__name__}")
+    if not isinstance(raw, (mne.io.BaseRaw, mne.BaseEpochs)):
+        raise TypeError(
+            f"Data must be an MNE Raw or Epochs object, got {type(raw).__name__}"
+        )
 
     if not isinstance(ica, ICA):
         raise TypeError(f"ICA must be an MNE ICA object, got {type(ica).__name__}")
@@ -274,7 +278,9 @@ def classify_ica_components(
             # Default to strip layout for ~88% API cost reduction
             icvision_kwargs = {"layout": "strip", **kwargs}  # Allow user override
             try:
-                label_components(raw, ica, component_indices=component_indices, **icvision_kwargs)
+                label_components(
+                    raw, ica, component_indices=component_indices, **icvision_kwargs
+                )
 
                 # Prepare containers for vision-only metadata
                 vision_ic_type = [None] * n_comp
@@ -300,7 +306,8 @@ def classify_ica_components(
                 # Build merged confidence matrix: start from ICLabel scores, then replace subset rows with ICVision
                 # If ICLabel didn't provide scores, initialize to ones
                 if iclabel_scores is None or (
-                    hasattr(iclabel_scores, "shape") and iclabel_scores.shape[0] != n_comp
+                    hasattr(iclabel_scores, "shape")
+                    and iclabel_scores.shape[0] != n_comp
                 ):
                     # Initialize with 1.0 confidence for lack of better info
                     merged_scores = _np.ones((n_comp, 7), dtype=float)
@@ -321,7 +328,9 @@ def classify_ica_components(
                                 vision_confidence[comp_idx] = max_prob
                                 # Ensure number of classes aligns; if not, take max prob only
                                 if icvision_scores.shape[1] == merged_scores.shape[1]:
-                                    merged_scores[comp_idx, :] = icvision_scores[row_idx, :]
+                                    merged_scores[comp_idx, :] = icvision_scores[
+                                        row_idx, :
+                                    ]
                                 else:
                                     # Fallback: keep existing distribution but update max/confidence
                                     merged_scores[comp_idx, :] = max_prob
@@ -393,12 +402,12 @@ def classify_ica_components(
 
 
 def apply_ica_rejection(
-    raw: mne.io.Raw,
+    raw: Union[mne.io.BaseRaw, mne.BaseEpochs],
     ica: ICA,
     components_to_reject: List[int],
     copy: bool = True,
     verbose: Optional[bool] = None,
-) -> mne.io.Raw:
+) -> Union[mne.io.BaseRaw, mne.BaseEpochs]:
     """Apply ICA to remove specified components from EEG data.
 
     This function applies the ICA transformation to remove specified artifact
@@ -406,8 +415,8 @@ def apply_ica_rejection(
 
     Parameters
     ----------
-    raw : mne.io.Raw
-        The raw EEG data to clean.
+    raw : mne.io.Raw | mne.BaseEpochs
+        The raw or epoched EEG data to clean.
     ica : mne.preprocessing.ICA
         The fitted ICA object.
     components_to_reject : list of int
@@ -419,7 +428,7 @@ def apply_ica_rejection(
 
     Returns
     -------
-    raw_cleaned : mne.io.Raw
+    raw_cleaned : mne.io.Raw | mne.BaseEpochs
         The cleaned EEG data with artifact components removed.
 
     Examples
@@ -433,8 +442,10 @@ def apply_ica_rejection(
     mne.preprocessing.ICA.apply : Apply ICA transformation
     """
     # Input validation
-    if not isinstance(raw, mne.io.BaseRaw):
-        raise TypeError(f"Raw data must be an MNE Raw object, got {type(raw).__name__}")
+    if not isinstance(raw, (mne.io.BaseRaw, mne.BaseEpochs)):
+        raise TypeError(
+            f"Data must be an MNE Raw or Epochs object, got {type(raw).__name__}"
+        )
 
     if not isinstance(ica, ICA):
         raise TypeError(f"ICA must be an MNE ICA object, got {type(ica).__name__}")
@@ -580,14 +591,14 @@ def _attach_source_metadata(
 
 
 def apply_ica_component_rejection(
-    raw: mne.io.Raw,
+    raw: Union[mne.io.BaseRaw, mne.BaseEpochs],
     ica: ICA,
     labels_df: pd.DataFrame,
     ic_flags_to_reject: List[str] = ["eog", "muscle", "ecg"],
     ic_rejection_threshold: float = 0.8,
     ic_rejection_overrides: Optional[Dict[str, float]] = None,
     verbose: Optional[bool] = None,
-) -> tuple[mne.io.Raw, List[int]]:
+) -> tuple[Union[mne.io.BaseRaw, mne.BaseEpochs], List[int]]:
     """Apply ICA rejection based on component classifications and criteria.
 
     This function combines the classification results with rejection criteria
@@ -596,8 +607,8 @@ def apply_ica_component_rejection(
 
     Parameters
     ----------
-    raw : mne.io.Raw
-        The raw EEG data to clean.
+    raw : mne.io.Raw | mne.BaseEpochs
+        The raw or epoched EEG data to clean.
     ica : mne.preprocessing.ICA
         The fitted ICA object with component classifications.
     labels_df : pd.DataFrame

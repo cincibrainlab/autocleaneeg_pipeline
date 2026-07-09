@@ -708,8 +708,8 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
             ICA object
         autoclean_dict : dict
             Autoclean dictionary
-        pre_ica_raw : mne.io.Raw
-            Raw data before ICA
+        pre_ica_raw : mne.io.Raw | mne.BaseEpochs
+            Raw or epoched data before ICA
     """
     try:
         _derivatives_dir = Path(autoclean_dict["derivatives_dir"])
@@ -743,7 +743,10 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
         components.append(ch for ch in ica.exclude)
 
     # Use standard pipeline saving for pre_ica data
-    pre_ica_path = save_raw_to_set(pre_ica_raw, autoclean_dict, stage="pre_ica")
+    if isinstance(pre_ica_raw, mne.BaseEpochs):
+        pre_ica_path = save_epochs_to_set(pre_ica_raw, autoclean_dict, stage="pre_ica")
+    else:
+        pre_ica_path = save_raw_to_set(pre_ica_raw, autoclean_dict, stage="pre_ica")
     metadata = {
         "save_ica_to_fif": {
             "creationDateTime": datetime.now().isoformat(),
