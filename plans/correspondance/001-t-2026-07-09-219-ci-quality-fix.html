@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>T-2026-07-09-219 CI Quality Fix</title>
+</head>
+<body>
+  <h1>T-2026-07-09-219 CI Quality Fix</h1>
+  <dl>
+    <dt>From</dt><dd>Raven</dd>
+    <dt>To</dt><dd>Principal Investigator</dd>
+    <dt>Date</dt><dd>2026-07-09</dd>
+    <dt>Re</dt><dd>PR #225 / branch 219-bug-accept-mne-baseepochs-inputs</dd>
+    <dt>Thread IDs</dt><dd>Source: current PI task; local: T-2026-07-09-219</dd>
+  </dl>
+
+  <h2>Request Summary</h2>
+  <p>Fix the issues on branch 219-bug-accept-mne-baseepochs-inputs using the Raven-led team workflow.</p>
+
+  <h2>Execution Update</h2>
+  <p>The PI approved Raven's plan. Echo applied Black formatting only to
+    <code>tests/unit/mixins/test_itc.py</code>, resolving the sole failing CI quality check.</p>
+
+  <h2>Scope Limits</h2>
+  <p>No merge, release, push, dependency change, or broad formatting was authorized. Concurrent changes to
+    <code>src/autoclean/mixins/signal_processing/channels.py</code> and
+    <code>src/autoclean/utils/bad_channel_presets.py</code>, plus the pre-existing untracked
+    <code>.codex/</code> directory, belong to separate work and were not modified or included.</p>
+
+  <h2>Conflict Status</h2>
+  <p>No implementation conflict. Cricket observed unrelated concurrent shared-worktree changes; Raven preserved and excluded them.</p>
+
+  <h2>Execution Decision</h2>
+  <p>Accept the formatting-only correction. Cricket independently confirmed Black and isort checks pass and all five targeted tests pass with coverage disabled. The default isolated pytest invocation ran all five tests successfully but exited nonzero because repository-wide coverage was 4.83%, below the global 15% threshold.</p>
+</body>
+</html>

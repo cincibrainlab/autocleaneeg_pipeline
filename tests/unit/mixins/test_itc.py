@@ -17,9 +17,7 @@ except ImportError:
     TASK_AVAILABLE = False
 
 
-pytestmark = pytest.mark.skipif(
-    not TASK_AVAILABLE, reason="Task module not available"
-)
+pytestmark = pytest.mark.skipif(not TASK_AVAILABLE, reason="Task module not available")
 
 
 class _ITCTask(Task):
@@ -69,9 +67,7 @@ class TestComputeItcAnalysis:
 
         class _DisabledTask(_ITCTask):
             def __init__(self, c):
-                self.settings = {
-                    "itc_analysis": {"enabled": False, "value": {}}
-                }
+                self.settings = {"itc_analysis": {"enabled": False, "value": {}}}
                 super(_ITCTask, self).__init__(c)
 
             def run(self):
