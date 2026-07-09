@@ -257,6 +257,171 @@ class TestCleanBadChannels:
 
 
 # ---------------------------------------------------------------------------
+# clean_bad_channels (montage-aware presets)
+# ---------------------------------------------------------------------------
+
+
+class TestCleanBadChannelsPresets:
+    """The fixture's synthetic raw has 32 channels -> low_density bin."""
+
+    def test_auto_is_default_and_disables_ransac_for_low_density(self, task):
+        detect_mock = MagicMock(
+            return_value={
+                "correlation": [],
+                "deviation": [],
+                "ransac": [],
+                "combined": [],
+            }
+        )
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_raw_result"),
+            patch.object(task, "_update_instance_data"),
+            patch.object(task, "_track_channel_removal"),
+            patch(
+                "autoclean.mixins.signal_processing.channels.detect_bad_channels",
+                detect_mock,
+            ),
+        ):
+            task.clean_bad_channels(data=task.raw, cleaning_method=None)
+
+        call_kwargs = detect_mock.call_args.kwargs
+        assert call_kwargs["correlation_thresh"] == 0.20
+        assert call_kwargs["deviation_thresh"] == 4.0
+        assert call_kwargs["ransac_corr_thresh"] == 0.0  # RANSAC disabled
+
+    def test_legacy_preset_reproduces_historical_thresholds(self, task):
+        detect_mock = MagicMock(
+            return_value={
+                "correlation": [],
+                "deviation": [],
+                "ransac": [],
+                "combined": [],
+            }
+        )
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_raw_result"),
+            patch.object(task, "_update_instance_data"),
+            patch.object(task, "_track_channel_removal"),
+            patch(
+                "autoclean.mixins.signal_processing.channels.detect_bad_channels",
+                detect_mock,
+            ),
+        ):
+            task.clean_bad_channels(data=task.raw, preset="legacy", cleaning_method=None)
+
+        call_kwargs = detect_mock.call_args.kwargs
+        assert call_kwargs["correlation_thresh"] == 0.35
+        assert call_kwargs["deviation_thresh"] == 2.5
+        assert call_kwargs["ransac_corr_thresh"] == 0.65
+
+    def test_explicit_kwarg_overrides_preset(self, task):
+        detect_mock = MagicMock(
+            return_value={
+                "correlation": [],
+                "deviation": [],
+                "ransac": [],
+                "combined": [],
+            }
+        )
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_raw_result"),
+            patch.object(task, "_update_instance_data"),
+            patch.object(task, "_track_channel_removal"),
+            patch(
+                "autoclean.mixins.signal_processing.channels.detect_bad_channels",
+                detect_mock,
+            ),
+        ):
+            task.clean_bad_channels(
+                data=task.raw, correlation_thresh=0.42, cleaning_method=None
+            )
+
+        assert detect_mock.call_args.kwargs["correlation_thresh"] == 0.42
+
+    def test_config_preset_used_when_no_explicit_kwarg(self, task):
+        task.settings = {
+            "bad_channel_detection": {"enabled": True, "value": {"preset": "legacy"}}
+        }
+        detect_mock = MagicMock(
+            return_value={
+                "correlation": [],
+                "deviation": [],
+                "ransac": [],
+                "combined": [],
+            }
+        )
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_raw_result"),
+            patch.object(task, "_update_instance_data"),
+            patch.object(task, "_track_channel_removal"),
+            patch(
+                "autoclean.mixins.signal_processing.channels.detect_bad_channels",
+                detect_mock,
+            ),
+        ):
+            task.clean_bad_channels(data=task.raw, cleaning_method=None)
+
+        assert detect_mock.call_args.kwargs["correlation_thresh"] == 0.35
+
+    def test_metadata_records_preset_and_density_bin(self, task):
+        with (
+            patch.object(task, "_update_metadata") as mock_meta,
+            patch.object(task, "_save_raw_result"),
+            patch.object(task, "_update_instance_data"),
+            patch.object(task, "_track_channel_removal"),
+            patch(
+                "autoclean.mixins.signal_processing.channels.detect_bad_channels",
+                return_value={
+                    "correlation": [],
+                    "deviation": [],
+                    "ransac": [],
+                    "combined": [],
+                },
+            ),
+        ):
+            task.clean_bad_channels(data=task.raw, cleaning_method=None)
+
+        metadata = mock_meta.call_args.args[1]
+        assert metadata["preset"] == "auto"
+        assert metadata["density_bin"] == "low_density"
+        assert metadata["eeg_channel_count"] == 32
+        assert "resolved_thresholds" in metadata
+        assert metadata["resolved_thresholds"]["ransac_enabled"] is False
+
+    def test_bad_fraction_warning_uses_preset_max_bad_fraction(self, task):
+        """4/32 = 12.5%: exceeds low_density's 10% cap but not legacy's 15%."""
+        four_bad = task.raw.ch_names[:4]
+
+        def _run(preset):
+            task.flagged = False
+            task.flagged_reasons = []
+            with (
+                patch.object(task, "_update_metadata"),
+                patch.object(task, "_save_raw_result"),
+                patch.object(task, "_update_instance_data"),
+                patch.object(task, "_track_channel_removal"),
+                patch(
+                    "autoclean.mixins.signal_processing.channels.detect_bad_channels",
+                    return_value={
+                        "correlation": list(four_bad),
+                        "deviation": [],
+                        "ransac": [],
+                        "combined": list(four_bad),
+                    },
+                ),
+            ):
+                task.clean_bad_channels(data=task.raw, preset=preset, cleaning_method=None)
+            return task.flagged
+
+        assert _run("auto") is True
+        assert _run("legacy") is False
+
+
+# ---------------------------------------------------------------------------
 # set_channel_types (additional)
 # ---------------------------------------------------------------------------
 

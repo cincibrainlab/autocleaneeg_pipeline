@@ -1,16 +1,25 @@
 """Channel operations mixin for autoclean tasks."""
 
-from typing import Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import mne
 
 from autoclean.functions.artifacts.channels import detect_bad_channels
+from autoclean.utils.bad_channel_presets import (
+    merge_channel_count_bins,
+    resolve_bad_channel_settings,
+)
 from autoclean.utils.logging import message
 from autoclean.utils.metadata_table import (
     load_metadata_table,
     match_recording_row,
     split_channels,
 )
+
+# Sentinel distinguishing "caller did not pass cleaning_method" (use the
+# resolved preset/config value) from an explicit cleaning_method=None
+# (skip interpolation/dropping and leave channels marked as bad).
+_UNSET = object()
 
 
 class ChannelsMixin:
@@ -19,14 +28,18 @@ class ChannelsMixin:
     def clean_bad_channels(
         self,
         data: Union[mne.io.Raw, None] = None,
-        correlation_thresh: float = 0.35,
-        deviation_thresh: float = 2.5,
-        ransac_sample_prop: float = 0.35,
-        ransac_corr_thresh: float = 0.65,
-        ransac_frac_bad: float = 0.25,
-        ransac_channel_wise: bool = False,
+        preset: Optional[str] = None,
+        correlation_thresh: Optional[float] = None,
+        deviation_thresh: Optional[float] = None,
+        ransac_sample_prop: Optional[float] = None,
+        ransac_corr_thresh: Optional[float] = None,
+        ransac_frac_bad: Optional[float] = None,
+        ransac_channel_wise: Optional[bool] = None,
+        ransac_enabled: Optional[bool] = None,
+        max_bad_fraction: Optional[float] = None,
+        channel_count_bins: Optional[Dict[str, Dict[str, Any]]] = None,
         random_state: int = 1337,
-        cleaning_method: Union[str, None] = "interpolate",
+        cleaning_method: Union[str, None] = _UNSET,  # type: ignore[assignment]
         reset_bads: bool = True,
         stage_name: str = "post_bad_channels",
         manual_bad_channels: Union[List[str], None] = None,
@@ -40,23 +53,42 @@ class ChannelsMixin:
         ----------
         data : mne.io.Raw, Optional
             The data object to detect bad channels from. If None, uses self.raw.
+        preset : str, Optional
+            Montage-density preset controlling default thresholds: ``"auto"``
+            (choose by EEG channel count, default), ``"low_density"``,
+            ``"mid_density"``, ``"high_density"``, or ``"legacy"`` (the
+            historical fixed defaults, kept for backward compatibility).
+            Overrides the ``preset`` set in the ``bad_channel_detection``
+            task config, if any.
         correlation_thresh : float, Optional
-            Threshold for correlation-based detection.
+            Threshold for correlation-based detection. Overrides the preset.
         deviation_thresh : float, Optional
-            Threshold for deviation-based detection.
+            Threshold for deviation-based detection. Overrides the preset.
         ransac_sample_prop : float, Optional
-            Proportion of samples to use for RANSAC.
+            Proportion of samples to use for RANSAC. Overrides the preset.
         ransac_corr_thresh : float, Optional
-            Threshold for RANSAC-based detection.
+            Threshold for RANSAC-based detection. Overrides the preset.
         ransac_frac_bad : float, Optional
-            Fraction of bad channels to use for RANSAC.
+            Fraction of bad channels to use for RANSAC. Overrides the preset.
         ransac_channel_wise : bool, Optional
-            Whether to use channel-wise RANSAC.
+            Whether to use channel-wise RANSAC. Overrides the preset.
+        ransac_enabled : bool, Optional
+            Whether RANSAC-based detection runs at all. Low-density presets
+            disable it by default since RANSAC is unstable with limited
+            spatial redundancy. Overrides the preset.
+        max_bad_fraction : float, Optional
+            Fraction of bad channels above which the recording is flagged.
+            Overrides the preset's montage-appropriate default.
+        channel_count_bins : dict, Optional
+            Custom channel-count bins for ``preset="auto"`` (or to override a
+            named density preset's range/thresholds). Merged onto the
+            built-in bins; see :mod:`autoclean.utils.bad_channel_presets`.
         random_state : int, Optional
             Random state for reproducibility.
         cleaning_method : str, Optional
             Method to use for cleaning bad channels.
-            Options are 'interpolate' or 'drop' or None(default).
+            Options are 'interpolate' or 'drop' or None. If not passed,
+            uses the resolved preset/config value (default 'interpolate').
         reset_bads : bool, Optional
             Whether to reset bad channels.
         stage_name : str, Optional
@@ -69,6 +101,14 @@ class ChannelsMixin:
         -------
         result_raw : instance of mne.io.Raw
             The raw data object with bad channels marked or cleaned
+
+        Notes
+        -----
+        Thresholds are resolved in priority order: explicit method
+        arguments > the ``bad_channel_detection`` task config > the
+        selected preset/channel-count bin > historical defaults. The
+        resolved preset, channel-count bin, and thresholds are always
+        recorded in the ``step_clean_bad_channels`` metadata.
 
         See Also
         --------
@@ -115,15 +155,61 @@ class ChannelsMixin:
                 [] if manual_override else self._apply_bad_channel_log(result_raw)
             )
 
+            # Read the bad_channel_detection task config (ignored when the
+            # step is explicitly disabled; detection itself still always
+            # runs -- only the config-driven overrides are skipped).
+            is_config_enabled, bad_channel_step_config = self._check_step_enabled(
+                "bad_channel_detection"
+            )
+            config_value = (
+                (bad_channel_step_config or {}).get("value") or {}
+                if is_config_enabled
+                else {}
+            )
+            config_preset = config_value.get("preset")
+            config_channel_bins = config_value.get("channel_count_bins")
+
+            eeg_channel_count = len(
+                mne.pick_types(result_raw.info, eeg=True, exclude=[])
+            )
+            if eeg_channel_count == 0:
+                eeg_channel_count = result_raw.info["nchan"]
+
+            resolved = resolve_bad_channel_settings(
+                channel_count=eeg_channel_count,
+                preset=preset if preset is not None else (config_preset or "auto"),
+                channel_count_bins=merge_channel_count_bins(
+                    channel_count_bins
+                    if channel_count_bins is not None
+                    else config_channel_bins
+                ),
+                config_overrides=config_value,
+                explicit_overrides={
+                    "correlation_thresh": correlation_thresh,
+                    "deviation_thresh": deviation_thresh,
+                    "ransac_sample_prop": ransac_sample_prop,
+                    "ransac_corr_thresh": ransac_corr_thresh,
+                    "ransac_frac_bad": ransac_frac_bad,
+                    "ransac_channel_wise": ransac_channel_wise,
+                    "ransac_enabled": ransac_enabled,
+                    "max_bad_fraction": max_bad_fraction,
+                },
+            )
+            final_cleaning_method = (
+                cleaning_method if cleaning_method is not _UNSET else resolved.cleaning_method
+            )
+
+            message(
+                "info",
+                f"Bad channel detection preset={resolved.preset!r} "
+                f"density_bin={resolved.density_bin!r} "
+                f"(EEG channels={eeg_channel_count})",
+            )
+
             # Setup options
             options = {
                 "random_state": random_state,
-                "correlation_thresh": correlation_thresh,
-                "deviation_thresh": deviation_thresh,
-                "ransac_sample_prop": ransac_sample_prop,
-                "ransac_corr_thresh": ransac_corr_thresh,
-                "ransac_frac_bad": ransac_frac_bad,
-                "ransac_channel_wise": ransac_channel_wise,
+                **resolved.detector_options(),
             }
 
             if manual_override:
@@ -190,9 +276,9 @@ class ChannelsMixin:
             bads = list(set(result_raw.info["bads"]))
             result_raw.info["bads"] = bads
 
-            if cleaning_method == "interpolate":
+            if final_cleaning_method == "interpolate":
                 result_raw.interpolate_bads(reset_bads=reset_bads)
-            if cleaning_method == "drop":
+            if final_cleaning_method == "drop":
                 result_raw.drop_channels(result_raw.info["bads"])
                 result_raw.info["bads"] = []
 
@@ -204,14 +290,13 @@ class ChannelsMixin:
             else:
                 self.raw.bad_channels = bads
 
-            if (
-                len(self.raw.bad_channels) / result_raw.info["nchan"]
-                > self.BAD_CHANNEL_THRESHOLD
-            ):
+            bad_fraction = len(self.raw.bad_channels) / result_raw.info["nchan"]
+            if bad_fraction > resolved.max_bad_fraction:
                 self.flagged = True
                 warning = (
-                    f"WARNING: {len(self.raw.bad_channels) / result_raw.info['nchan']:.2%} "
-                    "bad channels detected"
+                    f"WARNING: {bad_fraction:.2%} bad channels detected, exceeding the "
+                    f"{resolved.preset!r} preset's max_bad_fraction "
+                    f"({resolved.max_bad_fraction:.0%})"
                 )
                 self.flagged_reasons.append(warning)
                 message("warning", f"Flagging: {warning}")
@@ -258,6 +343,11 @@ class ChannelsMixin:
                     if not manual_override
                     else {"manual_bad_channels": manual_bad_channels}
                 ),
+                "preset": resolved.preset,
+                "density_bin": resolved.density_bin,
+                "eeg_channel_count": eeg_channel_count,
+                "resolved_thresholds": resolved.as_metadata(),
+                "cleaning_method": final_cleaning_method,
                 "channelCount": len(result_raw.ch_names),
                 "durationSec": int(result_raw.n_times) / result_raw.info["sfreq"],
                 "numberSamples": int(result_raw.n_times),
