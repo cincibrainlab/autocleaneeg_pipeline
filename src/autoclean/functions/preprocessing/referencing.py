@@ -11,13 +11,13 @@ import mne
 
 
 def rereference_data(
-    data: Union[mne.io.BaseRaw, mne.Epochs],
+    data: Union[mne.io.BaseRaw, mne.BaseEpochs],
     ref_channels: Union[str, List[str]] = "average",
     projection: bool = False,
     ch_type: str = "auto",
     forward: Optional[mne.Forward] = None,
     verbose: Optional[bool] = None,
-) -> Union[mne.io.BaseRaw, mne.Epochs]:
+) -> Union[mne.io.BaseRaw, mne.BaseEpochs]:
     """Apply referencing scheme to EEG data.
 
     This function applies various referencing schemes to continuous (Raw) or epoched
@@ -31,9 +31,9 @@ def rereference_data(
 
     Parameters
     ----------
-    data : mne.io.BaseRaw or mne.Epochs
+    data : mne.io.BaseRaw or mne.BaseEpochs
         The EEG data to rereference. Can be any MNE Raw object (e.g., RawFIF,
-        RawEEGLAB, etc.) or Epochs object.
+        RawEEGLAB, etc.) or BaseEpochs object.
     ref_channels : str or list of str, default 'average'
         Reference channel(s) to use. Options:
         - 'average': Compute average reference across all EEG channels
@@ -56,7 +56,7 @@ def rereference_data(
 
     Returns
     -------
-    rereferenced_data : mne.io.BaseRaw or mne.Epochs
+    rereferenced_data : mne.io.BaseRaw or mne.BaseEpochs
         The rereferenced data object, same type as input. Contains identical
         structure and metadata but with modified voltage references.
 
@@ -73,14 +73,14 @@ def rereference_data(
     See Also
     --------
     mne.io.Raw.set_eeg_reference : MNE's raw data referencing method
-    mne.Epochs.set_eeg_reference : MNE's epochs referencing method
+    mne.BaseEpochs.set_eeg_reference : MNE's epochs referencing method
     mne.set_eeg_reference : General referencing function
     mne.make_forward_solution : For creating forward models for REST
     """
     # Input validation
-    if not isinstance(data, (mne.io.BaseRaw, mne.Epochs)):
+    if not isinstance(data, (mne.io.BaseRaw, mne.BaseEpochs)):
         raise TypeError(
-            f"Data must be an MNE Raw or Epochs object, got {type(data).__name__}"
+            f"Data must be an MNE Raw or BaseEpochs object, got {type(data).__name__}"
         )
 
     # Validate reference channels parameter

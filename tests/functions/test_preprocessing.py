@@ -8,6 +8,7 @@ import importlib.util
 from pathlib import Path
 from typing import List
 
+import mne
 import numpy as np
 import pytest
 import pywt
@@ -101,6 +102,40 @@ class TestResampling:
         # This will be replaced with actual tests when resample_data is implemented
         assert True
 
+    def test_resample_data_import(self):
+        """Test that resample_data can be imported."""
+        from autoclean import resample_data
+        from autoclean.functions.preprocessing import resample_data as resample_direct
+
+        # Both imports should work and be the same function
+        assert resample_data is resample_direct
+
+    def test_resample_data_basic_functionality(self):
+        """Test basic resampling functionality."""
+        from autoclean import resample_data
+
+        raw = create_synthetic_raw(n_channels=4, sfreq=250, duration=2)
+        resampled = resample_data(raw, sfreq=125)
+
+        assert resampled.info["sfreq"] == 125
+        assert len(resampled.ch_names) == len(raw.ch_names)
+
+    def test_resample_data_with_epochsarray(self):
+        """Test resampling with EpochsArray (BaseEpochs subclass)."""
+        from autoclean import resample_data
+
+        # Create EpochsArray
+        n_channels, n_samples, n_epochs = 4, 256, 10
+        data = np.random.randn(n_epochs, n_channels, n_samples)
+        info = mne.create_info(n_channels, 256, "eeg")
+        epochs = mne.EpochsArray(data, info)
+
+        # Should accept BaseEpochs subclass
+        resampled = resample_data(epochs, sfreq=128)
+
+        assert isinstance(resampled, mne.BaseEpochs)
+        assert resampled.info["sfreq"] == 128
+
 
 class TestReferencing:
     """Test referencing function."""
@@ -110,6 +145,40 @@ class TestReferencing:
         # This will be replaced with actual tests when rereference_data is implemented
         assert True
 
+    def test_rereference_data_import(self):
+        """Test that rereference_data can be imported."""
+        from autoclean import rereference_data
+        from autoclean.functions.preprocessing import (
+            rereference_data as rereference_direct,
+        )
+
+        assert rereference_data is rereference_direct
+
+    def test_rereference_data_basic_functionality(self):
+        """Test basic rereferencing functionality."""
+        from autoclean import rereference_data
+
+        raw = create_synthetic_raw(n_channels=4, sfreq=250, duration=2)
+        rereferenced = rereference_data(raw, ref_channels="average")
+
+        assert rereferenced is not raw
+        assert len(rereferenced.ch_names) == len(raw.ch_names)
+
+    def test_rereference_data_with_epochsarray(self):
+        """Test rereferencing with EpochsArray (BaseEpochs subclass)."""
+        from autoclean import rereference_data
+
+        # Create EpochsArray
+        n_channels, n_samples, n_epochs = 4, 256, 10
+        data = np.random.randn(n_epochs, n_channels, n_samples)
+        info = mne.create_info(n_channels, 256, "eeg")
+        epochs = mne.EpochsArray(data, info)
+
+        # Should accept BaseEpochs subclass
+        rereferenced = rereference_data(epochs, ref_channels="average")
+
+        assert isinstance(rereferenced, mne.BaseEpochs)
+
 
 class TestBasicOperations:
     """Test basic operations (drop, crop, trim)."""
@@ -118,6 +187,88 @@ class TestBasicOperations:
         """Placeholder test - will be implemented with basic ops functions."""
         # This will be replaced with actual tests when basic ops are implemented
         assert True
+
+    def test_drop_channels_import(self):
+        """Test that drop_channels can be imported."""
+        from autoclean.functions.preprocessing.basic_ops import drop_channels
+
+        assert callable(drop_channels)
+
+    def test_drop_channels_basic_functionality(self):
+        """Test basic channel dropping functionality."""
+        from autoclean.functions.preprocessing.basic_ops import drop_channels
+
+        raw = create_synthetic_raw(
+            n_channels=4, sfreq=250, duration=2, montage="standard_1020"
+        )
+        result = drop_channels(raw, raw.ch_names[0])  # Use actual channel name
+
+        assert result.info["nchan"] == 3
+        assert raw.ch_names[0] not in result.ch_names
+
+    def test_drop_channels_with_epochsarray(self):
+        """Test drop_channels with EpochsArray (BaseEpochs subclass)."""
+        from autoclean.functions.preprocessing.basic_ops import drop_channels
+
+        # Create EpochsArray with proper channel names
+        n_channels, n_samples, n_epochs = 4, 256, 10
+        data = np.random.randn(n_epochs, n_channels, n_samples)
+        ch_names = ["Fp1", "Fp2", "Fz", "Cz"]
+        info = mne.create_info(ch_names, 256, "eeg")
+        epochs = mne.EpochsArray(data, info)
+
+        # Should accept BaseEpochs subclass
+        result = drop_channels(epochs, "Fp1")
+
+        assert isinstance(result, mne.BaseEpochs)
+        assert result.info["nchan"] == 3
+
+    def test_crop_data_with_epochsarray(self):
+        """Test crop_data with EpochsArray (BaseEpochs subclass)."""
+        from autoclean.functions.preprocessing.basic_ops import crop_data
+
+        # Create EpochsArray
+        n_channels, n_samples, n_epochs = 4, 256, 10
+        data = np.random.randn(n_epochs, n_channels, n_samples)
+        info = mne.create_info(n_channels, 256, "eeg")
+        epochs = mne.EpochsArray(data, info)
+
+        # Should accept BaseEpochs subclass
+        result = crop_data(epochs, tmin=0, tmax=0.5)
+
+        assert isinstance(result, mne.BaseEpochs)
+
+    def test_trim_edges_with_epochsarray(self):
+        """Test trim_edges with EpochsArray (BaseEpochs subclass)."""
+        from autoclean.functions.preprocessing.basic_ops import trim_edges
+
+        # Create EpochsArray
+        n_channels, n_samples, n_epochs = 4, 256, 10
+        data = np.random.randn(n_epochs, n_channels, n_samples)
+        info = mne.create_info(n_channels, 256, "eeg")
+        epochs = mne.EpochsArray(data, info)
+
+        # Should accept BaseEpochs subclass
+        result = trim_edges(epochs, duration=0.01)
+
+        assert isinstance(result, mne.BaseEpochs)
+
+    def test_assign_channel_types_with_epochsarray(self):
+        """Test assign_channel_types with EpochsArray (BaseEpochs subclass)."""
+        from autoclean.functions.preprocessing.basic_ops import assign_channel_types
+
+        # Create EpochsArray with proper channel names
+        n_channels, n_samples, n_epochs = 4, 256, 10
+        data = np.random.randn(n_epochs, n_channels, n_samples)
+        ch_names = ["Fp1", "Fp2", "Fz", "Cz"]
+        info = mne.create_info(ch_names, 256, "eeg")
+        epochs = mne.EpochsArray(data, info)
+
+        # Should accept BaseEpochs subclass
+        types = {"Fp1": "eeg", "Fp2": "eeg"}
+        result = assign_channel_types(epochs, types)
+
+        assert isinstance(result, mne.BaseEpochs)
 
 
 class TestWaveletThreshold:
@@ -200,7 +351,9 @@ class TestWaveletThreshold:
     def test_wavelet_threshold_picks_subset(self):
         """Channel picks should confine denoising to selected channels."""
 
-        raw = create_synthetic_raw(montage="standard_1020", n_channels=4, sfreq=250, duration=1)
+        raw = create_synthetic_raw(
+            montage="standard_1020", n_channels=4, sfreq=250, duration=1
+        )
         artifact = raw.copy()
         artifact._data[0, 80] += 4.0
 
