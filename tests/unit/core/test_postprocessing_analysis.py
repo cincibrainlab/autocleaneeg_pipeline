@@ -2,7 +2,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
-
 import pytest
 
 from autoclean.configkit.schema import export_task_schema_layout
