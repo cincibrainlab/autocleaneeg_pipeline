@@ -679,6 +679,7 @@ class Pipeline:
                             )
 
             task_object.run()
+            task_object.run_postprocessing_analysis()
 
             try:
                 flagged, flagged_reasons = task_object.get_flagged_status()

@@ -551,6 +551,10 @@ def _build_task_settings_schema() -> Schema:
                     Optional("thresh_method"): str,
                 },
             },
+            Optional("postprocessing_analysis"): {
+                "enabled": bool,
+                "value": dict,
+            },
             # Source Localization
             Optional("apply_source_localization"): {
                 "enabled": bool,
@@ -585,6 +589,9 @@ def _build_task_settings_schema() -> Schema:
                     Optional("adaptive"): bool,
                     Optional("low_bias"): bool,
                     Optional("normalization"): str,
+                    Optional("freq_bands"): Or(dict, None),
+                    Optional("time_windows"): Or(dict, list, tuple, None),
+                    Optional("baseline"): Or(list, tuple, None),
                 },
             },
             # Source Connectivity
@@ -680,6 +687,10 @@ def export_task_schema_layout() -> dict:
             "component_rejection": _component_rejection_descriptor(),
             "epoch_settings": _epoch_descriptor(),
             "apply_autoreject": _autoreject_descriptor(),
+            "postprocessing_analysis": {
+                "enabled": "bool",
+                "value": "dict of enabled analysis blocks with input/output aliases",
+            },
             "apply_source_localization": _source_localization_descriptor(),
             "apply_source_psd": _source_psd_descriptor(),
             "apply_sensor_psd": _sensor_psd_descriptor(),

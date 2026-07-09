@@ -1,10 +1,8 @@
 """Unit tests for SensorPSDMixin (mixins/analysis/sensor_psd.py)."""
 
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import mne
-import numpy as np
 import pytest
 
 from tests.fixtures.synthetic_data import create_synthetic_raw
@@ -133,6 +131,53 @@ class TestApplySensorPsd:
         with pytest.raises(ValueError, match="No epochs available"):
             task.apply_sensor_psd()
 
+
+    def test_custom_bands_and_time_windows_are_reflected_in_outputs(self, task):
+        """Custom bands/windows should be accepted and written into PSD tables."""
+        with (
+            patch.object(task, "_update_metadata") as update_metadata,
+            patch.object(task, "_save_sensor_psd_tables", return_value={}),
+        ):
+            psd_df, band_df, _ = task.apply_sensor_psd(
+                data=task.epochs,
+                fmin=1,
+                fmax=20,
+                freq_bands={"theta": [4, 8], "skip_me": None},
+                time_windows={"early": [0, 1.0]},
+            )
+
+        assert set(psd_df["time_window"]) == {"early"}
+        assert set(band_df["band"]) == {"theta"}
+        metadata = update_metadata.call_args.args[1]
+        assert metadata["time_windows"] == {"early": [0.0, 1.0]}
+        assert metadata["freq_bands"]["skip_me"] is None
+
+
+    def test_freq_bands_none_skips_band_summary(self, task):
+        """freq_bands=None should skip band-power rows instead of using defaults."""
+        with (
+            patch.object(task, "_update_metadata") as update_metadata,
+            patch.object(task, "_save_sensor_psd_tables", return_value={}),
+        ):
+            _, band_df, _ = task.apply_sensor_psd(
+                data=task.epochs,
+                fmin=1,
+                fmax=20,
+                freq_bands=None,
+            )
+
+        assert band_df.empty
+        metadata = update_metadata.call_args.args[1]
+        assert metadata["freq_bands"] == {}
+    def test_custom_band_outside_psd_range_raises(self, task):
+        """Bands outside the computed PSD range fail with an actionable error."""
+        with pytest.raises(ValueError, match="outside PSD range"):
+            task.apply_sensor_psd(
+                data=task.epochs,
+                fmin=1,
+                fmax=20,
+                freq_bands={"gamma": [30, 45]},
+            )
     def test_raises_type_error_for_non_epochs_input(self, task):
         """apply_sensor_psd raises TypeError when passed a non-Epochs object."""
         with pytest.raises(TypeError):
