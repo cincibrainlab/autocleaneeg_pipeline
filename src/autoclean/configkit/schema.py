@@ -36,6 +36,7 @@ IC_FLAGS = (
     "eye",
     "eog",
     "heart",
+    "cardiac",
     "ecg",
     "line_noise",
     "channel_noise",
@@ -44,7 +45,7 @@ IC_FLAGS = (
 )
 # Note: classifiers (ICLabel/ICVision) only ever emit the canonical short
 # codes "brain", "muscle", "eog", "ecg", "line_noise", "ch_noise", "other".
-# "eye", "heart", and "channel_noise" are accepted here for backward
+# "eye", "heart", "cardiac", and "channel_noise" are accepted here for backward
 # compatibility with existing task configs, but are normalized to their
 # canonical equivalent before rejection matching -- see
 # autoclean.functions.ica.ica_processing.normalize_ic_type (issue #226).

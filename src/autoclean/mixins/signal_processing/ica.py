@@ -8,6 +8,7 @@ from autoclean.functions.ica.ica_processing import (
     apply_ica_component_rejection,
     classify_ica_components,
     fit_ica,
+    normalize_ic_type,
     update_ica_control_sheet,
 )
 from autoclean.io.export import save_ica_to_fif
@@ -487,9 +488,14 @@ class IcaMixin:
         if not manual_override:
             # Warn about unused overrides
             if threshold_overrides:
-                unused_overrides = set(threshold_overrides.keys()) - set(
-                    flags_to_reject
-                )
+                normalized_flags_to_reject = {
+                    normalize_ic_type(flag) for flag in flags_to_reject
+                }
+                unused_overrides = {
+                    override
+                    for override in threshold_overrides
+                    if normalize_ic_type(override) not in normalized_flags_to_reject
+                }
                 if unused_overrides:
                     message(
                         "warning",

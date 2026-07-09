@@ -24,12 +24,6 @@ except ImportError:
     ICVISION_AVAILABLE = False
 
 
-# Canonical IC type labels as actually emitted by the supported classifiers
-# (mne_icalabel's ICLabel implementation and the ICVision compat wrapper both
-# write these exact short codes into `ica.labels_`).
-CANONICAL_IC_TYPES = frozenset(
-    {"brain", "muscle", "eog", "ecg", "line_noise", "ch_noise", "other"}
-)
 
 # Historically-documented / schema-level spellings that never actually match
 # what a classifier produces (see issue #226). Mapped here to their canonical
