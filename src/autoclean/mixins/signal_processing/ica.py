@@ -2,6 +2,7 @@
 
 from typing import Dict
 
+import mne
 from mne.preprocessing import ICA
 
 from autoclean.functions.ica.ica_processing import (
@@ -27,6 +28,36 @@ except ImportError:
 
 class IcaMixin:
     """Mixin for ICA processing."""
+
+    def _get_ica_fit_data(self):
+        """Return the data object ICA was fit on (self.raw or self.epochs).
+
+        Tracks the ``use_epochs`` flag passed to the most recent `run_ica`
+        call so that `classify_ica_components` and
+        `apply_ica_component_rejection` operate on the same data type ICA was
+        actually fit on, instead of assuming `self.raw`. Falls back to
+        whichever of `self.raw` / `self.epochs` is available if the
+        fit-time preference is no longer set.
+        """
+        use_epochs = getattr(self, "_ica_used_epochs", False)
+        attrs = ("epochs", "raw") if use_epochs else ("raw", "epochs")
+
+        for i, attr in enumerate(attrs):
+            obj = getattr(self, attr, None)
+            if obj is not None:
+                if i > 0:
+                    message(
+                        "warning",
+                        f"ICA was fit with use_epochs={use_epochs}, but self.{attrs[0]} "
+                        f"is unavailable; falling back to self.{attr}, which may not "
+                        "be the data ICA was actually fit on.",
+                    )
+                return obj
+
+        raise AttributeError(
+            "No data object (self.raw or self.epochs) available for ICA "
+            "operations. Please run `run_ica` first."
+        )
 
     def run_ica(
         self,
@@ -82,6 +113,7 @@ class IcaMixin:
             return
 
         data = self._get_data_object(data=None, use_epochs=use_epochs)
+        self._ica_used_epochs = use_epochs
 
         # Run ICA using standalone function
         if is_enabled:
@@ -136,6 +168,7 @@ class IcaMixin:
                 "ica_kwargs": ica_kwargs,
                 "ica_components": self.final_ica.n_components_,
                 "temp_highpass_for_ica": temp_highpass_for_ica,
+                "ica_fit_data_type": "epochs" if use_epochs else "raw",
             }
         }
 
@@ -317,8 +350,10 @@ class IcaMixin:
             extra_kwargs["generate_report"] = True
             extra_kwargs["output_dir"] = self.config.get("derivatives_dir", {})
 
+        fit_data = self._get_ica_fit_data()
+
         self.ica_flags = classify_ica_components(
-            self.raw, self.final_ica, method=method, **extra_kwargs
+            fit_data, self.final_ica, method=method, **extra_kwargs
         )
 
         vision_attr = None
@@ -362,7 +397,7 @@ class IcaMixin:
                     message("warning", f"Failed to generate ICA component report: {e}")
 
         # Export if requested
-        self._auto_export_if_enabled(self.raw, stage_name, export)
+        self._auto_export_if_enabled(fit_data, stage_name, export)
 
         return self.ica_flags
 
@@ -381,12 +416,14 @@ class IcaMixin:
         the data.
 
         It updates `self.final_ica.exclude` and modifies the data object
-        (e.g., `self.raw`) in-place. The updated ICA object is also saved.
+        (`self.raw` or `self.epochs`) in-place. The updated ICA object is
+        also saved.
 
         Parameters
         ----------
         data_to_clean : mne.io.Raw | mne.Epochs, optional
-            The data to apply the ICA to. If None, defaults to `self.raw`.
+            The data to apply the ICA to. If None, defaults to whichever of
+            `self.raw` / `self.epochs` ICA was fit on (see `run_ica`).
             This should ideally be the same data object that classification was
             performed on, or is compatible with `self.final_ica`.
         manual_rejected_components : list[int], optional
@@ -517,19 +554,30 @@ class IcaMixin:
                     f"Will reject ICs of types: {flags_to_reject} with confidence > {rejection_threshold}",
                 )
 
-        # Determine data to clean
-        target_data = data_to_clean if data_to_clean is not None else self.raw
+        # Determine data to clean - defaults to whichever object ICA was fit on
+        target_data = (
+            data_to_clean if data_to_clean is not None else self._get_ica_fit_data()
+        )
 
         # Snapshot pre-rejection data so ICA reports can show original component
         # activity/PSD even for components that get rejected below. Only do this
         # when we're operating on self.raw (not an arbitrary externally-provided
-        # data object), and only take the snapshot once per task instance so a
-        # second call can't overwrite it with already-partially-rejected data.
-        if data_to_clean is None and not hasattr(self, "raw_prerejection"):
+        # data object, and not self.epochs - ICA reports are raw-only), and only
+        # take the snapshot once per task instance so a second call can't
+        # overwrite it with already-partially-rejected data.
+        if (
+            data_to_clean is None
+            and target_data is getattr(self, "raw", None)
+            and not hasattr(self, "raw_prerejection")
+        ):
             self.raw_prerejection = self.raw.copy()
 
         data_source_name = (
-            "provided data object" if data_to_clean is not None else "self.raw"
+            "provided data object"
+            if data_to_clean is not None
+            else (
+                "self.epochs" if isinstance(target_data, mne.BaseEpochs) else "self.raw"
+            )
         )
         message("debug", f"Applying ICA to {data_source_name}")
 
@@ -567,9 +615,9 @@ class IcaMixin:
             }
         else:
             # Run automatic rejection on a copy to get suggested components
-            temp_raw = target_data.copy()
+            temp_data = target_data.copy()
             _, rejected_ic_indices_this_step = apply_ica_component_rejection(
-                raw=temp_raw,
+                raw=temp_data,
                 ica=self.final_ica,
                 labels_df=self.ica_flags,
                 ic_flags_to_reject=flags_to_reject,
