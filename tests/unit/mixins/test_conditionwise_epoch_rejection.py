@@ -79,7 +79,10 @@ def test_conditionwise_rejection_apply_mode_drops_indices_and_writes_audit(task)
     assert rejected["epoch_index"].tolist() == [1]
     assert rejected.iloc[0]["condition"] == "standard"
     assert rejected.iloc[0]["event_code"] == 1
-    assert summary_df.loc[summary_df["condition"] == "standard", "rejected_epochs"].item() == 1
+    assert (
+        summary_df.loc[summary_df["condition"] == "standard", "rejected_epochs"].item()
+        == 1
+    )
     update_metadata.assert_called_once()
     reports_dir = task.config["reports_dir"] / "conditionwise_epoch_rejection"
     assert any(path.name.endswith("_audit.csv") for path in reports_dir.iterdir())
@@ -161,8 +164,6 @@ def test_conditionwise_rejection_caps_per_condition(task):
     assert len(clean_epochs) == 7
 
 
-
-
 def test_conditionwise_rejection_robust_z_flags_zero_mad_outlier(tmp_path):
     config = {
         "run_id": "run",
@@ -239,9 +240,7 @@ def test_conditionwise_rejection_defaults_to_eeg_scoring(task):
     data = np.zeros((4, 3, 50), dtype=float)
     data[:, :2, :] = 1e-6
     data[1, 2, :] = 1.0
-    events = np.column_stack(
-        [np.arange(4), np.zeros(4, dtype=int), [1, 1, 1, 1]]
-    )
+    events = np.column_stack([np.arange(4), np.zeros(4, dtype=int), [1, 1, 1, 1]])
     task.epochs = mne.EpochsArray(
         data,
         info,

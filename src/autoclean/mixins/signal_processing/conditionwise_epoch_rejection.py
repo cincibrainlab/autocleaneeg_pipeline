@@ -45,15 +45,25 @@ class ConditionwiseEpochRejectionMixin:
             )
             if not is_enabled:
                 message("info", "Condition-wise epoch rejection step is disabled")
-                current_epochs = epochs if epochs is not None else getattr(self, "epochs", None)
+                current_epochs = (
+                    epochs if epochs is not None else getattr(self, "epochs", None)
+                )
                 return current_epochs, pd.DataFrame(), pd.DataFrame()
 
             if config_value and isinstance(config_value, dict):
                 params = config_value.get("value", config_value)
-                robust_z_threshold = params.get("robust_z_threshold", robust_z_threshold)
-                minimum_metric_flags = params.get("minimum_metric_flags", minimum_metric_flags)
-                absolute_amplitude_uv = params.get("absolute_amplitude_uv", absolute_amplitude_uv)
-                max_reject_fraction = params.get("max_reject_fraction", max_reject_fraction)
+                robust_z_threshold = params.get(
+                    "robust_z_threshold", robust_z_threshold
+                )
+                minimum_metric_flags = params.get(
+                    "minimum_metric_flags", minimum_metric_flags
+                )
+                absolute_amplitude_uv = params.get(
+                    "absolute_amplitude_uv", absolute_amplitude_uv
+                )
+                max_reject_fraction = params.get(
+                    "max_reject_fraction", max_reject_fraction
+                )
                 minimum_epochs = params.get("minimum_epochs", minimum_epochs)
                 exclude_channels_matching = params.get(
                     "exclude_channels_matching", exclude_channels_matching
@@ -71,7 +81,9 @@ class ConditionwiseEpochRejectionMixin:
         if not isinstance(epochs, mne.BaseEpochs):
             raise TypeError(f"epochs must be an MNE Epochs object, got {type(epochs)}")
         if group_by != "event_id":
-            raise ValueError("condition-wise epoch rejection currently supports group_by='event_id'")
+            raise ValueError(
+                "condition-wise epoch rejection currently supports group_by='event_id'"
+            )
         if mode not in {"apply", "report_only"}:
             raise ValueError("mode must be 'apply' or 'report_only'")
         if not 0 <= float(max_reject_fraction) <= 1:
@@ -81,12 +93,14 @@ class ConditionwiseEpochRejectionMixin:
 
         picks = self._conditionwise_rejection_picks(
             epochs,
-            include_channel_types=["eeg"] if exclude_channel_types is None else None,
+            include_channel_types=["eeg"],
             exclude_channel_types=exclude_channel_types or ["eog", "ecg", "misc"],
             exclude_channels_matching=exclude_channels_matching or [],
         )
         if not picks:
-            raise ValueError("No channels available for condition-wise rejection scoring.")
+            raise ValueError(
+                "No channels available for condition-wise rejection scoring."
+            )
 
         data = epochs.get_data(picks=picks)
         metrics = self._conditionwise_epoch_metrics(data)
@@ -139,7 +153,7 @@ class ConditionwiseEpochRejectionMixin:
         if hasattr(self, "_update_metadata"):
             try:
                 self._update_metadata("step_conditionwise_epoch_rejection", metadata)
-            except Exception as exc:  # Metadata persistence is unavailable in unit contexts.
+            except Exception as exc:  # Unavailable in unit test contexts.
                 message(
                     "warning",
                     f"Condition-wise epoch rejection metadata was not persisted: {exc}",
@@ -162,7 +176,9 @@ class ConditionwiseEpochRejectionMixin:
             else None
         )
         excluded_types = {str(ch_type).lower() for ch_type in exclude_channel_types}
-        excluded_patterns = [str(pattern).lower() for pattern in exclude_channels_matching]
+        excluded_patterns = [
+            str(pattern).lower() for pattern in exclude_channels_matching
+        ]
         channel_types = epochs.get_channel_types()
         picks = []
         for idx, (name, ch_type) in enumerate(zip(epochs.ch_names, channel_types)):
@@ -277,7 +293,9 @@ class ConditionwiseEpochRejectionMixin:
                 ordered = candidates.sort_values(
                     ["metric_flag_count", "max_robust_z"], ascending=[False, False]
                 )
-                rejected_indices = ordered.head(allowed_rejections)["epoch_index"].tolist()
+                rejected_indices = ordered.head(allowed_rejections)[
+                    "epoch_index"
+                ].tolist()
                 audit_df.loc[
                     audit_df["epoch_index"].isin(rejected_indices), "rejected"
                 ] = True
@@ -296,7 +314,9 @@ class ConditionwiseEpochRejectionMixin:
                     "candidate_rejected_epochs": int(len(candidates)),
                     "rejected_epochs": rejected,
                     "retained_epochs": retained,
-                    "rejection_percentage": (rejected / original * 100.0) if original else 0.0,
+                    "rejection_percentage": (
+                        (rejected / original * 100.0) if original else 0.0
+                    ),
                     "candidate_rejection_percentage": (
                         len(candidates) / original * 100.0 if original else 0.0
                     ),
@@ -346,7 +366,9 @@ class ConditionwiseEpochRejectionMixin:
         audit_df.to_csv(audit_path, index=False)
         summary_df.to_csv(summary_path, index=False)
         message("info", f"Saved condition-wise epoch rejection audit to {audit_path}")
-        message("info", f"Saved condition-wise epoch rejection summary to {summary_path}")
+        message(
+            "info", f"Saved condition-wise epoch rejection summary to {summary_path}"
+        )
         return {
             "conditionwise_epoch_rejection_audit": str(
                 self._conditionwise_report_relative_path(audit_path)
@@ -360,7 +382,9 @@ class ConditionwiseEpochRejectionMixin:
         if hasattr(self, "_resolve_report_path"):
             return self._resolve_report_path("conditionwise_epoch_rejection")
         config = getattr(self, "config", {}) or {}
-        reports_dir = config.get("reports_dir") or config.get("metadata_dir") or Path.cwd()
+        reports_dir = (
+            config.get("reports_dir") or config.get("metadata_dir") or Path.cwd()
+        )
         output_dir = Path(reports_dir) / "conditionwise_epoch_rejection"
         output_dir.mkdir(parents=True, exist_ok=True)
         return output_dir
