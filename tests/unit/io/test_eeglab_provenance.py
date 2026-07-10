@@ -8,7 +8,6 @@ from unittest.mock import patch
 
 import numpy as np
 
-
 from autoclean.io.eeglab_provenance import (
     build_eeglab_dataset_summary,
     render_eeglab_provenance_report,
