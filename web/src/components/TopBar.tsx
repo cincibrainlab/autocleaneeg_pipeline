@@ -69,6 +69,7 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
   const [configToken, setConfigToken] = useState("");
   const [configUrl, setConfigUrl] = useState("");
   const [configSaving, setConfigSaving] = useState(false);
+  const [configError, setConfigError] = useState<string | null>(null);
   const [configLoaded, setConfigLoaded] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -286,6 +287,7 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
                     </p>
                     <button
                       onClick={() => {
+                        setConfigError(null);
                         setShowConfig(true);
                         if (!configLoaded) {
                           api.getTunnelConfig().then((cfg) => {
@@ -342,16 +344,22 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
                         className="w-full px-2 py-1.5 rounded bg-surface-50 border border-border text-xs font-mono text-zinc-300 placeholder-zinc-700 focus:outline-none focus:border-brand/40"
                       />
                     </div>
+                    {configError && (
+                      <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                        {configError}
+                      </div>
+                    )}
                     <div className="flex gap-2">
                       <button
                         onClick={async () => {
                           setConfigSaving(true);
+                          setConfigError(null);
                           try {
                             await api.setTunnelConfig(configToken, configUrl);
                             setConfigToken("");
                             setShowConfig(false);
                           } catch {
-                            // ignore
+                            setConfigError("Could not save tunnel configuration. Check the values and try again.");
                           } finally {
                             setConfigSaving(false);
                           }
@@ -363,12 +371,21 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
                       </button>
                       <button
                         onClick={async () => {
-                          await api.clearTunnelConfig();
-                          setConfigToken("");
-                          setConfigUrl("");
-                          setConfigLoaded(false);
+                          setConfigSaving(true);
+                          setConfigError(null);
+                          try {
+                            await api.clearTunnelConfig();
+                            setConfigToken("");
+                            setConfigUrl("");
+                            setConfigLoaded(false);
+                          } catch {
+                            setConfigError("Could not clear tunnel configuration. Try again.");
+                          } finally {
+                            setConfigSaving(false);
+                          }
                         }}
-                        className="rounded-md px-3 py-1.5 text-xs font-medium border border-border text-zinc-500 hover:text-zinc-300 hover:bg-surface-50 transition-colors"
+                        disabled={configSaving}
+                        className="rounded-md px-3 py-1.5 text-xs font-medium border border-border text-zinc-500 hover:text-zinc-300 hover:bg-surface-50 disabled:opacity-40 transition-colors"
                       >
                         Clear
                       </button>
