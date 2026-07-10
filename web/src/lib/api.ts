@@ -495,7 +495,8 @@ export const api = {
   getQueueStats: () => json<QueueStats>("/api/queue/stats"),
   getQueueEntries: (routeId?: string) =>
     json<QueueEntriesResponse>(`/api/queue/entries${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`),
-  retryFailed: () => json<{ retried: number }>("/api/queue/retry", "POST", {}),
+  retryFailed: (paths?: string[]) =>
+    json<{ retried: number }>("/api/queue/retry", "POST", paths ? { paths } : {}),
   clearProcessed: () => json<{ cleared: number }>("/api/queue/processed", "DELETE"),
   removeEntry: (path: string) => json<{ cleared?: number }>(`/api/queue/entry/${encodeURIComponent(path)}`, "DELETE"),
 

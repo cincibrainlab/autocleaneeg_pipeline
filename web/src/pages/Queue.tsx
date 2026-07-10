@@ -130,10 +130,10 @@ export default function Queue() {
     noticeTimerRef.current = setTimeout(() => setNotice(null), 4000);
   };
 
-  const handleRetry = async () => {
+  const handleRetry = async (paths?: string[]) => {
     setActing(true);
     try {
-      const res = await api.retryFailed();
+      const res = await api.retryFailed(paths);
       showNotice("success", `Retried ${res.retried} ${res.retried === 1 ? "entry" : "entries"}`);
       refresh();
       refreshStats();
@@ -199,7 +199,7 @@ export default function Queue() {
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           </button>
           <button
-            onClick={handleRetry}
+            onClick={() => handleRetry()}
             disabled={acting || !stats?.failed}
             className="rounded-md px-3 py-1.5 text-sm font-medium border border-border text-zinc-300 hover:bg-surface-50 transition-colors duration-150 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -523,7 +523,7 @@ export default function Queue() {
             <div className="pt-2 border-t border-border-subtle space-y-2">
               {selectedEntry.status === "failed" && (
                 <button
-                  onClick={handleRetry}
+                  onClick={() => handleRetry([selectedEntry.path])}
                   disabled={acting}
                   className="w-full rounded-md px-3 py-1.5 text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-500 transition-colors duration-150 flex items-center justify-center gap-2 disabled:opacity-50"
                 >
