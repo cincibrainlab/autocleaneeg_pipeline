@@ -99,6 +99,50 @@ def test_detect_prior_preprocessing_uses_202_documented_schema():
     assert summary["summary_row"]["source_file"] == "sub-01.set"
 
 
+def test_documented_filter_cutoffs_do_not_imply_notch_filtering():
+    provenance = _provenance_summary()
+    provenance["documented_provenance"] = {
+        **provenance["documented_provenance"],
+        "history": "Applied 1-60Hz bandpass; later 0.1-150Hz filter.",
+    }
+
+    summary = detect_prior_preprocessing(
+        _RawStub(np.zeros((2, 512)), sfreq=512.0),
+        provenance_summary=provenance,
+    )
+
+    assert summary["findings"]["notch_filter_60hz"]["confidence"] != "documented"
+    assert summary["findings"]["notch_filter_50hz"]["confidence"] != "documented"
+    assert summary["findings"]["notch_filter_100hz"]["confidence"] != "documented"
+    assert summary["findings"]["notch_filter_120hz"]["confidence"] != "documented"
+
+
+def test_documented_highpass_history_does_not_imply_lowpass_filtering():
+    provenance = _provenance_summary()
+    provenance["documented_provenance"] = {
+        **provenance["documented_provenance"],
+        "history": "pop_eegfiltnew EEG locutoff=1 hicutoff=0; highpass only.",
+    }
+
+    summary = detect_prior_preprocessing(
+        _RawStub(np.zeros((2, 512)), sfreq=512.0),
+        provenance_summary=provenance,
+    )
+
+    assert summary["findings"]["highpass_filter"]["confidence"] == "documented"
+    assert summary["findings"]["lowpass_filter"]["confidence"] != "documented"
+
+
+def test_boolean_custom_reference_flag_is_not_reported_as_label():
+    raw = _RawStub(np.zeros((2, 128)))
+    raw.info["custom_ref_applied"] = True
+
+    summary = detect_prior_preprocessing(raw)
+
+    assert summary["documented_metadata"]["reference"] == "custom reference applied"
+    assert summary["findings"]["reference"]["value"] is not True
+
+
 def test_signal_inference_flags_likely_notch_and_aux_channels():
     raw = _RawStub(_notch_like_data())
 

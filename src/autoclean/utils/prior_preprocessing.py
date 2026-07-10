@@ -8,6 +8,7 @@ hard failures, unless callers opt into strict validation handling.
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -421,9 +422,17 @@ def _merge_findings(
     text = " ".join(
         str(documented.get(key, "")) for key in ("history", "comments", "etc_keys")
     ).lower()
+    directional_filters = {
+        "highpass_filter": _has_documented_highpass(text),
+        "lowpass_filter": _has_documented_lowpass(text),
+    }
+    for name, present in directional_filters.items():
+        documented_finding = _documented_or_unknown(
+            present, True, "EEG history/comments"
+        )
+        findings[name] = _prefer_documented(documented_finding, signal.get(name))
+
     for name, needles in {
-        "highpass_filter": ("highpass", "high-pass", "pop_eegfilt", "eegfilt"),
-        "lowpass_filter": ("lowpass", "low-pass", "pop_eegfilt", "eegfilt"),
         "baseline_applied": ("baseline", "pop_rmbase", "rmbase"),
         "ica_pruned": ("subcomp", "reject component", "ica prune"),
     }.items():
@@ -435,15 +444,9 @@ def _merge_findings(
     for freq in POWERLINE_FREQS:
         key = f"notch_filter_{int(freq)}hz"
         documented_finding = _documented_or_unknown(
-            any(
-                token in text
-                for token in (f"notch {int(freq)}", f"{int(freq)}hz", f"{int(freq)} hz")
-            ),
-            True,
-            "EEG history/comments",
+            _has_documented_notch(text, freq), True, "EEG history/comments"
         )
         findings[key] = _prefer_documented(documented_finding, signal.get(key))
-
     findings["eog_ecg_misc_channel_presence"] = signal.get(
         "eog_ecg_misc_channel_presence", _unknown("channel type inference unavailable")
     )
@@ -451,6 +454,33 @@ def _merge_findings(
         "channel_count_suggests_dropping", _unknown("channel count unavailable")
     )
     return findings
+
+
+def _has_documented_highpass(text: str) -> bool:
+    return bool(
+        re.search(r"\bhigh[-\s]?pass(?:ed|ing)?\b", text)
+        or re.search(r"\bhp(?:f)?\b", text)
+        or re.search(r"\blocutoff\s*[=:]\s*(?!0+(?:\.0+)?\b)\d", text)
+    )
+
+
+def _has_documented_lowpass(text: str) -> bool:
+    return bool(
+        re.search(r"\blow[-\s]?pass(?:ed|ing)?\b", text)
+        or re.search(r"\blp(?:f)?\b", text)
+        or re.search(r"\bhicutoff\s*[=:]\s*(?!0+(?:\.0+)?\b)\d", text)
+    )
+
+
+def _has_documented_notch(text: str, freq: float) -> bool:
+    freq_text = str(int(freq)) if float(freq).is_integer() else str(freq)
+    frequency = rf"(?<![\d.]){re.escape(freq_text)}(?:\s*hz|\b)"
+    context = r"(?:notch|band[-\s]?stop|line[-\s]?noise|cleanline|zapline)"
+    nearby = 80
+    return bool(
+        re.search(rf"{context}[^.;\n]{{0,{nearby}}}{frequency}", text)
+        or re.search(rf"{frequency}[^.;\n]{{0,{nearby}}}{context}", text)
+    )
 
 
 def _infer_notches(
@@ -707,10 +737,24 @@ def _epoch_window(
 
 
 def _reference(info: Mapping[str, Any]) -> Any:
+    for key in ("reference", "ref", "description"):
+        value = info.get(key, UNAVAILABLE)
+        if isinstance(value, str) and value.strip() not in {UNAVAILABLE, UNKNOWN}:
+            return value
+
     custom_ref = info.get("custom_ref_applied", UNAVAILABLE)
-    if custom_ref not in (None, False, UNAVAILABLE):
+    if isinstance(custom_ref, str) and custom_ref.strip().lower() not in {
+        "false",
+        "0",
+        "none",
+        "unknown",
+    }:
         return custom_ref
-    return info.get("description", UNAVAILABLE)
+    if custom_ref is True:
+        return "custom reference applied"
+    if custom_ref not in (None, False, 0, UNAVAILABLE):
+        return "custom reference applied"
+    return UNAVAILABLE
 
 
 def _ica_present(ica: Any) -> dict[str, Any]:
