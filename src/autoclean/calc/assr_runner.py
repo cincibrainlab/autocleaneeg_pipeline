@@ -7,6 +7,7 @@ It handles command line arguments and runs the appropriate functions.
 """
 
 import argparse
+import json
 
 # Make sure the current directory is in the path so modules can be imported
 import os
@@ -144,6 +145,16 @@ def create_specific_plots(analysis_results, output_dir=None):
     return {"global_itc": global_itc_fig, "topomap": topo_fig}
 
 
+def _load_analysis_config(analysis_config):
+    if not analysis_config:
+        return None
+
+    config_arg = Path(analysis_config)
+    if config_arg.exists():
+        return json.loads(config_arg.read_text(encoding="utf8"))
+    return json.loads(analysis_config)
+
+
 def main():
     """Main function to parse arguments and run analysis"""
     parser = argparse.ArgumentParser(description="ASSR Analysis Runner")
@@ -167,17 +178,30 @@ def main():
         default=None,
         help="Optional ASSR analysis profile, e.g. assr_epochs",
     )
+    parser.add_argument(
+        "--analysis_config",
+        type=str,
+        default=None,
+        help="Optional JSON object or JSON file path with ASSR analysis overrides",
+    )
 
     args = parser.parse_args()
+    analysis_config = _load_analysis_config(args.analysis_config)
 
     if args.analysis_type == "complete":
         run_complete_analysis(
-            args.file_path, args.output_dir, analysis_profile=args.analysis_profile
+            args.file_path,
+            args.output_dir,
+            analysis_profile=args.analysis_profile,
+            analysis_config=analysis_config,
         )
 
     elif args.analysis_type == "analysis_only":
         run_analysis_only(
-            args.file_path, args.output_dir, analysis_profile=args.analysis_profile
+            args.file_path,
+            args.output_dir,
+            analysis_profile=args.analysis_profile,
+            analysis_config=analysis_config,
         )
 
     elif args.analysis_type == "plots_only":
@@ -187,6 +211,7 @@ def main():
             args.output_dir,
             save_results=False,
             analysis_profile=args.analysis_profile,
+            analysis_config=analysis_config,
         )
         # Then create only specific plots
         create_specific_plots(analysis_results, args.output_dir)

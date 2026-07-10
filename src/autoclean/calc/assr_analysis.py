@@ -86,6 +86,8 @@ def _json_ready(value: Any) -> Any:
         return [_json_ready(item) for item in value]
     if isinstance(value, list):
         return [_json_ready(item) for item in value]
+    if isinstance(value, np.ndarray):
+        return [_json_ready(item) for item in value.tolist()]
     if isinstance(value, np.generic):
         return value.item()
     return value
@@ -437,6 +439,17 @@ def compute_metrics(
     valid_windows = _validate_time_windows(time_windows, itc[1].times, audit)
     valid_bands = _validate_freq_bands(freq_bands, freqs, audit)
     valid_combined_bands = _validate_freq_bands(combined_bands, freqs, audit)
+    metric_band_names = {
+        band_name for band_name in valid_bands if not band_name.startswith("itc")
+    }
+    for band_name in sorted(metric_band_names & set(valid_combined_bands)):
+        _record_skip(
+            audit,
+            "skipped_combined_bands",
+            band_name,
+            "name_conflicts_with_freq_bands",
+        )
+        del valid_combined_bands[band_name]
     all_window = valid_windows.get("all")
 
     if hasattr(epochs, "filename") and epochs.filename is not None:
@@ -546,16 +559,20 @@ def _write_analysis_metadata(
     settings: dict[str, Any],
     audit: dict[str, Any],
 ) -> None:
-    payload = {
+    settings_payload = {
         "analysis_settings": _json_ready(settings),
+    }
+    log_payload = {
         "analysis_audit": _json_ready(audit),
+        "analysis_profile": _json_ready(settings.get("profile")),
+        "saved_tfr": bool(settings.get("save_tfr")),
     }
     metadata_file = data_dir / f"{file_basename}_assr_analysis_settings.json"
     log_file = data_dir / f"{file_basename}_assr_analysis_log.json"
     with metadata_file.open("w", encoding="utf8") as handle:
-        json.dump(payload, handle, indent=2)
+        json.dump(settings_payload, handle, indent=2)
     with log_file.open("w", encoding="utf8") as handle:
-        json.dump(payload, handle, indent=2)
+        json.dump(log_payload, handle, indent=2)
 
 
 def analyze_assr(
@@ -593,6 +610,7 @@ def analyze_assr(
     audit = {
         "profile": analysis_settings.get("profile"),
         "skipped_freq_bands": [],
+        "skipped_combined_bands": [],
         "skipped_time_windows": [],
         "excluded_channels": [],
     }

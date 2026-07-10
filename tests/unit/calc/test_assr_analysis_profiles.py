@@ -1,7 +1,9 @@
+import json
 from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 
 import autoclean.calc.assr_runner as assr_runner
 from autoclean.calc import assr_analysis
@@ -131,6 +133,31 @@ def test_compute_metrics_preserves_legacy_default_columns_and_values():
         assert row[column] == value
 
 
+def test_compute_metrics_skips_combined_band_name_collisions():
+    audit = {"skipped_freq_bands": [], "skipped_time_windows": []}
+
+    with pytest.warns(UserWarning, match="name_conflicts_with_freq_bands"):
+        results = assr_analysis.compute_metrics(
+            _legacy_tf_data(),
+            _SingleChannelEpochs(),
+            freq_bands={"alpha": (8, 13)},
+            combined_bands={"alpha": (75, 85)},
+            audit=audit,
+        )
+
+    row = results.iloc[0]
+    freqs = _legacy_tf_data()["freqs"]
+    stp_data = _legacy_tf_data()["single_trial_power"].data[:, 0]
+    alpha_idx = np.where((freqs >= 8) & (freqs <= 13))[0]
+    combined_idx = np.where((freqs >= 75) & (freqs <= 85))[0]
+
+    assert row["stp_alpha"] == np.mean(stp_data[:, alpha_idx, :])
+    assert row["stp_alpha"] != np.mean(stp_data[:, combined_idx, :])
+    assert audit["skipped_combined_bands"] == [
+        {"name": "alpha", "reason": "name_conflicts_with_freq_bands"}
+    ]
+
+
 def test_resolve_assr_epochs_profile_and_overrides():
     settings = assr_analysis.resolve_assr_analysis_settings(
         profile="assr_epochs",
@@ -174,6 +201,42 @@ def test_compute_metrics_excludes_non_eeg_and_records_skips():
     ]
 
 
+def test_write_analysis_metadata_splits_settings_and_log_payloads(tmp_path):
+    settings = {
+        "profile": "assr_epochs",
+        "save_tfr": True,
+        "freq_bands": {"alpha": np.array([8, 13])},
+    }
+    audit = {
+        "profile": "assr_epochs",
+        "skipped_combined_bands": [
+            {"name": "alpha", "reason": "name_conflicts_with_freq_bands"}
+        ],
+    }
+
+    assr_analysis._write_analysis_metadata(tmp_path, "subject01", settings, audit)
+
+    settings_payload = json.loads(
+        (tmp_path / "subject01_assr_analysis_settings.json").read_text(encoding="utf8")
+    )
+    log_payload = json.loads(
+        (tmp_path / "subject01_assr_analysis_log.json").read_text(encoding="utf8")
+    )
+
+    assert settings_payload == {
+        "analysis_settings": {
+            "profile": "assr_epochs",
+            "save_tfr": True,
+            "freq_bands": {"alpha": [8, 13]},
+        }
+    }
+    assert "analysis_audit" not in settings_payload
+    assert log_payload["analysis_audit"] == audit
+    assert log_payload["analysis_profile"] == "assr_epochs"
+    assert log_payload["saved_tfr"] is True
+    assert "analysis_settings" not in log_payload
+
+
 def test_analyze_assr_writes_settings_and_saves_tfr_when_requested():
     epochs = _FakeEpochs()
     tf_data = _fake_tf_data()
@@ -202,6 +265,33 @@ def test_analyze_assr_writes_settings_and_saves_tfr_when_requested():
     save_tfr.assert_called_once()
     write_metadata.assert_called_once()
     assert result["analysis_settings"]["save_tfr"] is True
+
+
+def test_runner_main_forwards_analysis_config_json():
+    argv = [
+        "assr_runner.py",
+        "input.set",
+        "--output_dir",
+        "out",
+        "--analysis_type",
+        "analysis_only",
+        "--analysis_profile",
+        "assr_epochs",
+        "--analysis_config",
+        '{"save_tfr": true}',
+    ]
+
+    with (
+        patch.object(assr_runner.sys, "argv", argv),
+        patch.object(assr_runner.Path, "mkdir"),
+        patch.object(assr_runner, "analyze_assr") as analyze,
+    ):
+        analyze.return_value = {"ok": True}
+        assr_runner.main()
+
+    _, kwargs = analyze.call_args
+    assert kwargs["analysis_profile"] == "assr_epochs"
+    assert kwargs["analysis_config"] == {"save_tfr": True}
 
 
 def test_runner_passes_analysis_config_to_analyze_assr():
