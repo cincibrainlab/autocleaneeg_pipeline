@@ -1,0 +1,249 @@
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+
+import numpy as np
+
+from autoclean.utils.prior_preprocessing import (
+    build_prior_preprocessing_dataset_summary,
+    detect_prior_preprocessing,
+)
+
+
+class _RawStub:
+    def __init__(self, data, sfreq=256.0, ch_names=None, channel_types=None):
+        self._data = np.asarray(data, dtype=float)
+        self.info = {"sfreq": sfreq, "custom_ref_applied": "A1/A2"}
+        self.ch_names = ch_names or ["Cz", "Pz", "VEOG", "Status"]
+        self._channel_types = channel_types or ["eeg", "eeg", "eog", "misc"]
+        self.n_times = self._data.shape[-1]
+        self.times = np.arange(self.n_times) / sfreq
+
+    def get_data(self):
+        return self._data
+
+    def get_channel_types(self):
+        return self._channel_types
+
+
+class _EpochsStub(_RawStub):
+    def __init__(self, data, sfreq=128.0):
+        super().__init__(data, sfreq=sfreq, ch_names=["Cz", "Pz"])
+        self.tmin = -0.2
+        self.tmax = 0.8
+        self.times = np.linspace(self.tmin, self.tmax, self._data.shape[-1])
+        self.events = np.array([[0, 0, 11], [128, 0, 22], [256, 0, 11]])
+
+    def __len__(self):
+        return self._data.shape[0]
+
+
+def _provenance_summary():
+    return {
+        "documented_provenance": {
+            "srate": 500,
+            "nbchan": 63,
+            "trials": 120,
+            "epoch_window": {"xmin": -0.2, "xmax": 0.8},
+            "reference": "A1/A2",
+            "history": "pop_eegfiltnew highpass; notch 60 Hz; pop_rmbase; runica; pop_epoch",
+            "comments": "ICA components manually rejected.",
+            "etc_keys": ["interpolated_channels"],
+            "channels": {
+                "labels": ["Cz", "Pz"],
+                "types": {"EEG": 2},
+            },
+            "events": {
+                "labels": ["standard", "target"],
+                "codes": ["11", "22"],
+                "counts": {"standard": 2, "target": 1},
+            },
+            "ica": {"icaweights": {"present": True, "shape": [62, 63]}},
+            "iclabel": {"present": True},
+            "interpolation": {"interpolated_channels": ["Oz"]},
+        },
+        "summary_row": {
+            "source_file": "sub-01.set",
+            "srate": 500,
+            "nbchan": 63,
+            "trials": 120,
+            "epoch_window": '{"xmax": 0.8, "xmin": -0.2}',
+            "reference": "A1/A2",
+            "event_codes": '["11", "22"]',
+            "event_counts": '{"standard": 2, "target": 1}',
+        },
+    }
+
+
+def _notch_like_data(sfreq=256.0, n_times=1024):
+    times = np.arange(n_times) / sfreq
+    signal = np.sin(2 * np.pi * 55 * times) + np.sin(2 * np.pi * 65 * times)
+    return np.vstack([signal, signal * 0.5])
+
+
+def test_detect_prior_preprocessing_uses_202_documented_schema():
+    raw = _RawStub(_notch_like_data())
+
+    summary = detect_prior_preprocessing(
+        raw,
+        import_metadata={"file_format": "EEGLAB_SET", "plugin_used": "EEGLAB"},
+        provenance_summary=_provenance_summary(),
+    )
+
+    assert summary["documented_metadata"]["reference"] == "A1/A2"
+    assert summary["findings"]["reference"]["confidence"] == "documented"
+    assert summary["findings"]["ica_present"]["confidence"] == "documented"
+    assert summary["findings"]["notch_filter_60hz"]["confidence"] == "documented"
+    assert summary["findings"]["baseline_applied"]["confidence"] == "documented"
+    assert summary["summary_row"]["source_file"] == "sub-01.set"
+
+
+def test_signal_inference_flags_likely_notch_and_aux_channels():
+    raw = _RawStub(_notch_like_data())
+
+    summary = detect_prior_preprocessing(raw)
+
+    assert summary["signal_inference"]["notch_filter_60hz"]["confidence"] == "likely"
+    aux = summary["findings"]["eog_ecg_misc_channel_presence"]
+    assert aux["confidence"] == "likely"
+    assert aux["value"] == {"eog": 1, "misc": 1}
+
+
+def test_task_config_warnings_are_non_blocking_unless_strict():
+    raw = _EpochsStub(np.zeros((3, 2, 64)))
+    task_config = {
+        "filtering": {
+            "enabled": True,
+            "value": {"l_freq": 1.0, "h_freq": 80.0, "notch_freqs": [60]},
+        },
+        "epoch_settings": {
+            "enabled": True,
+            "event_id": {"rare": 99},
+            "remove_baseline": {"enabled": True, "window": [-0.2, 0.0]},
+        },
+        "ICA": {"enabled": True, "value": {"method": "infomax"}},
+        "reference_step": {"enabled": True, "value": "average"},
+    }
+
+    summary = detect_prior_preprocessing(
+        raw,
+        provenance_summary=_provenance_summary(),
+        task_config=task_config,
+        strict=False,
+    )
+    strict_summary = detect_prior_preprocessing(
+        raw,
+        provenance_summary=_provenance_summary(),
+        task_config=task_config,
+        strict=True,
+    )
+
+    assert any("notch" in warning for warning in summary["warnings"])
+    assert any("baseline" in warning for warning in summary["warnings"])
+    assert any("ICA" in warning for warning in summary["warnings"])
+    assert any("event codes" in warning for warning in summary["warnings"])
+    assert summary["strict_violations"] == []
+    assert strict_summary["strict_violations"] == strict_summary["warnings"]
+
+
+def test_dataset_summary_counts_warnings():
+    first = detect_prior_preprocessing(
+        _RawStub(_notch_like_data()), provenance_summary=_provenance_summary()
+    )
+    second = detect_prior_preprocessing(
+        _RawStub(_notch_like_data(sfreq=512.0), sfreq=512.0),
+        import_metadata={"sampleRate": 512},
+    )
+    first["warnings"] = ["Task ICA may repeat prior ICA decomposition"]
+    second["warnings"] = ["Task ICA may repeat prior ICA decomposition"]
+
+    dataset = build_prior_preprocessing_dataset_summary([first, second])
+
+    assert len(dataset["rows"]) == 2
+    assert dataset["warning_counts"] == {
+        "Task ICA may repeat prior ICA decomposition": 2
+    }
+
+
+class _ImportPathPlugin:
+    def __init__(self, raw):
+        self._raw = raw
+
+    def import_and_configure(self, file_path, autoclean_dict, preload=True):
+        return self._raw
+
+    def process_events(self, raw):
+        return None, None, None
+
+    def get_metadata(self):
+        provenance = _provenance_summary()
+        return {
+            "plugin_name": self.__class__.__name__,
+            "eeglab_provenance": {
+                "schema_version": "1.0",
+                "summary_row": provenance["summary_row"],
+            },
+        }
+
+
+def _load_import_module():
+    module_path = (
+        Path(__file__).resolve().parents[3] / "src" / "autoclean" / "io" / "import_.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "autoclean_io_import_for_prior_preprocessing_test", module_path
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_import_eeg_attaches_prior_preprocessing_metadata_and_artifacts(tmp_path):
+    import_module = _load_import_module()
+    raw = _RawStub(_notch_like_data(), sfreq=500.0, ch_names=["Cz", "Pz"])
+    input_file = tmp_path / "sub-01.set"
+    input_file.write_text("stub", encoding="utf-8")
+    database_updates = []
+
+    import_module.get_plugin_for_combination = lambda format_id, montage: (
+        _ImportPathPlugin(raw)
+    )
+    import_module.manage_database_conditionally = (
+        lambda **kwargs: database_updates.append(kwargs)
+    )
+    import_module.message = lambda *args, **kwargs: None
+
+    result = import_module.import_eeg(
+        {
+            "unprocessed_file": str(input_file),
+            "eeg_system": "standard_1020",
+            "run_id": "run-203",
+            "reports_dir": str(tmp_path),
+            "prior_preprocessing_detection": {"enabled": True, "strict": True},
+            "settings": {
+                "filtering": {
+                    "enabled": True,
+                    "value": {"notch_freqs": [60]},
+                },
+                "reference_step": {"enabled": True, "value": "average"},
+            },
+        }
+    )
+
+    assert result is raw
+    import_metadata = database_updates[0]["update_record"]["metadata"]["import_eeg"]
+    prior_metadata = import_metadata["prior_preprocessing"]
+    assert prior_metadata["available"] is True
+    assert prior_metadata["schema_version"] == "1.0"
+    assert prior_metadata["summary_row"]["source_file"] == "sub-01.set"
+    assert prior_metadata["strict_violations"] == prior_metadata["warnings"]
+    assert prior_metadata["artifact_paths"].keys() == {
+        "json",
+        "report",
+        "dataset_summary",
+    }
+    for artifact_path in prior_metadata["artifact_paths"].values():
+        assert Path(artifact_path).exists()
