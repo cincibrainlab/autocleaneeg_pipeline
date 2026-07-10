@@ -1,0 +1,223 @@
+from pathlib import Path
+from unittest.mock import patch
+
+import numpy as np
+
+import autoclean.calc.assr_runner as assr_runner
+from autoclean.calc import assr_analysis
+
+
+class _FakeTFR:
+    def __init__(self, data, times=None):
+        self.data = np.asarray(data, dtype=float)
+        self.times = np.asarray(times if times is not None else [0.0, 0.1, 0.2])
+        self.saved_to = []
+
+    def save(self, output_file, overwrite=False):
+        self.saved_to.append((Path(output_file), overwrite))
+        Path(output_file).write_text("saved")
+
+
+class _FakeEpochs:
+    filename = None
+
+    def __init__(self):
+        self.ch_names = ["Cz", "HEOG", "EKG", "Status"]
+        self.drop_log = [(), ("BAD",)]
+
+    def get_channel_types(self):
+        return ["eeg", "eog", "ecg", "misc"]
+
+
+def _fake_tf_data():
+    freqs = np.array([4, 8, 12, 35, 40, 50, 70, 80, 90], dtype=float)
+    times = np.array([0.0, 0.1, 0.2, 0.6], dtype=float)
+    avg_data = np.ones((4, len(freqs), len(times)))
+    trial_data = np.ones((2, 4, len(freqs), len(times)))
+    return {
+        "power": _FakeTFR(avg_data, times),
+        "itc": (_FakeTFR(avg_data, times), _FakeTFR(avg_data * 2, times)),
+        "ersp": _FakeTFR(avg_data * 3, times),
+        "single_trial_power": _FakeTFR(trial_data * 4, times),
+        "freqs": freqs,
+    }
+
+
+def _legacy_tf_data():
+    freqs = np.array([4, 5, 8, 10, 12, 35, 40, 45, 75, 80, 85], dtype=float)
+    times = np.array([0.0, 0.1, 0.2, 2.9], dtype=float)
+    avg_data = np.arange(len(freqs) * len(times), dtype=float).reshape(
+        1, len(freqs), len(times)
+    )
+    trial_data = np.stack([avg_data + 100, avg_data + 200], axis=0)
+    return {
+        "power": _FakeTFR(avg_data, times),
+        "itc": (_FakeTFR(avg_data, times), _FakeTFR(avg_data + 1000, times)),
+        "ersp": _FakeTFR(avg_data + 2000, times),
+        "single_trial_power": _FakeTFR(trial_data),
+        "freqs": freqs,
+    }
+
+
+class _SingleChannelEpochs:
+    filename = None
+    ch_names = ["Cz"]
+    drop_log = [(), ("BAD",), ()]
+
+
+def test_compute_metrics_preserves_legacy_default_columns_and_values():
+    tf_data = _legacy_tf_data()
+    results = assr_analysis.compute_metrics(tf_data, _SingleChannelEpochs())
+    row = results.iloc[0]
+
+    assert results.columns.tolist() == [
+        "eegid",
+        "trials",
+        "chan",
+        "rejtrials",
+        "stp_gamma",
+        "stp_gamma1",
+        "stp_gamma2",
+        "stp_alpha",
+        "stp_theta",
+        "ersp_gamma",
+        "ersp_gamma1",
+        "ersp_gamma2",
+        "ersp_alpha",
+        "ersp_theta",
+        "itc40",
+        "itc80",
+        "itconset",
+        "itcoffset",
+    ]
+    assert row["eegid"] == "synthetic_epochs"
+    assert row["trials"] == 3
+    assert row["chan"] == "Cz"
+    assert row["rejtrials"] == 1
+
+    freqs = tf_data["freqs"]
+    times = tf_data["itc"][1].times
+    itc_data = tf_data["itc"][1].data[0]
+    stp_data = tf_data["single_trial_power"].data[:, 0]
+    ersp_data = tf_data["ersp"].data[0]
+
+    def freq_idx(fmin, fmax):
+        return np.where((freqs >= fmin) & (freqs <= fmax))[0]
+
+    def time_idx(tmin, tmax):
+        return np.where((times >= tmin) & (times <= tmax))[0]
+
+    all_time = time_idx(0, 3.0)
+    onset_time = time_idx(0.092, 0.308)
+    offset_time = time_idx(2.8, 3.0)
+
+    expected = {
+        "itc40": np.mean(itc_data[freq_idx(35, 45)][:, all_time]),
+        "itc80": np.mean(itc_data[freq_idx(75, 85)][:, all_time]),
+        "itconset": np.mean(itc_data[freq_idx(2, 13)][:, onset_time]),
+        "itcoffset": np.mean(itc_data[freq_idx(2, 13)][:, offset_time]),
+        "stp_alpha": np.mean(stp_data[:, freq_idx(8, 13), :]),
+        "stp_theta": np.mean(stp_data[:, freq_idx(4, 7), :]),
+        "stp_gamma1": np.mean(stp_data[:, freq_idx(30, 55), :]),
+        "stp_gamma2": np.mean(stp_data[:, freq_idx(65, 80), :]),
+        "stp_gamma": np.mean(stp_data[:, freq_idx(30, 80), :]),
+        "ersp_alpha": np.mean(ersp_data[freq_idx(8, 13), :]),
+        "ersp_theta": np.mean(ersp_data[freq_idx(4, 7), :]),
+        "ersp_gamma1": np.mean(ersp_data[freq_idx(30, 55), :]),
+        "ersp_gamma2": np.mean(ersp_data[freq_idx(65, 80), :]),
+        "ersp_gamma": np.mean(ersp_data[freq_idx(30, 80), :]),
+    }
+    for column, value in expected.items():
+        assert row[column] == value
+
+
+def test_resolve_assr_epochs_profile_and_overrides():
+    settings = assr_analysis.resolve_assr_analysis_settings(
+        profile="assr_epochs",
+        overrides={"save_tfr": True, "time_windows": {"all": (0.0, 0.5)}},
+    )
+
+    assert settings["profile"] == "assr_epochs"
+    assert settings["save_tfr"] is True
+    assert settings["time_windows"]["all"] == (0.0, 0.5)
+    assert settings["time_windows"]["itc_onset"] == (0.092, 0.308)
+    assert settings["combined_bands"]["gamma_combined"] == [(30, 55), (65, 80)]
+
+
+def test_compute_metrics_excludes_non_eeg_and_records_skips():
+    audit = {"skipped_freq_bands": [], "skipped_time_windows": []}
+
+    results = assr_analysis.compute_metrics(
+        _fake_tf_data(),
+        _FakeEpochs(),
+        freq_bands={"alpha": (8, 13), "missing": None, "too_high": (120, 130)},
+        time_windows={"all": (0, 0.2), "bad_window": (3, 4)},
+        combined_bands={"gamma_combined": [(35, 40), (70, 80)]},
+        exclude_channel_types=["eog", "ecg", "misc"],
+        audit=audit,
+    )
+
+    assert results["chan"].tolist() == ["Cz"]
+    assert "stp_gamma_combined" in results.columns
+    assert "ersp_gamma_combined" in results.columns
+    assert audit["excluded_channels"] == [
+        {"channel": "HEOG", "type": "eog"},
+        {"channel": "EKG", "type": "ecg"},
+        {"channel": "Status", "type": "misc"},
+    ]
+    assert {item["name"] for item in audit["skipped_freq_bands"]} >= {
+        "missing",
+        "too_high",
+    }
+    assert audit["skipped_time_windows"] == [
+        {"name": "bad_window", "reason": "outside_epoch_range"}
+    ]
+
+
+def test_analyze_assr_writes_settings_and_saves_tfr_when_requested():
+    epochs = _FakeEpochs()
+    tf_data = _fake_tf_data()
+
+    with (
+        patch.object(
+            assr_analysis, "compute_time_frequency", return_value=tf_data
+        ) as compute,
+        patch.object(assr_analysis.Path, "mkdir") as mkdir,
+        patch("autoclean.calc.assr_analysis.pd.DataFrame.to_csv") as to_csv,
+        patch.object(assr_analysis, "_save_tfr_artifacts") as save_tfr,
+        patch.object(assr_analysis, "_write_analysis_metadata") as write_metadata,
+    ):
+        result = assr_analysis.analyze_assr(
+            output_dir="out",
+            save_results=True,
+            epochs=epochs,
+            file_basename="subject01",
+            analysis_profile="assr_epochs",
+            analysis_config={"save_tfr": True},
+        )
+
+    compute.assert_called_once_with(epochs, baseline=(-0.2, 0.0))
+    assert mkdir.call_count >= 1
+    to_csv.assert_called_once()
+    save_tfr.assert_called_once()
+    write_metadata.assert_called_once()
+    assert result["analysis_settings"]["save_tfr"] is True
+
+
+def test_runner_passes_analysis_config_to_analyze_assr():
+    with (
+        patch.object(assr_runner.Path, "mkdir"),
+        patch.object(assr_runner, "analyze_assr") as analyze,
+    ):
+        analyze.return_value = {"ok": True}
+        result = assr_runner.run_analysis_only(
+            "input.set",
+            "out",
+            analysis_profile="assr_epochs",
+            analysis_config={"save_tfr": True},
+        )
+
+    assert result == {"ok": True}
+    _, kwargs = analyze.call_args
+    assert kwargs["analysis_profile"] == "assr_epochs"
+    assert kwargs["analysis_config"] == {"save_tfr": True}

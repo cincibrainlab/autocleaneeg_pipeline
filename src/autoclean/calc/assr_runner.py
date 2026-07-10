@@ -23,7 +23,12 @@ from assr_viz import plot_all_figures, plot_global_mean_itc, plot_topomap
 
 
 def run_complete_analysis(
-    file_path=None, output_dir=None, epochs=None, file_basename=None
+    file_path=None,
+    output_dir=None,
+    epochs=None,
+    file_basename=None,
+    analysis_profile=None,
+    analysis_config=None,
 ):
     """
     Run the complete analysis with all plots
@@ -69,6 +74,8 @@ def run_complete_analysis(
         save_results=True,
         epochs=epochs,
         file_basename=file_basename,
+        analysis_profile=analysis_profile,
+        analysis_config=analysis_config,
     )
 
     # Generate all plots
@@ -84,7 +91,9 @@ def run_complete_analysis(
     return analysis_results, figures
 
 
-def run_analysis_only(file_path, output_dir=None):
+def run_analysis_only(
+    file_path, output_dir=None, analysis_profile=None, analysis_config=None
+):
     """Run just the analysis without generating plots"""
     if output_dir is None:
         output_dir = Path("results")
@@ -94,7 +103,13 @@ def run_analysis_only(file_path, output_dir=None):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Running analysis only on {file_path}")
-    analysis_results = analyze_assr(file_path, output_dir, save_results=True)
+    analysis_results = analyze_assr(
+        file_path,
+        output_dir,
+        save_results=True,
+        analysis_profile=analysis_profile,
+        analysis_config=analysis_config,
+    )
 
     print("Analysis complete!")
     return analysis_results
@@ -146,19 +161,32 @@ def main():
         default="complete",
         help="Type of analysis to run",
     )
+    parser.add_argument(
+        "--analysis_profile",
+        type=str,
+        default=None,
+        help="Optional ASSR analysis profile, e.g. assr_epochs",
+    )
 
     args = parser.parse_args()
 
     if args.analysis_type == "complete":
-        run_complete_analysis(args.file_path, args.output_dir)
+        run_complete_analysis(
+            args.file_path, args.output_dir, analysis_profile=args.analysis_profile
+        )
 
     elif args.analysis_type == "analysis_only":
-        run_analysis_only(args.file_path, args.output_dir)
+        run_analysis_only(
+            args.file_path, args.output_dir, analysis_profile=args.analysis_profile
+        )
 
     elif args.analysis_type == "plots_only":
         # First run the analysis to get the results
         analysis_results = analyze_assr(
-            args.file_path, args.output_dir, save_results=False
+            args.file_path,
+            args.output_dir,
+            save_results=False,
+            analysis_profile=args.analysis_profile,
         )
         # Then create only specific plots
         create_specific_plots(analysis_results, args.output_dir)
