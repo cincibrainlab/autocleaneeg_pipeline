@@ -704,10 +704,16 @@ def apply_ica_component_rejection(
     normalized_flags_to_reject = {
         normalize_ic_type(flag) for flag in ic_flags_to_reject
     }
-    normalized_overrides = {
-        normalize_ic_type(flag): threshold
-        for flag, threshold in ic_rejection_overrides.items()
-    }
+    normalized_overrides = {}
+    for flag, threshold in ic_rejection_overrides.items():
+        normalized_flag = normalize_ic_type(flag)
+        if normalized_flag in normalized_overrides:
+            message(
+                "warning",
+                "Multiple ICA rejection threshold overrides normalize to "
+                f"'{normalized_flag}'. Using the last configured value.",
+            )
+        normalized_overrides[normalized_flag] = threshold
 
     rejected_components = []
     for idx, row in labels_df.iterrows():

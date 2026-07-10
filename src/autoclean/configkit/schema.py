@@ -67,7 +67,7 @@ def _is_valid_montage(value: str) -> bool:
 
 def _ic_flags_valid(flags: list) -> bool:
     try:
-        return all(flag in IC_FLAGS for flag in flags)
+        return all(str(flag).strip().lower() in IC_FLAGS for flag in flags)
     except Exception:
         return False
 
