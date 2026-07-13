@@ -12,6 +12,7 @@ import autoclean.utils.prior_preprocessing as prior_preprocessing_module
 from autoclean.utils.prior_preprocessing import (
     build_prior_preprocessing_dataset_summary,
     detect_prior_preprocessing,
+    resolve_prior_preprocessing_provenance,
     write_prior_preprocessing_artifacts,
 )
 
@@ -149,6 +150,48 @@ def test_documented_highpass_history_does_not_imply_lowpass_filtering():
 
     assert summary["findings"]["highpass_filter"]["confidence"] == "documented"
     assert summary["findings"]["lowpass_filter"]["confidence"] != "documented"
+
+
+def test_provenance_resolution_prefers_full_plugin_over_compact_extracted():
+    full = _provenance_summary()
+    compact = {"summary_row": full["summary_row"]}
+
+    resolved = resolve_prior_preprocessing_provenance(
+        {"eeglab_provenance": full}, {}, compact
+    )
+
+    assert resolved is full
+
+
+def test_provenance_resolution_uses_extracted_when_plugin_is_absent():
+    extracted = _provenance_summary()
+
+    resolved = resolve_prior_preprocessing_provenance({}, {}, extracted)
+
+    assert resolved is extracted
+
+
+def test_provenance_resolution_uses_full_extracted_over_compact_plugin():
+    extracted = _provenance_summary()
+    compact = {"summary_row": extracted["summary_row"]}
+
+    resolved = resolve_prior_preprocessing_provenance(
+        {"eeglab_provenance": compact}, {}, extracted
+    )
+
+    assert resolved is extracted
+
+
+def test_provenance_resolution_keeps_explicit_caller_precedence():
+    direct = {"summary_row": {"source_file": "caller.set"}}
+
+    resolved = resolve_prior_preprocessing_provenance(
+        {"eeglab_provenance": _provenance_summary()},
+        {"eeglab_provenance": direct},
+        _provenance_summary(),
+    )
+
+    assert resolved is direct
 
 
 def test_boolean_custom_reference_flag_is_not_reported_as_label():

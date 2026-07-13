@@ -489,11 +489,8 @@ def import_eeg(
                     f"EEGLAB provenance summary unavailable: {provenance_error}",
                 )
 
-        provenance_metadata = dict(plugin_metadata)
-        if eeglab_provenance is not None:
-            provenance_metadata["eeglab_provenance"] = eeglab_provenance
         provenance_summary = resolve_prior_preprocessing_provenance(
-            provenance_metadata, autoclean_dict
+            plugin_metadata, autoclean_dict, eeglab_provenance
         )
 
         # Prepare metadata

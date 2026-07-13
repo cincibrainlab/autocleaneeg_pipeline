@@ -305,7 +305,9 @@ def resolve_prior_preprocessing_dir(autoclean_dict: Mapping[str, Any]) -> Path:
 
 
 def resolve_prior_preprocessing_provenance(
-    import_metadata: Mapping[str, Any], autoclean_dict: Mapping[str, Any]
+    import_metadata: Mapping[str, Any],
+    autoclean_dict: Mapping[str, Any],
+    extracted_provenance: Mapping[str, Any] | None = None,
 ) -> Mapping[str, Any] | None:
     """Return the richest available EEGLAB provenance summary.
 
@@ -319,10 +321,27 @@ def resolve_prior_preprocessing_provenance(
         return direct
 
     from_import = import_metadata.get("eeglab_provenance")
-    if isinstance(from_import, Mapping):
-        return from_import
+    candidates = [
+        candidate
+        for candidate in (from_import, extracted_provenance)
+        if isinstance(candidate, Mapping)
+    ]
+    if candidates:
+        # max() is stable, so equally rich summaries prefer plugin metadata.
+        return max(candidates, key=_provenance_richness)
 
     return None
+
+
+def _provenance_richness(provenance: Mapping[str, Any]) -> tuple[int, int]:
+    """Rank full documented summaries above compact summary-row metadata."""
+
+    documented = provenance.get("documented_provenance")
+    summary_row = provenance.get("summary_row")
+    return (
+        2 if isinstance(documented, Mapping) and documented else 0,
+        1 if isinstance(summary_row, Mapping) and summary_row else 0,
+    )
 
 
 def build_prior_preprocessing_warnings(
