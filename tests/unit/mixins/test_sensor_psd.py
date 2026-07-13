@@ -147,6 +147,40 @@ class TestApplySensorPsd:
         assert metadata["time_windows"] == {"early": [0.0, 1.0]}
         assert metadata["freq_bands"]["skip_me"] is None
 
+    def test_applies_baseline_before_cropping_time_window(self, task):
+        """Baseline intervals may precede the requested analysis window."""
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_sensor_psd_tables", return_value={}),
+        ):
+            psd_df, _, _ = task.apply_sensor_psd(
+                data=task.epochs,
+                fmin=1,
+                fmax=20,
+                baseline=[0, 0.2],
+                time_windows={"late": [0.5, 1.0]},
+            )
+
+        assert set(psd_df["time_window"]) == {"late"}
+
+    def test_raw_input_reports_raw_metadata(self, task):
+        """Continuous Raw input is analyzed without epoch averaging."""
+        raw = create_synthetic_raw(
+            montage="standard_1020", n_channels=4, duration=3.0, sfreq=100.0
+        )
+        with (
+            patch.object(task, "_update_metadata") as update_metadata,
+            patch.object(task, "_save_sensor_psd_tables", return_value={}),
+        ):
+            psd_df, _, _ = task.apply_sensor_psd(
+                data=raw, fmin=1, fmax=20, freq_bands=None
+            )
+
+        metadata = update_metadata.call_args.args[1]
+        assert metadata["input_type"] == "raw"
+        assert metadata["n_observations_analyzed"] == raw.n_times
+        assert len(psd_df["channel"].unique()) == len(raw.ch_names)
+
     def test_freq_bands_none_skips_band_summary(self, task):
         """freq_bands=None should skip band-power rows instead of using defaults."""
         with (

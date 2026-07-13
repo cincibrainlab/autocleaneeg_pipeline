@@ -160,6 +160,9 @@ def _sensor_psd_descriptor() -> dict:
             "adaptive": "bool (multitaper only)",
             "low_bias": "bool (multitaper only)",
             "normalization": "string (multitaper only)",
+            "freq_bands": "mapping|'default'|None",
+            "time_windows": "mapping|sequence|None",
+            "baseline": "sequence|None (Epochs only)",
         },
     }
 

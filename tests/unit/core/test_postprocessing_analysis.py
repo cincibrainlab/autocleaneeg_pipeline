@@ -182,6 +182,54 @@ def test_postprocessing_fooof_consumes_sensor_psd_table(task):
     assert (task.config["reports_dir"] / "fooof").exists()
 
 
+def test_postprocessing_tabular_fooof_records_fixed_model(task):
+    task.sensor_psd_result = {
+        "spectra": pd.DataFrame(
+            {"frequency": [2.0, 4.0, 8.0], "psd": [10.0, 5.0, 2.5]}
+        )
+    }
+    task.settings = {
+        "postprocessing_analysis": {
+            "enabled": True,
+            "value": {"fooof": {"enabled": True, "input": "sensor_psd"}},
+        }
+    }
+
+    with patch.object(task, "_update_metadata") as update_metadata:
+        task.run_postprocessing_analysis()
+
+    assert set(task.fooof_aperiodic_df["aperiodic_mode"]) == {"fixed"}
+    fooof_metadata = next(
+        call.args[1]
+        for call in update_metadata.call_args_list
+        if call.args[0] == "step_postprocessing_fooof"
+    )
+    assert fooof_metadata["aperiodic_mode"] == "fixed"
+
+
+def test_postprocessing_tabular_fooof_rejects_knee_model(task):
+    task.sensor_psd_result = {
+        "spectra": pd.DataFrame(
+            {"frequency": [2.0, 4.0, 8.0], "psd": [10.0, 5.0, 2.5]}
+        )
+    }
+    task.settings = {
+        "postprocessing_analysis": {
+            "enabled": True,
+            "value": {
+                "fooof": {
+                    "enabled": True,
+                    "input": "sensor_psd",
+                    "aperiodic_mode": "knee",
+                }
+            },
+        }
+    }
+
+    with pytest.raises(ValueError, match="supports only aperiodic_mode='fixed'"):
+        task.run_postprocessing_analysis()
+
+
 def test_postprocessing_fooof_uses_output_alias_from_prior_block(task):
     task.epochs = object()
     task.settings = {

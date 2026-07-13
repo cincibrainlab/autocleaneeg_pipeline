@@ -553,6 +553,13 @@ class Task(ABC, *DISCOVERED_MIXINS):
                 f"{sorted(required)}; missing {sorted(missing)}"
             )
 
+        aperiodic_mode = str(settings.get("aperiodic_mode", "fixed")).lower()
+        if aperiodic_mode != "fixed":
+            raise ValueError(
+                "tabular fooof supports only aperiodic_mode='fixed'; "
+                f"got {aperiodic_mode!r}"
+            )
+
         freq_range = settings.get("freq_range", [1.0, 45.0])
         low, high = float(freq_range[0]), float(freq_range[1])
         if low >= high:
@@ -600,7 +607,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
                     "input": input_name,
                     "freq_min": low,
                     "freq_max": high,
-                    "aperiodic_mode": settings.get("aperiodic_mode", "fixed"),
+                    "aperiodic_mode": aperiodic_mode,
                     "offset": offset,
                     "exponent": exponent,
                     "r_squared": r_squared,
@@ -654,7 +661,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
             {
                 "input": input_name,
                 "freq_range": [low, high],
-                "aperiodic_mode": settings.get("aperiodic_mode", "fixed"),
+                "aperiodic_mode": aperiodic_mode,
                 "output_file": str(self._report_relative_path(output_file)),
                 "periodic_output_file": (
                     str(self._report_relative_path(periodic_file))

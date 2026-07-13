@@ -127,6 +127,9 @@ class SensorPSDMixin:
             if not data_to_use.ch_names:
                 raise ValueError("No channels selected for sensor PSD analysis.")
 
+            if baseline is not None and isinstance(data_to_use, mne.BaseEpochs):
+                data_to_use.apply_baseline(tuple(baseline))
+
             if window_limits is not None:
                 start, stop = self._validate_sensor_psd_time_window(
                     data_to_use, window_limits
@@ -135,9 +138,6 @@ class SensorPSDMixin:
                 metadata_windows[window_name] = [float(start), float(stop)]
             else:
                 metadata_windows[window_name] = None
-
-            if baseline is not None and isinstance(data_to_use, mne.BaseEpochs):
-                data_to_use.apply_baseline(tuple(baseline))
 
             sfreq = float(data_to_use.info["sfreq"])
             sample_count = len(data_to_use.times)
@@ -190,7 +190,7 @@ class SensorPSDMixin:
                 window_n_observations = len(data_to_use)
             else:
                 mean_psd = psd_values
-                window_n_observations = 1
+                window_n_observations = len(data_to_use.times)
             n_observations += window_n_observations
 
             n_channels = len(data_to_use.ch_names)
