@@ -36,11 +36,19 @@ IC_FLAGS = (
     "eye",
     "eog",
     "heart",
+    "cardiac",
+    "ecg",
     "line_noise",
     "channel_noise",
     "ch_noise",
     "other",
 )
+# Note: classifiers (ICLabel/ICVision) only ever emit the canonical short
+# codes "brain", "muscle", "eog", "ecg", "line_noise", "ch_noise", "other".
+# "eye", "heart", "cardiac", and "channel_noise" are accepted here for backward
+# compatibility with existing task configs, but are normalized to their
+# canonical equivalent before rejection matching -- see
+# autoclean.functions.ica.ica_processing.normalize_ic_type (issue #226).
 
 
 def _is_valid_wavelet(name: str) -> bool:
@@ -59,7 +67,7 @@ def _is_valid_montage(value: str) -> bool:
 
 def _ic_flags_valid(flags: list) -> bool:
     try:
-        return all(flag in IC_FLAGS for flag in flags)
+        return all(str(flag).strip().lower() in IC_FLAGS for flag in flags)
     except Exception:
         return False
 
