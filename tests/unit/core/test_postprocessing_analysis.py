@@ -184,9 +184,7 @@ def test_postprocessing_fooof_consumes_sensor_psd_table(task):
 
 def test_postprocessing_tabular_fooof_records_fixed_model(task):
     task.sensor_psd_result = {
-        "spectra": pd.DataFrame(
-            {"frequency": [2.0, 4.0, 8.0], "psd": [10.0, 5.0, 2.5]}
-        )
+        "spectra": pd.DataFrame({"frequency": [2.0, 4.0, 8.0], "psd": [10.0, 5.0, 2.5]})
     }
     task.settings = {
         "postprocessing_analysis": {
@@ -209,9 +207,7 @@ def test_postprocessing_tabular_fooof_records_fixed_model(task):
 
 def test_postprocessing_tabular_fooof_rejects_knee_model(task):
     task.sensor_psd_result = {
-        "spectra": pd.DataFrame(
-            {"frequency": [2.0, 4.0, 8.0], "psd": [10.0, 5.0, 2.5]}
-        )
+        "spectra": pd.DataFrame({"frequency": [2.0, 4.0, 8.0], "psd": [10.0, 5.0, 2.5]})
     }
     task.settings = {
         "postprocessing_analysis": {
@@ -282,9 +278,7 @@ def test_postprocessing_fooof_passes_resolved_source_alias_to_legacy_method(task
     output_file = task.config["reports_dir"] / "fooof_aperiodic.parquet"
     with (
         patch.object(task, "_update_metadata"),
-        patch.object(
-            task, "apply_source_localization", return_value=alias_object
-        ),
+        patch.object(task, "apply_source_localization", return_value=alias_object),
         patch.object(
             task, "apply_fooof_aperiodic", return_value=([], output_file)
         ) as apply_fooof,
