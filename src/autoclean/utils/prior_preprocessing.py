@@ -8,8 +8,11 @@ hard failures, unless callers opt into strict validation handling.
 from __future__ import annotations
 
 import json
+import os
 import re
+import tempfile
 from collections import Counter
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -99,25 +102,84 @@ def write_prior_preprocessing_artifacts(
     summary["artifact_paths"] = artifact_paths
     json_path.write_text(json.dumps(_json_safe(summary), indent=2), encoding="utf-8")
     report_path.write_text(render_prior_preprocessing_report(summary), encoding="utf-8")
-    dataset_summary = _append_prior_preprocessing_dataset_summary(dataset_path, summary)
-    dataset_path.write_text(
-        json.dumps(_json_safe(dataset_summary), indent=2), encoding="utf-8"
-    )
+    with _dataset_summary_lock(dataset_path):
+        dataset_summary = _append_prior_preprocessing_dataset_summary(
+            dataset_path, summary
+        )
+        _atomic_write_json(dataset_path, dataset_summary)
     return artifact_paths
+
+
+@contextmanager
+def _dataset_summary_lock(dataset_path: Path):
+    """Serialize the complete dataset-summary read/modify/write operation."""
+
+    lock_path = dataset_path.with_name(f"{dataset_path.name}.lock")
+    with lock_path.open("a+b") as lock_file:
+        lock_file.seek(0)
+        if lock_file.read(1) == b"":
+            lock_file.write(b"\0")
+            lock_file.flush()
+        lock_file.seek(0)
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            lock_file.seek(0)
+            if os.name == "nt":
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def _atomic_write_json(path: Path, value: Mapping[str, Any]) -> None:
+    """Atomically replace *path* using a temporary file in the same directory."""
+
+    fd, temporary_name = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as temporary_file:
+            json.dump(_json_safe(value), temporary_file, indent=2)
+        os.replace(temporary_path, path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
 
 
 def _append_prior_preprocessing_dataset_summary(
     dataset_path: Path, summary: Mapping[str, Any]
 ) -> dict[str, Any]:
     rows = []
-    warning_counts: Counter[str] = Counter()
+    warning_counts_by_source: dict[str, dict[str, int]] = {}
+    warning_counts_migration = None
     if dataset_path.exists():
         try:
             existing = json.loads(dataset_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             existing = {}
         rows = [dict(row) for row in existing.get("rows", [])]
-        warning_counts.update(existing.get("warning_counts", {}))
+        warning_counts_migration = existing.get("warning_counts_migration")
+        stored_contributions = existing.get("warning_counts_by_source")
+        if isinstance(stored_contributions, Mapping):
+            warning_counts_by_source = {
+                str(source): dict(counts)
+                for source, counts in stored_contributions.items()
+                if isinstance(counts, Mapping)
+            }
+        elif isinstance(existing.get("warning_counts"), Mapping):
+            # Legacy aggregates cannot be safely attributed to individual rows.
+            warning_counts_migration = {
+                "status": "legacy_aggregate_reset",
+                "reason": "per-source warning contributions were unavailable",
+            }
 
     row = dict(summary.get("summary_row", {}))
     source_file = row.get("source_file")
@@ -126,14 +188,24 @@ def _append_prior_preprocessing_dataset_summary(
             existing for existing in rows if existing.get("source_file") != source_file
         ]
     rows.append(row)
-    warning_counts.update(summary.get("warnings", []))
+    contribution_key = str(source_file or f"__row_{len(rows) - 1}")
+    warning_counts_by_source[contribution_key] = dict(
+        Counter(str(warning) for warning in summary.get("warnings", []))
+    )
+    warning_counts: Counter[str] = Counter()
+    for contribution in warning_counts_by_source.values():
+        warning_counts.update(contribution)
 
-    return {
+    dataset_summary = {
         "schema_version": SCHEMA_VERSION,
         "rows": rows,
         "warning_counts": dict(sorted(warning_counts.items())),
+        "warning_counts_by_source": warning_counts_by_source,
         "warnings": _dataset_consistency_warnings(rows),
     }
+    if warning_counts_migration:
+        dataset_summary["warning_counts_migration"] = warning_counts_migration
+    return dataset_summary
 
 
 def render_prior_preprocessing_report(summary: Mapping[str, Any]) -> str:

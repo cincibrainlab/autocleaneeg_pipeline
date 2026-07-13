@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -9,6 +11,7 @@ import autoclean.utils.prior_preprocessing as prior_preprocessing_module
 from autoclean.utils.prior_preprocessing import (
     build_prior_preprocessing_dataset_summary,
     detect_prior_preprocessing,
+    write_prior_preprocessing_artifacts,
 )
 
 
@@ -81,6 +84,19 @@ def _notch_like_data(sfreq=256.0, n_times=1024):
     times = np.arange(n_times) / sfreq
     signal = np.sin(2 * np.pi * 55 * times) + np.sin(2 * np.pi * 65 * times)
     return np.vstack([signal, signal * 0.5])
+
+
+def _write_dataset_summary(
+    output_dir: str, source_file: str, warnings: list[str]
+) -> None:
+    summary = {
+        "summary_row": {"source_file": source_file},
+        "warnings": warnings,
+        "artifact_paths": {},
+    }
+    write_prior_preprocessing_artifacts(
+        summary, Path(output_dir), Path(source_file).stem
+    )
 
 
 def test_detect_prior_preprocessing_uses_202_documented_schema():
@@ -227,6 +243,66 @@ def test_dataset_summary_counts_warnings():
     assert dataset["warning_counts"] == {
         "Task ICA may repeat prior ICA decomposition": 2
     }
+
+
+def test_dataset_summary_source_replacement_is_idempotent(tmp_path):
+    warning = "Task ICA may repeat prior ICA decomposition"
+
+    _write_dataset_summary(str(tmp_path), "sub-01.set", [warning])
+    _write_dataset_summary(str(tmp_path), "sub-01.set", [warning])
+
+    dataset_path = tmp_path / "prior_preprocessing_dataset_summary.json"
+    dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
+    assert dataset["rows"] == [{"source_file": "sub-01.set"}]
+    assert dataset["warning_counts"] == {warning: 1}
+    assert dataset["warning_counts_by_source"] == {"sub-01.set": {warning: 1}}
+
+
+def test_dataset_summary_reprocessing_legacy_source_resets_unattributed_counts(
+    tmp_path,
+):
+    dataset_path = tmp_path / "prior_preprocessing_dataset_summary.json"
+    dataset_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "rows": [{"source_file": "legacy.set"}],
+                "warning_counts": {"legacy warning": 1},
+                "warnings": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    _write_dataset_summary(str(tmp_path), "legacy.set", ["current warning"])
+
+    dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
+    assert dataset["rows"] == [{"source_file": "legacy.set"}]
+    assert dataset["warning_counts"] == {"current warning": 1}
+    assert dataset["warning_counts_by_source"] == {"legacy.set": {"current warning": 1}}
+    assert dataset["warning_counts_migration"] == {
+        "status": "legacy_aggregate_reset",
+        "reason": "per-source warning contributions were unavailable",
+    }
+
+
+def test_dataset_summary_concurrent_writers_preserve_all_rows(tmp_path):
+    sources = [f"sub-{index:02d}.set" for index in range(12)]
+
+    with ProcessPoolExecutor(max_workers=4) as executor:
+        futures = [
+            executor.submit(
+                _write_dataset_summary, str(tmp_path), source, ["shared warning"]
+            )
+            for source in sources
+        ]
+        for future in futures:
+            future.result(timeout=30)
+
+    dataset_path = tmp_path / "prior_preprocessing_dataset_summary.json"
+    dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
+    assert {row["source_file"] for row in dataset["rows"]} == set(sources)
+    assert dataset["warning_counts"] == {"shared warning": len(sources)}
 
 
 class _ImportPathPlugin:
