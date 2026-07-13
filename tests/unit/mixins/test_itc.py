@@ -1,10 +1,8 @@
 """Unit tests for InterTrialCoherenceMixin (mixins/analysis/inter_trial_coherence.py)."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import mne
-import numpy as np
 import pytest
 
 from tests.fixtures.synthetic_data import create_synthetic_raw
@@ -17,9 +15,7 @@ except ImportError:
     TASK_AVAILABLE = False
 
 
-pytestmark = pytest.mark.skipif(
-    not TASK_AVAILABLE, reason="Task module not available"
-)
+pytestmark = pytest.mark.skipif(not TASK_AVAILABLE, reason="Task module not available")
 
 
 class _ITCTask(Task):
@@ -69,9 +65,7 @@ class TestComputeItcAnalysis:
 
         class _DisabledTask(_ITCTask):
             def __init__(self, c):
-                self.settings = {
-                    "itc_analysis": {"enabled": False, "value": {}}
-                }
+                self.settings = {"itc_analysis": {"enabled": False, "value": {}}}
                 super(_ITCTask, self).__init__(c)
 
             def run(self):
@@ -97,7 +91,9 @@ class TestComputeItcAnalysis:
     def test_raises_type_error_for_non_epochs_input(self, task):
         """Passing a non-Epochs object raises TypeError."""
         with patch.object(task, "_check_step_enabled", return_value=(True, {})):
-            with pytest.raises(TypeError, match="epochs must be an MNE Epochs object"):
+            with pytest.raises(
+                TypeError, match="epochs must be an MNE BaseEpochs object"
+            ):
                 task.compute_itc_analysis(epochs="not_epochs")
 
     def test_returns_power_and_itc_from_mocked_function(self, task):

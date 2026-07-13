@@ -26,6 +26,7 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 from mne.preprocessing import ICA
 
+from autoclean.functions.ica.ica_processing import normalize_ic_type
 from autoclean.functions.visualization._ica_sources_cache import (
     get_cached_ica_sources,
     get_ica_cache_stats,
@@ -184,7 +185,7 @@ class ICAReportingMixin:
         # Color the labels red or black based on component type
         artifact_types = ["eog", "muscle", "ecg", "other"]
         for ticklabel, idx in zip(ax.get_yticklabels(), range(n_components)):
-            ic_type = ic_labels["ic_type"][idx]
+            ic_type = normalize_ic_type(ic_labels["ic_type"][idx])
             if ic_type in artifact_types:
                 ticklabel.set_color("red")
             else:
@@ -417,7 +418,12 @@ class ICAReportingMixin:
                             ]
                         )
                         colors.append(
-                            [color_map.get(comp_info["ic_type"].lower(), "white")] * 4
+                            [
+                                color_map.get(
+                                    normalize_ic_type(comp_info["ic_type"]), "white"
+                                )
+                            ]
+                            * 4
                         )
                     else:
                         table_data.append(
@@ -504,6 +510,9 @@ class ICAReportingMixin:
             from autoclean.functions.visualization._ica_psd_cache import (
                 get_cached_component_psds,
             )
+            from autoclean.functions.visualization._ica_topography_cache import (
+                get_cached_topographies,
+            )
 
             try:
                 # Pre-compute all PSDs for the components we'll plot
@@ -514,6 +523,7 @@ class ICAReportingMixin:
                 get_cached_component_psds(
                     ica, raw_fast, component_indices, fmax=psd_fmax
                 )
+                get_cached_topographies(ica, component_indices)
 
                 message(
                     "info",
@@ -715,7 +725,8 @@ class ICAReportingMixin:
                 (
                     1
                     if iclabel_mapping.get(
-                        iclabel_results.iloc[i]["ic_type"].lower(), "artifact"
+                        normalize_ic_type(iclabel_results.iloc[i]["ic_type"]),
+                        "artifact",
                     )
                     == "brain"
                     else 0

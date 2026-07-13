@@ -183,13 +183,13 @@ def detect_bad_channels(
 
 
 def interpolate_bad_channels(
-    data: Union[mne.io.BaseRaw, mne.Epochs],
+    data: Union[mne.io.BaseRaw, mne.BaseEpochs],
     bad_channels: Optional[List[str]] = None,
     reset_bads: bool = True,
     mode: str = "accurate",
     origin: Union[str, Tuple[float, float, float]] = "auto",
     verbose: Optional[bool] = None,
-) -> Union[mne.io.BaseRaw, mne.Epochs]:
+) -> Union[mne.io.BaseRaw, mne.BaseEpochs]:
     """Interpolate bad channels using spherical spline interpolation.
 
     This function interpolates bad channels using spherical spline interpolation,
@@ -203,7 +203,7 @@ def interpolate_bad_channels(
 
     Parameters
     ----------
-    data : mne.io.BaseRaw or mne.Epochs
+    data : mne.io.BaseRaw or mne.BaseEpochs
         The EEG data containing bad channels to interpolate.
     bad_channels : list of str or None, default None
         List of channel names to interpolate. If None, uses channels marked
@@ -227,13 +227,13 @@ def interpolate_bad_channels(
 
     Returns
     -------
-    data_interpolated : mne.io.BaseRaw or mne.Epochs
+    data_interpolated : mne.io.BaseRaw or mne.BaseEpochs
         Copy of input data with bad channels interpolated.
 
     Raises
     ------
     TypeError
-        If data is not an MNE Raw or Epochs object.
+        If data is not an MNE Raw or BaseEpochs object.
     ValueError
         If bad_channels contains invalid channel names or parameters are invalid.
     RuntimeError
@@ -296,7 +296,7 @@ def interpolate_bad_channels(
     See Also
     --------
     mne.io.Raw.interpolate_bads : MNE's raw data interpolation method
-    mne.Epochs.interpolate_bads : MNE's epochs interpolation method
+    mne.BaseEpochs.interpolate_bads : MNE's epochs interpolation method
     autoclean.detect_bad_channels : Detect bad channels automatically
 
     References
@@ -310,9 +310,9 @@ def interpolate_bad_channels(
     Clinical Neurophysiology, 112(3), 536-544.
     """
     # Input validation
-    if not isinstance(data, (mne.io.BaseRaw, mne.Epochs)):
+    if not isinstance(data, (mne.io.BaseRaw, mne.BaseEpochs)):
         raise TypeError(
-            f"Data must be an MNE Raw or Epochs object, got {type(data).__name__}"
+            f"Data must be an MNE Raw or BaseEpochs object, got {type(data).__name__}"
         )
 
     if mode not in ["accurate", "fast"]:

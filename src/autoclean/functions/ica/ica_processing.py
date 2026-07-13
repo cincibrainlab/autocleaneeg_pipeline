@@ -24,6 +24,54 @@ except ImportError:
     ICVISION_AVAILABLE = False
 
 
+# Historically-documented / schema-level spellings that never actually match
+# what a classifier produces (see issue #226). Mapped here to their canonical
+# equivalent so config values, classifier outputs, and report labels are all
+# compared on equal footing regardless of which spelling was used.
+_IC_TYPE_ALIASES = {
+    "eye": "eog",
+    "heart": "ecg",
+    "cardiac": "ecg",
+    "channel_noise": "ch_noise",
+}
+
+
+def normalize_ic_type(value: Optional[str]) -> Optional[str]:
+    """Normalize an IC type/flag string to its canonical classifier label.
+
+    Handles case differences (e.g. ``"Ecg"`` -> ``"ecg"``) and known aliases
+    used in configs or historical docs (e.g. ``"heart"`` -> ``"ecg"``,
+    ``"channel_noise"`` -> ``"ch_noise"``, ``"eye"`` -> ``"eog"``). Values that
+    are not recognized aliases are lowercased and returned unchanged so
+    custom/future classifier labels still pass through untouched.
+
+    Parameters
+    ----------
+    value : str or None
+        The IC type or configured rejection flag to normalize.
+
+    Returns
+    -------
+    str or None
+        The canonical label, or ``None`` if ``value`` was ``None``.
+
+    Examples
+    --------
+    >>> normalize_ic_type("heart")
+    'ecg'
+    >>> normalize_ic_type("Ecg")
+    'ecg'
+    >>> normalize_ic_type("channel_noise")
+    'ch_noise'
+    >>> normalize_ic_type("brain")
+    'brain'
+    """
+    if value is None:
+        return None
+    normalized = str(value).strip().lower()
+    return _IC_TYPE_ALIASES.get(normalized, normalized)
+
+
 def fit_ica(
     raw: Union[mne.io.BaseRaw, mne.BaseEpochs],
     n_components: Optional[int] = None,
@@ -290,18 +338,20 @@ def classify_ica_components(
                 merged_ic_type = [""] * n_comp
                 # Fill from ICLabel first
                 for lbl, comps in iclabel_labels_dict.items():
+                    normalized_lbl = normalize_ic_type(lbl)
                     for ci in comps:
                         if 0 <= ci < n_comp:
-                            merged_ic_type[ci] = lbl
+                            merged_ic_type[ci] = normalized_lbl
                 # Overlay ICVision labels for the processed subset (as provided by icvision)
                 icvision_labels_dict = {
                     k: list(v) for k, v in getattr(ica, "labels_", {}).items()
                 }
                 for lbl, comps in icvision_labels_dict.items():
+                    normalized_lbl = normalize_ic_type(lbl)
                     for ci in comps:
                         if 0 <= ci < n_comp:
-                            merged_ic_type[ci] = lbl
-                            vision_ic_type[ci] = lbl
+                            merged_ic_type[ci] = normalized_lbl
+                            vision_ic_type[ci] = normalized_lbl
 
                 # Build merged confidence matrix: start from ICLabel scores, then replace subset rows with ICVision
                 # If ICLabel didn't provide scores, initialize to ones
@@ -490,10 +540,14 @@ def _icalabel_to_dataframe(ica: ICA) -> pd.DataFrame:
     # Initialize ic_type array with empty strings
     ic_type = [""] * ica.n_components_
 
-    # Fill in the component types based on labels
+    # Fill in the component types based on labels. Normalize here so every
+    # downstream consumer (rejection matching, reports, control sheet) sees
+    # the same canonical spelling regardless of which classifier produced
+    # the label or what casing it used (see issue #226).
     for label, comps in ica.labels_.items():
+        normalized_label = normalize_ic_type(label)
         for comp in comps:
-            ic_type[comp] = label
+            ic_type[comp] = normalized_label
 
     # Create DataFrame matching the original format with component index as DataFrame index
     results = pd.DataFrame(
@@ -644,14 +698,31 @@ def apply_ica_component_rejection(
     if ic_rejection_overrides is None:
         ic_rejection_overrides = {}
 
+    # Normalize both sides of the comparison so alias spellings (e.g. the
+    # commonly-configured "heart") and case differences (e.g. "Ecg") match
+    # the canonical labels classifiers actually produce (see issue #226).
+    normalized_flags_to_reject = {
+        normalize_ic_type(flag) for flag in ic_flags_to_reject
+    }
+    normalized_overrides = {}
+    for flag, threshold in ic_rejection_overrides.items():
+        normalized_flag = normalize_ic_type(flag)
+        if normalized_flag in normalized_overrides:
+            message(
+                "warning",
+                "Multiple ICA rejection threshold overrides normalize to "
+                f"'{normalized_flag}'. Using the last configured value.",
+            )
+        normalized_overrides[normalized_flag] = threshold
+
     rejected_components = []
     for idx, row in labels_df.iterrows():
-        ic_type = row["ic_type"]
+        ic_type = normalize_ic_type(row["ic_type"])
         confidence = row["confidence"]
 
-        if ic_type in ic_flags_to_reject:
+        if ic_type in normalized_flags_to_reject:
             # Use override threshold if available, otherwise global threshold
-            threshold = ic_rejection_overrides.get(ic_type, ic_rejection_threshold)
+            threshold = normalized_overrides.get(ic_type, ic_rejection_threshold)
 
             if confidence > threshold:
                 rejected_components.append(idx)

@@ -271,7 +271,9 @@ class TestChannelInterpolation:
     def test_interpolate_bad_channels_invalid_input(self):
         """Test interpolation with invalid inputs."""
         # Test invalid data type
-        with pytest.raises(TypeError, match="Data must be an MNE Raw or Epochs object"):
+        with pytest.raises(
+            TypeError, match="Data must be an MNE Raw or BaseEpochs object"
+        ):
             interpolate_bad_channels("not_mne_data")
 
         # Test invalid mode

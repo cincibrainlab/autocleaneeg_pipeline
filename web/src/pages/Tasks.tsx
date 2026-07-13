@@ -423,7 +423,7 @@ export default function TasksPage() {
                   </tr>
                 ) : filtered.map(task => (
                   <tr key={task.name} onClick={() => setSelected(s => s?.name === task.name ? null : task)}
-                    className={`border-b border-border-subtle cursor-pointer transition-colors duration-100 ${selected?.name === task.name ? "bg-brand/5" : "hover:bg-surface-50/30"}`}>
+                    className={`border-b border-border-subtle cursor-pointer transition-colors duration-100 ${selected?.name === task.name ? "bg-brand/10 light:bg-brand/15" : "hover:bg-surface-50/30"}`}>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2 min-w-0">
                         <Cpu className="w-3.5 h-3.5 text-brand/60 flex-shrink-0" />

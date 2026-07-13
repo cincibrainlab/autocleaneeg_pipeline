@@ -12,12 +12,12 @@ import numpy as np
 
 
 def detect_outlier_epochs(
-    epochs: mne.Epochs,
+    epochs: mne.BaseEpochs,
     threshold: float = 3.0,
     measures: Optional[list] = None,
     return_scores: bool = False,
     verbose: Optional[bool] = None,
-) -> mne.Epochs:
+) -> mne.BaseEpochs:
     """Detect and mark outlier epochs based on statistical measures.
 
     This function identifies epochs that are statistical outliers based on
@@ -37,7 +37,7 @@ def detect_outlier_epochs(
 
     Parameters
     ----------
-    epochs : mne.Epochs
+    epochs : mne.BaseEpochs
         The epochs object to analyze for outliers.
     threshold : float, default 3.0
         The z-score threshold for outlier detection. Epochs with z-scores
@@ -57,7 +57,7 @@ def detect_outlier_epochs(
 
     Returns
     -------
-    epochs_clean : mne.Epochs
+    epochs_clean : mne.BaseEpochs
         Copy of input epochs with outlier epochs marked as bad.
     scores : dict, optional
         Dictionary of z-scores for each measure (only if return_scores=True).
@@ -66,7 +66,7 @@ def detect_outlier_epochs(
     Raises
     ------
     TypeError
-        If epochs is not an MNE Epochs object.
+        If epochs is not an MNE BaseEpochs object.
     ValueError
         If threshold is not positive or measures contains invalid options.
     RuntimeError
@@ -117,7 +117,7 @@ def detect_outlier_epochs(
 
     See Also
     --------
-    mne.Epochs.drop_bad : Drop bad epochs
+    mne.BaseEpochs.drop_bad : Drop bad epochs
     autoclean.gfp_clean_epochs : Clean epochs using Global Field Power
 
     References
@@ -127,9 +127,9 @@ def detect_outlier_epochs(
     neuroscience methods, 192(1), 152-162.
     """
     # Input validation
-    if not isinstance(epochs, (mne.Epochs, mne.EpochsArray)):
+    if not isinstance(epochs, mne.BaseEpochs):
         raise TypeError(
-            f"epochs must be an MNE Epochs or EpochsArray object, got {type(epochs).__name__}"
+            f"epochs must be an MNE BaseEpochs object, got {type(epochs).__name__}"
         )
 
     if threshold <= 0:
@@ -219,13 +219,13 @@ def detect_outlier_epochs(
 
 
 def gfp_clean_epochs(
-    epochs: mne.Epochs,
+    epochs: mne.BaseEpochs,
     gfp_threshold: float = 3.0,
     number_of_epochs: Optional[int] = None,
     random_seed: Optional[int] = None,
     return_gfp_values: bool = False,
     verbose: Optional[bool] = None,
-) -> mne.Epochs:
+) -> mne.BaseEpochs:
     """Clean epochs based on Global Field Power (GFP) outlier detection.
 
     This function removes epochs with abnormal Global Field Power values,
@@ -238,7 +238,7 @@ def gfp_clean_epochs(
 
     Parameters
     ----------
-    epochs : mne.Epochs
+    epochs : mne.BaseEpochs
         The epochs object to clean.
     gfp_threshold : float, default 3.0
         The z-score threshold for GFP-based outlier detection. Epochs with
@@ -257,7 +257,7 @@ def gfp_clean_epochs(
 
     Returns
     -------
-    epochs_clean : mne.Epochs
+    epochs_clean : mne.BaseEpochs
         The cleaned epochs object with GFP outliers removed and optionally
         randomly subsampled.
     gfp_values : np.ndarray, optional
@@ -266,7 +266,7 @@ def gfp_clean_epochs(
     Raises
     ------
     TypeError
-        If epochs is not an MNE Epochs object.
+        If epochs is not an MNE BaseEpochs object.
     ValueError
         If threshold is not positive, number_of_epochs is invalid, or
         insufficient epochs remain after cleaning.
@@ -323,7 +323,7 @@ def gfp_clean_epochs(
 
     See Also
     --------
-    mne.Epochs.drop_bad : Drop bad epochs
+    mne.BaseEpochs.drop_bad : Drop bad epochs
     autoclean.detect_outlier_epochs : Detect outliers using multiple measures
 
     References
@@ -333,9 +333,9 @@ def gfp_clean_epochs(
     Electroencephalography and clinical neurophysiology, 48(6), 609-621.
     """
     # Input validation
-    if not isinstance(epochs, (mne.Epochs, mne.EpochsArray)):
+    if not isinstance(epochs, mne.BaseEpochs):
         raise TypeError(
-            f"epochs must be an MNE Epochs or EpochsArray object, got {type(epochs).__name__}"
+            f"epochs must be an MNE BaseEpochs object, got {type(epochs).__name__}"
         )
 
     if gfp_threshold <= 0:

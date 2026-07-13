@@ -36,11 +36,19 @@ IC_FLAGS = (
     "eye",
     "eog",
     "heart",
+    "cardiac",
+    "ecg",
     "line_noise",
     "channel_noise",
     "ch_noise",
     "other",
 )
+# Note: classifiers (ICLabel/ICVision) only ever emit the canonical short
+# codes "brain", "muscle", "eog", "ecg", "line_noise", "ch_noise", "other".
+# "eye", "heart", "cardiac", and "channel_noise" are accepted here for backward
+# compatibility with existing task configs, but are normalized to their
+# canonical equivalent before rejection matching -- see
+# autoclean.functions.ica.ica_processing.normalize_ic_type (issue #226).
 
 
 def _is_valid_wavelet(name: str) -> bool:
@@ -59,7 +67,7 @@ def _is_valid_montage(value: str) -> bool:
 
 def _ic_flags_valid(flags: list) -> bool:
     try:
-        return all(flag in IC_FLAGS for flag in flags)
+        return all(str(flag).strip().lower() in IC_FLAGS for flag in flags)
     except Exception:
         return False
 
@@ -551,6 +559,20 @@ def _build_task_settings_schema() -> Schema:
                     Optional("thresh_method"): str,
                 },
             },
+            Optional("conditionwise_epoch_rejection"): {
+                "enabled": bool,
+                "value": {
+                    Optional("robust_z_threshold"): Or(int, float),
+                    Optional("minimum_metric_flags"): int,
+                    Optional("absolute_amplitude_uv"): Or(int, float, None),
+                    Optional("max_reject_fraction"): Or(int, float),
+                    Optional("minimum_epochs"): int,
+                    Optional("exclude_channels_matching"): Or(list, tuple, None),
+                    Optional("exclude_channel_types"): Or(list, tuple, None),
+                    Optional("mode"): Or("apply", "report_only"),
+                    Optional("group_by"): "event_id",
+                },
+            },
             # Source Localization
             Optional("apply_source_localization"): {
                 "enabled": bool,
@@ -680,6 +702,20 @@ def export_task_schema_layout() -> dict:
             "component_rejection": _component_rejection_descriptor(),
             "epoch_settings": _epoch_descriptor(),
             "apply_autoreject": _autoreject_descriptor(),
+            "conditionwise_epoch_rejection": {
+                "enabled": "bool",
+                "value": {
+                    "robust_z_threshold": "number|null",
+                    "minimum_metric_flags": "int|null",
+                    "absolute_amplitude_uv": "number|null",
+                    "max_reject_fraction": "number|null",
+                    "minimum_epochs": "int|null",
+                    "exclude_channels_matching": "list|null",
+                    "exclude_channel_types": "list|null",
+                    "mode": "'apply'|'report_only'",
+                    "group_by": "'event_id'",
+                },
+            },
             "apply_source_localization": _source_localization_descriptor(),
             "apply_source_psd": _source_psd_descriptor(),
             "apply_sensor_psd": _sensor_psd_descriptor(),

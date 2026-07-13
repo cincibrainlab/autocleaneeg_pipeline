@@ -10,14 +10,14 @@ import mne
 
 
 def resample_data(
-    data: Union[mne.io.BaseRaw, mne.Epochs],
+    data: Union[mne.io.BaseRaw, mne.BaseEpochs],
     sfreq: float,
     npad: str = "auto",
     window: str = "auto",
     n_jobs: int = 1,
     pad: str = "auto",
     verbose: Optional[bool] = None,
-) -> Union[mne.io.BaseRaw, mne.Epochs]:
+) -> Union[mne.io.BaseRaw, mne.BaseEpochs]:
     """Resample EEG data to a new sampling frequency.
 
     This function changes the sampling frequency of continuous (Raw) or epoched
@@ -31,9 +31,9 @@ def resample_data(
 
     Parameters
     ----------
-    data : mne.io.BaseRaw or mne.Epochs
+    data : mne.io.BaseRaw or mne.BaseEpochs
         The EEG data to resample. Can be any MNE Raw object (e.g., RawFIF,
-        RawEEGLAB, etc.) or Epochs object.
+        RawEEGLAB, etc.) or BaseEpochs object.
     sfreq : float
         The target sampling frequency in Hz. Must be positive and typically
         should follow the Nyquist criterion relative to the highest frequency
@@ -56,7 +56,7 @@ def resample_data(
 
     Returns
     -------
-    resampled_data : mne.io.BaseRaw or mne.Epochs
+    resampled_data : mne.io.BaseRaw or mne.BaseEpochs
         The resampled data object, same type as input. Contains identical
         structure and metadata but with modified sampling frequency and
         adjusted time axis.
@@ -64,7 +64,7 @@ def resample_data(
     Raises
     ------
     TypeError
-        If data is not an MNE Raw or Epochs object.
+        If data is not an MNE Raw or BaseEpochs object.
     ValueError
         If target sampling frequency is not positive or is invalid.
     RuntimeError
@@ -124,12 +124,12 @@ def resample_data(
     See Also
     --------
     mne.io.Raw.resample : MNE's raw data resampling method
-    mne.Epochs.resample : MNE's epochs resampling method
+    mne.BaseEpochs.resample : MNE's epochs resampling method
     """
     # Input validation
-    if not isinstance(data, (mne.io.BaseRaw, mne.Epochs)):
+    if not isinstance(data, (mne.io.BaseRaw, mne.BaseEpochs)):
         raise TypeError(
-            f"Data must be an MNE Raw or Epochs object, got {type(data).__name__}"
+            f"Data must be an MNE Raw or BaseEpochs object, got {type(data).__name__}"
         )
 
     if not isinstance(sfreq, (int, float)) or sfreq <= 0:

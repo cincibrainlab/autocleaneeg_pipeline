@@ -98,7 +98,7 @@ def _normalize_threshold_mode(threshold_mode: str) -> str:
 
 
 def _resolve_pick_indices(
-    inst: Union[mne.io.BaseRaw, mne.Epochs],
+    inst: Union[mne.io.BaseRaw, mne.BaseEpochs],
     picks: Optional[Union[str, Sequence[Union[str, int]]]],
 ) -> np.ndarray:
     """Resolve channel picks into integer indices for denoising."""
@@ -192,7 +192,7 @@ def _denoise_signal(
 
 
 def wavelet_threshold(
-    data: Union[mne.io.BaseRaw, mne.Epochs],
+    data: Union[mne.io.BaseRaw, mne.BaseEpochs],
     wavelet: str = "sym4",
     level: Union[int, str] = 5,
     threshold_mode: str = "soft",
@@ -201,13 +201,13 @@ def wavelet_threshold(
     filter_kwargs: Optional[Mapping[str, Any]] = None,
     threshold_scale: float = 1.0,
     picks: Optional[Union[str, Sequence[Union[str, int]]]] = None,
-) -> Union[mne.io.BaseRaw, mne.Epochs]:
+) -> Union[mne.io.BaseRaw, mne.BaseEpochs]:
     """Apply wavelet thresholding to EEG data.
 
     Parameters
     ----------
     data
-        The MNE Raw or Epochs object to denoise.
+        The MNE Raw or BaseEpochs object to denoise.
     wavelet
         Wavelet family passed to :func:`pywt.wavedec`/``waverec``.
     level
@@ -288,7 +288,7 @@ def wavelet_threshold(
                 threshold_scale=threshold_scale,
             )
         cleaned._data = arr
-    elif isinstance(cleaned, mne.Epochs):
+    elif isinstance(cleaned, mne.BaseEpochs):
         arr = cleaned.get_data()
         for epoch in range(arr.shape[0]):
             for channel in pick_indices:
@@ -301,7 +301,7 @@ def wavelet_threshold(
                 )
         cleaned._data = arr
     else:
-        raise TypeError("data must be mne.io.BaseRaw or mne.Epochs")
+        raise TypeError("data must be mne.io.BaseRaw or mne.BaseEpochs")
     return cleaned
 
 
