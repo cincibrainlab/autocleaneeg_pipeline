@@ -415,61 +415,27 @@ class Task(ABC, *DISCOVERED_MIXINS):
 
         if block_name == "fooof":
             psd_df = self._postprocessing_psd_dataframe(data_object)
-            if psd_df is not None:
-                (
-                    aperiodic_df,
-                    aperiodic_file,
-                    periodic_df,
-                    periodic_file,
-                ) = self._run_postprocessing_tabular_fooof(
-                    psd_df=psd_df,
-                    settings=settings,
-                    input_name=input_name,
-                )
-                common["aperiodic_file"] = str(aperiodic_file)
-                common["aperiodic_rows"] = int(len(aperiodic_df))
-                if periodic_file is not None:
-                    common["periodic_file"] = str(periodic_file)
-                    common["periodic_rows"] = int(len(periodic_df))
-                common["method"] = "tabular_psd_parameterization"
-                return common
-
-            aperiodic = getattr(self, "apply_fooof_aperiodic", None)
-            periodic = getattr(self, "apply_fooof_periodic", None)
-            if aperiodic is None:
+            if psd_df is None:
                 raise ValueError(
-                    "fooof requested but apply_fooof_aperiodic is unavailable"
+                    "postprocessing fooof requires a PSD table input; configure "
+                    "fooof.input to a sensor_psd or source_psd output"
                 )
-            freq_range = settings.get("freq_range", [1.0, 45.0])
-            aperiodic_df, aperiodic_file = self._call_postprocessing_method(
-                aperiodic,
-                "apply_fooof_aperiodic",
-                settings,
-                stc=data_object,
-                fmin=freq_range[0],
-                fmax=freq_range[1],
-                n_jobs=settings.get("n_jobs", 10),
-                aperiodic_mode=settings.get("aperiodic_mode", "knee"),
-                stage_name="postprocessing_fooof_aperiodic",
+            (
+                aperiodic_df,
+                aperiodic_file,
+                periodic_df,
+                periodic_file,
+            ) = self._run_postprocessing_tabular_fooof(
+                psd_df=psd_df,
+                settings=settings,
+                input_name=input_name,
             )
             common["aperiodic_file"] = str(aperiodic_file)
-            common["aperiodic_rows"] = (
-                int(len(aperiodic_df)) if aperiodic_df is not None else 0
-            )
-            if periodic is not None and settings.get("run_periodic", True):
-                periodic_df, periodic_file = self._call_postprocessing_method(
-                    periodic,
-                    "apply_fooof_periodic",
-                    settings,
-                    freq_bands=settings.get("freq_bands"),
-                    n_jobs=settings.get("n_jobs", 10),
-                    aperiodic_mode=settings.get("aperiodic_mode", "knee"),
-                    stage_name="postprocessing_fooof_periodic",
-                )
+            common["aperiodic_rows"] = int(len(aperiodic_df))
+            if periodic_file is not None:
                 common["periodic_file"] = str(periodic_file)
-                common["periodic_rows"] = (
-                    int(len(periodic_df)) if periodic_df is not None else 0
-                )
+                common["periodic_rows"] = int(len(periodic_df))
+            common["method"] = "tabular_psd_parameterization"
             return common
 
         raise ValueError(f"Unsupported postprocessing analysis block: {block_name}")
@@ -719,13 +685,17 @@ class Task(ABC, *DISCOVERED_MIXINS):
         sensor_psd = getattr(self, "sensor_psd_result", None)
         if sensor_psd is None:
             sensor_psd = getattr(self, "sensor_psd_df", None)
+        imported_raw = getattr(self, "original_raw", None)
+        if imported_raw is None:
+            imported_raw = getattr(self, "raw", None)
+        source_epochs = getattr(self, "source_eeg", None)
+        if source_epochs is None:
+            source_epochs = getattr(self, "source_epochs", None)
         input_map = {
-            "imported_raw": getattr(self, "original_raw", None)
-            or getattr(self, "raw", None),
+            "imported_raw": imported_raw,
             "clean_raw": getattr(self, "raw", None),
             "clean_epochs": getattr(self, "epochs", None),
-            "source_epochs": getattr(self, "source_eeg", None)
-            or getattr(self, "source_epochs", None),
+            "source_epochs": source_epochs,
             "sensor_psd": sensor_psd,
             "source_psd": getattr(self, "source_psd_df", None),
         }

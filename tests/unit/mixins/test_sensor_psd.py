@@ -1,5 +1,6 @@
 """Unit tests for SensorPSDMixin (mixins/analysis/sensor_psd.py)."""
 
+import inspect
 from unittest.mock import patch
 
 import mne
@@ -55,6 +56,11 @@ def task(tmp_path):
 # ---------------------------------------------------------------------------
 # apply_sensor_psd
 # ---------------------------------------------------------------------------
+def test_apply_sensor_psd_preserves_legacy_positional_order():
+    parameters = list(inspect.signature(_PSDTask.apply_sensor_psd).parameters)
+
+    assert parameters[:4] == ["self", "epochs", "method", "fmin"]
+    assert parameters[-1] == "data"
 
 
 class TestApplySensorPsd:
@@ -157,6 +163,7 @@ class TestApplySensorPsd:
                 data=task.epochs,
                 fmin=1,
                 fmax=30,
+                freq_bands=None,
                 baseline=[0, 0.2],
                 time_windows={"late": [0.5, 1.0]},
             )

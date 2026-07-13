@@ -27,7 +27,6 @@ class SensorPSDMixin:
     def apply_sensor_psd(
         self,
         epochs: Optional[mne.BaseEpochs] = None,
-        data: Optional[Union[mne.io.BaseRaw, mne.BaseEpochs]] = None,
         method: str = "welch",
         fmin: float = 1.0,
         fmax: float = 45.0,
@@ -49,6 +48,7 @@ class SensorPSDMixin:
             Union[List[Optional[float]], Tuple[Optional[float], Optional[float]]]
         ] = None,
         stage_name: str = "apply_sensor_psd",
+        data: Optional[Union[mne.io.BaseRaw, mne.BaseEpochs]] = None,
     ) -> tuple:
         """Calculate scalp-electrode PSD summaries from Raw or epoched EEG data."""
 

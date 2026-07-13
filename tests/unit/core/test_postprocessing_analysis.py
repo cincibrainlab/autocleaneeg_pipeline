@@ -145,7 +145,34 @@ def test_postprocessing_analysis_rejects_missing_input(task):
     }
 
     with pytest.raises(ValueError, match="source_psd.*not available"):
+
         task.run_postprocessing_analysis()
+
+
+def test_postprocessing_input_preserves_objects_without_truth_testing(task):
+    class NoTruthValue:
+        def __bool__(self):
+            raise AssertionError("postprocessing inputs must not be truth-tested")
+
+    imported = NoTruthValue()
+    source = NoTruthValue()
+    task.original_raw = imported
+    task.source_eeg = source
+
+    assert task._resolve_postprocessing_input("imported_raw") is imported
+    assert task._resolve_postprocessing_input("source_epochs") is source
+
+
+def test_postprocessing_input_falls_back_only_for_none(task):
+    imported_fallback = object()
+    source_fallback = object()
+    task.original_raw = None
+    task.source_eeg = None
+    task.raw = imported_fallback
+    task.source_epochs = source_fallback
+
+    assert task._resolve_postprocessing_input("imported_raw") is imported_fallback
+    assert task._resolve_postprocessing_input("source_epochs") is source_fallback
 
 
 def test_postprocessing_fooof_consumes_sensor_psd_table(task):
@@ -255,7 +282,7 @@ def test_postprocessing_fooof_uses_output_alias_from_prior_block(task):
     assert task.fooof_aperiodic_df.iloc[0]["status"] == "SUCCESS"
 
 
-def test_postprocessing_fooof_passes_resolved_source_alias_to_legacy_method(task):
+def test_postprocessing_fooof_rejects_non_tabular_source_alias(task):
     alias_object = object()
     task.settings = {
         "postprocessing_analysis": {
@@ -275,17 +302,15 @@ def test_postprocessing_fooof_passes_resolved_source_alias_to_legacy_method(task
         }
     }
 
-    output_file = task.config["reports_dir"] / "fooof_aperiodic.parquet"
     with (
         patch.object(task, "_update_metadata"),
         patch.object(task, "apply_source_localization", return_value=alias_object),
-        patch.object(
-            task, "apply_fooof_aperiodic", return_value=([], output_file)
-        ) as apply_fooof,
+        patch.object(task, "apply_fooof_aperiodic") as apply_fooof,
     ):
-        task.run_postprocessing_analysis()
+        with pytest.raises(ValueError, match="requires a PSD table input"):
+            task.run_postprocessing_analysis()
 
-    assert apply_fooof.call_args.kwargs["stc"] is alias_object
+    apply_fooof.assert_not_called()
 
 
 def test_postprocessing_resolves_legacy_sensor_psd_dataframe(task):
