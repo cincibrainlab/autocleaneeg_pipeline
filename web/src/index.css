@@ -35,12 +35,12 @@
 
 /* Light mode overrides */
 html.light {
-  --color-surface-50: #f0f0f0;
-  --color-surface-100: #e8e8e8;
+  --color-surface-50: #ffffff;
+  --color-surface-100: #fafafa;
   --color-surface-200: #f5f5f5;
-  --color-surface: #fafafa;
-  --color-surface-300: #ffffff;
-  --color-surface-400: #f0f0f0;
+  --color-surface: #f0f0f0;
+  --color-surface-300: #f0f0f0;
+  --color-surface-400: #e8e8e8;
   --color-surface-500: #e5e5e5;
   --color-border: #d4d4d8;
   --color-border-subtle: #e4e4e7;
