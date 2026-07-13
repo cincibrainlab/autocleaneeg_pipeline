@@ -18,3 +18,5 @@ review. It does not stop the import or preprocessing run.
 
 Detection is conservative: documented provenance has priority, while signal
 inspection produces confidence labels rather than proof of prior processing.
+When enabled, signal inference reads and processes the full signal and may use
+substantial memory and CPU time for long recordings.

@@ -206,17 +206,25 @@ def _mne_provenance_view(eeg_data: Any) -> dict[str, Any]:
         {"labels": name, "type": kind}
         for name, kind in zip(eeg_data.ch_names, eeg_data.get_channel_types())
     ]
-    annotations = getattr(eeg_data, "annotations", None)
-    if annotations is not None:
-        events = [{"type": description} for description in annotations.description]
-    else:
+    epoch_events = getattr(eeg_data, "events", None)
+    if epoch_events is not None and len(epoch_events):
         code_to_name = {
             code: name for name, code in getattr(eeg_data, "event_id", {}).items()
         }
         events = [
-            {"type": code_to_name.get(int(event[2]), str(int(event[2])))}
-            for event in getattr(eeg_data, "events", [])
+            {
+                "type": code_to_name.get(int(event[2]), str(int(event[2]))),
+                "code": str(int(event[2])),
+            }
+            for event in epoch_events
         ]
+    else:
+        annotations = getattr(eeg_data, "annotations", None)
+        events = (
+            [{"type": description} for description in annotations.description]
+            if annotations is not None and len(annotations)
+            else []
+        )
 
     times = eeg_data.times
     is_epochs = hasattr(eeg_data, "events")
@@ -228,7 +236,14 @@ def _mne_provenance_view(eeg_data: Any) -> dict[str, Any]:
         "pnts": len(times),
         "xmin": times[0] if len(times) else UNAVAILABLE,
         "xmax": times[-1] if len(times) else UNAVAILABLE,
-        "ref": "average" if info.get("custom_ref_applied") else UNAVAILABLE,
+        "ref": next(
+            (
+                value
+                for value in (info.get("reference"), info.get("ref"))
+                if isinstance(value, str) and value.strip()
+            ),
+            UNAVAILABLE,
+        ),
         "chanlocs": chanlocs,
         "event": events,
     }

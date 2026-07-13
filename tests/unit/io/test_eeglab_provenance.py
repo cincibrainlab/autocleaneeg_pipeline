@@ -103,6 +103,31 @@ def test_extract_from_loaded_mne_data_does_not_reparse_set(tmp_path) -> None:
     assert documented["history"] == "unavailable"
 
 
+def test_extract_from_loaded_epochs_preserves_event_codes_without_reparse(
+    tmp_path,
+) -> None:
+    set_file = tmp_path / "epochs.set"
+    set_file.write_bytes(b"not parsed")
+    info = mne.create_info(["Cz"], 250, ["eeg"])
+    events = np.array([[0, 0, 11], [100, 0, 22]])
+    epochs = mne.EpochsArray(
+        np.zeros((2, 1, 25)),
+        info,
+        events=events,
+        event_id={"standard": 11, "target": 22},
+        verbose=False,
+    )
+
+    with patch("autoclean.io.eeglab_provenance.sio.loadmat") as loadmat:
+        summary = extract_eeglab_provenance(set_file, epochs)
+
+    loadmat.assert_not_called()
+    documented_events = summary["documented_provenance"]["events"]
+    assert documented_events["labels"] == ["standard", "target"]
+    assert documented_events["codes"] == ["11", "22"]
+    assert summary["documented_provenance"]["reference"] == "unavailable"
+
+
 def test_render_eeglab_provenance_report_labels_missing_as_unavailable() -> None:
     summary = summarize_eeglab_provenance(_ns(), "empty.set")
 

@@ -875,7 +875,7 @@ def _epoch_window(
 
 
 def _reference(info: Mapping[str, Any]) -> Any:
-    for key in ("reference", "ref", "description"):
+    for key in ("reference", "ref"):
         value = info.get(key, UNAVAILABLE)
         if isinstance(value, str) and value.strip() not in {UNAVAILABLE, UNKNOWN}:
             return value

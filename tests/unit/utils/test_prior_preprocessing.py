@@ -204,6 +204,16 @@ def test_boolean_custom_reference_flag_is_not_reported_as_label():
     assert summary["findings"]["reference"]["value"] is not True
 
 
+def test_info_description_is_not_treated_as_reference_metadata():
+    raw = _RawStub(np.zeros((2, 128)))
+    raw.info["custom_ref_applied"] = False
+    raw.info["description"] = "Participant completed resting-state recording"
+
+    summary = detect_prior_preprocessing(raw)
+
+    assert summary["documented_metadata"]["reference"] == "unavailable"
+
+
 def test_signal_inference_flags_likely_notch_and_aux_channels():
     raw = _RawStub(_notch_like_data())
 
