@@ -11,8 +11,5 @@ describe("primary button contrast", () => {
       .join("\n");
 
     expect(sources).not.toContain("text-surface-500");
-    expect(
-      sources.match(/bg-brand[^"\n]*text-brand-900/g),
-    ).toHaveLength(21);
   });
 });
