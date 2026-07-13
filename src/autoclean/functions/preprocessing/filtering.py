@@ -10,7 +10,7 @@ import mne
 
 
 def filter_data(
-    data: Union[mne.io.BaseRaw, mne.Epochs],
+    data: Union[mne.io.BaseRaw, mne.BaseEpochs],
     l_freq: Optional[float] = None,
     h_freq: Optional[float] = None,
     notch_freqs: Optional[List[float]] = None,
@@ -19,7 +19,7 @@ def filter_data(
     phase: str = "zero",
     fir_window: str = "hamming",
     verbose: Optional[bool] = None,
-) -> Union[mne.io.base.BaseRaw, mne.Epochs]:
+) -> Union[mne.io.base.BaseRaw, mne.BaseEpochs]:
     """Filter EEG data using highpass, lowpass, and/or notch filtering.
 
     This function applies digital filtering to continuous (Raw) or epoched EEG data.
@@ -28,14 +28,14 @@ def filter_data(
     specific frequencies (e.g., 50/60 Hz power line interference).
 
     The function automatically detects the input data type and preserves it,
-    returning the same type (Raw or Epochs) with identical structure but
+    returning the same type (Raw or BaseEpochs) with identical structure but
     filtered time series data.
 
     Parameters
     ----------
-    data : mne.io.BaseRaw or mne.Epochs
+    data : mne.io.BaseRaw or mne.BaseEpochs
         The EEG data to filter. Can be any MNE Raw object (e.g., RawFIF,
-        RawEEGLAB, etc.) or Epochs object.
+        RawEEGLAB, etc.) or BaseEpochs object.
     l_freq : float or None, default None
         Low cutoff frequency for highpass filtering in Hz. If None, no
         highpass filtering is applied. Typical values: 0.1-1.0 Hz for
@@ -66,7 +66,7 @@ def filter_data(
 
     Returns
     -------
-    filtered_data : mne.io.BaseRaw or mne.Epochs
+    filtered_data : mne.io.BaseRaw or mne.BaseEpochs
         The filtered data object, same type as input. Contains identical
         structure and metadata but with filtered time series data.
 
@@ -79,14 +79,14 @@ def filter_data(
     See Also
     --------
     mne.io.Raw.filter : MNE's raw data filtering method
-    mne.Epochs.filter : MNE's epochs filtering method
+    mne.BaseEpochs.filter : MNE's epochs filtering method
     mne.io.Raw.notch_filter : MNE's notch filtering for raw data
-    mne.Epochs.notch_filter : MNE's notch filtering for epochs
+    mne.BaseEpochs.notch_filter : MNE's notch filtering for epochs
     """
     # Input validation
-    if not isinstance(data, (mne.io.BaseRaw, mne.Epochs)):
+    if not isinstance(data, (mne.io.BaseRaw, mne.BaseEpochs)):
         raise TypeError(
-            f"Data must be an MNE Raw or Epochs object, got {type(data).__name__}"
+            f"Data must be an MNE Raw or BaseEpochs object, got {type(data).__name__}"
         )
 
     # Validate frequency parameters

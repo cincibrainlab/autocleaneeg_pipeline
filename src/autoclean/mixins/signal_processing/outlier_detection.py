@@ -19,6 +19,8 @@ from typing import Union
 import mne
 import numpy as np
 
+from autoclean.utils.logging import message
+
 
 class OutlierDetectionMixin:
     """Mixin class providing functionality for outlier detection in epochs.
@@ -37,8 +39,8 @@ class OutlierDetectionMixin:
     """
 
     def detect_outlier_epochs(
-        self, epochs: Union[mne.Epochs, None] = None, threshold: float = 3.0
-    ) -> mne.Epochs:
+        self, epochs: Union[mne.BaseEpochs, None] = None, threshold: float = 3.0
+    ) -> mne.BaseEpochs:
         """Detect and remove outlier epochs based on statistical measures.
 
         This method identifies and marks epochs that are statistical outliers based on
@@ -57,14 +59,14 @@ class OutlierDetectionMixin:
 
         Parameters
         ----------
-        epochs : mne.Epochs, Optional
-            The epochs object to prepare for ICA. If None, uses self.epochs.
+        epochs : mne.BaseEpochs, Optional
+            The epochs object to inspect for outliers. If None, uses self.epochs.
         threshold : float, Optional
             The z-score threshold for outlier detection (default: 3.0).
 
         Returns
         -------
-        epochs_clean : instance of mne.Epochs
+        epochs_clean : instance of mne.BaseEpochs
             The epochs object with outlier epochs marked as bad
 
 
@@ -86,8 +88,6 @@ class OutlierDetectionMixin:
         is_enabled, config_value = self._check_step_enabled("detect_outlier_epochs")
 
         if not is_enabled:
-            from autoclean.utils.logging import message
-
             message("info", "Outlier epoch detection step is disabled in configuration")
             return None
 
@@ -100,9 +100,11 @@ class OutlierDetectionMixin:
 
         # Type checking
         if not isinstance(
-            epochs, mne.Epochs
+            epochs, mne.BaseEpochs
         ):  # pylint: disable=isinstance-second-argument-not-valid-type
-            raise TypeError("Data must be an MNE Epochs object for outlier detection")
+            raise TypeError(
+                "Data must be an MNE BaseEpochs object for outlier detection"
+            )
 
         try:
             message("header", "Detecting and removing outlier epochs")

@@ -34,7 +34,7 @@ from autoclean.utils.logging import message
 
 
 def _validate_wavelet_parameters(
-    freqs: np.ndarray, n_cycles: Union[float, np.ndarray], epochs: mne.Epochs
+    freqs: np.ndarray, n_cycles: Union[float, np.ndarray], epochs: mne.BaseEpochs
 ) -> None:
     """Validate that wavelet length doesn't exceed epoch duration.
 
@@ -44,7 +44,7 @@ def _validate_wavelet_parameters(
         Frequencies of interest.
     n_cycles : float or np.ndarray
         Number of cycles for wavelets.
-    epochs : mne.Epochs
+    epochs : mne.BaseEpochs
         The epoched data.
 
     Raises
@@ -73,12 +73,12 @@ def _validate_wavelet_parameters(
         )
 
 
-def _validate_epoch_requirements(epochs: mne.Epochs, min_trials: int = 10) -> None:
+def _validate_epoch_requirements(epochs: mne.BaseEpochs, min_trials: int = 10) -> None:
     """Validate sufficient trials for stable ITC estimates.
 
     Parameters
     ----------
-    epochs : mne.Epochs
+    epochs : mne.BaseEpochs
         The epoched data.
     min_trials : int, optional
         Minimum number of trials required. Default is 10.
@@ -129,7 +129,7 @@ def _validate_frequency_range(freqs: np.ndarray, sfreq: float) -> None:
 
 
 def compute_statistical_learning_itc(
-    epochs: mne.Epochs,
+    epochs: mne.BaseEpochs,
     freqs: Optional[np.ndarray] = None,
     n_cycles: Union[float, np.ndarray] = 7.0,
     time_bandwidth: float = 4.0,
@@ -150,7 +150,7 @@ def compute_statistical_learning_itc(
 
     Parameters
     ----------
-    epochs : mne.Epochs
+    epochs : mne.BaseEpochs
         The epoched data from statistical learning paradigm.
     freqs : np.ndarray, optional
         Frequencies of interest. If None, uses 50 logarithmically spaced frequencies
@@ -211,8 +211,8 @@ def compute_statistical_learning_itc(
         )
 
     # Validate input
-    if not isinstance(epochs, mne.Epochs):
-        raise TypeError("epochs must be an MNE Epochs object")
+    if not isinstance(epochs, mne.BaseEpochs):
+        raise TypeError("epochs must be an MNE BaseEpochs object")
 
     if len(epochs) == 0:
         raise ValueError("epochs object is empty")

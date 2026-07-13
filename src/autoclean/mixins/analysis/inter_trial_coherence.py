@@ -28,7 +28,7 @@ class InterTrialCoherenceMixin:
 
     def compute_itc_analysis(
         self,
-        epochs: Union[mne.Epochs, None] = None,
+        epochs: Union[mne.BaseEpochs, None] = None,
         freqs: Optional[np.ndarray] = None,
         n_cycles: Union[float, np.ndarray] = 7.0,
         time_bandwidth: float = 4.0,
@@ -56,7 +56,7 @@ class InterTrialCoherenceMixin:
 
         Parameters
         ----------
-        epochs : mne.Epochs, optional
+        epochs : mne.BaseEpochs, optional
             The epoched data. If None, uses self.epochs.
         freqs : np.ndarray, optional
             Frequencies of interest. If None, uses 0.5-20 Hz range.
@@ -127,8 +127,8 @@ class InterTrialCoherenceMixin:
                     "No epochs available. Run epoching first or provide epochs parameter."
                 )
 
-        if not isinstance(epochs, mne.Epochs):
-            raise TypeError("epochs must be an MNE Epochs object")
+        if not isinstance(epochs, mne.BaseEpochs):
+            raise TypeError("epochs must be an MNE BaseEpochs object")
 
         try:
             message(
@@ -306,7 +306,7 @@ class InterTrialCoherenceMixin:
         itc: mne.time_frequency.AverageTFR,
         band_results: Optional[Dict[str, float]],
         stage_name: str,
-        epochs: mne.Epochs,
+        epochs: mne.BaseEpochs,
     ) -> None:
         """Update metadata with ITC analysis information."""
         try:
