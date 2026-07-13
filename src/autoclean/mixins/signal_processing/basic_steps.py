@@ -22,11 +22,11 @@ class BasicStepsMixin:
 
     def run_basic_steps(
         self,
-        data: Union[mne.io.Raw, mne.Epochs, None] = None,
+        data: Union[mne.io.Raw, mne.BaseEpochs, None] = None,
         use_epochs: bool = False,
         stage_name: str = "post_basic_steps",
         export: bool = False,
-    ) -> Union[mne.io.Raw, mne.Epochs]:
+    ) -> Union[mne.io.Raw, mne.BaseEpochs]:
         """Runs all basic preprocessing steps sequentially based on configuration.
 
         .. deprecated:: 2.3.0
@@ -72,7 +72,7 @@ class BasicStepsMixin:
 
         Returns
         -------
-        inst : instance of mne.io.Raw or mne.io.Epochs
+        inst : instance of mne.io.Raw or mne.BaseEpochs
             The data object after applying all enabled basic processing steps.
         """
         warnings.warn(
@@ -127,7 +127,7 @@ class BasicStepsMixin:
 
     def filter_data(
         self,
-        data: Union[mne.io.Raw, mne.Epochs, None] = None,
+        data: Union[mne.io.Raw, mne.BaseEpochs, None] = None,
         use_epochs: bool = False,
         l_freq: Optional[float] = None,
         h_freq: Optional[float] = None,
@@ -137,7 +137,7 @@ class BasicStepsMixin:
         phase: Optional[str] = None,
         fir_window: Optional[str] = None,
         verbose: Optional[bool] = None,
-    ) -> Union[mne.io.Raw, mne.Epochs]:
+    ) -> Union[mne.io.Raw, mne.BaseEpochs]:
         """Apply filtering to EEG data within the AutoClean pipeline.
 
         This method wraps the standalone :func:`autoclean.filter_data` function
@@ -157,7 +157,7 @@ class BasicStepsMixin:
 
         Parameters
         ----------
-        data : mne.io.Raw, mne.Epochs, or None, default None
+        data : mne.io.Raw, mne.BaseEpochs, or None, default None
             Input data. If None, uses ``self.raw`` or ``self.epochs`` based on
             ``use_epochs`` parameter.
         use_epochs : bool, default False
@@ -183,7 +183,7 @@ class BasicStepsMixin:
 
         Returns
         -------
-        filtered_data : mne.io.Raw or mne.Epochs
+        filtered_data : mne.io.Raw or mne.BaseEpochs
             Filtered data object. Also updates ``self.raw`` or ``self.epochs``
             and triggers metadata tracking and export if configured.
 
@@ -294,7 +294,7 @@ class BasicStepsMixin:
 
     def resample_data(
         self,
-        data: Union[mne.io.Raw, mne.Epochs, None] = None,
+        data: Union[mne.io.Raw, mne.BaseEpochs, None] = None,
         target_sfreq: Optional[float] = None,
         stage_name: str = "post_resample",
         use_epochs: bool = False,
@@ -303,7 +303,7 @@ class BasicStepsMixin:
         n_jobs: Optional[int] = None,
         pad: Optional[str] = None,
         verbose: Optional[bool] = None,
-    ) -> Union[mne.io.Raw, mne.Epochs]:
+    ) -> Union[mne.io.Raw, mne.BaseEpochs]:
         """Apply resampling to EEG data within the AutoClean pipeline.
 
         This method wraps the standalone :func:`autoclean.resample_data` function
@@ -316,7 +316,7 @@ class BasicStepsMixin:
 
         Parameters
         ----------
-        data : mne.io.Raw, mne.Epochs, or None, default None
+        data : mne.io.Raw, mne.BaseEpochs, or None, default None
             Input data. If None, uses ``self.raw`` or ``self.epochs`` based on
             ``use_epochs`` parameter.
         target_sfreq : float or None, optional
@@ -338,7 +338,7 @@ class BasicStepsMixin:
 
         Returns
         -------
-        resampled_data : mne.io.Raw or mne.Epochs
+        resampled_data : mne.io.Raw or mne.BaseEpochs
             Resampled data object. Also updates ``self.raw`` or ``self.epochs``
             and triggers metadata tracking and export if configured.
 
@@ -451,11 +451,11 @@ class BasicStepsMixin:
 
     def rereference_data(
         self,
-        data: Union[mne.io.Raw, mne.Epochs, None] = None,
+        data: Union[mne.io.Raw, mne.BaseEpochs, None] = None,
         ref_type: str = None,
         use_epochs: bool = False,
         stage_name: str = "post_rereference",
-    ) -> Union[mne.io.Raw, mne.Epochs]:
+    ) -> Union[mne.io.Raw, mne.BaseEpochs]:
         """Rereference raw or epoched data based on configuration settings.
 
         This method can work with self.raw, self.epochs, or a provided data object.
@@ -474,7 +474,7 @@ class BasicStepsMixin:
 
         Returns
         -------
-        inst : instance of mne.io.Raw or mne.io.Epochs
+        inst : instance of mne.io.Raw or mne.BaseEpochs
             The rereferenced data object (same type as input)
 
         Examples
@@ -492,9 +492,9 @@ class BasicStepsMixin:
         data = self._get_data_object(data, use_epochs)
 
         if not isinstance(
-            data, (mne.io.base.BaseRaw, mne.Epochs)
+            data, (mne.io.base.BaseRaw, mne.BaseEpochs)
         ):  # pylint: disable=isinstance-second-argument-not-valid-type
-            raise TypeError("Data must be an MNE Raw or Epochs object")
+            raise TypeError("Data must be an MNE Raw or BaseEpochs object")
 
         if ref_type is None:
             is_enabled, config_value = self._check_step_enabled("reference_step")
@@ -533,10 +533,10 @@ class BasicStepsMixin:
 
     def drop_outer_layer(
         self,
-        data: Union[mne.io.Raw, mne.Epochs, None] = None,
+        data: Union[mne.io.Raw, mne.BaseEpochs, None] = None,
         stage_name: str = "post_outerlayer",
         use_epochs: bool = False,
-    ) -> Union[mne.io.Raw, mne.Epochs]:
+    ) -> Union[mne.io.Raw, mne.BaseEpochs]:
         """Drop outer layer channels based on configuration settings.
 
         Parameters
@@ -549,15 +549,15 @@ class BasicStepsMixin:
             If True and data is None, uses self.epochs instead of self.raw.
 
         Returns:
-            inst : instance of mne.io.Raw or mne.io.Epochs
+            inst : instance of mne.io.Raw or mne.BaseEpochs
             The data object with outer layer channels removed.
         """
         data = self._get_data_object(data, use_epochs)
 
         if not isinstance(
-            data, (mne.io.base.BaseRaw, mne.Epochs)
+            data, (mne.io.base.BaseRaw, mne.BaseEpochs)
         ):  # pylint: disable=isinstance-second-argument-not-valid-type
-            raise TypeError("Data must be an MNE Raw or Epochs object")
+            raise TypeError("Data must be an MNE Raw or BaseEpochs object")
 
         is_enabled, config_value = self._check_step_enabled("drop_outerlayer")
 
@@ -608,9 +608,9 @@ class BasicStepsMixin:
 
     def assign_eog_channels(
         self,
-        data: Union[mne.io.Raw, mne.Epochs, None] = None,
+        data: Union[mne.io.Raw, mne.BaseEpochs, None] = None,
         use_epochs: bool = False,
-    ) -> Union[mne.io.Raw, mne.Epochs]:
+    ) -> Union[mne.io.Raw, mne.BaseEpochs]:
         """Assign EOG channel types based on configuration settings.
 
         Parameters
@@ -621,15 +621,15 @@ class BasicStepsMixin:
             If True and data is None, uses self.epochs instead of self.raw.
 
         Returns:
-            inst : instance of mne.io.Raw or mne.io.Epochs
+            inst : instance of mne.io.Raw or mne.BaseEpochs
             The data object with EOG channels assigned.
         """
         data = self._get_data_object(data, use_epochs)
 
         if not isinstance(
-            data, (mne.io.base.BaseRaw, mne.Epochs)
+            data, (mne.io.base.BaseRaw, mne.BaseEpochs)
         ):  # pylint: disable=isinstance-second-argument-not-valid-type
-            raise TypeError("Data must be an MNE Raw or Epochs object")
+            raise TypeError("Data must be an MNE Raw or BaseEpochs object")
 
         is_enabled, config_value = self._check_step_enabled("eog_step")
 
@@ -708,10 +708,10 @@ class BasicStepsMixin:
 
     def trim_edges(
         self,
-        data: Union[mne.io.Raw, mne.Epochs, None] = None,
+        data: Union[mne.io.Raw, mne.BaseEpochs, None] = None,
         stage_name: str = "post_trim",
         use_epochs: bool = False,
-    ) -> Union[mne.io.Raw, mne.Epochs]:
+    ) -> Union[mne.io.Raw, mne.BaseEpochs]:
         """Trim data edges based on configuration settings.
 
         Parameters
@@ -724,15 +724,15 @@ class BasicStepsMixin:
             If True and data is None, uses self.epochs instead of self.raw.
 
         Returns:
-            inst : instance of mne.io.Raw or mne.io.Epochs
+            inst : instance of mne.io.Raw or mne.BaseEpochs
             The data object with edges trimmed.
         """
         data = self._get_data_object(data, use_epochs)
 
         if not isinstance(
-            data, (mne.io.base.BaseRaw, mne.Epochs)
+            data, (mne.io.base.BaseRaw, mne.BaseEpochs)
         ):  # pylint: disable=isinstance-second-argument-not-valid-type
-            raise TypeError("Data must be an MNE Raw or Epochs object")
+            raise TypeError("Data must be an MNE Raw or BaseEpochs object")
 
         is_enabled, config_value = self._check_step_enabled("trim_step")
 
@@ -792,10 +792,10 @@ class BasicStepsMixin:
 
     def crop_duration(
         self,
-        data: Union[mne.io.Raw, mne.Epochs, None] = None,
+        data: Union[mne.io.Raw, mne.BaseEpochs, None] = None,
         stage_name: str = "post_crop",
         use_epochs: bool = False,
-    ) -> Union[mne.io.Raw, mne.Epochs]:
+    ) -> Union[mne.io.Raw, mne.BaseEpochs]:
         """Crop data duration based on configuration settings.
 
         Parameters
@@ -808,15 +808,15 @@ class BasicStepsMixin:
             If True and data is None, uses self.epochs instead of self.raw.
 
         Returns:
-            inst : instance of mne.io.Raw or mne.io.Epochs
+            inst : instance of mne.io.Raw or mne.BaseEpochs
             The data object cropped to the specified duration.
         """
         data = self._get_data_object(data, use_epochs)
 
         if not isinstance(
-            data, (mne.io.base.BaseRaw, mne.Epochs)
+            data, (mne.io.base.BaseRaw, mne.BaseEpochs)
         ):  # pylint: disable=isinstance-second-argument-not-valid-type
-            raise TypeError("Data must be an MNE Raw or Epochs object")
+            raise TypeError("Data must be an MNE Raw or BaseEpochs object")
 
         is_enabled, config_value = self._check_step_enabled("crop_step")
 

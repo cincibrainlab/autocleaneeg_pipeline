@@ -211,6 +211,41 @@ def test_postprocessing_fooof_uses_output_alias_from_prior_block(task):
     assert task.fooof_aperiodic_df.iloc[0]["status"] == "SUCCESS"
 
 
+def test_postprocessing_fooof_passes_resolved_source_alias_to_legacy_method(task):
+    alias_object = object()
+    task.settings = {
+        "postprocessing_analysis": {
+            "enabled": True,
+            "value": {
+                "source_localization": {
+                    "enabled": True,
+                    "input": "clean_epochs",
+                    "output": "configured_source",
+                },
+                "fooof": {
+                    "enabled": True,
+                    "input": "configured_source",
+                    "run_periodic": False,
+                },
+            },
+        }
+    }
+
+    output_file = task.config["reports_dir"] / "fooof_aperiodic.parquet"
+    with (
+        patch.object(task, "_update_metadata"),
+        patch.object(
+            task, "apply_source_localization", return_value=alias_object
+        ),
+        patch.object(
+            task, "apply_fooof_aperiodic", return_value=([], output_file)
+        ) as apply_fooof,
+    ):
+        task.run_postprocessing_analysis()
+
+    assert apply_fooof.call_args.kwargs["stc"] is alias_object
+
+
 def test_postprocessing_resolves_legacy_sensor_psd_dataframe(task):
     task.sensor_psd_df = pd.DataFrame(
         {

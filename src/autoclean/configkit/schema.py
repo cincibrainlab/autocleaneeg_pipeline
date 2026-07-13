@@ -555,6 +555,20 @@ def _build_task_settings_schema() -> Schema:
                 "enabled": bool,
                 "value": dict,
             },
+            Optional("conditionwise_epoch_rejection"): {
+                "enabled": bool,
+                "value": {
+                    Optional("robust_z_threshold"): Or(int, float),
+                    Optional("minimum_metric_flags"): int,
+                    Optional("absolute_amplitude_uv"): Or(int, float, None),
+                    Optional("max_reject_fraction"): Or(int, float),
+                    Optional("minimum_epochs"): int,
+                    Optional("exclude_channels_matching"): Or(list, tuple, None),
+                    Optional("exclude_channel_types"): Or(list, tuple, None),
+                    Optional("mode"): Or("apply", "report_only"),
+                    Optional("group_by"): "event_id",
+                },
+            },
             # Source Localization
             Optional("apply_source_localization"): {
                 "enabled": bool,
@@ -690,6 +704,20 @@ def export_task_schema_layout() -> dict:
             "postprocessing_analysis": {
                 "enabled": "bool",
                 "value": "dict of enabled analysis blocks with input/output aliases",
+            },
+            "conditionwise_epoch_rejection": {
+                "enabled": "bool",
+                "value": {
+                    "robust_z_threshold": "number|null",
+                    "minimum_metric_flags": "int|null",
+                    "absolute_amplitude_uv": "number|null",
+                    "max_reject_fraction": "number|null",
+                    "minimum_epochs": "int|null",
+                    "exclude_channels_matching": "list|null",
+                    "exclude_channel_types": "list|null",
+                    "mode": "'apply'|'report_only'",
+                    "group_by": "'event_id'",
+                },
             },
             "apply_source_localization": _source_localization_descriptor(),
             "apply_source_psd": _source_psd_descriptor(),

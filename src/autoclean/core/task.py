@@ -445,6 +445,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
                 aperiodic,
                 "apply_fooof_aperiodic",
                 settings,
+                stc=data_object,
                 fmin=freq_range[0],
                 fmax=freq_range[1],
                 n_jobs=settings.get("n_jobs", 10),

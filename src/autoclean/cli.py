@@ -1158,8 +1158,8 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     process_parser.add_argument(
         "--format",
         type=str,
-        default="*.{raw,set,bdf}",
-        help="File format glob pattern for directory processing (default: *.{raw,set,bdf}). Examples: '*.raw', '*.edf', '*.set', '*.bdf'. Note: '.raw' will be auto-corrected to '*.raw'",
+        default="*.{raw,set,bdf,mff,edf}",
+        help="File format glob pattern for directory processing (default: *.{raw,set,bdf,mff,edf}). Examples: '*.raw', '*.edf', '*.set', '*.bdf', '*.mff'. Note: '.raw' will be auto-corrected to '*.raw'",
     )
     process_parser.add_argument(
         "--recursive",
@@ -3010,6 +3010,11 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     return parser
 
 
+def _is_single_eeg_input_path(path: Path) -> bool:
+    """Return True for a single EEG recording, including directory packages."""
+    return path.is_file() or (path.is_dir() and path.suffix.lower() == ".mff")
+
+
 def _show_process_guard(args) -> bool:
     """Show interactive guard with key information before processing.
 
@@ -3121,7 +3126,7 @@ def _show_process_guard(args) -> bool:
         console.print(f"   Path: [accent]{input_path}[/accent]")
 
         if input_path.exists():
-            if input_path.is_file():
+            if _is_single_eeg_input_path(input_path):
                 console.print("   Type: [accent]Single File[/accent]")
                 # Show file size
                 try:
@@ -3133,7 +3138,7 @@ def _show_process_guard(args) -> bool:
                 console.print("   Type: [accent]Directory[/accent]")
 
                 # Count files based on format pattern
-                format_pattern = getattr(args, "format", "*.{raw,set,bdf}")
+                format_pattern = getattr(args, "format", "*.{raw,set,bdf, mff, edf}")
                 try:
 
                     def _expand_brace_glob(pat: str) -> list[str]:
@@ -3287,7 +3292,7 @@ def validate_args(args) -> bool:
                 )
                 tbl.add_row(
                     "--format",
-                    "Glob pattern (default: *.{raw,set,bdf}; '*.raw', '*.edf', '*.bdf', ...)",
+                    "Glob pattern (default: *.{raw,set,bdf, mff, edf}; '*.raw', '*.edf', '*.bdf', ... ,'*.mff', ...)",
                 )
                 tbl.add_row("--recursive", "Search subdirectories for matching files")
                 tbl.add_row("-p N", "Process N files in parallel (default 3, max 8)")
@@ -3389,7 +3394,7 @@ def validate_args(args) -> bool:
                         )
                         tbl.add_row(
                             "--format",
-                            "Glob pattern (default: *.{raw,set,bdf}; '*.raw', '*.edf', '*.bdf', ...)",
+                            "Glob pattern (default: *.{raw,set,bdf,mff,edf}; '*.raw', '*.edf', '*.bdf', '*.mff', ...)",
                         )
                         tbl.add_row(
                             "--recursive", "Search subdirectories for matching files"
@@ -3562,7 +3567,7 @@ def cmd_process(args) -> int:
             return 0
 
         # Process files
-        if args.final_input.is_file():
+        if _is_single_eeg_input_path(args.final_input):
             message("info", f"Processing single file: {args.final_input}")
             pipeline.process_file(file_path=args.final_input, task=task_name)
         else:
@@ -4994,9 +4999,7 @@ def cmd_exclude(args) -> int:
             return 1
 
         # Import lazily to avoid requiring GUI deps for non-GUI commands
-        from autoclean.tools.autoclean_exclude import (
-            run_autoclean_exclusion_tool,
-        )
+        from autoclean.tools.autoclean_exclude import run_autoclean_exclusion_tool
 
         message("info", f"Starting exclusion GUI at: {exports_dir}")
         run_autoclean_exclusion_tool(exports_dir=exports_dir, task_root=task_root)

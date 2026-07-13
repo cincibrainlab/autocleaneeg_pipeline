@@ -69,6 +69,7 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
   const [configToken, setConfigToken] = useState("");
   const [configUrl, setConfigUrl] = useState("");
   const [configSaving, setConfigSaving] = useState(false);
+  const [configError, setConfigError] = useState<string | null>(null);
   const [configLoaded, setConfigLoaded] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -144,9 +145,9 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
   };
 
   return (
-    <header className="h-14 flex-shrink-0 flex items-center justify-between px-6 bg-surface-300 border-b border-border">
+    <header className="min-h-14 flex-shrink-0 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 px-3 py-2 bg-surface-300 border-b border-border md:h-14 md:min-h-0 md:flex md:px-6 md:py-0">
       {/* Left: Hamburger + Page title */}
-      <div className="flex items-center gap-3">
+      <div className="min-w-0 flex items-center gap-3">
         <button
           onClick={onToggleSidebar}
           className="md:hidden p-1.5 rounded-md text-zinc-400 hover:text-zinc-200 hover:bg-surface-50 transition-colors"
@@ -154,11 +155,11 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
         >
           <Menu className="w-5 h-5" />
         </button>
-        <h1 className="text-lg font-semibold text-zinc-100">{title}</h1>
+        <h1 className="truncate text-lg font-semibold text-zinc-100">{title}</h1>
       </div>
 
-      {/* Right: Status indicators */}
-      <div className="flex items-center gap-3">
+      {/* Primary mobile actions */}
+      <div className="flex shrink-0 items-center gap-2 md:ml-auto md:gap-3">
         {/* Theme toggle */}
         <button
           onClick={toggleTheme}
@@ -175,7 +176,7 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
             onClick={handleShare}
             disabled={starting}
             className={[
-              "rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-2 transition-colors duration-150",
+              "rounded-md px-2 sm:px-3 py-1.5 text-sm font-medium flex items-center gap-2 transition-colors duration-150",
               tunnelActive
                 ? "bg-brand/20 text-brand border border-brand/40 hover:bg-brand/30"
                 : "border border-border text-zinc-400 hover:text-zinc-200 hover:bg-surface-50",
@@ -192,12 +193,14 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
             ) : (
               <Share2 className="w-3.5 h-3.5" />
             )}
-            {starting ? "Starting..." : tunnelActive ? "Sharing" : "Share"}
+            <span className="max-[374px]:sr-only">
+              {starting ? "Starting..." : tunnelActive ? "Sharing" : "Share"}
+            </span>
           </button>
 
           {/* Popover */}
           {showPopover && (
-            <div className="absolute right-0 top-full mt-2 z-50 w-80 rounded-lg border border-border bg-surface-200 shadow-xl">
+            <div className="fixed inset-x-3 top-24 z-50 w-auto rounded-lg border border-border bg-surface-200 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80">
               <div className="p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-zinc-100">
@@ -286,6 +289,7 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
                     </p>
                     <button
                       onClick={() => {
+                        setConfigError(null);
                         setShowConfig(true);
                         if (!configLoaded) {
                           api.getTunnelConfig().then((cfg) => {
@@ -342,33 +346,48 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
                         className="w-full px-2 py-1.5 rounded bg-surface-50 border border-border text-xs font-mono text-zinc-300 placeholder-zinc-700 focus:outline-none focus:border-brand/40"
                       />
                     </div>
+                    {configError && (
+                      <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                        {configError}
+                      </div>
+                    )}
                     <div className="flex gap-2">
                       <button
                         onClick={async () => {
                           setConfigSaving(true);
+                          setConfigError(null);
                           try {
                             await api.setTunnelConfig(configToken, configUrl);
                             setConfigToken("");
                             setShowConfig(false);
                           } catch {
-                            // ignore
+                            setConfigError("Could not save tunnel configuration. Check the values and try again.");
                           } finally {
                             setConfigSaving(false);
                           }
                         }}
                         disabled={!configToken || !configUrl || configSaving}
-                        className="flex-1 rounded-md px-3 py-1.5 text-xs font-medium bg-brand text-surface-500 hover:bg-brand-500 disabled:opacity-40 transition-colors"
+                        className="flex-1 rounded-md px-3 py-1.5 text-xs font-medium bg-brand text-brand-900 hover:bg-brand-500 disabled:opacity-40 transition-colors"
                       >
                         {configSaving ? "Saving..." : "Save"}
                       </button>
                       <button
                         onClick={async () => {
-                          await api.clearTunnelConfig();
-                          setConfigToken("");
-                          setConfigUrl("");
-                          setConfigLoaded(false);
+                          setConfigSaving(true);
+                          setConfigError(null);
+                          try {
+                            await api.clearTunnelConfig();
+                            setConfigToken("");
+                            setConfigUrl("");
+                            setConfigLoaded(false);
+                          } catch {
+                            setConfigError("Could not clear tunnel configuration. Try again.");
+                          } finally {
+                            setConfigSaving(false);
+                          }
                         }}
-                        className="rounded-md px-3 py-1.5 text-xs font-medium border border-border text-zinc-500 hover:text-zinc-300 hover:bg-surface-50 transition-colors"
+                        disabled={configSaving}
+                        className="rounded-md px-3 py-1.5 text-xs font-medium border border-border text-zinc-500 hover:text-zinc-300 hover:bg-surface-50 disabled:opacity-40 transition-colors"
                       >
                         Clear
                       </button>
@@ -378,7 +397,10 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
               </div>
             </div>
           )}
-        </div>
+      </div>
+      </div>
+
+      <div className="col-span-2 flex items-center gap-3 justify-self-end md:col-auto md:ml-3 md:justify-self-auto">
 
         {/* Stripe-style mode toggle */}
         {health && (

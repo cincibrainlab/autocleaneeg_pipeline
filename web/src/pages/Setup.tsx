@@ -262,7 +262,7 @@ export default function Setup() {
           <button
             onClick={handleOpen}
             disabled={opening || !workspacePath.trim()}
-            className="w-full rounded-md py-2.5 text-sm font-semibold bg-brand text-surface-500 hover:bg-brand-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full rounded-md py-2.5 text-sm font-semibold bg-brand text-brand-900 hover:bg-brand-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {opening ? (
               <>

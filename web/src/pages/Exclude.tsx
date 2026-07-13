@@ -631,8 +631,17 @@ export default function ExcludePage() {
   const { data: routes } = usePolling<RouteSpec[]>(api.getRoutes, 30000);
   const epochSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notesSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastEpochSaveRef = useRef<{ fileKey: string; badEpochs: number[] } | null>(null);
-  const lastNotesSaveRef = useRef<{ fileKey: string; notes: string; status: string } | null>(null);
+  const lastEpochSaveRef = useRef<{
+    fileKey: string;
+    badEpochs: number[];
+    route?: string;
+  } | null>(null);
+  const lastNotesSaveRef = useRef<{
+    fileKey: string;
+    notes: string;
+    status: string;
+    route?: string;
+  } | null>(null);
   const loadedManualBadChannelsRef = useRef<string[]>([]);
   const loadedManualRejectedIcaRef = useRef<number[]>([]);
   const routeOptions = useMemo(() => {
@@ -755,7 +764,7 @@ export default function ExcludePage() {
     }
     setSaveState("saving");
     try {
-      const result = await api.saveExcludeEpochReview(pending.fileKey, pending.badEpochs, selectedRoute || undefined);
+      const result = await api.saveExcludeEpochReview(pending.fileKey, pending.badEpochs, pending.route);
       setActionError(typeof result.warning === "string" && result.warning ? result.warning : null);
       setSaveState("saved");
       lastEpochSaveRef.current = null;
@@ -774,7 +783,7 @@ export default function ExcludePage() {
     }
     setSaveState("saving");
     try {
-      await api.saveExcludeNotes(pending.fileKey, pending.notes, pending.status, selectedRoute || undefined);
+      await api.saveExcludeNotes(pending.fileKey, pending.notes, pending.status, pending.route);
       setSaveState("saved");
       lastNotesSaveRef.current = null;
     } catch {
@@ -1007,10 +1016,15 @@ export default function ExcludePage() {
   function scheduleEpochSave(nextBadEpochs: number[]) {
     if (!selectedKey) return;
     setSaveState("saving");
-    lastEpochSaveRef.current = { fileKey: selectedKey, badEpochs: nextBadEpochs };
+    const pending = {
+      fileKey: selectedKey,
+      badEpochs: nextBadEpochs,
+      route: selectedRoute || undefined,
+    };
+    lastEpochSaveRef.current = pending;
     if (epochSaveTimer.current) clearTimeout(epochSaveTimer.current);
     epochSaveTimer.current = setTimeout(() => {
-      api.saveExcludeEpochReview(selectedKey, nextBadEpochs, selectedRoute || undefined)
+      api.saveExcludeEpochReview(pending.fileKey, pending.badEpochs, pending.route)
         .then((result) => {
           setActionError(typeof result.warning === "string" && result.warning ? result.warning : null);
           setSaveState("saved");
@@ -1044,10 +1058,16 @@ export default function ExcludePage() {
   function scheduleNotesSave(nextNotes: string, nextStatus: string) {
     if (!selectedKey) return;
     setSaveState("saving");
-    lastNotesSaveRef.current = { fileKey: selectedKey, notes: nextNotes, status: nextStatus };
+    const pending = {
+      fileKey: selectedKey,
+      notes: nextNotes,
+      status: nextStatus,
+      route: selectedRoute || undefined,
+    };
+    lastNotesSaveRef.current = pending;
     if (notesSaveTimer.current) clearTimeout(notesSaveTimer.current);
     notesSaveTimer.current = setTimeout(() => {
-      api.saveExcludeNotes(selectedKey, nextNotes, nextStatus, selectedRoute || undefined)
+      api.saveExcludeNotes(pending.fileKey, pending.notes, pending.status, pending.route)
         .then(() => {
           setSaveState("saved");
           lastNotesSaveRef.current = null;
@@ -1743,7 +1763,7 @@ export default function ExcludePage() {
                       if (!manualBadChannels.includes(next)) setManualBadChannels([...manualBadChannels, next].sort());
                       setChannelDraft("");
                     }}
-                    className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-surface-500"
+                    className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-brand-900"
                   >
                     Add
                   </button>
@@ -1785,7 +1805,7 @@ export default function ExcludePage() {
                       }
                       setIcaDraft("");
                     }}
-                    className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-surface-500"
+                    className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-brand-900"
                   >
                     Add
                   </button>
@@ -1825,7 +1845,7 @@ export default function ExcludePage() {
               <button
                 onClick={startReprocess}
                 disabled={invalidCombinedOverrideChange}
-                className="w-full rounded-md bg-brand px-3 py-2 text-sm font-semibold text-surface-500 hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-md bg-brand px-3 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Reprocess with Overrides
               </button>
