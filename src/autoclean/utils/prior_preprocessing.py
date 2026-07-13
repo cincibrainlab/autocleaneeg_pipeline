@@ -221,7 +221,6 @@ def _append_prior_preprocessing_dataset_summary(
             }
 
     row = dict(summary.get("summary_row", {}))
-    source_file = row.get("source_file")
     row_key = _dataset_row_key(row)
     rows = [existing for existing in rows if _dataset_row_key(existing) != row_key]
     rows.append(row)
