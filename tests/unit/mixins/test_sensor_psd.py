@@ -156,7 +156,7 @@ class TestApplySensorPsd:
             psd_df, _, _ = task.apply_sensor_psd(
                 data=task.epochs,
                 fmin=1,
-                fmax=20,
+                fmax=30,
                 baseline=[0, 0.2],
                 time_windows={"late": [0.5, 1.0]},
             )

@@ -36,11 +36,15 @@ IC_FLAGS = (
     "eye",
     "eog",
     "heart",
+    "cardiac",
+    "ecg",
     "line_noise",
     "channel_noise",
     "ch_noise",
     "other",
 )
+# Classifiers emit canonical short codes, while historical task configs may
+# use aliases. Rejection matching normalizes these values in ica_processing.
 
 
 def _is_valid_wavelet(name: str) -> bool:
@@ -59,7 +63,7 @@ def _is_valid_montage(value: str) -> bool:
 
 def _ic_flags_valid(flags: list) -> bool:
     try:
-        return all(flag in IC_FLAGS for flag in flags)
+        return all(str(flag).strip().lower() in IC_FLAGS for flag in flags)
     except Exception:
         return False
 
