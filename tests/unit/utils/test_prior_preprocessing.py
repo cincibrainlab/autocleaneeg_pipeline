@@ -382,10 +382,7 @@ class _ImportPathPlugin:
         provenance = _provenance_summary()
         return {
             "plugin_name": self.__class__.__name__,
-            "eeglab_provenance": {
-                "schema_version": "1.0",
-                "summary_row": provenance["summary_row"],
-            },
+            "eeglab_provenance": provenance,
         }
 
 
@@ -441,6 +438,8 @@ def test_import_eeg_attaches_prior_preprocessing_metadata_and_artifacts(tmp_path
     assert prior_metadata["available"] is True
     assert prior_metadata["schema_version"] == "1.0"
     assert prior_metadata["summary_row"]["source_file"] == "sub-01.set"
+    assert prior_metadata["findings"]["highpass_filter"]["confidence"] == "documented"
+    assert prior_metadata["findings"]["ica_present"]["confidence"] == "documented"
     assert prior_metadata["strict_violations"] == prior_metadata["warnings"]
     assert prior_metadata["artifact_paths"].keys() == {
         "json",

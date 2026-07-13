@@ -463,6 +463,9 @@ def import_eeg(
 
         # Get plugin metadata
         plugin_metadata = plugin.get_metadata()
+        provenance_summary = resolve_prior_preprocessing_provenance(
+            plugin_metadata, autoclean_dict
+        )
 
         # Prepare metadata
         metadata = {
@@ -528,9 +531,6 @@ def import_eeg(
             prior_preprocessing = None
             try:
                 task_config = _resolve_task_settings(autoclean_dict)
-                provenance_summary = resolve_prior_preprocessing_provenance(
-                    metadata["import_eeg"], autoclean_dict
-                )
                 prior_preprocessing = detect_prior_preprocessing(
                     eeg_data,
                     import_metadata=metadata["import_eeg"],

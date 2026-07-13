@@ -42,7 +42,7 @@ def detect_prior_preprocessing(
     """Return a conservative prior-preprocessing status summary.
 
     Parameters are deliberately plain mappings/objects so tests and importers can
-    pass MNE Raw/Epochs, light stubs, or #202 EEGLAB provenance summaries.
+    pass MNE Raw/Epochs, light stubs, or EEGLAB provenance summaries.
     """
 
     import_metadata = import_metadata or {}
@@ -119,6 +119,8 @@ def _dataset_summary_lock(dataset_path: Path):
 
     lock_path = dataset_path.with_name(f"{dataset_path.name}.lock")
     with lock_path.open("a+b") as lock_file:
+        # Windows byte-range locking requires this byte to exist. Initialize it
+        # before acquisition; the persistent lock file is coordination state.
         lock_file.seek(0)
         if lock_file.read(1) == b"":
             lock_file.write(b"\0")
@@ -305,11 +307,11 @@ def resolve_prior_preprocessing_dir(autoclean_dict: Mapping[str, Any]) -> Path:
 def resolve_prior_preprocessing_provenance(
     import_metadata: Mapping[str, Any], autoclean_dict: Mapping[str, Any]
 ) -> Mapping[str, Any] | None:
-    """Return the richest available #202-style provenance summary.
+    """Return the richest available EEGLAB provenance summary.
 
     Prefer a caller-provided full summary. Fall back to compact import metadata
-    (`metadata["import_eeg"]["eeglab_provenance"]`) when #202 has already run but
-    only persisted summary fields are available.
+    (`metadata["import_eeg"]["eeglab_provenance"]`) when only persisted summary
+    fields are available.
     """
 
     direct = autoclean_dict.get("eeglab_provenance")
@@ -948,21 +950,21 @@ def _provenance_integration_status(
     if not provenance_summary:
         return {
             "status": "unavailable",
-            "detail": "No #202 provenance summary was provided.",
+            "detail": "No EEGLAB provenance summary was provided.",
         }
     if provenance_summary.get("documented_provenance"):
         return {
             "status": "full_summary",
-            "detail": "Full #202 documented_provenance fields are available.",
+            "detail": "Full EEGLAB documented_provenance fields are available.",
         }
     if provenance_summary.get("summary_row"):
         return {
             "status": "summary_row_only",
-            "detail": "Only compact #202 summary_row metadata is available; full documented fields require #202 integration.",
+            "detail": "Only compact EEGLAB summary_row metadata is available; full documented fields require a full provenance summary.",
         }
     return {
         "status": "unknown_shape",
-        "detail": "Provided provenance summary did not match the #202 contract.",
+        "detail": "Provided provenance summary did not match the EEGLAB provenance contract.",
     }
 
 
