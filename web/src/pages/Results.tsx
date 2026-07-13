@@ -1529,7 +1529,7 @@ export default function ResultsPage() {
                         }
                         className={`border-b border-border-subtle cursor-pointer transition-colors duration-100 ${
                           selected?.run_id === run.run_id
-                            ? "bg-brand/15 dark:bg-brand/10"
+                            ? "bg-brand/10 light:bg-brand/15"
                             : "hover:bg-surface-50/30"
                         }`}
                       >

@@ -524,7 +524,7 @@ export default function MontagesPage() {
                         }
                         className={`border-b border-border-subtle cursor-pointer transition-colors duration-100 ${
                           selected?.name === montage.name
-                            ? "bg-brand/15 dark:bg-brand/10"
+                            ? "bg-brand/10 light:bg-brand/15"
                             : "hover:bg-surface-50/30"
                         }`}
                       >

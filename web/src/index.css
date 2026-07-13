@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant light (&:where(.light, .light *));
+
 @theme {
   /* Brand green (Supabase-style) */
   --color-brand-50: #e8faf0;
