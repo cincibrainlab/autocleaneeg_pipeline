@@ -60,7 +60,7 @@ export default function ConfirmDialog({
             className={
               confirmVariant === "danger"
                 ? "rounded-md px-4 py-2 text-sm font-medium bg-red-600 text-white hover:bg-red-700"
-                : "rounded-md px-4 py-2 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500"
+                : "rounded-md px-4 py-2 text-sm font-medium bg-brand text-brand-900 hover:bg-brand-500"
             }
           >
             {confirmLabel}

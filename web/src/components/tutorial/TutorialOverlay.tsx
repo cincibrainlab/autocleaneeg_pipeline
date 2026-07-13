@@ -193,7 +193,7 @@ function StepCard({ step, cardPos, onNext, onSkip, currentStep }: StepCardProps)
         {step.action === "next" && (
           <button
             onClick={onNext}
-            className="rounded-md px-3 py-1.5 text-xs font-semibold bg-brand text-surface-500 hover:bg-brand-500 transition-colors"
+            className="rounded-md px-3 py-1.5 text-xs font-semibold bg-brand text-brand-900 hover:bg-brand-500 transition-colors"
           >
             Next
           </button>

@@ -268,7 +268,7 @@ export default function FolderBrowser({ onSelect, onClose }: FolderBrowserProps)
             <button
               onClick={handleSelect}
               disabled={!selectedPath}
-              className="rounded-md px-3 py-1.5 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="rounded-md px-3 py-1.5 text-sm font-medium bg-brand text-brand-900 hover:bg-brand-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Select
             </button>
