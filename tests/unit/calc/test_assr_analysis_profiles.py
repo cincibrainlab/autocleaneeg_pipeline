@@ -171,6 +171,21 @@ def test_resolve_assr_epochs_profile_and_overrides():
     assert settings["combined_bands"]["gamma_combined"] == [(30, 55), (65, 80)]
 
 
+def test_resolve_assr_analysis_settings_rejects_unknown_profile():
+    with pytest.raises(ValueError, match="Unknown ASSR analysis profile 'unknown'"):
+        assr_analysis.resolve_assr_analysis_settings(profile="unknown")
+
+
+def test_resolve_assr_analysis_config_uses_embedded_profile():
+    settings = assr_analysis.resolve_assr_analysis_config(
+        analysis_config={"profile": "assr_epochs", "save_tfr": True}
+    )
+
+    assert settings["profile"] == "assr_epochs"
+    assert settings["save_tfr"] is True
+    assert settings["time_windows"]["itc_onset"] == (0.092, 0.308)
+
+
 def test_compute_metrics_excludes_non_eeg_and_records_skips():
     audit = {"skipped_freq_bands": [], "skipped_time_windows": []}
 
