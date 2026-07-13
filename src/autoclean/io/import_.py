@@ -18,6 +18,11 @@ import mne
 import numpy as np
 import pandas as pd
 
+from autoclean.io.eeglab_provenance import (
+    extract_eeglab_provenance,
+    resolve_eeglab_provenance_dir,
+    write_eeglab_provenance_artifacts,
+)
 from autoclean.utils.database import manage_database_conditionally
 from autoclean.utils.logging import message
 
@@ -457,6 +462,24 @@ def import_eeg(
 
         # Get plugin metadata
         plugin_metadata = plugin.get_metadata()
+        eeglab_provenance = None
+        if format_id == "EEGLAB_SET":
+            try:
+                eeglab_provenance = extract_eeglab_provenance(unprocessed_file)
+                artifact_paths = write_eeglab_provenance_artifacts(
+                    eeglab_provenance,
+                    resolve_eeglab_provenance_dir(autoclean_dict),
+                    unprocessed_file.stem,
+                )
+                message(
+                    "success",
+                    f"✓ EEGLAB provenance summary written to {artifact_paths['json']}",
+                )
+            except Exception as provenance_error:  # pylint: disable=broad-except
+                message(
+                    "warning",
+                    f"EEGLAB provenance summary unavailable: {provenance_error}",
+                )
 
         # Prepare metadata
         metadata = {
@@ -477,6 +500,21 @@ def import_eeg(
                 **plugin_metadata,  # Include any plugin-specific metadata
             }
         }
+        if format_id == "EEGLAB_SET":
+            metadata["import_eeg"]["eeglab_provenance"] = {
+                "available": eeglab_provenance is not None,
+                "schema_version": (
+                    eeglab_provenance.get("schema_version")
+                    if eeglab_provenance
+                    else None
+                ),
+                "artifact_paths": (
+                    eeglab_provenance.get("artifact_paths") if eeglab_provenance else {}
+                ),
+                "summary_row": (
+                    eeglab_provenance.get("summary_row") if eeglab_provenance else {}
+                ),
+            }
 
         # Add additional metadata for Raw data
         if not is_epochs:
