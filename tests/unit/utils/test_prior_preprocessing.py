@@ -118,6 +118,33 @@ def test_detect_prior_preprocessing_uses_202_documented_schema():
     assert summary["summary_row"]["source_file"] == "sub-01.set"
 
 
+def test_epoch_window_is_canonical_across_provenance_and_local_paths():
+    raw = _EpochsStub(np.zeros((3, 2, 64)))
+    provenance = _provenance_summary()
+    full = detect_prior_preprocessing(raw, provenance_summary=provenance)
+    compact = detect_prior_preprocessing(
+        raw,
+        provenance_summary={
+            "summary_row": {
+                "source_file": "compact.set",
+                "epoch_window": '{"xmax": 0.8, "xmin": -0.2}',
+            }
+        },
+    )
+    local = detect_prior_preprocessing(raw)
+
+    expected = {"tmin": -0.2, "tmax": 0.8}
+    assert full["documented_metadata"]["epoch_window"] == expected
+    assert compact["documented_metadata"]["epoch_window"] == expected
+    assert local["documented_metadata"]["epoch_window"] == expected
+    assert full["summary_row"]["epoch_window"] == expected
+    assert compact["summary_row"]["epoch_window"] == expected
+    assert local["summary_row"]["epoch_window"] == expected
+
+    dataset = build_prior_preprocessing_dataset_summary([full, compact, local])
+    assert not any("epoch_window" in warning for warning in dataset["warnings"])
+
+
 def test_documented_filter_cutoffs_do_not_imply_notch_filtering():
     provenance = _provenance_summary()
     provenance["documented_provenance"] = {
@@ -310,6 +337,64 @@ def test_dataset_summary_source_replacement_is_idempotent(tmp_path):
     assert dataset["rows"] == [{"source_file": "sub-01.set"}]
     assert dataset["warning_counts"] == {warning: 1}
     assert dataset["warning_counts_by_source"] == {"sub-01.set": {warning: 1}}
+
+
+def test_dataset_summary_missing_source_replacement_is_idempotent(tmp_path):
+    warning = "warning for unknown source"
+    summary = {
+        "summary_row": {"sampling_rate": 250},
+        "warnings": [warning],
+        "artifact_paths": {},
+    }
+
+    write_prior_preprocessing_artifacts(summary, tmp_path, "unknown")
+    write_prior_preprocessing_artifacts(summary, tmp_path, "unknown")
+
+    dataset_path = tmp_path / "prior_preprocessing_dataset_summary.json"
+    dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
+    assert dataset["rows"] == [{"sampling_rate": 250}]
+    assert dataset["warning_counts"] == {warning: 1}
+    assert len(dataset["warning_counts_by_source"]) == 1
+    contribution_key = next(iter(dataset["warning_counts_by_source"]))
+    assert contribution_key.startswith("__missing_source__:")
+    assert dataset["warning_counts_by_source"][contribution_key] == {warning: 1}
+
+
+def test_named_source_cannot_collide_with_anonymous_contribution_key(tmp_path):
+    anonymous = {
+        "summary_row": {"sampling_rate": 250},
+        "warnings": ["anonymous warning"],
+        "artifact_paths": {},
+    }
+    write_prior_preprocessing_artifacts(anonymous, tmp_path, "anonymous")
+    dataset_path = tmp_path / "prior_preprocessing_dataset_summary.json"
+    initial = json.loads(dataset_path.read_text(encoding="utf-8"))
+    anonymous_key = next(iter(initial["warning_counts_by_source"]))
+
+    named = {
+        "summary_row": {"source_file": anonymous_key, "sampling_rate": 500},
+        "warnings": ["named warning"],
+        "artifact_paths": {},
+    }
+    write_prior_preprocessing_artifacts(named, tmp_path, "named")
+
+    dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
+    assert len(dataset["rows"]) == 2
+    assert {row.get("source_file") for row in dataset["rows"]} == {
+        None,
+        anonymous_key,
+    }
+    assert dataset["warning_counts"] == {
+        "anonymous warning": 1,
+        "named warning": 1,
+    }
+    assert dataset["warning_counts_by_source"][anonymous_key] == {
+        "anonymous warning": 1
+    }
+    escaped_named_key = f"__named_source__:{anonymous_key}"
+    assert dataset["warning_counts_by_source"][escaped_named_key] == {
+        "named warning": 1
+    }
 
 
 def test_dataset_summary_serialization_order_is_deterministic(tmp_path):

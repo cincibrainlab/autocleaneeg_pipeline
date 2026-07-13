@@ -7,6 +7,7 @@ hard failures, unless callers opt into strict validation handling.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -27,6 +28,8 @@ UNKNOWN = "unknown"
 UNAVAILABLE = "unavailable"
 SCHEMA_VERSION = "1.0"
 POWERLINE_FREQS = (50.0, 60.0, 100.0, 120.0)
+MISSING_SOURCE_PREFIX = "__missing_source__:"
+ESCAPED_SOURCE_PREFIX = "__named_source__:"
 DATASET_LOCK_TIMEOUT_SECONDS = 10.0
 DATASET_LOCK_RETRY_SECONDS = 0.05
 
@@ -219,13 +222,11 @@ def _append_prior_preprocessing_dataset_summary(
 
     row = dict(summary.get("summary_row", {}))
     source_file = row.get("source_file")
-    if source_file:
-        rows = [
-            existing for existing in rows if existing.get("source_file") != source_file
-        ]
+    row_key = _dataset_row_key(row)
+    rows = [existing for existing in rows if _dataset_row_key(existing) != row_key]
     rows.append(row)
     rows.sort(key=lambda item: str(item.get("source_file") or ""))
-    contribution_key = str(source_file or f"__row_{len(rows) - 1}")
+    contribution_key = _warning_contribution_key(row)
     warning_counts_by_source[contribution_key] = dict(
         Counter(str(warning) for warning in summary.get("warnings", []))
     )
@@ -247,6 +248,29 @@ def _append_prior_preprocessing_dataset_summary(
     if warning_counts_migration:
         dataset_summary["warning_counts_migration"] = warning_counts_migration
     return dataset_summary
+
+
+def _dataset_row_key(row: Mapping[str, Any]) -> tuple[str, str]:
+    """Return a stable identity for row replacement and warning contributions."""
+
+    source_file = row.get("source_file")
+    if source_file:
+        return ("named", str(source_file))
+    canonical = json.dumps(_json_safe(row), sort_keys=True, separators=(",", ":"))
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return ("anonymous", digest)
+
+
+def _warning_contribution_key(row: Mapping[str, Any]) -> str:
+    """Keep ordinary source keys while separating reserved key domains."""
+
+    source_file = row.get("source_file")
+    if source_file:
+        source_key = str(source_file)
+        if source_key.startswith((MISSING_SOURCE_PREFIX, ESCAPED_SOURCE_PREFIX)):
+            return f"{ESCAPED_SOURCE_PREFIX}{source_key}"
+        return source_key
+    return f"{MISSING_SOURCE_PREFIX}{_dataset_row_key(row)[1]}"
 
 
 def render_prior_preprocessing_report(summary: Mapping[str, Any]) -> str:
@@ -438,9 +462,9 @@ def _extract_documented_metadata(
         import_metadata.get("n_epochs"),
         _safe_len(eeg_data) if is_epochs else UNAVAILABLE,
     )
-    epoch_window = _first_known(
-        summary_row.get("epoch_window"),
+    epoch_window = _normalize_epoch_window(
         documented.get("epoch_window"),
+        summary_row.get("epoch_window"),
         _epoch_window(eeg_data, import_metadata),
     )
     events_doc = (
@@ -872,6 +896,25 @@ def _epoch_window(
     if tmin == UNAVAILABLE and tmax == UNAVAILABLE:
         return UNAVAILABLE
     return {"tmin": tmin, "tmax": tmax}
+
+
+def _normalize_epoch_window(*candidates: Any) -> dict[str, Any] | str:
+    """Normalize EEGLAB and MNE epoch windows to ``tmin``/``tmax`` keys."""
+
+    for candidate in candidates:
+        value = candidate
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError:
+                continue
+        if not isinstance(value, Mapping):
+            continue
+        tmin = _first_known(value.get("tmin"), value.get("xmin"))
+        tmax = _first_known(value.get("tmax"), value.get("xmax"))
+        if tmin != UNAVAILABLE or tmax != UNAVAILABLE:
+            return {"tmin": tmin, "tmax": tmax}
+    return UNAVAILABLE
 
 
 def _reference(info: Mapping[str, Any]) -> Any:
