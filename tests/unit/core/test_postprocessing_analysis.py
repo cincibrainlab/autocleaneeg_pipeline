@@ -3,8 +3,12 @@ from unittest.mock import patch
 
 import pandas as pd
 import pytest
+from schema import SchemaError
 
-from autoclean.configkit.schema import export_task_schema_layout
+from autoclean.configkit.schema import (
+    export_task_schema_layout,
+    validate_task_module_config,
+)
 from autoclean.core.task import Task
 
 
@@ -346,3 +350,46 @@ def test_postprocessing_analysis_is_exported_in_schema_layout():
     layout = export_task_schema_layout()
 
     assert "postprocessing_analysis" in layout["tasks"]
+
+
+def test_sensor_psd_schema_accepts_default_frequency_bands():
+    validated = validate_task_module_config(
+        {
+            "postprocessing_analysis": {
+                "enabled": True,
+                "value": {
+                    "sensor_psd": {
+                        "enabled": True,
+                        "freq_bands": "default",
+                    }
+                },
+            }
+        }
+    )
+
+    assert (
+        validated["postprocessing_analysis"]["value"]["sensor_psd"]["freq_bands"]
+        == "default"
+    )
+
+
+def test_postprocessing_schema_rejects_unknown_blocks_and_bad_types():
+    with pytest.raises(SchemaError):
+        validate_task_module_config(
+            {
+                "postprocessing_analysis": {
+                    "enabled": True,
+                    "value": {"unknown_block": {"enabled": True}},
+                }
+            }
+        )
+
+    with pytest.raises(SchemaError):
+        validate_task_module_config(
+            {
+                "postprocessing_analysis": {
+                    "enabled": True,
+                    "value": {"fooof": {"enabled": "yes"}},
+                }
+            }
+        )

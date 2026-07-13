@@ -119,6 +119,11 @@ class SensorPSDMixin:
         n_channels = 0
         n_observations = 0
 
+        if baseline is not None and isinstance(data, mne.io.BaseRaw):
+            message(
+                "warning", "Sensor PSD baseline is ignored for continuous Raw input."
+            )
+
         for window_name, window_limits in windows.items():
             data_to_use = data.copy()
             if picks is not None:

@@ -9,12 +9,39 @@ from tests.fixtures.test_utils import BaseTestCase
 
 # Import will be mocked for tests that don't need full functionality
 try:
-    from autoclean.core.pipeline import Pipeline
+    from autoclean.core.pipeline import Pipeline, _run_optional_postprocessing
 
     PIPELINE_AVAILABLE = True
 except ImportError:
     PIPELINE_AVAILABLE = False
     Pipeline = None
+
+
+def test_optional_postprocessing_is_invoked():
+    task = type("Task", (), {"run_postprocessing_analysis": lambda self: None})()
+    with patch.object(task, "run_postprocessing_analysis") as run_postprocessing:
+        _run_optional_postprocessing(task)
+    run_postprocessing.assert_called_once_with()
+
+
+def test_optional_postprocessing_failure_does_not_abort_followup_output():
+    class FailingTask:
+        settings = {
+            "postprocessing_analysis": {"value": {"sensor_psd": {"enabled": True}}}
+        }
+
+        def run_postprocessing_analysis(self):
+            raise RuntimeError("bad optional analysis")
+
+    followup_output = []
+    with patch("autoclean.core.pipeline.message") as log_message:
+        _run_optional_postprocessing(FailingTask())
+        followup_output.append("saved")
+
+    assert followup_output == ["saved"]
+    assert any(
+        "enabled blocks: sensor_psd" in str(call) for call in log_message.call_args_list
+    )
 
 
 @pytest.mark.skipif(
@@ -446,9 +473,7 @@ class TestProcessFile:
             side_effect=ValueError("Task 'NonExistent' not found"),
         ):
             with pytest.raises(ValueError, match="not found"):
-                pipeline.process_file(
-                    file_path=str(data_file), task="NonExistentTask"
-                )
+                pipeline.process_file(file_path=str(data_file), task="NonExistentTask")
 
     def test_validate_task_raises_for_unknown_task_name(self, tmp_path):
         """_validate_task raises ValueError for a task not in any registry."""
@@ -468,7 +493,9 @@ class TestProcessFile:
         data_file = tmp_path / "sub01.fif"
         data_file.touch()
 
-        with patch.object(pipeline, "_entrypoint", return_value="RUN_ID_ABCD") as mock_ep:
+        with patch.object(
+            pipeline, "_entrypoint", return_value="RUN_ID_ABCD"
+        ) as mock_ep:
             pipeline.process_file(file_path=str(data_file), task="MockTask")
 
         mock_ep.assert_called_once()
@@ -520,8 +547,6 @@ class TestProcessFile:
             # Calling with a file_path still triggers _entrypoint
             data_file = tmp_path / "data.fif"
             data_file.touch()
-            pipeline.process_file(
-                file_path=str(data_file), task="MyTask"
-            )
+            pipeline.process_file(file_path=str(data_file), task="MyTask")
 
         mock_ep.assert_called_once()

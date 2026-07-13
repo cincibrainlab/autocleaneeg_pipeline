@@ -188,6 +188,27 @@ class TestApplySensorPsd:
         assert metadata["n_observations_analyzed"] == raw.n_times
         assert len(psd_df["channel"].unique()) == len(raw.ch_names)
 
+    def test_raw_input_warns_when_baseline_is_ignored(self, task):
+        raw = create_synthetic_raw(
+            montage="standard_1020", n_channels=4, duration=3.0, sfreq=100.0
+        )
+        with (
+            patch("autoclean.mixins.analysis.sensor_psd.message") as log_message,
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_sensor_psd_tables", return_value={}),
+        ):
+            task.apply_sensor_psd(
+                data=raw,
+                fmin=1,
+                fmax=20,
+                freq_bands=None,
+                baseline=[None, 0],
+            )
+
+        log_message.assert_any_call(
+            "warning", "Sensor PSD baseline is ignored for continuous Raw input."
+        )
+
     def test_freq_bands_none_skips_band_summary(self, task):
         """freq_bands=None should skip band-power rows instead of using defaults."""
         with (
