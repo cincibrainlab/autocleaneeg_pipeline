@@ -405,7 +405,7 @@ export default function Queue() {
                     className={[
                       "border-b border-border-subtle transition-colors duration-150 cursor-pointer",
                       selectedEntry?.path === entry.path
-                        ? "bg-brand/5"
+                        ? "bg-brand/15 dark:bg-brand/10"
                         : "hover:bg-surface-50/30",
                       entry.status === "failed" ? "border-l-2 border-l-red-500/40" : "",
                     ].join(" ")}
