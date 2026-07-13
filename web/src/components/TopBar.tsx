@@ -145,9 +145,9 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
   };
 
   return (
-    <header className="h-14 flex-shrink-0 flex items-center justify-between px-6 bg-surface-300 border-b border-border">
+    <header className="min-h-14 flex-shrink-0 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 px-3 py-2 bg-surface-300 border-b border-border md:h-14 md:min-h-0 md:flex md:px-6 md:py-0">
       {/* Left: Hamburger + Page title */}
-      <div className="flex items-center gap-3">
+      <div className="min-w-0 flex items-center gap-3">
         <button
           onClick={onToggleSidebar}
           className="md:hidden p-1.5 rounded-md text-zinc-400 hover:text-zinc-200 hover:bg-surface-50 transition-colors"
@@ -155,11 +155,11 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
         >
           <Menu className="w-5 h-5" />
         </button>
-        <h1 className="text-lg font-semibold text-zinc-100">{title}</h1>
+        <h1 className="truncate text-lg font-semibold text-zinc-100">{title}</h1>
       </div>
 
-      {/* Right: Status indicators */}
-      <div className="flex items-center gap-3">
+      {/* Primary mobile actions */}
+      <div className="flex shrink-0 items-center gap-2 md:ml-auto md:gap-3">
         {/* Theme toggle */}
         <button
           onClick={toggleTheme}
@@ -176,7 +176,7 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
             onClick={handleShare}
             disabled={starting}
             className={[
-              "rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-2 transition-colors duration-150",
+              "rounded-md px-2 sm:px-3 py-1.5 text-sm font-medium flex items-center gap-2 transition-colors duration-150",
               tunnelActive
                 ? "bg-brand/20 text-brand border border-brand/40 hover:bg-brand/30"
                 : "border border-border text-zinc-400 hover:text-zinc-200 hover:bg-surface-50",
@@ -193,12 +193,14 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
             ) : (
               <Share2 className="w-3.5 h-3.5" />
             )}
-            {starting ? "Starting..." : tunnelActive ? "Sharing" : "Share"}
+            <span className="max-[374px]:sr-only">
+              {starting ? "Starting..." : tunnelActive ? "Sharing" : "Share"}
+            </span>
           </button>
 
           {/* Popover */}
           {showPopover && (
-            <div className="absolute right-0 top-full mt-2 z-50 w-80 rounded-lg border border-border bg-surface-200 shadow-xl">
+            <div className="fixed inset-x-3 top-24 z-50 w-auto rounded-lg border border-border bg-surface-200 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80">
               <div className="p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-zinc-100">
@@ -395,7 +397,10 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
               </div>
             </div>
           )}
-        </div>
+      </div>
+      </div>
+
+      <div className="col-span-2 flex items-center gap-3 justify-self-end md:col-auto md:ml-3 md:justify-self-auto">
 
         {/* Stripe-style mode toggle */}
         {health && (
