@@ -11,10 +11,10 @@ import mne
 
 
 def drop_channels(
-    data: Union[mne.io.BaseRaw, mne.Epochs],
+    data: Union[mne.io.BaseRaw, mne.BaseEpochs],
     ch_names: Union[str, List[str]],
     on_missing: str = "raise",
-) -> Union[mne.io.BaseRaw, mne.Epochs]:
+) -> Union[mne.io.BaseRaw, mne.BaseEpochs]:
     """Drop channels from EEG data.
 
     This function removes specified channels from continuous (Raw) or epoched EEG data.
@@ -40,7 +40,7 @@ def drop_channels(
     Raises
     ------
     TypeError
-        If data is not an MNE Raw or Epochs object.
+        If data is not an MNE Raw or BaseEpochs object.
     ValueError
         If on_missing='raise' and channels are not found.
 
@@ -59,9 +59,9 @@ def drop_channels(
 
     >>> data_clean = drop_channels(raw, ['E125', 'NonExistent'], on_missing='warn')
     """
-    if not isinstance(data, (mne.io.BaseRaw, mne.Epochs)):
+    if not isinstance(data, (mne.io.BaseRaw, mne.BaseEpochs)):
         raise TypeError(
-            f"Data must be an MNE Raw or Epochs object, got {type(data).__name__}"
+            f"Data must be an MNE Raw or BaseEpochs object, got {type(data).__name__}"
         )
 
     if isinstance(ch_names, str):
@@ -86,11 +86,11 @@ def drop_channels(
 
 
 def crop_data(
-    data: Union[mne.io.BaseRaw, mne.Epochs],
+    data: Union[mne.io.BaseRaw, mne.BaseEpochs],
     tmin: Optional[float] = None,
     tmax: Optional[float] = None,
     include_tmax: bool = True,
-) -> Union[mne.io.BaseRaw, mne.Epochs]:
+) -> Union[mne.io.BaseRaw, mne.BaseEpochs]:
     """Crop EEG data to a specific time range.
 
     This function crops continuous (Raw) or epoched EEG data to a specified time window.
@@ -115,7 +115,7 @@ def crop_data(
     Raises
     ------
     TypeError
-        If data is not an MNE Raw or Epochs object.
+        If data is not an MNE Raw or BaseEpochs object.
     ValueError
         If tmin >= tmax or times are outside data range.
 
@@ -134,9 +134,9 @@ def crop_data(
 
     >>> cropped = crop_data(raw, tmin=5.0)  # Remove first 5 seconds
     """
-    if not isinstance(data, (mne.io.BaseRaw, mne.Epochs)):
+    if not isinstance(data, (mne.io.BaseRaw, mne.BaseEpochs)):
         raise TypeError(
-            f"Data must be an MNE Raw or Epochs object, got {type(data).__name__}"
+            f"Data must be an MNE Raw or BaseEpochs object, got {type(data).__name__}"
         )
 
     # Get data time bounds
@@ -165,8 +165,8 @@ def crop_data(
 
 
 def trim_edges(
-    data: Union[mne.io.BaseRaw, mne.Epochs], duration: float
-) -> Union[mne.io.BaseRaw, mne.Epochs]:
+    data: Union[mne.io.BaseRaw, mne.BaseEpochs], duration: float
+) -> Union[mne.io.BaseRaw, mne.BaseEpochs]:
     """Trim specified duration from both edges of EEG data.
 
     This function removes the specified duration from both the beginning and end
@@ -188,7 +188,7 @@ def trim_edges(
     Raises
     ------
     TypeError
-        If data is not an MNE Raw or Epochs object.
+        If data is not an MNE Raw or BaseEpochs object.
     ValueError
         If duration is negative or too large for the data.
 
@@ -203,9 +203,9 @@ def trim_edges(
 
     >>> trimmed = trim_edges(filtered_raw, duration=0.5)
     """
-    if not isinstance(data, (mne.io.BaseRaw, mne.Epochs)):
+    if not isinstance(data, (mne.io.BaseRaw, mne.BaseEpochs)):
         raise TypeError(
-            f"Data must be an MNE Raw or Epochs object, got {type(data).__name__}"
+            f"Data must be an MNE Raw or BaseEpochs object, got {type(data).__name__}"
         )
 
     if duration < 0:
@@ -228,8 +228,8 @@ def trim_edges(
 
 
 def assign_channel_types(
-    data: Union[mne.io.BaseRaw, mne.Epochs], channel_types: Dict[str, str]
-) -> Union[mne.io.BaseRaw, mne.Epochs]:
+    data: Union[mne.io.BaseRaw, mne.BaseEpochs], channel_types: Dict[str, str]
+) -> Union[mne.io.BaseRaw, mne.BaseEpochs]:
     """Assign channel types to EEG data channels.
 
     This function sets the channel types (e.g., 'eeg', 'eog', 'ecg', 'emg') for
@@ -252,7 +252,7 @@ def assign_channel_types(
     Raises
     ------
     TypeError
-        If data is not an MNE Raw or Epochs object.
+        If data is not an MNE Raw or BaseEpochs object.
     ValueError
         If channel names are not found in data.
 
@@ -274,9 +274,9 @@ def assign_channel_types(
     ... }
     >>> retyped = assign_channel_types(raw, types)
     """
-    if not isinstance(data, (mne.io.BaseRaw, mne.Epochs)):
+    if not isinstance(data, (mne.io.BaseRaw, mne.BaseEpochs)):
         raise TypeError(
-            f"Data must be an MNE Raw or Epochs object, got {type(data).__name__}"
+            f"Data must be an MNE Raw or BaseEpochs object, got {type(data).__name__}"
         )
 
     # Validate that all channels exist

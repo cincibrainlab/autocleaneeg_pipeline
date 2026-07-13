@@ -55,6 +55,20 @@ config = {
         "remove_baseline": {"enabled": False, "window": [None, 0]},
         "threshold_rejection": {"enabled": False, "volt_threshold": {"eeg": 0.000125}},
     },
+    "conditionwise_epoch_rejection": {
+        "enabled": False,
+        "value": {
+            "robust_z_threshold": 4.0,
+            "minimum_metric_flags": 2,
+            "absolute_amplitude_uv": None,
+            "max_reject_fraction": 0.10,
+            "minimum_epochs": 20,
+            "exclude_channel_types": ["eog", "ecg", "misc"],
+            "exclude_channels_matching": ["EOG"],
+            "mode": "apply",
+            "group_by": "event_id",
+        },
+    },
     "apply_erp_outputs": {
         "enabled": True,
         "value": {
@@ -90,6 +104,8 @@ class PreEpochedERP(Task):
             analysis_window=erp_config.get("analysis_window"),
         )
         self._update_metadata("step_validate_pre_epoched_erp", validation)
+
+        self.apply_conditionwise_epoch_rejection()
 
         if not erp_enabled:
             return

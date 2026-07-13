@@ -130,7 +130,7 @@ export default function Dashboard() {
               </p>
               <button
                 onClick={() => navigate("/setup")}
-                className="rounded-md px-3 py-1.5 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500"
+                className="rounded-md px-3 py-1.5 text-sm font-medium bg-brand text-brand-900 hover:bg-brand-500"
               >
                 Choose Workspace
               </button>
@@ -155,7 +155,7 @@ export default function Dashboard() {
               </p>
               <button
                 onClick={() => startTutorial()}
-                className="rounded-md px-3 py-1.5 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500"
+                className="rounded-md px-3 py-1.5 text-sm font-medium bg-brand text-brand-900 hover:bg-brand-500"
               >
                 Start Tutorial
               </button>
@@ -285,7 +285,7 @@ export default function Dashboard() {
               </p>
               <button
                 onClick={() => navigate(recommendation.target)}
-                className="rounded-md px-3 py-1.5 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500"
+                className="rounded-md px-3 py-1.5 text-sm font-medium bg-brand text-brand-900 hover:bg-brand-500"
               >
                 {recommendation.action}
               </button>

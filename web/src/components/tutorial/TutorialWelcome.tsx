@@ -26,7 +26,7 @@ export default function TutorialWelcome() {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm">
       <div
-        className="w-full max-w-md mx-4 rounded-xl border border-border bg-surface-200 p-8 shadow-2xl"
+        className="w-[calc(100%-2rem)] max-w-md rounded-xl border border-border bg-surface-200 p-8 shadow-2xl"
         style={{ animation: "tutorial-enter 0.25s ease-out both" }}
       >
         {/* Icon */}
@@ -67,7 +67,7 @@ export default function TutorialWelcome() {
         <div className="flex flex-col gap-3">
           <button
             onClick={handleStart}
-            className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold bg-brand text-surface-500 hover:bg-brand-500 transition-colors"
+            className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold bg-brand text-brand-900 hover:bg-brand-500 transition-colors"
           >
             Start Tutorial
           </button>

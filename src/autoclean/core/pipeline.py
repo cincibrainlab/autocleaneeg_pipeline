@@ -87,18 +87,10 @@ from autoclean.utils.auth import (
     require_authentication,
 )
 from autoclean.utils.block_errors import BlockDependencyError
-from autoclean.utils.config import (
-    hash_and_encode_yaml,
-    load_user_config,
-)
-from autoclean.utils.database import (
-    create_isolated_database,
-    get_run_record,
-)
+from autoclean.utils.config import hash_and_encode_yaml, load_user_config
+from autoclean.utils.database import create_isolated_database, get_run_record
 from autoclean.utils.database import manage_database_conditionally as manage_database
-from autoclean.utils.database import (
-    set_database_path,
-)
+from autoclean.utils.database import set_database_path
 from autoclean.utils.exclusion_list import ExclusionListResult, evaluate_exclusion_list
 from autoclean.utils.file_system import (
     STATUS_DIR_NAME,
@@ -121,9 +113,16 @@ except ImportError:
 matplotlib.use("Agg")
 
 
-def _expand_brace_glob(pattern: str) -> list[str]:
-    """Expand simple brace globs like '*.{raw,set,bdf}' into ['*.raw', '*.set', '*.bdf'].
+def _is_eeg_directory_package(path: Path) -> bool:
+    """Return True for directory-backed EEG package inputs."""
+    return path.is_dir() and path.suffix.lower() == ".mff"
 
+
+def _expand_brace_glob(pattern: str) -> list[str]:
+    """Expand simple brace globs like '*.{raw,set,bdf,mff,edf}'.
+
+    Example: '*.{raw,set,bdf,mff,edf}' expands to
+    ['*.raw', '*.set', '*.bdf', '*.mff', '*.edf'].
     This supports a single pair of braces with comma-separated options.
     If no braces are present, returns the pattern as a single-item list.
     """
@@ -1030,7 +1029,7 @@ class Pipeline:
         self,
         directory: Optional[str | Path] = None,
         task: str = "",
-        pattern: str = "*.{raw,set,bdf}",
+        pattern: str = "*.{raw,set,bdf,mff,edf}",
         recursive: bool = False,
     ) -> None:
         """Processes all files matching a pattern within a directory sequentially.
@@ -1043,7 +1042,7 @@ class Pipeline:
         task : str
             The name of the task to perform (e.g., 'RestingEyesOpen').
         pattern : str, optional
-            Glob pattern to match files within the directory, default is `*.{raw,set,bdf}`.
+            Glob pattern to match files within the directory, default is `*.{raw,set,bdf, mff, edf}`.
         recursive : bool, optional
             If True, searches subdirectories recursively, by default False.
 
@@ -1062,11 +1061,11 @@ class Pipeline:
         >>> pipeline.process_directory(
         ...     directory='data/rest_state/',
         ...     task='rest_eyesopen',
-        ...     pattern='*.{raw,set,bdf}',
+        ...     pattern='*.{raw,set,bdf, mff, edf}',
         ...     recursive=True
         ... )
         >>> # Or use input_path from task config
-        >>> pipeline.process_directory(task='rest_eyesopen', pattern='*.{raw,set,bdf}')
+        >>> pipeline.process_directory(task='rest_eyesopen', pattern='*.{raw,set,bdf, mff, edf}')
         """
         # Use input_path from task config if directory not provided
         if directory is None:
@@ -1101,12 +1100,15 @@ class Pipeline:
 
         # List all files in directory for debugging
         all_files = list(directory.iterdir())
+        all_file_names = [
+            f.name for f in all_files if f.is_file() or _is_eeg_directory_package(f)
+        ]
         message(
             "debug",
-            f"All files in directory ({len(all_files)}): {[f.name for f in all_files if f.is_file()]}",
+            f"All files in directory ({len(all_files)}): {all_file_names}",
         )
 
-        # Support brace expansion patterns like '*.{raw,set,bdf}'
+        # Support brace expansion patterns like '*.{raw,set,bdf, mff, edf}'
         files: list[Path] = []
         seen: set[Path] = set()
         for pat in _expand_brace_glob(search_pattern):
@@ -1121,7 +1123,6 @@ class Pipeline:
 
         if not files:
             message("warning", f"No files matching '{pattern}' found in {directory}")
-            all_file_names = [f.name for f in all_files if f.is_file()]
             message("info", f"Available files: {all_file_names}")
 
             # No need for manual suggestion since auto-correction happens above
@@ -1164,7 +1165,7 @@ class Pipeline:
         self,
         directory_path: Optional[str | Path] = None,
         task: str = "",
-        pattern: str = "*.{raw,set,bdf}",
+        pattern: str = "*.{raw,set,bdf,mff,edf}",
         sub_directories: bool = False,
         max_concurrent: int = 3,
     ) -> None:
@@ -1178,7 +1179,7 @@ class Pipeline:
         task : str
             The name of the task to perform (e.g., 'RestingEyesOpen').
         pattern : str, optional
-            Glob pattern to match files within the directory, default is `*.{raw,set,bdf}`.
+            Glob pattern to match files within the directory, default is `*.{raw,set,bdf, mff, edf}`.
         sub_directories : bool, optional
             If True, searches subdirectories recursively, by default False.
         max_concurrent : int, optional
@@ -1228,12 +1229,15 @@ class Pipeline:
 
         # List all files in directory for debugging
         all_files = list(directory_path.iterdir())
+        all_file_names = [
+            f.name for f in all_files if f.is_file() or _is_eeg_directory_package(f)
+        ]
         message(
             "debug",
-            f"All files in directory ({len(all_files)}): {[f.name for f in all_files if f.is_file()]}",
+            f"All files in directory ({len(all_files)}): {all_file_names}",
         )
 
-        # Support brace expansion patterns like '*.{raw,set,bdf}'
+        # Support brace expansion patterns like '*.{raw,set,bdf, mff, edf}'
         files: list[Path] = []
         seen: set[Path] = set()
         for pat in _expand_brace_glob(search_pattern):
@@ -1250,7 +1254,6 @@ class Pipeline:
             message(
                 "warning", f"No files matching '{pattern}' found in {directory_path}"
             )
-            all_file_names = [f.name for f in all_files if f.is_file()]
             message("info", f"Available files: {all_file_names}")
 
             # No need for manual suggestion since auto-correction happens above

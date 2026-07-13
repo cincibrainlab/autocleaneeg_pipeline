@@ -104,7 +104,7 @@ export default function EventAnalyzerPage() {
         <button
           onClick={handleAnalyze}
           disabled={loading || !filePath.trim()}
-          className="flex items-center gap-1.5 px-4 py-2 rounded bg-brand text-surface-500 text-sm font-medium hover:bg-brand/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-1.5 px-4 py-2 rounded bg-brand text-brand-900 text-sm font-medium hover:bg-brand/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {loading ? (
             <>

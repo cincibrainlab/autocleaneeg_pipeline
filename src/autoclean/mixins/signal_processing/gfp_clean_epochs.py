@@ -31,19 +31,19 @@ class GFPCleanEpochsMixin:
 
     def gfp_clean_epochs(
         self,
-        epochs: Union[mne.Epochs, None] = None,
+        epochs: Union[mne.BaseEpochs, None] = None,
         gfp_threshold: float = 3.0,
         number_of_epochs: Optional[int] = None,
         random_seed: Optional[int] = None,
         stage_name: str = "post_gfp_clean",
         export: bool = False,
-    ) -> mne.Epochs:
-        """Clean an MNE Epochs object by removing outlier epochs based on Global Field Power.
+    ) -> mne.BaseEpochs:
+        """Clean an MNE BaseEpochs object by removing outlier epochs based on Global Field Power.
 
 
         Parameters
         ----------
-        epochs: mne.Epochs, Optional
+        epochs: mne.BaseEpochs, Optional
             The epochs object to clean. If None, uses self.epochs.
         gfp_threshold: float
             The z-score threshold for GFP-based outlier detection (default: 3.0).
@@ -58,14 +58,14 @@ class GFPCleanEpochsMixin:
 
         Returns
         -------
-        epochs_final : instance of mne.Epochs
+        epochs_final : instance of mne.BaseEpochs
             The cleaned epochs object with outlier epochs removed
 
         See Also
         --------
-        mne.Epochs
-        mne.Epochs.get_data
-        mne.Epochs.copy
+        mne.BaseEpochs
+        mne.BaseEpochs.get_data
+        mne.BaseEpochs.copy
 
         Example:
             ```python
@@ -105,9 +105,9 @@ class GFPCleanEpochsMixin:
 
         # Type checking
         if not isinstance(
-            epochs, mne.Epochs
+            epochs, mne.BaseEpochs
         ):  # pylint: disable=isinstance-second-argument-not-valid-type
-            raise TypeError("Data must be an MNE Epochs object for GFP cleaning")
+            raise TypeError("Data must be an MNE BaseEpochs object for GFP cleaning")
 
         try:
             message("header", "Cleaning epochs based on Global Field Power (GFP)")

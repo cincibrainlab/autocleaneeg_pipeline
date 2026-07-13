@@ -166,8 +166,8 @@ class BaseMixin:
                 message("info", f"{status} {step_name}")
 
     def _get_data_object(
-        self, data: Union[mne.io.Raw, mne.Epochs, None], use_epochs: bool = False
-    ) -> Union[mne.io.Raw, mne.Epochs]:
+        self, data: Union[mne.io.Raw, mne.BaseEpochs, None], use_epochs: bool = False
+    ) -> Union[mne.io.Raw, mne.BaseEpochs]:
         """Get the appropriate data object based on the parameters.
 
         Args:
@@ -194,8 +194,8 @@ class BaseMixin:
 
     def _update_instance_data(
         self,
-        data: Union[mne.io.Raw, mne.Epochs, None],
-        result_data: Union[mne.io.Raw, mne.Epochs],
+        data: Union[mne.io.Raw, mne.BaseEpochs, None],
+        result_data: Union[mne.io.Raw, mne.BaseEpochs],
         use_epochs: bool = False,
     ) -> None:
         """Update the instance data attribute with the result data.
@@ -383,7 +383,7 @@ class BaseMixin:
 
     def _auto_export_if_enabled(
         self,
-        data: Union[mne.io.Raw, mne.Epochs],
+        data: Union[mne.io.Raw, mne.BaseEpochs],
         stage_name: str,
         export_enabled: bool = False,
     ) -> None:
@@ -407,7 +407,7 @@ class BaseMixin:
         try:
             if isinstance(data, mne.io.base.BaseRaw):
                 self._save_raw_result(data, stage_name)
-            elif isinstance(data, mne.Epochs):
+            elif isinstance(data, mne.BaseEpochs):
                 self._save_epochs_result(data, stage_name)
             else:
                 message(
@@ -468,7 +468,7 @@ class BaseMixin:
         finally:
             del frame
 
-    def _save_epochs_result(self, result_data: mne.Epochs, stage_name: str) -> None:
+    def _save_epochs_result(self, result_data: mne.BaseEpochs, stage_name: str) -> None:
         """Save the epochs result data to a file.
 
         Args:
@@ -478,9 +478,7 @@ class BaseMixin:
         if not hasattr(self, "config"):
             return
 
-        if isinstance(
-            result_data, mne.Epochs
-        ):  # pylint: disable=isinstance-second-argument-not-valid-type
+        if isinstance(result_data, mne.BaseEpochs):
             save_epochs_to_set(
                 epochs=result_data,
                 autoclean_dict=self.config,

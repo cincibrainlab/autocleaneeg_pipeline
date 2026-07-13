@@ -584,7 +584,7 @@ export default function RoutesPage() {
               setSaveError(null);
               setShowModal(true);
             }}
-            className="mt-2 rounded-md px-3 py-1.5 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500 transition-colors duration-150 flex items-center gap-2"
+            className="mt-2 rounded-md px-3 py-1.5 text-sm font-medium bg-brand text-brand-900 hover:bg-brand-500 transition-colors duration-150 flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
             New Route
@@ -631,7 +631,7 @@ export default function RoutesPage() {
               setSaveError(null);
               setShowModal(true);
             }}
-            className="rounded-md px-3 py-1.5 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500 transition-colors duration-150 flex items-center gap-2"
+            className="rounded-md px-3 py-1.5 text-sm font-medium bg-brand text-brand-900 hover:bg-brand-500 transition-colors duration-150 flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
             New Route
@@ -757,7 +757,7 @@ export default function RoutesPage() {
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div ref={routeModalRef} className="w-full max-w-xl rounded-lg border border-border bg-surface-200 p-4 sm:p-6 mx-4 sm:mx-auto max-h-[90vh] overflow-y-auto">
+          <div ref={routeModalRef} className="w-[calc(100%-2rem)] max-w-xl rounded-lg border border-border bg-surface-200 p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold text-zinc-100">
                 {editingRoute ? "Edit Route" : "New Route"}
@@ -1071,7 +1071,7 @@ export default function RoutesPage() {
                   onClick={handleSave}
                   disabled={saving || formError !== null}
                   title={formError ?? undefined}
-                  className="rounded-md px-4 py-2 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-md px-4 py-2 text-sm font-medium bg-brand text-brand-900 hover:bg-brand-500 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving
                     ? editingRoute ? "Saving..." : "Creating..."

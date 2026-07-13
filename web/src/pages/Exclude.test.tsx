@@ -300,6 +300,59 @@ describe("ExcludePage", () => {
     }, { timeout: 1500 });
   });
 
+  it("flushes pending autosaves with the route that created them", async () => {
+    api.getRoutes.mockResolvedValue([
+      {
+        id: "route-1",
+        enabled: true,
+        archived: false,
+        modes: ["live"],
+        taskfile: "RestingState_Basic.py",
+        montage: "GSN-HydroCel-129",
+        ingestion_folders: [],
+        file_globs: ["*.set"],
+        recursive: true,
+      },
+      {
+        id: "route-2",
+        enabled: true,
+        archived: false,
+        modes: ["live"],
+        taskfile: "RestingState_Basic.py",
+        montage: "GSN-HydroCel-129",
+        ingestion_folders: [],
+        file_globs: ["*.set"],
+        recursive: true,
+      },
+    ]);
+    renderPage();
+
+    await screen.findByText("Focused epoch: 1");
+    fireEvent.keyDown(document, { key: " " });
+    await screen.findByText("Saving…");
+    fireEvent.change(screen.getByPlaceholderText("Add reviewer notes..."), {
+      target: { value: "pending route-one note" },
+    });
+
+    fireEvent.change(screen.getByLabelText("Route"), {
+      target: { value: "route-2" },
+    });
+
+    await waitFor(() => {
+      expect(api.saveExcludeEpochReview).toHaveBeenCalledWith(
+        "subject01_comp_epo",
+        expect.any(Array),
+        "route-1",
+      );
+      expect(api.saveExcludeNotes).toHaveBeenCalledWith(
+        "subject01_comp_epo",
+        "pending route-one note",
+        "REVIEW",
+        "route-1",
+      );
+    });
+  });
+
   it("adds and removes manual overrides, then saves them", async () => {
     renderPage();
 

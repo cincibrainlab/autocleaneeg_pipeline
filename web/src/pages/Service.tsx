@@ -193,7 +193,7 @@ export default function Service() {
               onClick={handleStart}
               disabled={acting || !canStart}
               title={!canStart ? startBlockedReason ?? "Service cannot be started yet." : undefined}
-              className="rounded-md px-5 py-2 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500 transition-colors duration-150 flex items-center gap-2 disabled:opacity-50"
+              className="rounded-md px-5 py-2 text-sm font-medium bg-brand text-brand-900 hover:bg-brand-500 transition-colors duration-150 flex items-center gap-2 disabled:opacity-50"
             >
               <Play className="w-4 h-4" />
               Start Service
