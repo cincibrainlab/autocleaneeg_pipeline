@@ -67,6 +67,7 @@ describe("TopBar tunnel configuration errors", () => {
     expect(
       await screen.findByText("Could not save tunnel configuration. Check the values and try again."),
     ).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not save tunnel configuration");
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
     });
