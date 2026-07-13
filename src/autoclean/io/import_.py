@@ -465,7 +465,9 @@ def import_eeg(
         eeglab_provenance = None
         if format_id == "EEGLAB_SET":
             try:
-                eeglab_provenance = extract_eeglab_provenance(unprocessed_file)
+                eeglab_provenance = extract_eeglab_provenance(
+                    unprocessed_file, eeg_data
+                )
                 artifact_paths = write_eeglab_provenance_artifacts(
                     eeglab_provenance,
                     resolve_eeglab_provenance_dir(autoclean_dict),
