@@ -7,6 +7,7 @@ It handles command line arguments and runs the appropriate functions.
 """
 
 import argparse
+import json
 
 # Make sure the current directory is in the path so modules can be imported
 import os
@@ -23,7 +24,12 @@ from assr_viz import plot_all_figures, plot_global_mean_itc, plot_topomap
 
 
 def run_complete_analysis(
-    file_path=None, output_dir=None, epochs=None, file_basename=None
+    file_path=None,
+    output_dir=None,
+    epochs=None,
+    file_basename=None,
+    analysis_profile=None,
+    analysis_config=None,
 ):
     """
     Run the complete analysis with all plots
@@ -69,6 +75,8 @@ def run_complete_analysis(
         save_results=True,
         epochs=epochs,
         file_basename=file_basename,
+        analysis_profile=analysis_profile,
+        analysis_config=analysis_config,
     )
 
     # Generate all plots
@@ -84,7 +92,9 @@ def run_complete_analysis(
     return analysis_results, figures
 
 
-def run_analysis_only(file_path, output_dir=None):
+def run_analysis_only(
+    file_path, output_dir=None, analysis_profile=None, analysis_config=None
+):
     """Run just the analysis without generating plots"""
     if output_dir is None:
         output_dir = Path("results")
@@ -94,7 +104,13 @@ def run_analysis_only(file_path, output_dir=None):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Running analysis only on {file_path}")
-    analysis_results = analyze_assr(file_path, output_dir, save_results=True)
+    analysis_results = analyze_assr(
+        file_path,
+        output_dir,
+        save_results=True,
+        analysis_profile=analysis_profile,
+        analysis_config=analysis_config,
+    )
 
     print("Analysis complete!")
     return analysis_results
@@ -129,6 +145,16 @@ def create_specific_plots(analysis_results, output_dir=None):
     return {"global_itc": global_itc_fig, "topomap": topo_fig}
 
 
+def _load_analysis_config(analysis_config):
+    if not analysis_config:
+        return None
+
+    config_arg = Path(analysis_config)
+    if config_arg.exists():
+        return json.loads(config_arg.read_text(encoding="utf8"))
+    return json.loads(analysis_config)
+
+
 def main():
     """Main function to parse arguments and run analysis"""
     parser = argparse.ArgumentParser(description="ASSR Analysis Runner")
@@ -146,19 +172,46 @@ def main():
         default="complete",
         help="Type of analysis to run",
     )
+    parser.add_argument(
+        "--analysis_profile",
+        type=str,
+        default=None,
+        help="Optional ASSR analysis profile, e.g. assr_epochs",
+    )
+    parser.add_argument(
+        "--analysis_config",
+        type=str,
+        default=None,
+        help="Optional JSON object or JSON file path with ASSR analysis overrides",
+    )
 
     args = parser.parse_args()
+    analysis_config = _load_analysis_config(args.analysis_config)
 
     if args.analysis_type == "complete":
-        run_complete_analysis(args.file_path, args.output_dir)
+        run_complete_analysis(
+            args.file_path,
+            args.output_dir,
+            analysis_profile=args.analysis_profile,
+            analysis_config=analysis_config,
+        )
 
     elif args.analysis_type == "analysis_only":
-        run_analysis_only(args.file_path, args.output_dir)
+        run_analysis_only(
+            args.file_path,
+            args.output_dir,
+            analysis_profile=args.analysis_profile,
+            analysis_config=analysis_config,
+        )
 
     elif args.analysis_type == "plots_only":
         # First run the analysis to get the results
         analysis_results = analyze_assr(
-            args.file_path, args.output_dir, save_results=False
+            args.file_path,
+            args.output_dir,
+            save_results=False,
+            analysis_profile=args.analysis_profile,
+            analysis_config=analysis_config,
         )
         # Then create only specific plots
         create_specific_plots(analysis_results, args.output_dir)
