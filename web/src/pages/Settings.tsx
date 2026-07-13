@@ -113,8 +113,14 @@ export default function Settings() {
           <button
             ref={applyButtonRef}
             onClick={handleDeploy}
-            disabled={deploying || status === "errors"}
-            title={status === "errors" ? "Fix errors before applying" : "Copy config to deploy/"}
+            disabled={deploying || validating || !validation || status === "errors"}
+            title={
+              validating || !validation
+                ? "Wait for validation to finish"
+                : status === "errors"
+                  ? "Fix errors before applying"
+                  : "Copy config to deploy/"
+            }
             className="rounded-md px-3 py-1.5 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500 transition-colors duration-150 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Upload className="w-3.5 h-3.5" />
