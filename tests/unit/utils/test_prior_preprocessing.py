@@ -6,6 +6,7 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 import autoclean.utils.prior_preprocessing as prior_preprocessing_module
 from autoclean.utils.prior_preprocessing import (
@@ -258,6 +259,20 @@ def test_dataset_summary_source_replacement_is_idempotent(tmp_path):
     assert dataset["warning_counts_by_source"] == {"sub-01.set": {warning: 1}}
 
 
+def test_dataset_summary_serialization_order_is_deterministic(tmp_path):
+    first_dir = tmp_path / "first"
+    second_dir = tmp_path / "second"
+    for source in ("sub-02.set", "sub-01.set"):
+        _write_dataset_summary(str(first_dir), source, [f"warning {source}"])
+    for source in ("sub-01.set", "sub-02.set"):
+        _write_dataset_summary(str(second_dir), source, [f"warning {source}"])
+
+    filename = "prior_preprocessing_dataset_summary.json"
+    assert (first_dir / filename).read_text(encoding="utf-8") == (
+        second_dir / filename
+    ).read_text(encoding="utf-8")
+
+
 def test_dataset_summary_reprocessing_legacy_source_resets_unattributed_counts(
     tmp_path,
 ):
@@ -266,8 +281,11 @@ def test_dataset_summary_reprocessing_legacy_source_resets_unattributed_counts(
         json.dumps(
             {
                 "schema_version": "1.0",
-                "rows": [{"source_file": "legacy.set"}],
-                "warning_counts": {"legacy warning": 1},
+                "rows": [
+                    {"source_file": "untouched.set"},
+                    {"source_file": "legacy.set"},
+                ],
+                "warning_counts": {"legacy warning": 2},
                 "warnings": [],
             }
         ),
@@ -277,13 +295,58 @@ def test_dataset_summary_reprocessing_legacy_source_resets_unattributed_counts(
     _write_dataset_summary(str(tmp_path), "legacy.set", ["current warning"])
 
     dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
-    assert dataset["rows"] == [{"source_file": "legacy.set"}]
+    assert dataset["rows"] == [
+        {"source_file": "legacy.set"},
+        {"source_file": "untouched.set"},
+    ]
     assert dataset["warning_counts"] == {"current warning": 1}
     assert dataset["warning_counts_by_source"] == {"legacy.set": {"current warning": 1}}
     assert dataset["warning_counts_migration"] == {
         "status": "legacy_aggregate_reset",
         "reason": "per-source warning contributions were unavailable",
+        "warning_counts_complete": False,
+        "warning_counts_scope": "partial_current_sources_only",
     }
+
+
+def test_windows_lock_retries_then_succeeds(tmp_path, monkeypatch):
+    attempts = []
+    times = iter([0.0, 0.0])
+
+    def locking(*args):
+        attempts.append(args)
+        if len(attempts) == 1:
+            raise OSError("busy")
+
+    monkeypatch.setattr(
+        prior_preprocessing_module.time, "monotonic", lambda: next(times)
+    )
+    monkeypatch.setattr(prior_preprocessing_module.time, "sleep", lambda _: None)
+    with (tmp_path / "summary.lock").open("w+b") as lock_file:
+        prior_preprocessing_module._acquire_windows_lock(
+            lock_file, locking, 2, timeout=1.0
+        )
+
+    assert len(attempts) == 2
+
+
+def test_windows_lock_timeout_is_clear(tmp_path, monkeypatch):
+    times = iter([0.0, 0.0, 1.0])
+
+    def locking(*args):
+        raise OSError("busy")
+
+    monkeypatch.setattr(
+        prior_preprocessing_module.time, "monotonic", lambda: next(times)
+    )
+    monkeypatch.setattr(prior_preprocessing_module.time, "sleep", lambda _: None)
+    with (
+        (tmp_path / "summary.lock").open("w+b") as lock_file,
+        pytest.raises(TimeoutError, match="dataset summary lock"),
+    ):
+        prior_preprocessing_module._acquire_windows_lock(
+            lock_file, locking, 2, timeout=0.5
+        )
 
 
 def test_dataset_summary_concurrent_writers_preserve_all_rows(tmp_path):

@@ -11,6 +11,7 @@ import json
 import os
 import re
 import tempfile
+import time
 from collections import Counter
 from contextlib import contextmanager
 from pathlib import Path
@@ -26,6 +27,8 @@ UNKNOWN = "unknown"
 UNAVAILABLE = "unavailable"
 SCHEMA_VERSION = "1.0"
 POWERLINE_FREQS = (50.0, 60.0, 100.0, 120.0)
+DATASET_LOCK_TIMEOUT_SECONDS = 10.0
+DATASET_LOCK_RETRY_SECONDS = 0.05
 
 
 def detect_prior_preprocessing(
@@ -124,7 +127,11 @@ def _dataset_summary_lock(dataset_path: Path):
         if os.name == "nt":
             import msvcrt
 
-            msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+            _acquire_windows_lock(
+                lock_file,
+                msvcrt.locking,
+                msvcrt.LK_NBLCK,
+            )
         else:
             import fcntl
 
@@ -137,6 +144,31 @@ def _dataset_summary_lock(dataset_path: Path):
                 msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
             else:
                 fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def _acquire_windows_lock(
+    lock_file: Any,
+    locking: Any,
+    nonblocking_mode: int,
+    *,
+    timeout: float = DATASET_LOCK_TIMEOUT_SECONDS,
+    retry_interval: float = DATASET_LOCK_RETRY_SECONDS,
+) -> None:
+    """Acquire a Windows byte-range lock with a bounded retry loop."""
+
+    deadline = time.monotonic() + timeout
+    while True:
+        lock_file.seek(0)
+        try:
+            locking(lock_file.fileno(), nonblocking_mode, 1)
+            return
+        except OSError as error:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(
+                    "Timed out acquiring dataset summary lock: " f"{lock_file.name}"
+                ) from error
+            time.sleep(min(retry_interval, remaining))
 
 
 def _atomic_write_json(path: Path, value: Mapping[str, Any]) -> None:
@@ -179,6 +211,8 @@ def _append_prior_preprocessing_dataset_summary(
             warning_counts_migration = {
                 "status": "legacy_aggregate_reset",
                 "reason": "per-source warning contributions were unavailable",
+                "warning_counts_complete": False,
+                "warning_counts_scope": "partial_current_sources_only",
             }
 
     row = dict(summary.get("summary_row", {}))
@@ -188,6 +222,7 @@ def _append_prior_preprocessing_dataset_summary(
             existing for existing in rows if existing.get("source_file") != source_file
         ]
     rows.append(row)
+    rows.sort(key=lambda item: str(item.get("source_file") or ""))
     contribution_key = str(source_file or f"__row_{len(rows) - 1}")
     warning_counts_by_source[contribution_key] = dict(
         Counter(str(warning) for warning in summary.get("warnings", []))
@@ -195,6 +230,10 @@ def _append_prior_preprocessing_dataset_summary(
     warning_counts: Counter[str] = Counter()
     for contribution in warning_counts_by_source.values():
         warning_counts.update(contribution)
+    warning_counts_by_source = {
+        source: dict(sorted(contribution.items()))
+        for source, contribution in sorted(warning_counts_by_source.items())
+    }
 
     dataset_summary = {
         "schema_version": SCHEMA_VERSION,
