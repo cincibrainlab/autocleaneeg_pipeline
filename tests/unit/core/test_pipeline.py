@@ -113,13 +113,6 @@ class TestPipelineInitialization(BaseTestCase):
         self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db
     ):
         """Test Pipeline initialization with different verbose settings."""
-        config_file = (
-            Path(__file__).parent.parent.parent
-            / "fixtures"
-            / "configs"
-            / "test_config.yaml"
-        )
-
         # Test different verbose settings
         for verbose in [True, False, "info", "debug", None]:
             pipeline = Pipeline(output_dir=str(self.autoclean_dir), verbose=verbose)
@@ -503,8 +496,6 @@ class TestProcessFile:
 
     def test_process_file_records_run_in_database(self, tmp_path):
         """process_file → _entrypoint calls manage_database('store') with run record."""
-        from unittest.mock import call
-
         pipeline = self._make_pipeline(tmp_path)
         data_file = tmp_path / "sub01.fif"
         data_file.touch()

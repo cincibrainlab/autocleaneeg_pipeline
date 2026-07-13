@@ -60,7 +60,7 @@ import sys
 import threading  # Add threading import
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Type, Union
 
 import matplotlib
 
