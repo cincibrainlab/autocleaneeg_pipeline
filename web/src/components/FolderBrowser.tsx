@@ -12,12 +12,41 @@ interface FolderBrowserProps {
 // ── Breadcrumb helpers ────────────────────────────────────────────────────────
 
 /** Split an absolute path into labelled segments for breadcrumb rendering. */
-function pathSegments(absPath: string): { label: string; path: string }[] {
-  // Normalise to forward-slash (safe on all platforms served from Python)
+export function pathSegments(absPath: string): { label: string; path: string }[] {
+  const driveMatch = /^([A-Za-z]:)([\\/])(.*)$/.exec(absPath);
+  if (driveMatch) {
+    const drive = driveMatch[1]!;
+    const separator = driveMatch[2]!;
+    const remainder = driveMatch[3]!;
+    const root = `${drive}${separator}`;
+    const segments = [{ label: root, path: root }];
+    let accumulated = root;
+    for (const part of remainder.split(/[\\/]+/).filter(Boolean)) {
+      accumulated += `${accumulated.endsWith(separator) ? "" : separator}${part}`;
+      segments.push({ label: part, path: accumulated });
+    }
+    return segments;
+  }
+
+  const uncMatch = /^([\\/]{2})([^\\/]+)[\\/]([^\\/]+)(.*)$/.exec(absPath);
+  if (uncMatch) {
+    const prefix = uncMatch[1]!;
+    const server = uncMatch[2]!;
+    const share = uncMatch[3]!;
+    const remainder = uncMatch[4]!;
+    const separator = prefix[0];
+    const root = `${separator}${separator}${server}${separator}${share}`;
+    const segments = [{ label: root, path: root }];
+    let accumulated = root;
+    for (const part of remainder.split(/[\\/]+/).filter(Boolean)) {
+      accumulated += `${separator}${part}`;
+      segments.push({ label: part, path: accumulated });
+    }
+    return segments;
+  }
+
   const parts = absPath.split("/").filter(Boolean);
-  const segments: { label: string; path: string }[] = [
-    { label: "/", path: "/" },
-  ];
+  const segments = [{ label: "/", path: "/" }];
   let accumulated = "";
   for (const part of parts) {
     accumulated += "/" + part;
@@ -115,7 +144,7 @@ export default function FolderBrowser({ onSelect, onClose }: FolderBrowserProps)
             <div className="flex items-center gap-0.5 min-w-0 font-mono text-xs text-zinc-400 whitespace-nowrap">
               {segments.map((seg, idx) => {
                 const isLast = idx === segments.length - 1;
-                const isRoot = seg.path === "/";
+                const isRoot = idx === 0;
                 return (
                   <span key={seg.path} className="flex items-center gap-0.5">
                     {idx > 0 && (
