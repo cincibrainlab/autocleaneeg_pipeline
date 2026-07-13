@@ -510,6 +510,9 @@ class ICAReportingMixin:
             from autoclean.functions.visualization._ica_psd_cache import (
                 get_cached_component_psds,
             )
+            from autoclean.functions.visualization._ica_topography_cache import (
+                get_cached_topographies,
+            )
 
             try:
                 # Pre-compute all PSDs for the components we'll plot
@@ -520,6 +523,7 @@ class ICAReportingMixin:
                 get_cached_component_psds(
                     ica, raw_fast, component_indices, fmax=psd_fmax
                 )
+                get_cached_topographies(ica, component_indices)
 
                 message(
                     "info",
