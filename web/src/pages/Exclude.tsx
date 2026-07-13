@@ -1743,7 +1743,7 @@ export default function ExcludePage() {
                       if (!manualBadChannels.includes(next)) setManualBadChannels([...manualBadChannels, next].sort());
                       setChannelDraft("");
                     }}
-                    className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-surface-500"
+                    className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-brand-900"
                   >
                     Add
                   </button>
@@ -1785,7 +1785,7 @@ export default function ExcludePage() {
                       }
                       setIcaDraft("");
                     }}
-                    className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-surface-500"
+                    className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-brand-900"
                   >
                     Add
                   </button>
@@ -1825,7 +1825,7 @@ export default function ExcludePage() {
               <button
                 onClick={startReprocess}
                 disabled={invalidCombinedOverrideChange}
-                className="w-full rounded-md bg-brand px-3 py-2 text-sm font-semibold text-surface-500 hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-md bg-brand px-3 py-2 text-sm font-semibold text-brand-900 hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Reprocess with Overrides
               </button>

@@ -357,7 +357,7 @@ export default function TopBar({ onToggleSidebar }: TopBarProps) {
                           }
                         }}
                         disabled={!configToken || !configUrl || configSaving}
-                        className="flex-1 rounded-md px-3 py-1.5 text-xs font-medium bg-brand text-surface-500 hover:bg-brand-500 disabled:opacity-40 transition-colors"
+                        className="flex-1 rounded-md px-3 py-1.5 text-xs font-medium bg-brand text-brand-900 hover:bg-brand-500 disabled:opacity-40 transition-colors"
                       >
                         {configSaving ? "Saving..." : "Save"}
                       </button>

@@ -67,7 +67,7 @@ export default function TutorialWelcome() {
         <div className="flex flex-col gap-3">
           <button
             onClick={handleStart}
-            className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold bg-brand text-surface-500 hover:bg-brand-500 transition-colors"
+            className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold bg-brand text-brand-900 hover:bg-brand-500 transition-colors"
           >
             Start Tutorial
           </button>

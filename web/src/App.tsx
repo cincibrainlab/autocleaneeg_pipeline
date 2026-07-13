@@ -37,7 +37,7 @@ class ErrorBoundary extends React.Component<
                 this.setState({ error: null });
                 window.location.reload();
               }}
-              className="px-4 py-2 bg-brand text-surface-500 rounded font-medium text-sm"
+              className="px-4 py-2 bg-brand text-brand-900 rounded font-medium text-sm"
             >
               Reload
             </button>

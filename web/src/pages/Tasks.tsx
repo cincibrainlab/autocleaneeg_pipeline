@@ -172,7 +172,7 @@ function CreateTaskModal({ open, onClose, onCreate, creating, error }: {
         <div className="flex justify-end gap-3 mt-4">
           <button onClick={onClose} className="rounded-md px-4 py-2 text-sm font-medium border border-border text-zinc-300 hover:bg-surface-50">Cancel</button>
           <button disabled={creating || !className} onClick={handleCreate}
-            className="flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium bg-brand text-surface-500 hover:bg-brand-500 disabled:opacity-50">
+            className="flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium bg-brand text-brand-900 hover:bg-brand-500 disabled:opacity-50">
             {creating && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Create Task
           </button>
         </div>
