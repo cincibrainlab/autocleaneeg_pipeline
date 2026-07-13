@@ -757,7 +757,7 @@ export default function RoutesPage() {
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div ref={routeModalRef} className="w-full max-w-xl rounded-lg border border-border bg-surface-200 p-4 sm:p-6 mx-4 sm:mx-auto max-h-[90vh] overflow-y-auto">
+          <div ref={routeModalRef} className="w-[calc(100%-2rem)] max-w-xl rounded-lg border border-border bg-surface-200 p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold text-zinc-100">
                 {editingRoute ? "Edit Route" : "New Route"}

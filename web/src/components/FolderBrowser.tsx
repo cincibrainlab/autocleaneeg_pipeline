@@ -97,7 +97,7 @@ export default function FolderBrowser({ onSelect, onClose }: FolderBrowserProps)
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-lg mx-4 rounded-lg border border-border bg-surface-200 shadow-2xl flex flex-col max-h-[80vh]">
+      <div className="w-[calc(100%-2rem)] max-w-lg rounded-lg border border-border bg-surface-200 shadow-2xl flex flex-col max-h-[80vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
           <span className="text-sm font-semibold text-zinc-200">Browse Folders</span>

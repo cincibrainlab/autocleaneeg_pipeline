@@ -35,7 +35,7 @@ export default function KeyboardShortcutsHelp({ open, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
       <div
-        className="bg-surface-200 border border-border rounded-xl shadow-2xl w-full max-w-md mx-4"
+        className="bg-surface-200 border border-border rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
