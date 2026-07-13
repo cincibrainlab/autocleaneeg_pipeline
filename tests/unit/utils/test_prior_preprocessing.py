@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
+import autoclean.utils.prior_preprocessing as prior_preprocessing_module
 from autoclean.utils.prior_preprocessing import (
     build_prior_preprocessing_dataset_summary,
     detect_prior_preprocessing,
@@ -154,6 +155,24 @@ def test_signal_inference_flags_likely_notch_and_aux_channels():
     assert aux["value"] == {"eog": 1, "misc": 1}
 
 
+def test_signal_inference_computes_mean_spectrum_once(monkeypatch):
+    raw = _RawStub(_notch_like_data())
+    original = prior_preprocessing_module._mean_spectrum
+    calls = []
+
+    def counting_mean_spectrum(data, sfreq):
+        calls.append((data, sfreq))
+        return original(data, sfreq)
+
+    monkeypatch.setattr(
+        prior_preprocessing_module, "_mean_spectrum", counting_mean_spectrum
+    )
+
+    detect_prior_preprocessing(raw)
+
+    assert len(calls) == 1
+
+
 def test_task_config_warnings_are_non_blocking_unless_strict():
     raw = _EpochsStub(np.zeros((3, 2, 64)))
     task_config = {
@@ -291,3 +310,36 @@ def test_import_eeg_attaches_prior_preprocessing_metadata_and_artifacts(tmp_path
     }
     for artifact_path in prior_metadata["artifact_paths"].values():
         assert Path(artifact_path).exists()
+
+
+def test_import_eeg_does_not_read_signal_when_detection_is_not_enabled(tmp_path):
+    import_module = _load_import_module()
+    raw = _RawStub(_notch_like_data(), sfreq=500.0, ch_names=["Cz", "Pz"])
+    input_file = tmp_path / "sub-01.set"
+    input_file.write_text("stub", encoding="utf-8")
+    database_updates = []
+
+    def fail_get_data():
+        raise AssertionError("disabled detection must not read signal data")
+
+    raw.get_data = fail_get_data
+    import_module.get_plugin_for_combination = lambda format_id, montage: (
+        _ImportPathPlugin(raw)
+    )
+    import_module.manage_database_conditionally = (
+        lambda **kwargs: database_updates.append(kwargs)
+    )
+    import_module.message = lambda *args, **kwargs: None
+
+    result = import_module.import_eeg(
+        {
+            "unprocessed_file": str(input_file),
+            "eeg_system": "standard_1020",
+            "run_id": "run-203-disabled",
+            "reports_dir": str(tmp_path),
+        }
+    )
+
+    assert result is raw
+    import_metadata = database_updates[0]["update_record"]["metadata"]["import_eeg"]
+    assert "prior_preprocessing" not in import_metadata

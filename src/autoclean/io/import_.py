@@ -524,7 +524,7 @@ def import_eeg(
         prior_config = autoclean_dict.get("prior_preprocessing_detection", {})
         if not isinstance(prior_config, dict):
             prior_config = {"enabled": bool(prior_config)}
-        if prior_config.get("enabled", True):
+        if prior_config.get("enabled", False):
             prior_preprocessing = None
             try:
                 task_config = _resolve_task_settings(autoclean_dict)

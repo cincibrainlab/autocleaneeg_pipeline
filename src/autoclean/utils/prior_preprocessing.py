@@ -375,13 +375,14 @@ def _infer_from_signal(eeg_data: Any | None) -> dict[str, Any]:
     times = np.asarray(getattr(eeg_data, "times", []), dtype=float)
     sfreq = _to_float(info.get("sfreq"))
     channel_types = _channel_types(eeg_data, ch_names)
+    freqs, spectrum = _mean_spectrum(data, sfreq)
     inference: dict[str, Any] = {
         "data_shape": list(data.shape) if data is not None else UNAVAILABLE,
         "eog_ecg_misc_channel_presence": _infer_aux_channels(channel_types, ch_names),
         "channel_count_suggests_dropping": _infer_channel_count_drop(len(ch_names)),
         "baseline_applied": _infer_baseline(data, times),
-        "highpass_filter": _infer_highpass(data, sfreq),
-        "lowpass_filter": _infer_lowpass(data, sfreq),
+        "highpass_filter": _infer_highpass(freqs, spectrum),
+        "lowpass_filter": _infer_lowpass(freqs, spectrum, sfreq),
         "ica_pruned": _possible("ICA pruning cannot be confirmed from signal alone"),
         "ica_capable": _finding(
             CONFIDENCE_POSSIBLE if len(ch_names) >= 2 else CONFIDENCE_UNKNOWN,
@@ -393,7 +394,7 @@ def _infer_from_signal(eeg_data: Any | None) -> dict[str, Any]:
             ),
         ),
     }
-    inference.update(_infer_notches(data, sfreq))
+    inference.update(_infer_notches(freqs, spectrum, sfreq))
     return inference
 
 
@@ -484,10 +485,11 @@ def _has_documented_notch(text: str, freq: float) -> bool:
 
 
 def _infer_notches(
-    data: np.ndarray | None, sfreq: float | None
+    freqs: np.ndarray | None,
+    spectrum: np.ndarray | None,
+    sfreq: float | None,
 ) -> dict[str, dict[str, Any]]:
     result = {}
-    freqs, spectrum = _mean_spectrum(data, sfreq)
     for freq in POWERLINE_FREQS:
         key = f"notch_filter_{int(freq)}hz"
         if freqs is None or spectrum is None or sfreq is None or freq >= sfreq / 2:
@@ -515,8 +517,9 @@ def _infer_notches(
     return result
 
 
-def _infer_highpass(data: np.ndarray | None, sfreq: float | None) -> dict[str, Any]:
-    freqs, spectrum = _mean_spectrum(data, sfreq)
+def _infer_highpass(
+    freqs: np.ndarray | None, spectrum: np.ndarray | None
+) -> dict[str, Any]:
     if freqs is None or spectrum is None:
         return _unknown("spectrum unavailable")
     low = _mean_power(freqs, spectrum, 0.1, 0.8)
@@ -529,8 +532,11 @@ def _infer_highpass(data: np.ndarray | None, sfreq: float | None) -> dict[str, A
     return _unknown(f"sub-1 Hz power ratio {ratio:.2f}")
 
 
-def _infer_lowpass(data: np.ndarray | None, sfreq: float | None) -> dict[str, Any]:
-    freqs, spectrum = _mean_spectrum(data, sfreq)
+def _infer_lowpass(
+    freqs: np.ndarray | None,
+    spectrum: np.ndarray | None,
+    sfreq: float | None,
+) -> dict[str, Any]:
     if freqs is None or spectrum is None or sfreq is None or sfreq < 80:
         return _unknown("spectrum unavailable or Nyquist too low")
     high_start = min(70.0, sfreq / 2 * 0.7)
