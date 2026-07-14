@@ -797,10 +797,19 @@ async def get_run_events(run_id: str) -> JSONResponse:
 
 
 @router.get("/export/csv")
-async def export_results_csv() -> Response:
-    """Export all run summaries as a downloadable CSV file."""
+async def export_results_csv(
+    route_id: str | None = Query(default=None, description="Filter by route ID"),
+) -> Response:
+    """Export run summaries, optionally limited to one configured route."""
     workspace = _require_workspace()
     all_runs = _find_all_runs(workspace)
+    if route_id:
+        route_outputs = _route_output_map(workspace)
+        all_runs = [
+            (row, task_root)
+            for row, task_root in all_runs
+            if _resolve_route_id(task_root, route_outputs) == route_id
+        ]
 
     buf = io.StringIO()
     writer = csv.writer(buf)

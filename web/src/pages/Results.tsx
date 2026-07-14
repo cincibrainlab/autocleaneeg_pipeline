@@ -1327,7 +1327,7 @@ export default function ResultsPage() {
         </div>
         {resultsData && resultsData.total > 0 && (
           <a
-            href={api.getResultsCsvUrl()}
+            href={api.getResultsCsvUrl(selectedRoute ?? undefined)}
             download
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-surface-50 transition-colors"
           >

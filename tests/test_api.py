@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import sqlite3
 from pathlib import Path
@@ -401,6 +402,51 @@ class TestServeRoutesApi:
 
 class TestResultsApi:
     """Tests for the results API."""
+
+    def test_export_results_csv_filters_by_route(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app = create_app(workspace_dir=tmp_path, mode="live")
+        client = TestClient(app, raise_server_exceptions=False)
+
+        route_a = tmp_path / "automations" / "route-a-output"
+        route_b = tmp_path / "automations" / "route-b-output"
+        rows = [
+            (
+                {"run_id": "run-a", "unprocessed_file": "a.set"},
+                route_a / "nested-task-output",
+            ),
+            ({"run_id": "run-b", "unprocessed_file": "b.set"}, route_b),
+        ]
+
+        import autoclean.api.routes.results as results_route
+
+        monkeypatch.setattr(results_route, "_find_all_runs", lambda _workspace: rows)
+        monkeypatch.setattr(
+            results_route,
+            "_route_output_map",
+            lambda _workspace: {"route-a": route_a, "route-b": route_b},
+        )
+
+        response = client.get("/api/results/export/csv?route_id=route-a")
+
+        assert response.status_code == 200
+        filtered_rows = list(csv.DictReader(response.text.splitlines()))
+        assert list(filtered_rows[0]) == [
+            "run_id",
+            "created_at",
+            "task",
+            "filename",
+            "status",
+            "success",
+        ]
+        assert {row["run_id"] for row in filtered_rows} == {"run-a"}
+
+        response = client.get("/api/results/export/csv")
+
+        assert response.status_code == 200
+        all_rows = list(csv.DictReader(response.text.splitlines()))
+        assert {row["run_id"] for row in all_rows} == {"run-a", "run-b"}
 
     def test_list_results_reads_pipeline_db(self, tmp_path: Path) -> None:
         app = create_app(workspace_dir=tmp_path, mode="live")
@@ -1212,7 +1258,7 @@ class TestEventEmitters:
     @pytest.mark.asyncio
     async def test_emit_queue_update(self) -> None:
         """Test emit_queue_update function."""
-        from autoclean.api.events import broadcaster, emit_queue_update
+        from autoclean.api.events import emit_queue_update
 
         # With no connections, should not raise
         await emit_queue_update(
