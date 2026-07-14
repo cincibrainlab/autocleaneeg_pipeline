@@ -153,9 +153,7 @@ def test_write_dataset_artifacts_persists_multiple_rows_and_excludes_itself(
     tmp_path,
 ) -> None:
     for stem, rate in (("a", 250), ("b", 500)):
-        summary = summarize_eeglab_provenance(
-            _ns(srate=rate, nbchan=1), f"{stem}.set"
-        )
+        summary = summarize_eeglab_provenance(_ns(srate=rate, nbchan=1), f"{stem}.set")
         write_eeglab_provenance_artifacts(summary, tmp_path, stem)
 
     paths = write_eeglab_dataset_artifacts(tmp_path)
@@ -172,9 +170,7 @@ def test_write_dataset_artifacts_persists_multiple_rows_and_excludes_itself(
 
 
 @pytest.mark.parametrize("dataset_error", [None, RuntimeError("dataset failed")])
-def test_import_eeg_records_eeglab_provenance_metadata(
-    tmp_path, dataset_error
-) -> None:
+def test_import_eeg_records_eeglab_provenance_metadata(tmp_path, dataset_error) -> None:
     input_file = tmp_path / "subject.set"
     input_file.write_text("stub", encoding="utf-8")
     artifact_paths = {
