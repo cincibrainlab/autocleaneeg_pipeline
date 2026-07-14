@@ -21,6 +21,7 @@ import pandas as pd
 from autoclean.io.eeglab_provenance import (
     extract_eeglab_provenance,
     resolve_eeglab_provenance_dir,
+    write_eeglab_dataset_artifacts,
     write_eeglab_provenance_artifacts,
 )
 from autoclean.utils.database import manage_database_conditionally
@@ -469,14 +470,16 @@ def import_eeg(
         # Get plugin metadata
         plugin_metadata = plugin.get_metadata()
         eeglab_provenance = None
+        dataset_artifact_paths = {}
         if format_id == "EEGLAB_SET":
             try:
+                provenance_dir = resolve_eeglab_provenance_dir(autoclean_dict)
                 eeglab_provenance = extract_eeglab_provenance(
                     unprocessed_file, eeg_data
                 )
                 artifact_paths = write_eeglab_provenance_artifacts(
                     eeglab_provenance,
-                    resolve_eeglab_provenance_dir(autoclean_dict),
+                    provenance_dir,
                     unprocessed_file.stem,
                 )
                 message(
@@ -488,6 +491,16 @@ def import_eeg(
                     "warning",
                     f"EEGLAB provenance summary unavailable: {provenance_error}",
                 )
+            else:
+                try:
+                    dataset_artifact_paths = write_eeglab_dataset_artifacts(
+                        provenance_dir
+                    )
+                except Exception as dataset_error:  # pylint: disable=broad-except
+                    message(
+                        "warning",
+                        f"EEGLAB dataset provenance summary unavailable: {dataset_error}",
+                    )
 
         provenance_summary = resolve_prior_preprocessing_provenance(
             plugin_metadata, autoclean_dict, eeglab_provenance
@@ -523,9 +536,23 @@ def import_eeg(
                 "artifact_paths": (
                     eeglab_provenance.get("artifact_paths") if eeglab_provenance else {}
                 ),
+                "dataset_artifact_paths": dataset_artifact_paths,
                 "summary_row": (
                     eeglab_provenance.get("summary_row") if eeglab_provenance else {}
                 ),
+            }
+            per_file_paths = metadata["import_eeg"]["eeglab_provenance"][
+                "artifact_paths"
+            ]
+            metadata["import_eeg"]["artifact_reports"] = {
+                **{
+                    f"eeglab_provenance_{key}": value
+                    for key, value in per_file_paths.items()
+                },
+                **{
+                    f"eeglab_dataset_provenance_{key}": value
+                    for key, value in dataset_artifact_paths.items()
+                },
             }
 
         # Add additional metadata for Raw data
