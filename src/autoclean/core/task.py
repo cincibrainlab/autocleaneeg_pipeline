@@ -663,17 +663,13 @@ class Task(ABC, *DISCOVERED_MIXINS):
             self._postprocessing_outputs = {}
             output_map = self._postprocessing_outputs
         output_map[block_name] = value
-        for alias_key in ("output", "output_name"):
-            alias = settings.get(alias_key)
-            if isinstance(alias, str) and alias:
-                output_map[alias] = value
-        aliases = settings.get("outputs")
-        if isinstance(aliases, dict):
-            alias_values = aliases.values()
-        elif isinstance(aliases, (list, tuple, set)):
-            alias_values = aliases
-        else:
-            alias_values = []
+        alias_values = []
+        for alias_key in ("output", "output_name", "aliases"):
+            aliases = settings.get(alias_key)
+            if isinstance(aliases, str):
+                alias_values.append(aliases)
+            elif isinstance(aliases, (list, tuple)):
+                alias_values.extend(aliases)
         for alias in alias_values:
             if isinstance(alias, str) and alias:
                 output_map[alias] = value

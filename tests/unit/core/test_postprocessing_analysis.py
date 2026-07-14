@@ -296,7 +296,20 @@ def test_postprocessing_tabular_fooof_rejects_knee_model(task):
         task.run_postprocessing_analysis()
 
 
-def test_postprocessing_fooof_uses_output_alias_from_prior_block(task):
+@pytest.mark.parametrize(
+    ("alias_key", "alias_value"),
+    [
+        ("output", "my_sensor_psd"),
+        ("output", ["first_sensor_psd", "my_sensor_psd"]),
+        ("output", ("first_sensor_psd", "my_sensor_psd")),
+        ("aliases", "my_sensor_psd"),
+        ("aliases", ["first_sensor_psd", "my_sensor_psd"]),
+        ("aliases", ("first_sensor_psd", "my_sensor_psd")),
+    ],
+)
+def test_postprocessing_fooof_uses_configured_alias_from_prior_block(
+    task, alias_key, alias_value
+):
     task.epochs = object()
     task.settings = {
         "postprocessing_analysis": {
@@ -305,7 +318,7 @@ def test_postprocessing_fooof_uses_output_alias_from_prior_block(task):
                 "sensor_psd": {
                     "enabled": True,
                     "input": "clean_epochs",
-                    "output": "my_sensor_psd",
+                    alias_key: alias_value,
                 },
                 "fooof": {
                     "enabled": True,
