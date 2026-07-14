@@ -252,6 +252,35 @@ def test_signal_inference_flags_likely_notch_and_aux_channels():
     assert aux["value"] == {"eog": 1, "misc": 1}
 
 
+def test_signal_inference_does_not_infer_baseline_from_raw_time_zero():
+    data = np.ones((4, 128))
+    data[:, 0] = [-1.0, 1.0, -1.0, 1.0]
+    raw = _RawStub(data)
+
+    summary = detect_prior_preprocessing(raw)
+
+    baseline = summary["signal_inference"]["baseline_applied"]
+    assert baseline["confidence"] == "unknown"
+    assert baseline["evidence"] == "no pre-stimulus baseline window"
+
+
+def test_signal_only_notch_inference_reaches_summary_and_warnings():
+    raw = _RawStub(_notch_like_data())
+    task_config = {
+        "filtering": {
+            "enabled": True,
+            "value": {"notch_freqs": [60]},
+        }
+    }
+
+    summary = detect_prior_preprocessing(raw, task_config=task_config)
+
+    assert summary["summary_row"]["notch_filter_60hz"] == "likely"
+    assert summary["warnings"] == [
+        "Task notch filtering may repeat prior notch at 60 Hz"
+    ]
+
+
 def test_signal_inference_computes_mean_spectrum_once(monkeypatch):
     raw = _RawStub(_notch_like_data())
     original = prior_preprocessing_module._mean_spectrum

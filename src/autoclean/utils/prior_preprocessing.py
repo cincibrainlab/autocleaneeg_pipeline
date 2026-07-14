@@ -710,6 +710,8 @@ def _infer_lowpass(
 def _infer_baseline(data: np.ndarray | None, times: np.ndarray) -> dict[str, Any]:
     if data is None or times.size == 0 or data.ndim < 2:
         return _unknown("data or times unavailable")
+    if not np.any(times < 0.0):
+        return _unknown("no pre-stimulus baseline window")
     baseline_mask = (times >= -0.25) & (times <= 0.0)
     if not np.any(baseline_mask):
         return _unknown("no pre-stimulus baseline window")
