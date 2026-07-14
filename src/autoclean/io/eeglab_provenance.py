@@ -9,6 +9,7 @@ blank/ambiguous, and ``"unavailable"`` when the field is absent.
 
 from __future__ import annotations
 
+import csv
 import json
 from collections import Counter
 from datetime import datetime
@@ -21,6 +22,8 @@ import scipy.io as sio
 UNKNOWN = "unknown"
 UNAVAILABLE = "unavailable"
 SCHEMA_VERSION = "1.0"
+DATASET_JSON_NAME = "dataset_eeglab_provenance.json"
+DATASET_TABLE_NAME = "dataset_eeglab_provenance.csv"
 
 
 def extract_eeglab_provenance(file_path: Path) -> dict[str, Any]:
@@ -89,6 +92,37 @@ def write_eeglab_provenance_artifacts(
     return artifact_paths
 
 
+def write_eeglab_dataset_artifacts(output_dir: Path) -> dict[str, str]:
+    """Aggregate all per-file provenance summaries and persist dataset artifacts."""
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    summaries = []
+    for json_path in sorted(output_dir.glob("*_eeglab_provenance.json")):
+        if json_path.name == DATASET_JSON_NAME:
+            continue
+        summary = json.loads(json_path.read_text(encoding="utf-8"))
+        if isinstance(summary, dict) and isinstance(summary.get("summary_row"), dict):
+            summaries.append(summary)
+
+    dataset_summary = build_eeglab_dataset_summary(summaries)
+    json_path = output_dir / DATASET_JSON_NAME
+    table_path = output_dir / DATASET_TABLE_NAME
+    artifact_paths = {"json": str(json_path), "table": str(table_path)}
+    dataset_summary["artifact_paths"] = artifact_paths
+    json_path.write_text(
+        json.dumps(_json_safe(dataset_summary), indent=2), encoding="utf-8"
+    )
+
+    rows = dataset_summary["rows"]
+    keys = {key for row in rows for key in row}
+    fieldnames = ["source_file", *sorted(keys - {"source_file"})]
+    with table_path.open("w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    return artifact_paths
+
+
 def render_eeglab_provenance_report(summary: dict[str, Any]) -> str:
     """Render a concise Markdown provenance report."""
 
@@ -154,12 +188,13 @@ def build_eeglab_consistency_warnings(rows: list[dict[str, Any]]) -> list[str]:
 
     checks = {
         "sampling rate": "srate",
-        "channel labels": "channel_labels",
         "epoch window": "epoch_window",
+        "event labels": "event_labels",
+        "channel count": "nbchan",
+        "channel labels": "channel_labels",
         "reference": "reference",
-        "event labels/counts": "event_counts",
-        "ICA structure": "ica_structure",
         "ICLabel structure": "iclabel_structure",
+        "event counts": "event_counts",
     }
     warnings = []
     for label, key in checks.items():
