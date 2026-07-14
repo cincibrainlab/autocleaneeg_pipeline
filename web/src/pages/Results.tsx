@@ -957,8 +957,14 @@ export function DecisionBar({
         type="text"
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
-        onBlur={() => { if (currentDecision) handleDecision(currentDecision); }}
-        onKeyDown={(e) => { if (e.key === "Enter" && currentDecision) handleDecision(currentDecision); }}
+        onBlur={() => {
+          if (!saveError && currentDecision) handleDecision(currentDecision);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !saveError && currentDecision) {
+            handleDecision(currentDecision);
+          }
+        }}
         placeholder="Add notes..."
         className="w-full px-2.5 py-1.5 rounded bg-surface-50 border border-border text-xs text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-brand/40"
       />

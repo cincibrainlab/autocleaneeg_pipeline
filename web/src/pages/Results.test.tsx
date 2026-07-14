@@ -45,6 +45,43 @@ describe("DecisionBar", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("preserves a failed decision when notes trigger an implicit save", async () => {
+    api.setDecision
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue(undefined);
+    const onDecisionChange = vi.fn();
+
+    render(
+      <DecisionBar
+        runId="run-1"
+        currentDecision="review"
+        currentNotes="old notes"
+        onDecisionChange={onDecisionChange}
+      />,
+    );
+
+    const notes = screen.getByRole("textbox");
+    fireEvent.change(notes, { target: { value: "updated notes" } });
+    fireEvent.click(screen.getByRole("button", { name: /pass/i }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+
+    fireEvent.blur(notes);
+    fireEvent.focus(notes);
+    fireEvent.keyDown(notes, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(api.setDecision).toHaveBeenCalledTimes(1);
+      expect(api.setDecision).toHaveBeenLastCalledWith(
+        "run-1",
+        "pass",
+        "updated notes",
+      );
+      expect(onDecisionChange).not.toHaveBeenCalled();
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    });
+  });
+
   it("does not carry a failed decision into another run", async () => {
     api.setDecision
       .mockRejectedValueOnce(new Error("offline"))
