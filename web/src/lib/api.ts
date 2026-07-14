@@ -558,7 +558,8 @@ export const api = {
   getIcaSummary: (runId: string) => json<IcaSummaryResponse>(`/api/results/${encodeURIComponent(runId)}/ica/summary`),
   getIcaPageUrl: (runId: string, pageNum: number) => `/api/results/${encodeURIComponent(runId)}/ica/page/${pageNum}`,
   getRunDownloadUrl: (runId: string) => `/api/results/${encodeURIComponent(runId)}/download`,
-  getResultsCsvUrl: () => "/api/results/export/csv",
+  getResultsCsvUrl: (routeId?: string) =>
+    `/api/results/export/csv${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`,
   getDecisions: () => json<{ decisions: Record<string, { decision: string; notes: string }> }>("/api/results/decisions"),
   setDecision: (runId: string, decision: string, notes = "") => json<Record<string, any>>(`/api/results/${encodeURIComponent(runId)}/decision`, "PUT", { decision, notes }),
 

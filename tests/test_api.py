@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import sqlite3
 from pathlib import Path
@@ -25,9 +26,9 @@ from autoclean.api.models import (
     WorkerStatus,
     WorkerStatusResponse,
 )
+from autoclean.api.routes.service import ServiceStartRequest
 from autoclean.api.server import create_app
 from autoclean.api.state import APIState, api_state
-from autoclean.api.routes.service import ServiceStartRequest
 
 
 class TestAPIState:
@@ -80,10 +81,15 @@ class TestCreateApp:
         assert app is not None
         assert app.title == "AutoClean Automation API"
 
-    def test_create_app_does_not_load_persisted_workspace_by_default(self, monkeypatch) -> None:
+    def test_create_app_does_not_load_persisted_workspace_by_default(
+        self, monkeypatch
+    ) -> None:
         """Test app factory isolation from persisted local user config."""
         old_workspace = api_state.workspace_dir
-        monkeypatch.setattr("autoclean.api.server._load_persisted_serve_workspace", lambda: Path("/tmp/persisted"))
+        monkeypatch.setattr(
+            "autoclean.api.server._load_persisted_serve_workspace",
+            lambda: Path("/tmp/persisted"),
+        )
         try:
             api_state.workspace_dir = None
             app = create_app()
@@ -101,7 +107,9 @@ class TestCreateApp:
 class TestTaskManagerWorkspaceResolution:
     """Tests for Serve-aware Task Manager workspace resolution."""
 
-    def test_task_manager_prefers_serve_workspace_tasks_dir(self, tmp_path: Path) -> None:
+    def test_task_manager_prefers_serve_workspace_tasks_dir(
+        self, tmp_path: Path
+    ) -> None:
         from autoclean.api.routes.task_manager import _get_workspace_dir
 
         serve_workspace = tmp_path / "serve-workspace"
@@ -116,7 +124,9 @@ class TestTaskManagerWorkspaceResolution:
             mgr.tasks_dir = legacy_tasks_dir
             assert _get_workspace_dir() == serve_tasks_dir
 
-    def test_task_manager_install_accepts_legacy_name_field(self, tmp_path: Path) -> None:
+    def test_task_manager_install_accepts_legacy_name_field(
+        self, tmp_path: Path
+    ) -> None:
         app = create_app()
         client = TestClient(app)
 
@@ -125,7 +135,10 @@ class TestTaskManagerWorkspaceResolution:
 
         dest_path = workspace / "RestingEyesClosed.py"
 
-        with patch("autoclean.api.routes.task_manager._get_workspace_dir", return_value=workspace):
+        with patch(
+            "autoclean.api.routes.task_manager._get_workspace_dir",
+            return_value=workspace,
+        ):
             with patch("autoclean.utils.builtins.BuiltinRegistry") as mock_registry:
                 mock_registry.return_value.materialize_task_to.return_value = dest_path
 
@@ -140,14 +153,19 @@ class TestTaskManagerWorkspaceResolution:
         assert payload["task_name"] == "RestingEyesClosed"
         assert payload["path"] == str(dest_path)
 
-    def test_task_manager_create_accepts_legacy_name_field(self, tmp_path: Path) -> None:
+    def test_task_manager_create_accepts_legacy_name_field(
+        self, tmp_path: Path
+    ) -> None:
         app = create_app()
         client = TestClient(app)
 
         workspace = tmp_path / "workspace" / "tasks"
         workspace.mkdir(parents=True)
 
-        with patch("autoclean.api.routes.task_manager._get_workspace_dir", return_value=workspace):
+        with patch(
+            "autoclean.api.routes.task_manager._get_workspace_dir",
+            return_value=workspace,
+        ):
             response = client.post(
                 "/api/task-manager/create",
                 json={"name": "CustomServeTask"},
@@ -164,7 +182,9 @@ class TestTaskManagerWorkspaceResolution:
 class TestSetupWorkspaceRoute:
     """Tests for API workspace setup behavior."""
 
-    def test_setup_workspace_rejects_arbitrary_existing_directory(self, tmp_path: Path) -> None:
+    def test_setup_workspace_rejects_arbitrary_existing_directory(
+        self, tmp_path: Path
+    ) -> None:
         app = create_app()
         client = TestClient(app)
 
@@ -178,9 +198,14 @@ class TestSetupWorkspaceRoute:
         )
 
         assert response.status_code == 400
-        assert "valid Serve workspace or an AutoClean workspace" in response.json()["detail"]
+        assert (
+            "valid Serve workspace or an AutoClean workspace"
+            in response.json()["detail"]
+        )
 
-    def test_setup_workspace_bootstraps_existing_normal_workspace(self, tmp_path: Path) -> None:
+    def test_setup_workspace_bootstraps_existing_normal_workspace(
+        self, tmp_path: Path
+    ) -> None:
         app = create_app()
         client = TestClient(app)
 
@@ -188,7 +213,9 @@ class TestSetupWorkspaceRoute:
         (workspace / "tasks").mkdir(parents=True)
         (workspace / "output").mkdir(parents=True)
 
-        with patch("autoclean.api.server._ensure_workspace_runtimes") as ensure_runtimes:
+        with patch(
+            "autoclean.api.server._ensure_workspace_runtimes"
+        ) as ensure_runtimes:
             response = client.post(
                 "/api/setup/workspace",
                 json={"path": str(workspace), "create_new": False},
@@ -200,16 +227,22 @@ class TestSetupWorkspaceRoute:
         assert (workspace / "routes").exists()
         assert (workspace / "automations").exists()
         ensure_runtimes.assert_called_once_with(workspace)
-        metadata = json.loads((workspace / ".serve-workspace.json").read_text(encoding="utf-8"))
+        metadata = json.loads(
+            (workspace / ".serve-workspace.json").read_text(encoding="utf-8")
+        )
         assert metadata["origin"] == "bootstrapped_autoclean"
 
-    def test_setup_workspace_marks_new_serve_workspace_origin(self, tmp_path: Path) -> None:
+    def test_setup_workspace_marks_new_serve_workspace_origin(
+        self, tmp_path: Path
+    ) -> None:
         app = create_app()
         client = TestClient(app)
 
         workspace = tmp_path / "new-workspace"
 
-        with patch("autoclean.api.server._ensure_workspace_runtimes") as ensure_runtimes:
+        with patch(
+            "autoclean.api.server._ensure_workspace_runtimes"
+        ) as ensure_runtimes:
             response = client.post(
                 "/api/setup/workspace",
                 json={"path": str(workspace), "create_new": True},
@@ -217,10 +250,14 @@ class TestSetupWorkspaceRoute:
 
         assert response.status_code == 200
         ensure_runtimes.assert_called_once_with(workspace)
-        metadata = json.loads((workspace / ".serve-workspace.json").read_text(encoding="utf-8"))
+        metadata = json.loads(
+            (workspace / ".serve-workspace.json").read_text(encoding="utf-8")
+        )
         assert metadata["origin"] == "new_serve_workspace"
 
-    def test_setup_workspace_returns_error_when_runtime_setup_fails(self, tmp_path: Path) -> None:
+    def test_setup_workspace_returns_error_when_runtime_setup_fails(
+        self, tmp_path: Path
+    ) -> None:
         app = create_app()
         client = TestClient(app)
 
@@ -308,7 +345,9 @@ class TestServeRoutesApi:
 
         legacy_tasks_dir = tmp_path / "legacy-tasks"
         legacy_tasks_dir.mkdir()
-        monkeypatch.setattr("autoclean.utils.user_config.user_config.tasks_dir", legacy_tasks_dir)
+        monkeypatch.setattr(
+            "autoclean.utils.user_config.user_config.tasks_dir", legacy_tasks_dir
+        )
 
         response = client.get("/api/routes/discovery/tasks")
 
@@ -401,6 +440,51 @@ class TestServeRoutesApi:
 
 class TestResultsApi:
     """Tests for the results API."""
+
+    def test_export_results_csv_filters_by_route(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app = create_app(workspace_dir=tmp_path, mode="live")
+        client = TestClient(app, raise_server_exceptions=False)
+
+        route_a = tmp_path / "automations" / "route-a-output"
+        route_b = tmp_path / "automations" / "route-b-output"
+        rows = [
+            (
+                {"run_id": "run-a", "unprocessed_file": "a.set"},
+                route_a / "nested-task-output",
+            ),
+            ({"run_id": "run-b", "unprocessed_file": "b.set"}, route_b),
+        ]
+
+        import autoclean.api.routes.results as results_route
+
+        monkeypatch.setattr(results_route, "_find_all_runs", lambda _workspace: rows)
+        monkeypatch.setattr(
+            results_route,
+            "_route_output_map",
+            lambda _workspace: {"route-a": route_a, "route-b": route_b},
+        )
+
+        response = client.get("/api/results/export/csv?route_id=route-a")
+
+        assert response.status_code == 200
+        filtered_rows = list(csv.DictReader(response.text.splitlines()))
+        assert list(filtered_rows[0]) == [
+            "run_id",
+            "created_at",
+            "task",
+            "filename",
+            "status",
+            "success",
+        ]
+        assert {row["run_id"] for row in filtered_rows} == {"run-a"}
+
+        response = client.get("/api/results/export/csv")
+
+        assert response.status_code == 200
+        all_rows = list(csv.DictReader(response.text.splitlines()))
+        assert {row["run_id"] for row in all_rows} == {"run-a", "run-b"}
 
     def test_list_results_reads_pipeline_db(self, tmp_path: Path) -> None:
         app = create_app(workspace_dir=tmp_path, mode="live")
@@ -511,7 +595,9 @@ class TestResultsApi:
             finally:
                 conn.close()
 
-        report_path = task_dir / "reports" / "run_reports" / "0003_rest_autoclean_report.pdf"
+        report_path = (
+            task_dir / "reports" / "run_reports" / "0003_rest_autoclean_report.pdf"
+        )
         report_path.parent.mkdir(parents=True)
         report_path.write_bytes(b"%PDF-1.4\n%mock report\n")
 
@@ -577,11 +663,15 @@ class TestResultsApi:
         finally:
             conn.close()
 
-        report_path = task_dir / "reports" / "run_reports" / "0003_rest_autoclean_report.pdf"
+        report_path = (
+            task_dir / "reports" / "run_reports" / "0003_rest_autoclean_report.pdf"
+        )
         report_path.parent.mkdir(parents=True)
         report_path.write_bytes(b"%PDF-1.4\n%mock report\n")
 
-        ica_path = task_dir / "reports" / "ica_components" / "0003_rest_ica_components_all.pdf"
+        ica_path = (
+            task_dir / "reports" / "ica_components" / "0003_rest_ica_components_all.pdf"
+        )
         ica_path.parent.mkdir(parents=True)
         ica_path.write_bytes(b"%PDF-1.4\n%mock ica\n")
 
@@ -596,11 +686,17 @@ class TestResultsApi:
 
         assert report_response.status_code == 200
         assert report_response.headers["content-type"].startswith("application/pdf")
-        assert "attachment" not in report_response.headers.get("content-disposition", "").lower()
+        assert (
+            "attachment"
+            not in report_response.headers.get("content-disposition", "").lower()
+        )
 
         assert ica_response.status_code == 200
         assert ica_response.headers["content-type"].startswith("application/pdf")
-        assert "attachment" not in ica_response.headers.get("content-disposition", "").lower()
+        assert (
+            "attachment"
+            not in ica_response.headers.get("content-disposition", "").lower()
+        )
 
 
 class TestConfigDeployApi:
@@ -663,7 +759,9 @@ class TestServiceApi:
         app = create_app(workspace_dir=tmp_path, mode="test")
         client = TestClient(app)
         (tmp_path / "deploy").mkdir()
-        (tmp_path / "serve-test.yaml").write_text("routes:\n- id: route-a\n", encoding="utf-8")
+        (tmp_path / "serve-test.yaml").write_text(
+            "routes:\n- id: route-a\n", encoding="utf-8"
+        )
         (tmp_path / "deploy" / "serve-test.yaml").write_text(
             "routes:\n- id: route-b\n", encoding="utf-8"
         )
@@ -678,7 +776,9 @@ class TestServiceApi:
         app = create_app(workspace_dir=tmp_path, mode="live")
         client = TestClient(app)
         (tmp_path / "deploy").mkdir()
-        (tmp_path / "serve-live.yaml").write_text("routes:\n- id: route-a\n", encoding="utf-8")
+        (tmp_path / "serve-live.yaml").write_text(
+            "routes:\n- id: route-a\n", encoding="utf-8"
+        )
         (tmp_path / "deploy" / "serve-live.yaml").write_text(
             "routes:\n- id: route-a\n", encoding="utf-8"
         )
@@ -691,7 +791,9 @@ class TestServiceApi:
         proc.stdout = None
 
         with patch("autoclean.api.routes.service.parse_serve_config") as mock_parse:
-            with patch("autoclean.api.routes.service.subprocess.Popen", return_value=proc) as mock_popen:
+            with patch(
+                "autoclean.api.routes.service.subprocess.Popen", return_value=proc
+            ) as mock_popen:
                 response = client.post("/api/service/start", json={})
 
         try:
@@ -863,16 +965,19 @@ class TestTasks:
     def test_process_file_import(self) -> None:
         """Test process_file can be imported."""
         from autoclean.api.tasks import process_file
+
         assert process_file is not None
 
     def test_dispatch_ready_files_import(self) -> None:
         """Test dispatch_ready_files can be imported."""
         from autoclean.api.tasks import dispatch_ready_files
+
         assert dispatch_ready_files is not None
 
     def test_run_ingestion_cycle_import(self) -> None:
         """Test run_ingestion_cycle can be imported."""
         from autoclean.api.tasks import run_ingestion_cycle
+
         assert run_ingestion_cycle is not None
 
 
@@ -907,16 +1012,19 @@ class TestRoutesImport:
     def test_queue_routes_import(self) -> None:
         """Test queue routes can be imported."""
         from autoclean.api.routes import queue
+
         assert queue.router is not None
 
     def test_worker_routes_import(self) -> None:
         """Test worker routes can be imported."""
         from autoclean.api.routes import worker
+
         assert worker.router is not None
 
     def test_config_routes_import(self) -> None:
         """Test config routes can be imported."""
         from autoclean.api.routes import config
+
         assert config.router is not None
 
 
@@ -925,12 +1033,15 @@ class TestServerImport:
 
     def test_server_import(self) -> None:
         """Test server module can be imported."""
-        from autoclean.api.server import create_app, run_server, api_state
+        from autoclean.api.server import api_state, create_app, run_server
+
         assert create_app is not None
         assert run_server is not None
         assert api_state is not None
 
-    def test_run_server_binds_explicit_workspace_into_factory(self, tmp_path: Path, monkeypatch) -> None:
+    def test_run_server_binds_explicit_workspace_into_factory(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
         """Test run_server passes the requested workspace into the app factory."""
         import autoclean.api.server as server_module
 
@@ -942,7 +1053,9 @@ class TestServerImport:
 
         old_workspace = server_module.api_state.workspace_dir
         monkeypatch.setattr("uvicorn.run", fake_uvicorn_run)
-        monkeypatch.setattr(server_module, "_load_persisted_serve_workspace", lambda: None)
+        monkeypatch.setattr(
+            server_module, "_load_persisted_serve_workspace", lambda: None
+        )
         try:
             server_module.api_state.workspace_dir = None
             server_module.run_server(workspace_dir=tmp_path, mode="live", port=8123)
@@ -1212,7 +1325,7 @@ class TestEventEmitters:
     @pytest.mark.asyncio
     async def test_emit_queue_update(self) -> None:
         """Test emit_queue_update function."""
-        from autoclean.api.events import broadcaster, emit_queue_update
+        from autoclean.api.events import emit_queue_update
 
         # With no connections, should not raise
         await emit_queue_update(
@@ -1342,7 +1455,9 @@ class TestQueueEdgeCases:
                 "/data/αβγ.bdf": {"status": "pending"},  # Greek
             }
         }
-        queue_path.write_text(json.dumps(queue_data, ensure_ascii=False), encoding="utf-8")
+        queue_path.write_text(
+            json.dumps(queue_data, ensure_ascii=False), encoding="utf-8"
+        )
 
         from autoclean.utils.ingestion import IngestionQueue
 
