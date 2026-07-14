@@ -324,6 +324,21 @@ def _epoch_descriptor() -> dict:
     }
 
 
+def _assr_analysis_descriptor() -> dict:
+    return {
+        "enabled": "bool",
+        "value": {
+            "profile": "'assr_epochs'|null",
+            "baseline": "list|tuple|null",
+            "time_windows": "dict|null",
+            "freq_bands": "dict|null",
+            "combined_bands": "dict|null",
+            "exclude_channel_types": "list|tuple|null",
+            "save_tfr": "bool",
+        },
+    }
+
+
 def _bad_channel_log_descriptor() -> dict:
     return {
         "enabled": "bool",
@@ -573,6 +588,18 @@ def _build_task_settings_schema() -> Schema:
                     Optional("group_by"): "event_id",
                 },
             },
+            Optional("assr_analysis"): {
+                "enabled": bool,
+                "value": {
+                    Optional("profile"): Or("assr_epochs", None),
+                    Optional("baseline"): Or(list, tuple, None),
+                    Optional("time_windows"): Or(dict, None),
+                    Optional("freq_bands"): Or(dict, None),
+                    Optional("combined_bands"): Or(dict, None),
+                    Optional("exclude_channel_types"): Or(list, tuple, None),
+                    Optional("save_tfr"): bool,
+                },
+            },
             # Source Localization
             Optional("apply_source_localization"): {
                 "enabled": bool,
@@ -716,6 +743,7 @@ def export_task_schema_layout() -> dict:
                     "group_by": "'event_id'",
                 },
             },
+            "assr_analysis": _assr_analysis_descriptor(),
             "apply_source_localization": _source_localization_descriptor(),
             "apply_source_psd": _source_psd_descriptor(),
             "apply_sensor_psd": _sensor_psd_descriptor(),
