@@ -36,9 +36,7 @@ def test_schema_accepts_assr_analysis_overrides() -> None:
         ("save_tfr", "yes"),
     ],
 )
-def test_schema_rejects_invalid_assr_analysis_values(
-    key: str, value: object
-) -> None:
+def test_schema_rejects_invalid_assr_analysis_values(key: str, value: object) -> None:
     task_config = deepcopy(assr_config)
     task_config["assr_analysis"] = {
         "enabled": True,
