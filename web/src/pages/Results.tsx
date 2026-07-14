@@ -1168,6 +1168,7 @@ function RunDetailPanel({
 
       {/* Decision bar */}
       <DecisionBar
+        key={run.run_id}
         runId={run.run_id}
         currentDecision={decision}
         currentNotes={decisionNotes}
