@@ -857,7 +857,7 @@ function isTypingInInput(e: KeyboardEvent): boolean {
   return false;
 }
 
-function DecisionBar({
+export function DecisionBar({
   runId,
   currentDecision,
   currentNotes,
@@ -870,6 +870,8 @@ function DecisionBar({
 }) {
   const [notes, setNotes] = useState(currentNotes);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [failedDecision, setFailedDecision] = useState<DecisionValue>(null);
   const notesRef = useRef(notes);
   notesRef.current = notes;
 
@@ -884,8 +886,11 @@ function DecisionBar({
         await api.setDecision(runId, decision, notesRef.current);
       }
       onDecisionChange(decision, notesRef.current);
+      setSaveError(false);
+      setFailedDecision(null);
     } catch {
-      // ignore
+      setSaveError(true);
+      setFailedDecision(decision);
     } finally {
       setSaving(false);
     }
@@ -927,6 +932,7 @@ function DecisionBar({
         {currentDecision && (
           <button
             onClick={() => handleDecision(null)}
+            disabled={saving}
             className="px-2 py-1 rounded text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
           >
             Clear
@@ -934,6 +940,19 @@ function DecisionBar({
           </button>
         )}
       </div>
+      {saveError && (
+        <div role="alert" className="mb-2 flex items-center gap-2 text-xs text-red-400">
+          <span>Decision could not be saved.</span>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => handleDecision(failedDecision)}
+            className="underline underline-offset-2 hover:text-red-300 disabled:opacity-50"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <input
         type="text"
         value={notes}
