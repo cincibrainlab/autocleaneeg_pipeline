@@ -232,7 +232,10 @@ def test_boolean_custom_reference_flag_is_not_reported_as_label():
     summary = detect_prior_preprocessing(raw)
 
     assert summary["documented_metadata"]["reference"] == "custom reference applied"
-    assert summary["findings"]["reference"]["value"] is not True
+    reference = summary["findings"]["reference"]
+    assert reference["value"] == "custom reference applied"
+    assert reference["confidence"] == "possible"
+    assert reference["evidence"] == "MNE custom_ref_applied flag"
 
 
 def test_info_description_is_not_treated_as_reference_metadata():

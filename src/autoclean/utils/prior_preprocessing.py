@@ -561,6 +561,16 @@ def _infer_from_signal(eeg_data: Any | None) -> dict[str, Any]:
 def _merge_findings(
     documented: Mapping[str, Any], signal: Mapping[str, Any]
 ) -> dict[str, dict[str, Any]]:
+    reference = documented.get("reference")
+    reference_finding = (
+        _finding(
+            CONFIDENCE_POSSIBLE,
+            reference,
+            "MNE custom_ref_applied flag",
+        )
+        if reference == "custom reference applied"
+        else _documented_value(reference)
+    )
     findings = {
         "epoching": _documented_or_unknown(
             documented.get("continuous_or_epoched") == "epoched",
@@ -569,7 +579,7 @@ def _merge_findings(
         ),
         "sampling_rate": _documented_value(documented.get("sampling_rate")),
         "epoch_window": _documented_value(documented.get("epoch_window")),
-        "reference": _documented_value(documented.get("reference")),
+        "reference": reference_finding,
         "event_codes": _documented_value(documented.get("event_codes")),
         "event_counts": _documented_value(documented.get("event_counts")),
         "ica_present": _ica_present(documented.get("ica")),
