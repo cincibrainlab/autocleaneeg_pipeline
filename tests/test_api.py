@@ -26,9 +26,9 @@ from autoclean.api.models import (
     WorkerStatus,
     WorkerStatusResponse,
 )
+from autoclean.api.routes.service import ServiceStartRequest
 from autoclean.api.server import create_app
 from autoclean.api.state import APIState, api_state
-from autoclean.api.routes.service import ServiceStartRequest
 
 
 class TestAPIState:
@@ -1033,7 +1033,7 @@ class TestServerImport:
 
     def test_server_import(self) -> None:
         """Test server module can be imported."""
-        from autoclean.api.server import create_app, run_server, api_state
+        from autoclean.api.server import api_state, create_app, run_server
 
         assert create_app is not None
         assert run_server is not None
