@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from autoclean.calc.assr_analysis import analyze_assr
 from autoclean.core.task import Task
 
 config = {
@@ -58,6 +61,10 @@ config = {
             "volt_threshold": {"eeg": 0.0002},
         },
     },
+    "assr_analysis": {
+        "enabled": False,
+        "value": {"profile": "assr_epochs"},
+    },
     "ai_reporting": False,
 }
 
@@ -89,8 +96,36 @@ class ASSR_40Hz(Task):
         self.create_eventid_epochs()
         self.detect_outlier_epochs()
         self.gfp_clean_epochs()
+        self.run_assr_analysis()
 
         self.generate_reports()
+
+    def run_assr_analysis(self) -> None:
+        """Run optional ASSR analysis on the cleaned epochs."""
+        if (
+            getattr(self, "settings", None) is not None
+            and "assr_analysis" not in self.settings
+        ):
+            return
+        is_enabled, step_config = self._check_step_enabled("assr_analysis")
+        if not is_enabled:
+            return
+        if self.epochs is None:
+            raise RuntimeError("ASSR analysis requires cleaned epochs")
+
+        analysis_config = dict((step_config or {}).get("value") or {})
+        analysis_profile = analysis_config.pop("profile", None)
+        input_file = self.config.get("unprocessed_file")
+        file_basename = Path(input_file).stem if input_file else None
+
+        analyze_assr(
+            output_dir=self._resolve_report_path("assr"),
+            save_results=True,
+            epochs=self.epochs,
+            file_basename=file_basename,
+            analysis_profile=analysis_profile,
+            analysis_config=analysis_config,
+        )
 
     def generate_reports(self) -> None:
         if self.raw is None or self.original_raw is None:

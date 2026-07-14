@@ -34,10 +34,21 @@ DATASET_LOCK_TIMEOUT_SECONDS = 10.0
 DATASET_LOCK_RETRY_SECONDS = 0.05
 
 
-def extract_eeglab_provenance(file_path: Path) -> dict[str, Any]:
-    """Load an EEGLAB ``.set`` file and return a provenance summary."""
+def extract_eeglab_provenance(
+    file_path: Path, eeg_data: Any | None = None
+) -> dict[str, Any]:
+    """Return provenance from loaded MNE data or an EEGLAB ``.set`` file.
 
-    eeg = _load_eeg_struct(file_path)
+    Import callers should pass the MNE object they already loaded. This avoids
+    parsing the ``.set`` file a second time and supports every ``.set`` variant
+    accepted by the configured MNE import plugin, including MATLAB v7.3.
+    """
+
+    eeg = (
+        _mne_provenance_view(eeg_data)
+        if eeg_data is not None
+        else _load_eeg_struct(file_path)
+    )
     return summarize_eeglab_provenance(eeg, source_file=file_path)
 
 
@@ -303,6 +314,57 @@ def _load_eeg_struct(file_path: Path) -> Any:
     if "EEG" not in data:
         raise ValueError("EEGLAB .set file did not contain an EEG structure")
     return data["EEG"]
+
+
+def _mne_provenance_view(eeg_data: Any) -> dict[str, Any]:
+    """Expose provenance retained by an already-loaded MNE Raw/Epochs object."""
+
+    info = eeg_data.info
+    chanlocs = [
+        {"labels": name, "type": kind}
+        for name, kind in zip(eeg_data.ch_names, eeg_data.get_channel_types())
+    ]
+    epoch_events = getattr(eeg_data, "events", None)
+    if epoch_events is not None and len(epoch_events):
+        code_to_name = {
+            code: name for name, code in getattr(eeg_data, "event_id", {}).items()
+        }
+        events = [
+            {
+                "type": code_to_name.get(int(event[2]), str(int(event[2]))),
+                "code": str(int(event[2])),
+            }
+            for event in epoch_events
+        ]
+    else:
+        annotations = getattr(eeg_data, "annotations", None)
+        events = (
+            [{"type": description} for description in annotations.description]
+            if annotations is not None and len(annotations)
+            else []
+        )
+
+    times = eeg_data.times
+    is_epochs = hasattr(eeg_data, "events")
+    return {
+        "setname": getattr(eeg_data, "_name", None) or UNAVAILABLE,
+        "srate": info["sfreq"],
+        "nbchan": len(eeg_data.ch_names),
+        "trials": len(eeg_data) if is_epochs else 1,
+        "pnts": len(times),
+        "xmin": times[0] if len(times) else UNAVAILABLE,
+        "xmax": times[-1] if len(times) else UNAVAILABLE,
+        "ref": next(
+            (
+                value
+                for value in (info.get("reference"), info.get("ref"))
+                if isinstance(value, str) and value.strip()
+            ),
+            UNAVAILABLE,
+        ),
+        "chanlocs": chanlocs,
+        "event": events,
+    }
 
 
 def _field(obj: Any, name: str, default: Any = UNAVAILABLE) -> Any:

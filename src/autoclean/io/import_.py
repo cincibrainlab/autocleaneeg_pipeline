@@ -26,6 +26,12 @@ from autoclean.io.eeglab_provenance import (
 )
 from autoclean.utils.database import manage_database_conditionally
 from autoclean.utils.logging import message
+from autoclean.utils.prior_preprocessing import (
+    detect_prior_preprocessing,
+    resolve_prior_preprocessing_dir,
+    resolve_prior_preprocessing_provenance,
+    write_prior_preprocessing_artifacts,
+)
 
 # Optional import for HBCD processor
 try:
@@ -467,8 +473,10 @@ def import_eeg(
         dataset_artifact_paths = {}
         if format_id == "EEGLAB_SET":
             try:
-                eeglab_provenance = extract_eeglab_provenance(unprocessed_file)
                 provenance_dir = resolve_eeglab_provenance_dir(autoclean_dict)
+                eeglab_provenance = extract_eeglab_provenance(
+                    unprocessed_file, eeg_data
+                )
                 artifact_paths = write_eeglab_provenance_artifacts(
                     eeglab_provenance,
                     provenance_dir,
@@ -493,6 +501,10 @@ def import_eeg(
                         "warning",
                         f"EEGLAB dataset provenance summary unavailable: {dataset_error}",
                     )
+
+        provenance_summary = resolve_prior_preprocessing_provenance(
+            plugin_metadata, autoclean_dict, eeglab_provenance
+        )
 
         # Prepare metadata
         metadata = {
@@ -580,6 +592,52 @@ def import_eeg(
                 }
             )
 
+        prior_config = autoclean_dict.get("prior_preprocessing_detection", {})
+        if not isinstance(prior_config, dict):
+            prior_config = {"enabled": bool(prior_config)}
+        if prior_config.get("enabled", False):
+            prior_preprocessing = None
+            try:
+                task_config = _resolve_task_settings(autoclean_dict)
+                prior_preprocessing = detect_prior_preprocessing(
+                    eeg_data,
+                    import_metadata=metadata["import_eeg"],
+                    provenance_summary=provenance_summary,
+                    task_config=task_config,
+                    strict=bool(prior_config.get("strict", False)),
+                )
+                artifact_paths = write_prior_preprocessing_artifacts(
+                    prior_preprocessing,
+                    resolve_prior_preprocessing_dir(autoclean_dict),
+                    unprocessed_file.stem,
+                )
+                metadata["import_eeg"]["prior_preprocessing"] = {
+                    "available": True,
+                    "schema_version": prior_preprocessing.get("schema_version"),
+                    "artifact_paths": artifact_paths,
+                    "summary_row": prior_preprocessing.get("summary_row", {}),
+                    "warnings": prior_preprocessing.get("warnings", []),
+                    "strict_violations": prior_preprocessing.get(
+                        "strict_violations", []
+                    ),
+                    "findings": prior_preprocessing.get("findings", {}),
+                }
+                for warning in prior_preprocessing.get("warnings", []):
+                    message("warning", f"Prior preprocessing check: {warning}")
+                message(
+                    "info",
+                    f"Prior preprocessing summary written to {artifact_paths['json']}",
+                )
+            except Exception as prior_error:  # pylint: disable=broad-except
+                metadata["import_eeg"]["prior_preprocessing"] = {
+                    "available": False,
+                    "error": str(prior_error),
+                }
+                message(
+                    "warning",
+                    f"Prior preprocessing summary unavailable: {prior_error}",
+                )
+
         # Update database
         manage_database_conditionally(
             operation="update",
@@ -595,6 +653,24 @@ def import_eeg(
     except Exception as e:
         message("error", f"Failed to import EEG data: {str(e)}")
         raise
+
+
+def _resolve_task_settings(autoclean_dict: dict) -> dict:
+    """Return task settings for warning comparisons when available."""
+
+    if isinstance(autoclean_dict.get("settings"), dict):
+        return autoclean_dict["settings"]
+
+    task_name = autoclean_dict.get("task")
+    tasks = autoclean_dict.get("tasks")
+    if isinstance(task_name, str) and isinstance(tasks, dict):
+        task_entry = tasks.get(task_name) or tasks.get(task_name.lower())
+        if isinstance(task_entry, dict) and isinstance(
+            task_entry.get("settings"), dict
+        ):
+            return task_entry["settings"]
+
+    return autoclean_dict
 
 
 # Event processor plugin system

@@ -14,6 +14,7 @@ Start here if you're new to EEG processing or AutoClean:
 
    command_line_basics
    first_time_processing
+   prior_preprocessing_detection
    understanding_results
 
 Command references:

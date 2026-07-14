@@ -60,7 +60,7 @@ import sys
 import threading  # Add threading import
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Type, Union
 
 import matplotlib
 
@@ -678,6 +678,8 @@ class Pipeline:
                             )
 
             task_object.run()
+
+            _run_optional_postprocessing(task_object)
 
             try:
                 flagged, flagged_reasons = task_object.get_flagged_status()
@@ -1566,3 +1568,27 @@ class Pipeline:
 
         message("success", f"✓ File '{file_path}' found")
         return path
+
+
+def _run_optional_postprocessing(task_object: Any) -> None:
+    """Run optional postprocessing without failing the completed cleaning task."""
+    try:
+        task_object.run_postprocessing_analysis()
+    except Exception as postprocessing_error:  # pylint: disable=broad-except
+        import traceback
+
+        settings = getattr(task_object, "settings", {}) or {}
+        configured = settings.get("postprocessing_analysis", {})
+        blocks = configured.get("value", {}) if isinstance(configured, dict) else {}
+        enabled_blocks = [
+            name
+            for name, block in blocks.items()
+            if isinstance(block, dict) and block.get("enabled")
+        ]
+        context = ", ".join(enabled_blocks) or "unknown"
+        message(
+            "warning",
+            "Postprocessing analysis failed and was skipped "
+            f"(enabled blocks: {context}): {postprocessing_error}",
+        )
+        message("debug", traceback.format_exc())

@@ -1,10 +1,9 @@
 """Unit tests for SensorPSDMixin (mixins/analysis/sensor_psd.py)."""
 
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+import inspect
+from unittest.mock import patch
 
 import mne
-import numpy as np
 import pytest
 
 from tests.fixtures.synthetic_data import create_synthetic_raw
@@ -17,9 +16,7 @@ except ImportError:
     TASK_AVAILABLE = False
 
 
-pytestmark = pytest.mark.skipif(
-    not TASK_AVAILABLE, reason="Task module not available"
-)
+pytestmark = pytest.mark.skipif(not TASK_AVAILABLE, reason="Task module not available")
 
 
 class _PSDTask(Task):
@@ -59,6 +56,11 @@ def task(tmp_path):
 # ---------------------------------------------------------------------------
 # apply_sensor_psd
 # ---------------------------------------------------------------------------
+def test_apply_sensor_psd_preserves_legacy_positional_order():
+    parameters = list(inspect.signature(_PSDTask.apply_sensor_psd).parameters)
+
+    assert parameters[:4] == ["self", "epochs", "method", "fmin"]
+    assert parameters[-1] == "data"
 
 
 class TestApplySensorPsd:
@@ -106,9 +108,7 @@ class TestApplySensorPsd:
 
         class _DisabledTask(_PSDTask):
             def __init__(self, c):
-                self.settings = {
-                    "apply_sensor_psd": {"enabled": False, "value": {}}
-                }
+                self.settings = {"apply_sensor_psd": {"enabled": False, "value": {}}}
                 super(_PSDTask, self).__init__(c)
 
             def run(self):
@@ -132,6 +132,109 @@ class TestApplySensorPsd:
 
         with pytest.raises(ValueError, match="No epochs available"):
             task.apply_sensor_psd()
+
+    def test_custom_bands_and_time_windows_are_reflected_in_outputs(self, task):
+        """Custom bands/windows should be accepted and written into PSD tables."""
+        with (
+            patch.object(task, "_update_metadata") as update_metadata,
+            patch.object(task, "_save_sensor_psd_tables", return_value={}),
+        ):
+            psd_df, band_df, _ = task.apply_sensor_psd(
+                data=task.epochs,
+                fmin=1,
+                fmax=20,
+                freq_bands={"theta": [4, 8], "skip_me": None},
+                time_windows={"early": [0, 1.0]},
+            )
+
+        assert set(psd_df["time_window"]) == {"early"}
+        assert set(band_df["band"]) == {"theta"}
+        metadata = update_metadata.call_args.args[1]
+        assert metadata["time_windows"] == {"early": [0.0, 1.0]}
+        assert metadata["freq_bands"]["skip_me"] is None
+
+    def test_applies_baseline_before_cropping_time_window(self, task):
+        """Baseline intervals may precede the requested analysis window."""
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_sensor_psd_tables", return_value={}),
+        ):
+            psd_df, _, _ = task.apply_sensor_psd(
+                data=task.epochs,
+                fmin=1,
+                fmax=30,
+                freq_bands=None,
+                baseline=[0, 0.2],
+                time_windows={"late": [0.5, 1.0]},
+            )
+
+        assert set(psd_df["time_window"]) == {"late"}
+
+    def test_raw_input_reports_raw_metadata(self, task):
+        """Continuous Raw input is analyzed without epoch averaging."""
+        raw = create_synthetic_raw(
+            montage="standard_1020", n_channels=4, duration=3.0, sfreq=100.0
+        )
+        with (
+            patch.object(task, "_update_metadata") as update_metadata,
+            patch.object(task, "_save_sensor_psd_tables", return_value={}),
+        ):
+            psd_df, _, _ = task.apply_sensor_psd(
+                data=raw, fmin=1, fmax=20, freq_bands=None
+            )
+
+        metadata = update_metadata.call_args.args[1]
+        assert metadata["input_type"] == "raw"
+        assert metadata["n_observations_analyzed"] == raw.n_times
+        assert len(psd_df["channel"].unique()) == len(raw.ch_names)
+
+    def test_raw_input_warns_when_baseline_is_ignored(self, task):
+        raw = create_synthetic_raw(
+            montage="standard_1020", n_channels=4, duration=3.0, sfreq=100.0
+        )
+        with (
+            patch("autoclean.mixins.analysis.sensor_psd.message") as log_message,
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_sensor_psd_tables", return_value={}),
+        ):
+            task.apply_sensor_psd(
+                data=raw,
+                fmin=1,
+                fmax=20,
+                freq_bands=None,
+                baseline=[None, 0],
+            )
+
+        log_message.assert_any_call(
+            "warning", "Sensor PSD baseline is ignored for continuous Raw input."
+        )
+
+    def test_freq_bands_none_skips_band_summary(self, task):
+        """freq_bands=None should skip band-power rows instead of using defaults."""
+        with (
+            patch.object(task, "_update_metadata") as update_metadata,
+            patch.object(task, "_save_sensor_psd_tables", return_value={}),
+        ):
+            _, band_df, _ = task.apply_sensor_psd(
+                data=task.epochs,
+                fmin=1,
+                fmax=20,
+                freq_bands=None,
+            )
+
+        assert band_df.empty
+        metadata = update_metadata.call_args.args[1]
+        assert metadata["freq_bands"] == {}
+
+    def test_custom_band_outside_psd_range_raises(self, task):
+        """Bands outside the computed PSD range fail with an actionable error."""
+        with pytest.raises(ValueError, match="outside PSD range"):
+            task.apply_sensor_psd(
+                data=task.epochs,
+                fmin=1,
+                fmax=20,
+                freq_bands={"gamma": [30, 45]},
+            )
 
     def test_raises_type_error_for_non_epochs_input(self, task):
         """apply_sensor_psd raises TypeError when passed a non-Epochs object."""
