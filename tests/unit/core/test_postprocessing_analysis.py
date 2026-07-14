@@ -424,6 +424,87 @@ def test_sensor_psd_schema_accepts_default_frequency_bands():
     )
 
 
+def test_source_localization_schema_accepts_runtime_options():
+    config = _minimal_postprocessing_schema_config()
+    source_localization = {
+        "enabled": True,
+        "method": "MNE",
+        "lambda2": 0.125,
+        "montage": "standard_1020",
+        "resample_freq": 128.0,
+        "max_memory_gb": 2.5,
+    }
+    config["postprocessing_analysis"] = {
+        "enabled": True,
+        "value": {"source_localization": source_localization},
+    }
+
+    validated = validate_task_module_config(config)
+
+    assert (
+        validated["postprocessing_analysis"]["value"]["source_localization"]
+        == source_localization
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("pick_ori", "normal"),
+        ("n_jobs", 2),
+        ("convert_to_eeg", True),
+    ],
+)
+def test_source_localization_schema_rejects_ignored_options(field, value):
+    config = _minimal_postprocessing_schema_config()
+    config["postprocessing_analysis"] = {
+        "enabled": True,
+        "value": {
+            "source_localization": {
+                "enabled": True,
+                field: value,
+            }
+        },
+    }
+
+    with pytest.raises(SchemaError):
+        validate_task_module_config(config)
+
+
+def test_source_localization_forwards_schema_options(task):
+    task.settings = {
+        "postprocessing_analysis": {
+            "enabled": True,
+            "value": {
+                "source_localization": {
+                    "enabled": True,
+                    "input": "clean_epochs",
+                    "method": "dSPM",
+                    "lambda2": 0.25,
+                    "montage": "standard_1020",
+                    "resample_freq": 128.0,
+                    "max_memory_gb": 3.0,
+                }
+            },
+        }
+    }
+
+    with patch.object(task, "_update_metadata"):
+        task.run_postprocessing_analysis()
+
+    _, kwargs, enabled = task.calls[0]
+    assert enabled is True
+    assert kwargs == {
+        "data": task.epochs,
+        "method": "dSPM",
+        "lambda2": 0.25,
+        "montage": "standard_1020",
+        "resample_freq": 128.0,
+        "max_memory_gb": 3.0,
+        "stage_name": "postprocessing_source_localization",
+    }
+
+
 def test_postprocessing_schema_rejects_unknown_blocks_and_bad_types():
     with pytest.raises(SchemaError):
         validate_task_module_config(

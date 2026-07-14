@@ -131,9 +131,9 @@ def _source_localization_descriptor() -> dict:
         "value": {
             "method": "string (MNE|dSPM|sLORETA)",
             "lambda2": "number (regularization parameter)",
-            "pick_ori": "string|null (normal|None)",
-            "n_jobs": "integer (parallel jobs)",
-            "convert_to_eeg": "bool (convert to 68-channel EEG format)",
+            "montage": "string|null (EEG montage name)",
+            "resample_freq": "number|null (target sampling frequency)",
+            "max_memory_gb": "number (maximum memory usage in GB)",
         },
     }
 
@@ -588,9 +588,9 @@ def _build_task_settings_schema() -> Schema:
                         Optional("aliases"): Or(str, list, tuple),
                         Optional("method"): str,
                         Optional("lambda2"): Or(int, float),
-                        Optional("pick_ori"): Or(str, None),
-                        Optional("n_jobs"): int,
-                        Optional("convert_to_eeg"): bool,
+                        Optional("montage"): Or(str, None),
+                        Optional("resample_freq"): Or(int, float, None),
+                        Optional("max_memory_gb"): Or(int, float),
                     },
                     Optional("source_psd"): {
                         "enabled": bool,
@@ -634,9 +634,9 @@ def _build_task_settings_schema() -> Schema:
                 "value": {
                     Optional("method"): str,
                     Optional("lambda2"): Or(int, float),
-                    Optional("pick_ori"): Or(str, None),
-                    Optional("n_jobs"): int,
-                    Optional("convert_to_eeg"): bool,
+                    Optional("montage"): Or(str, None),
+                    Optional("resample_freq"): Or(int, float, None),
+                    Optional("max_memory_gb"): Or(int, float),
                 },
             },
             # Source PSD
@@ -948,7 +948,7 @@ def _suggest_fix(path: list[str], raw_message: str) -> str:
     if dotted.startswith("epoch_settings"):
         return "Use numeric tmin/tmax, a dict or None for event_id, and valid baseline/rejection settings."
     if dotted.startswith("apply_source_localization"):
-        return "Use source-localization fields such as method, lambda2, pick_ori, n_jobs, and convert_to_eeg."
+        return "Use source-localization fields such as method, lambda2, montage, resample_freq, and max_memory_gb."
     if "Missing key" in raw_message:
         return "Add the missing required key, or copy the section from a built-in task template."
     if "Wrong key" in raw_message:
