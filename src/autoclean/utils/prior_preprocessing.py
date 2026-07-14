@@ -526,25 +526,30 @@ def _infer_from_signal(eeg_data: Any | None) -> dict[str, Any]:
 
     info = getattr(eeg_data, "info", {}) or {}
     ch_names = list(getattr(eeg_data, "ch_names", []) or [])
-    data = _get_data(eeg_data)
+    channel_kinds = _channel_type_list(eeg_data, ch_names)
+    eeg_picks = [index for index, kind in enumerate(channel_kinds) if kind == "eeg"]
+    data = _get_data(eeg_data, picks=eeg_picks if ch_names else None)
     times = np.asarray(getattr(eeg_data, "times", []), dtype=float)
     sfreq = _to_float(info.get("sfreq"))
-    channel_types = _channel_types(eeg_data, ch_names)
+    channel_types = dict(Counter(channel_kinds))
+    eeg_channel_count = (
+        len(eeg_picks) if ch_names else (int(data.shape[-2]) if data is not None else 0)
+    )
     freqs, spectrum = _mean_spectrum(data, sfreq)
     inference: dict[str, Any] = {
         "data_shape": list(data.shape) if data is not None else UNAVAILABLE,
         "eog_ecg_misc_channel_presence": _infer_aux_channels(channel_types, ch_names),
-        "channel_count_suggests_dropping": _infer_channel_count_drop(len(ch_names)),
+        "channel_count_suggests_dropping": _infer_channel_count_drop(eeg_channel_count),
         "baseline_applied": _infer_baseline(data, times),
         "highpass_filter": _infer_highpass(freqs, spectrum),
         "lowpass_filter": _infer_lowpass(freqs, spectrum, sfreq),
         "ica_pruned": _possible("ICA pruning cannot be confirmed from signal alone"),
         "ica_capable": _finding(
-            CONFIDENCE_POSSIBLE if len(ch_names) >= 2 else CONFIDENCE_UNKNOWN,
-            len(ch_names) >= 2,
+            CONFIDENCE_POSSIBLE if eeg_channel_count >= 2 else CONFIDENCE_UNKNOWN,
+            eeg_channel_count >= 2,
             (
-                f"{len(ch_names)} channels available for ICA"
-                if ch_names
+                f"{eeg_channel_count} EEG channels available for ICA"
+                if eeg_channel_count
                 else "channel names unavailable"
             ),
         ),
@@ -824,13 +829,36 @@ def _safe_mean(values: np.ndarray) -> float | None:
     return mean if np.isfinite(mean) else None
 
 
-def _get_data(eeg_data: Any) -> np.ndarray | None:
+def _get_data(eeg_data: Any, picks: Sequence[int] | None = None) -> np.ndarray | None:
     if eeg_data is None or not hasattr(eeg_data, "get_data"):
         return None
+    requested_picks = list(picks) if picks is not None else None
+    if requested_picks == []:
+        return None
     try:
-        data = eeg_data.get_data()
+        data = (
+            eeg_data.get_data(picks=requested_picks)
+            if requested_picks is not None
+            else eeg_data.get_data()
+        )
     except TypeError:
-        data = eeg_data.get_data(copy=False)
+        # Lightweight adapters may not accept ``picks``. Read once and slice
+        # their channel axis locally while retaining compatibility with older
+        # MNE ``copy`` signatures.
+        try:
+            data = eeg_data.get_data(copy=False)
+        except TypeError:
+            try:
+                data = eeg_data.get_data()
+            except Exception:  # pragma: no cover - defensive
+                return None
+        except Exception:  # pragma: no cover - defensive
+            return None
+        if requested_picks is not None:
+            try:
+                data = np.take(data, requested_picks, axis=-2)
+            except Exception:  # pragma: no cover - defensive
+                return None
     except Exception:  # pragma: no cover - defensive for third-party objects
         return None
     return np.asarray(data, dtype=float)
@@ -846,15 +874,19 @@ def _is_epochs_like(eeg_data: Any | None, import_metadata: Mapping[str, Any]) ->
     )
 
 
-def _channel_types(eeg_data: Any | None, ch_names: Sequence[str]) -> dict[str, int]:
+def _channel_type_list(eeg_data: Any | None, ch_names: Sequence[str]) -> list[str]:
     if eeg_data is not None and hasattr(eeg_data, "get_channel_types"):
         try:
-            return dict(
-                Counter(str(kind).lower() for kind in eeg_data.get_channel_types())
-            )
+            kinds = [str(kind).lower() for kind in eeg_data.get_channel_types()]
+            if len(kinds) == len(ch_names):
+                return kinds
         except Exception:  # pragma: no cover - defensive
             pass
-    return dict(Counter(_type_from_name(name) for name in ch_names))
+    return [_type_from_name(name) for name in ch_names]
+
+
+def _channel_types(eeg_data: Any | None, ch_names: Sequence[str]) -> dict[str, int]:
+    return dict(Counter(_channel_type_list(eeg_data, ch_names)))
 
 
 def _type_from_name(name: str) -> str:

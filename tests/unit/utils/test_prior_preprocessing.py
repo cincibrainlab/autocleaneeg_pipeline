@@ -25,9 +25,13 @@ class _RawStub:
         self._channel_types = channel_types or ["eeg", "eeg", "eog", "misc"]
         self.n_times = self._data.shape[-1]
         self.times = np.arange(self.n_times) / sfreq
+        self.last_picks = None
 
-    def get_data(self):
-        return self._data
+    def get_data(self, picks=None):
+        self.last_picks = picks
+        if picks is None:
+            return self._data
+        return np.take(self._data, picks, axis=-2)
 
     def get_channel_types(self):
         return self._channel_types
@@ -250,6 +254,26 @@ def test_signal_inference_flags_likely_notch_and_aux_channels():
     aux = summary["findings"]["eog_ecg_misc_channel_presence"]
     assert aux["confidence"] == "likely"
     assert aux["value"] == {"eog": 1, "misc": 1}
+
+
+def test_signal_inference_reads_only_eeg_channels():
+    eeg_data = _notch_like_data()
+    auxiliary_data = np.vstack(
+        [np.full(eeg_data.shape[-1], 1e6), np.arange(eeg_data.shape[-1])]
+    )
+    raw = _RawStub(
+        np.vstack([eeg_data, auxiliary_data]),
+        ch_names=["Cz", "Pz", "VEOG", "Status"],
+        channel_types=["eeg", "eeg", "eog", "misc"],
+    )
+
+    summary = detect_prior_preprocessing(raw)
+
+    assert raw.last_picks == [0, 1]
+    assert summary["signal_inference"]["data_shape"] == [2, eeg_data.shape[-1]]
+    assert summary["signal_inference"]["ica_capable"]["evidence"] == (
+        "2 EEG channels available for ICA"
+    )
 
 
 def test_signal_inference_does_not_infer_baseline_from_raw_time_zero():

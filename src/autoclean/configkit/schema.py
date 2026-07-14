@@ -431,6 +431,10 @@ def _build_task_settings_schema() -> Schema:
             Optional("incremental_cleanup"): {
                 Optional("enabled"): bool,
             },
+            Optional("prior_preprocessing_detection"): {
+                "enabled": bool,
+                Optional("strict"): bool,
+            },
             Optional("dataset_name"): Or(str, None),
             Optional("automation_mode"): Or(bool, str, None),
             # Basic preprocessing
@@ -679,6 +683,10 @@ def export_task_schema_layout() -> dict:
                 "seed": "int|null",
             },
             "move_flagged_files": "bool|null",
+            "prior_preprocessing_detection": {
+                "enabled": "bool",
+                "strict": "bool",
+            },
             "resample_step": _step_value_num_descriptor(),
             "filtering": _filtering_descriptor(),
             "drop_outerlayer": {"enabled": "bool", "value": "list|None"},
