@@ -43,12 +43,8 @@ IC_FLAGS = (
     "ch_noise",
     "other",
 )
-# Note: classifiers (ICLabel/ICVision) only ever emit the canonical short
-# codes "brain", "muscle", "eog", "ecg", "line_noise", "ch_noise", "other".
-# "eye", "heart", "cardiac", and "channel_noise" are accepted here for backward
-# compatibility with existing task configs, but are normalized to their
-# canonical equivalent before rejection matching -- see
-# autoclean.functions.ica.ica_processing.normalize_ic_type (issue #226).
+# Classifiers emit canonical short codes, while historical task configs may
+# use aliases. Rejection matching normalizes these values in ica_processing.
 
 
 def _is_valid_wavelet(name: str) -> bool:
@@ -135,9 +131,9 @@ def _source_localization_descriptor() -> dict:
         "value": {
             "method": "string (MNE|dSPM|sLORETA)",
             "lambda2": "number (regularization parameter)",
-            "pick_ori": "string|null (normal|None)",
-            "n_jobs": "integer (parallel jobs)",
-            "convert_to_eeg": "bool (convert to 68-channel EEG format)",
+            "montage": "string|null (EEG montage name)",
+            "resample_freq": "number|null (target sampling frequency)",
+            "max_memory_gb": "number (maximum memory usage in GB)",
         },
     }
 
@@ -168,6 +164,9 @@ def _sensor_psd_descriptor() -> dict:
             "adaptive": "bool (multitaper only)",
             "low_bias": "bool (multitaper only)",
             "normalization": "string (multitaper only)",
+            "freq_bands": "mapping|'default'|None",
+            "time_windows": "mapping|sequence|None",
+            "baseline": "sequence|None (Epochs only)",
         },
     }
 
@@ -559,6 +558,62 @@ def _build_task_settings_schema() -> Schema:
                     Optional("thresh_method"): str,
                 },
             },
+            Optional("postprocessing_analysis"): {
+                "enabled": bool,
+                "value": {
+                    Optional("sensor_psd"): {
+                        "enabled": bool,
+                        Optional("input"): str,
+                        Optional("output"): Or(str, list, tuple),
+                        Optional("aliases"): Or(str, list, tuple),
+                        Optional("method"): Or("welch", "multitaper"),
+                        Optional("fmin"): Or(int, float),
+                        Optional("fmax"): Or(int, float),
+                        Optional("picks"): Or(str, list, tuple, None),
+                        Optional("n_jobs"): int,
+                        Optional("n_fft"): Or(int, None),
+                        Optional("n_overlap"): Or(int, None),
+                        Optional("bandwidth"): Or(int, float, None),
+                        Optional("adaptive"): bool,
+                        Optional("low_bias"): bool,
+                        Optional("normalization"): str,
+                        Optional("freq_bands"): Or(dict, "default", None),
+                        Optional("time_windows"): Or(dict, list, tuple, None),
+                        Optional("baseline"): Or(list, tuple, None),
+                    },
+                    Optional("source_localization"): {
+                        "enabled": bool,
+                        Optional("input"): str,
+                        Optional("output"): Or(str, list, tuple),
+                        Optional("aliases"): Or(str, list, tuple),
+                        Optional("method"): str,
+                        Optional("lambda2"): Or(int, float),
+                        Optional("montage"): Or(str, None),
+                        Optional("resample_freq"): Or(int, float, None),
+                        Optional("max_memory_gb"): Or(int, float),
+                    },
+                    Optional("source_psd"): {
+                        "enabled": bool,
+                        Optional("input"): str,
+                        Optional("output"): Or(str, list, tuple),
+                        Optional("aliases"): Or(str, list, tuple),
+                        Optional("segment_duration"): Or(int, float, None),
+                        Optional("n_jobs"): int,
+                        Optional("generate_plots"): bool,
+                    },
+                    Optional("fooof"): {
+                        "enabled": bool,
+                        Optional("input"): str,
+                        Optional("output"): Or(str, list, tuple),
+                        Optional("aliases"): Or(str, list, tuple),
+                        Optional("freq_range"): Or(list, tuple),
+                        Optional("aperiodic_mode"): Or("fixed", "knee"),
+                        Optional("run_periodic"): bool,
+                        Optional("peak_residual_threshold"): Or(int, float),
+                        Optional("max_n_peaks"): int,
+                    },
+                },
+            },
             Optional("conditionwise_epoch_rejection"): {
                 "enabled": bool,
                 "value": {
@@ -579,9 +634,9 @@ def _build_task_settings_schema() -> Schema:
                 "value": {
                     Optional("method"): str,
                     Optional("lambda2"): Or(int, float),
-                    Optional("pick_ori"): Or(str, None),
-                    Optional("n_jobs"): int,
-                    Optional("convert_to_eeg"): bool,
+                    Optional("montage"): Or(str, None),
+                    Optional("resample_freq"): Or(int, float, None),
+                    Optional("max_memory_gb"): Or(int, float),
                 },
             },
             # Source PSD
@@ -607,6 +662,9 @@ def _build_task_settings_schema() -> Schema:
                     Optional("adaptive"): bool,
                     Optional("low_bias"): bool,
                     Optional("normalization"): str,
+                    Optional("freq_bands"): Or(dict, "default", None),
+                    Optional("time_windows"): Or(dict, list, tuple, None),
+                    Optional("baseline"): Or(list, tuple, None),
                 },
             },
             # Source Connectivity
@@ -702,6 +760,10 @@ def export_task_schema_layout() -> dict:
             "component_rejection": _component_rejection_descriptor(),
             "epoch_settings": _epoch_descriptor(),
             "apply_autoreject": _autoreject_descriptor(),
+            "postprocessing_analysis": {
+                "enabled": "bool",
+                "value": "dict of enabled analysis blocks with input/output aliases",
+            },
             "conditionwise_epoch_rejection": {
                 "enabled": "bool",
                 "value": {
@@ -886,7 +948,7 @@ def _suggest_fix(path: list[str], raw_message: str) -> str:
     if dotted.startswith("epoch_settings"):
         return "Use numeric tmin/tmax, a dict or None for event_id, and valid baseline/rejection settings."
     if dotted.startswith("apply_source_localization"):
-        return "Use source-localization fields such as method, lambda2, pick_ori, n_jobs, and convert_to_eeg."
+        return "Use source-localization fields such as method, lambda2, montage, resample_freq, and max_memory_gb."
     if "Missing key" in raw_message:
         return "Add the missing required key, or copy the section from a built-in task template."
     if "Wrong key" in raw_message:

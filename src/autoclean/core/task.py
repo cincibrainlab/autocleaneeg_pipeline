@@ -2,6 +2,7 @@
 
 # Standard library imports
 import inspect
+import json
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -260,6 +261,465 @@ class Task(ABC, *DISCOVERED_MIXINS):
         or perform other post-run housekeeping. Exceptions raised here are logged
         but do not mark the run as failed.
         """
+
+    def run_postprocessing_analysis(self) -> list[dict[str, Any]]:
+        """Run enabled post-processing analysis blocks from task configuration."""
+
+        enabled, config_value = self._check_step_enabled("postprocessing_analysis")
+        if not enabled:
+            return []
+
+        block_configs = (config_value or {}).get("value") or {}
+        if not isinstance(block_configs, dict):
+            raise ValueError("postprocessing_analysis.value must be a dictionary")
+
+        results: list[dict[str, Any]] = []
+        self._postprocessing_outputs: dict[str, Any] = {}
+        for block_name in (
+            "sensor_psd",
+            "source_localization",
+            "source_psd",
+            "fooof",
+        ):
+            block_config = block_configs.get(block_name)
+            if not isinstance(block_config, dict) or not block_config.get("enabled"):
+                continue
+
+            resolved = self._resolve_postprocessing_settings(block_name, block_config)
+            result = self._run_postprocessing_block(block_name, resolved)
+            results.append(result)
+            self._register_postprocessing_output(block_name, resolved)
+
+        if results:
+            self._update_metadata(
+                "step_postprocessing_analysis",
+                {
+                    "blocks": results,
+                    "documented_order": [
+                        "sensor_psd",
+                        "source_localization",
+                        "source_psd",
+                        "fooof",
+                    ],
+                },
+            )
+            self._write_postprocessing_metadata(results)
+
+        return results
+
+    def _resolve_postprocessing_settings(
+        self, block_name: str, block_config: dict[str, Any]
+    ) -> dict[str, Any]:
+        settings = {k: v for k, v in block_config.items() if k != "enabled"}
+        settings.setdefault("input", self._default_postprocessing_input(block_name))
+        settings["block"] = block_name
+        return settings
+
+    @staticmethod
+    def _default_postprocessing_input(block_name: str) -> str:
+        defaults = {
+            "sensor_psd": "clean_epochs",
+            "source_localization": "clean_epochs",
+            "source_psd": "source_epochs",
+            "fooof": "source_psd",
+        }
+        return defaults[block_name]
+
+    def _run_postprocessing_block(
+        self, block_name: str, settings: dict[str, Any]
+    ) -> dict[str, Any]:
+        input_name = str(settings.get("input"))
+        data_object = self._resolve_postprocessing_input(input_name)
+        common = {
+            "block": block_name,
+            "input": input_name,
+            "settings": settings,
+            "status": "completed",
+        }
+
+        if block_name == "sensor_psd":
+            method = getattr(self, "apply_sensor_psd", None)
+            if method is None:
+                raise ValueError(
+                    "sensor_psd requested but apply_sensor_psd is unavailable"
+                )
+            freq_range = settings.get("freq_range", [1.0, 45.0])
+            psd_kwargs = {
+                "data": data_object,
+                "method": settings.get("method", "welch"),
+                "fmin": settings.get("fmin", freq_range[0]),
+                "fmax": settings.get("fmax", freq_range[1]),
+                "picks": settings.get("picks", "eeg"),
+                "time_windows": settings.get("time_windows"),
+                "baseline": settings.get("baseline"),
+                "stage_name": "postprocessing_sensor_psd",
+            }
+            if "freq_bands" in settings:
+                psd_kwargs["freq_bands"] = settings["freq_bands"]
+            psd_df, band_df, artifacts = self._call_postprocessing_method(
+                method,
+                "apply_sensor_psd",
+                settings,
+                **psd_kwargs,
+            )
+            self.sensor_psd_result = {
+                "spectra": psd_df,
+                "bands": band_df,
+                "artifacts": artifacts,
+            }
+            common["artifacts"] = artifacts
+            return common
+
+        if block_name == "source_localization":
+            method = getattr(self, "apply_source_localization", None)
+            if method is None:
+                raise ValueError(
+                    "source_localization requested but apply_source_localization is unavailable"
+                )
+            source_data = self._call_postprocessing_method(
+                method,
+                "apply_source_localization",
+                settings,
+                data=data_object,
+                method=settings.get("method", "MNE"),
+                lambda2=settings.get("lambda2", 1.0 / 9.0),
+                montage=settings.get("montage"),
+                resample_freq=settings.get("resample_freq"),
+                max_memory_gb=settings.get("max_memory_gb", 8.0),
+                stage_name="postprocessing_source_localization",
+            )
+            self.source_eeg = source_data
+            common["output"] = "source_eeg"
+            return common
+
+        if block_name == "source_psd":
+            method = getattr(self, "apply_source_psd", None)
+            if method is None:
+                raise ValueError(
+                    "source_psd requested but apply_source_psd is unavailable"
+                )
+            psd_df, file_path = self._call_postprocessing_method(
+                method,
+                "apply_source_psd",
+                settings,
+                stc_list=data_object,
+                segment_duration=settings.get("segment_duration", 80),
+                n_jobs=settings.get("n_jobs", 4),
+                generate_plots=settings.get("generate_plots", True),
+                stage_name="postprocessing_source_psd",
+            )
+            self.source_psd_df = psd_df
+            common["output_file"] = str(file_path)
+            common["rows"] = int(len(psd_df)) if psd_df is not None else 0
+            return common
+
+        if block_name == "fooof":
+            psd_df = self._postprocessing_psd_dataframe(data_object)
+            if psd_df is None:
+                raise ValueError(
+                    "postprocessing fooof requires a PSD table input; configure "
+                    "fooof.input to a sensor_psd or source_psd output"
+                )
+            (
+                aperiodic_df,
+                aperiodic_file,
+                periodic_df,
+                periodic_file,
+            ) = self._run_postprocessing_tabular_fooof(
+                psd_df=psd_df,
+                settings=settings,
+                input_name=input_name,
+            )
+            common["aperiodic_file"] = str(aperiodic_file)
+            common["aperiodic_rows"] = int(len(aperiodic_df))
+            if periodic_file is not None:
+                common["periodic_file"] = str(periodic_file)
+                common["periodic_rows"] = int(len(periodic_df))
+            common["method"] = "tabular_psd_parameterization"
+            return common
+
+        raise ValueError(f"Unsupported postprocessing analysis block: {block_name}")
+
+    def _call_postprocessing_method(
+        self,
+        analysis_method: Any,
+        legacy_step_name: str,
+        settings: dict[str, Any],
+        **kwargs: Any,
+    ) -> Any:
+        """Call legacy analysis methods from the new postprocessing block config.
+
+        Temporarily stages `settings` under `legacy_step_name` in
+        `self.settings` so the legacy mixin's own `_check_step_enabled`-based
+        config parsing sees it as enabled, without duplicating that parsing
+        here. Safe under sequential block execution; do not call concurrently.
+        """
+
+        legacy_value = {
+            key: value
+            for key, value in settings.items()
+            if key not in {"block", "input", "enabled"}
+        }
+        previous_settings = getattr(self, "settings", None)
+        created_settings = previous_settings is None
+        if created_settings:
+            self.settings = {}
+        original_step = self.settings.get(legacy_step_name)
+        self.settings[legacy_step_name] = {"enabled": True, "value": legacy_value}
+        try:
+            return analysis_method(**kwargs)
+        finally:
+            if original_step is None:
+                self.settings.pop(legacy_step_name, None)
+            else:
+                self.settings[legacy_step_name] = original_step
+            if created_settings:
+                self.settings = previous_settings
+
+    @staticmethod
+    def _postprocessing_psd_dataframe(data_object: Any) -> Any:
+        """Return a PSD DataFrame from supported postprocessing inputs."""
+
+        try:
+            import pandas as pd
+        except Exception:
+            return None
+
+        if isinstance(data_object, pd.DataFrame):
+            return data_object
+        if isinstance(data_object, dict):
+            for key in ("spectra", "psd", "data"):
+                value = data_object.get(key)
+                if isinstance(value, pd.DataFrame):
+                    return value
+        return None
+
+    def _run_postprocessing_tabular_fooof(
+        self,
+        psd_df: Any,
+        settings: dict[str, Any],
+        input_name: str,
+    ) -> tuple[Any, Path, Any, Optional[Path]]:
+        """Parameterize spectra already represented as a PSD table.
+
+        This lightweight log-log parameterization estimates peak center
+        frequency and power but not bandwidth, so peak rows always report
+        ``bandwidth: None`` (unlike ``apply_fooof_periodic``, which fits full
+        Gaussian peaks and can estimate bandwidth directly).
+        """
+
+        import numpy as np
+        import pandas as pd
+
+        required = {"frequency", "psd"}
+        missing = required - set(psd_df.columns)
+        if missing:
+            raise ValueError(
+                "fooof input must include PSD table columns: "
+                f"{sorted(required)}; missing {sorted(missing)}"
+            )
+
+        aperiodic_mode = str(settings.get("aperiodic_mode", "fixed")).lower()
+        if aperiodic_mode != "fixed":
+            raise ValueError(
+                "tabular fooof supports only aperiodic_mode='fixed'; "
+                f"got {aperiodic_mode!r}"
+            )
+
+        freq_range = settings.get("freq_range", [1.0, 45.0])
+        low, high = float(freq_range[0]), float(freq_range[1])
+        if low >= high:
+            raise ValueError("fooof freq_range start must be less than stop")
+
+        group_columns = [
+            column
+            for column in ("subject", "channel", "roi", "time_window")
+            if column in psd_df.columns
+        ]
+        if not group_columns:
+            group_columns = ["_spectrum"]
+            psd_df = psd_df.copy()
+            psd_df["_spectrum"] = "all"
+
+        rows = []
+        peak_rows = []
+        grouped = psd_df.groupby(group_columns, dropna=False)
+        for group_key, group in grouped:
+            spectrum = group[(group["frequency"] >= low) & (group["frequency"] <= high)]
+            spectrum = spectrum.sort_values("frequency")
+            spectrum = spectrum[(spectrum["frequency"] > 0) & (spectrum["psd"] > 0)]
+            if len(spectrum) < 2:
+                status = "INSUFFICIENT_DATA"
+                offset = exponent = r_squared = error = None
+            else:
+                x = np.log10(spectrum["frequency"].to_numpy(dtype=float))
+                y = np.log10(spectrum["psd"].to_numpy(dtype=float))
+                slope, intercept = np.polyfit(x, y, deg=1)
+                predicted = slope * x + intercept
+                residual = y - predicted
+                ss_res = float(np.sum(residual**2))
+                ss_tot = float(np.sum((y - np.mean(y)) ** 2))
+                offset = float(intercept)
+                exponent = float(-slope)
+                r_squared = float(1 - ss_res / ss_tot) if ss_tot else 1.0
+                error = float(np.sqrt(np.mean(residual**2)))
+                status = "SUCCESS"
+
+            if not isinstance(group_key, tuple):
+                group_key = (group_key,)
+            row = {column: value for column, value in zip(group_columns, group_key)}
+            row.update(
+                {
+                    "input": input_name,
+                    "freq_min": low,
+                    "freq_max": high,
+                    "aperiodic_mode": aperiodic_mode,
+                    "offset": offset,
+                    "exponent": exponent,
+                    "r_squared": r_squared,
+                    "error": error,
+                    "status": status,
+                }
+            )
+            rows.append(row)
+
+            if settings.get("run_periodic", True) and status == "SUCCESS":
+                residual_df = spectrum.assign(_residual=residual)
+                threshold = float(settings.get("peak_residual_threshold", 0.0))
+                candidates = residual_df[residual_df["_residual"] > threshold]
+                if candidates.empty:
+                    candidates = residual_df.nlargest(1, "_residual")
+                max_peaks = int(settings.get("max_n_peaks", 6))
+                for _, peak in candidates.nlargest(max_peaks, "_residual").iterrows():
+                    peak_row = dict(row)
+                    peak_row.update(
+                        {
+                            "input": input_name,
+                            "center_frequency": float(peak["frequency"]),
+                            "power": float(peak["psd"]),
+                            "residual": float(peak["_residual"]),
+                            "bandwidth": None,
+                            "status": "SUCCESS",
+                        }
+                    )
+                    peak_rows.append(peak_row)
+
+        result_df = pd.DataFrame(rows)
+        output_dir = self._resolve_report_path("fooof")
+        subject_id = "unknown_subject"
+        if hasattr(self, "config") and self.config.get("unprocessed_file"):
+            subject_id = Path(self.config["unprocessed_file"]).stem
+        output_file = output_dir / f"{subject_id}_postprocessing_fooof_aperiodic.csv"
+        result_df.to_csv(output_file, index=False)
+        self.fooof_aperiodic_df = result_df
+        self.fooof_aperiodic_file = str(output_file)
+        periodic_df = pd.DataFrame(peak_rows)
+        periodic_file = None
+        if settings.get("run_periodic", True):
+            periodic_file = (
+                output_dir / f"{subject_id}_postprocessing_fooof_periodic.csv"
+            )
+            periodic_df.to_csv(periodic_file, index=False)
+            self.fooof_periodic_df = periodic_df
+            self.fooof_periodic_file = str(periodic_file)
+        self._update_metadata(
+            "step_postprocessing_fooof",
+            {
+                "input": input_name,
+                "freq_range": [low, high],
+                "aperiodic_mode": aperiodic_mode,
+                "output_file": str(self._report_relative_path(output_file)),
+                "periodic_output_file": (
+                    str(self._report_relative_path(periodic_file))
+                    if periodic_file is not None
+                    else None
+                ),
+                "n_spectra": int(len(result_df)),
+                "n_peaks": int(len(periodic_df)),
+            },
+        )
+        return result_df, output_file, periodic_df, periodic_file
+
+    def _postprocessing_output_value(self, block_name: str) -> Any:
+        outputs = {
+            "sensor_psd": getattr(self, "sensor_psd_result", None),
+            "source_localization": getattr(self, "source_eeg", None),
+            "source_psd": getattr(self, "source_psd_df", None),
+            "fooof": {
+                "aperiodic": getattr(self, "fooof_aperiodic_df", None),
+                "periodic": getattr(self, "fooof_periodic_df", None),
+            },
+        }
+        return outputs.get(block_name)
+
+    def _register_postprocessing_output(
+        self, block_name: str, settings: dict[str, Any]
+    ) -> None:
+        value = self._postprocessing_output_value(block_name)
+        if value is None:
+            return
+        output_map = getattr(self, "_postprocessing_outputs", None)
+        if output_map is None:
+            self._postprocessing_outputs = {}
+            output_map = self._postprocessing_outputs
+        output_map[block_name] = value
+        alias_values = []
+        for alias_key in ("output", "output_name", "aliases"):
+            aliases = settings.get(alias_key)
+            if isinstance(aliases, str):
+                alias_values.append(aliases)
+            elif isinstance(aliases, (list, tuple)):
+                alias_values.extend(aliases)
+        for alias in alias_values:
+            if isinstance(alias, str) and alias:
+                output_map[alias] = value
+
+    def _resolve_postprocessing_input(self, input_name: str) -> Any:
+        output_map = getattr(self, "_postprocessing_outputs", {})
+        if input_name in output_map:
+            return output_map[input_name]
+        sensor_psd = getattr(self, "sensor_psd_result", None)
+        if sensor_psd is None:
+            sensor_psd = getattr(self, "sensor_psd_df", None)
+        imported_raw = getattr(self, "original_raw", None)
+        if imported_raw is None:
+            imported_raw = getattr(self, "raw", None)
+        source_epochs = getattr(self, "source_eeg", None)
+        if source_epochs is None:
+            source_epochs = getattr(self, "source_epochs", None)
+        input_map = {
+            "imported_raw": imported_raw,
+            "clean_raw": getattr(self, "raw", None),
+            "clean_epochs": getattr(self, "epochs", None),
+            "source_epochs": source_epochs,
+            "sensor_psd": sensor_psd,
+            "source_psd": getattr(self, "source_psd_df", None),
+        }
+        if input_name not in input_map:
+            raise ValueError(
+                f"Unsupported postprocessing input '{input_name}'. "
+                f"Supported inputs: {sorted(input_map)}"
+            )
+        data_object = input_map[input_name]
+        if data_object is None:
+            raise ValueError(
+                f"Postprocessing input '{input_name}' is not available for this task. "
+                "Run or configure the prerequisite step before this analysis block."
+            )
+        return data_object
+
+    def _write_postprocessing_metadata(self, results: list[dict[str, Any]]) -> None:
+        reports_dir = None
+        if hasattr(self, "config"):
+            reports_dir = self.config.get("reports_dir")
+        if not reports_dir:
+            return
+
+        output_dir = Path(reports_dir) / "postprocessing_analysis"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_file = output_dir / "resolved_settings.json"
+        with output_file.open("w", encoding="utf-8") as handle:
+            json.dump(results, handle, indent=2, default=str)
 
     def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate the complete task configuration.
