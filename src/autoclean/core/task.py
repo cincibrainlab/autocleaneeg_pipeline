@@ -135,6 +135,14 @@ class Task(ABC, *DISCOVERED_MIXINS):
                 "incremental_cleanup", self.settings["incremental_cleanup"]
             )
 
+        # Import-time prior-processing detection is configured with the Python
+        # task settings, but import_eeg receives only the runtime config.
+        if self.settings and "prior_preprocessing_detection" in self.settings:
+            config.setdefault(
+                "prior_preprocessing_detection",
+                self.settings["prior_preprocessing_detection"],
+            )
+
         # Configuration must be validated first as other initializations depend on it
         self.config = self.validate_config(config)
 

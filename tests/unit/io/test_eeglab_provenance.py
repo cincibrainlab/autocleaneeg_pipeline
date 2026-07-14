@@ -6,10 +6,12 @@ import sys
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import mne
 import numpy as np
 
 from autoclean.io.eeglab_provenance import (
     build_eeglab_dataset_summary,
+    extract_eeglab_provenance,
     render_eeglab_provenance_report,
     summarize_eeglab_provenance,
     write_eeglab_provenance_artifacts,
@@ -81,6 +83,49 @@ def test_write_eeglab_provenance_artifacts_creates_json_and_report(tmp_path) -> 
     assert paths == {"json": str(json_path), "report": str(report_path)}
     assert json.loads(json_path.read_text(encoding="utf-8"))["artifact_paths"] == paths
     assert "Documented Provenance" in report_path.read_text(encoding="utf-8")
+
+
+def test_extract_from_loaded_mne_data_does_not_reparse_set(tmp_path) -> None:
+    set_file = tmp_path / "subject.set"
+    set_file.write_bytes(b"MATLAB 7.3 MAT-file, Platform: test\\x00")
+    info = mne.create_info(["Cz", "VEOG"], 250, ["eeg", "eog"])
+    raw = mne.io.RawArray(np.zeros((2, 100)), info, verbose=False)
+    raw.set_annotations(mne.Annotations([0.1], [0.0], ["stimulus"]))
+
+    with patch("autoclean.io.eeglab_provenance.sio.loadmat") as loadmat:
+        summary = extract_eeglab_provenance(set_file, raw)
+
+    loadmat.assert_not_called()
+    documented = summary["documented_provenance"]
+    assert documented["srate"] == 250.0
+    assert documented["channels"]["labels"] == ["Cz", "VEOG"]
+    assert documented["events"]["counts"] == {"stimulus": 1}
+    assert documented["history"] == "unavailable"
+
+
+def test_extract_from_loaded_epochs_preserves_event_codes_without_reparse(
+    tmp_path,
+) -> None:
+    set_file = tmp_path / "epochs.set"
+    set_file.write_bytes(b"not parsed")
+    info = mne.create_info(["Cz"], 250, ["eeg"])
+    events = np.array([[0, 0, 11], [100, 0, 22]])
+    epochs = mne.EpochsArray(
+        np.zeros((2, 1, 25)),
+        info,
+        events=events,
+        event_id={"standard": 11, "target": 22},
+        verbose=False,
+    )
+
+    with patch("autoclean.io.eeglab_provenance.sio.loadmat") as loadmat:
+        summary = extract_eeglab_provenance(set_file, epochs)
+
+    loadmat.assert_not_called()
+    documented_events = summary["documented_provenance"]["events"]
+    assert documented_events["labels"] == ["standard", "target"]
+    assert documented_events["codes"] == ["11", "22"]
+    assert summary["documented_provenance"]["reference"] == "unavailable"
 
 
 def test_render_eeglab_provenance_report_labels_missing_as_unavailable() -> None:
@@ -182,7 +227,7 @@ def test_import_eeg_records_eeglab_provenance_metadata(tmp_path) -> None:
         result = import_module.import_eeg(autoclean_dict)
 
     assert isinstance(result, _RawLike)
-    extract.assert_called_once_with(input_file)
+    extract.assert_called_once_with(input_file, result)
     write_artifacts.assert_called_once_with(provenance_summary, tmp_path, "subject")
     update_record = manage_db.call_args.kwargs["update_record"]
     eeglab_metadata = update_record["metadata"]["import_eeg"]["eeglab_provenance"]

@@ -53,6 +53,18 @@ def _minimal_config() -> dict:
     }
 
 
+def test_schema_accepts_prior_preprocessing_detection() -> None:
+    config = _minimal_config()
+    config["prior_preprocessing_detection"] = {
+        "enabled": True,
+        "strict": False,
+    }
+
+    validated = validate_task_module_config(config)
+
+    assert validated["prior_preprocessing_detection"]["enabled"] is True
+
+
 def _formatted_error(config: dict, *, debug: bool | None = None) -> str:
     with pytest.raises(Exception) as exc_info:
         validate_task_module_config(config)

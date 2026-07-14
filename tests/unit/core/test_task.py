@@ -516,6 +516,48 @@ class TestTaskErrorHandling:
     @pytest.mark.skipif(
         not TASK_AVAILABLE, reason="Task module not available for import"
     )
+    @patch("autoclean.core.task.save_raw_to_set")
+    @patch("autoclean.core.task.import_eeg")
+    def test_import_raw_forwards_python_task_detection_settings(
+        self, mock_import_eeg, mock_save_raw_to_set
+    ):
+        """Python task detection settings reach the normal import path."""
+
+        class TestTask(Task):
+            def __init__(self, config):
+                self.settings = {
+                    "montage": {"enabled": False},
+                    "prior_preprocessing_detection": {
+                        "enabled": True,
+                        "strict": True,
+                    },
+                }
+                super().__init__(config)
+
+            def run(self):
+                pass
+
+        task = TestTask(
+            {
+                "run_id": "test_detection_settings",
+                "unprocessed_file": Path("/path/to/test.fif"),
+                "task": "test_task",
+            }
+        )
+        task.create_bids_path = lambda *args, **kwargs: None
+        mock_import_eeg.return_value = SimpleNamespace(duration=120.0)
+
+        task.import_raw()
+
+        runtime_config = mock_import_eeg.call_args.args[0]
+        assert runtime_config["prior_preprocessing_detection"] == {
+            "enabled": True,
+            "strict": True,
+        }
+
+    @pytest.mark.skipif(
+        not TASK_AVAILABLE, reason="Task module not available for import"
+    )
     def test_get_raw_returns_raw_after_set(self):
         """get_raw() returns self.raw once it has been populated."""
 
