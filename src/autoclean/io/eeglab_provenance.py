@@ -10,8 +10,13 @@ blank/ambiguous, and ``"unavailable"`` when the field is absent.
 from __future__ import annotations
 
 import csv
+import io
 import json
+import os
+import tempfile
+import time
 from collections import Counter
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -24,6 +29,9 @@ UNAVAILABLE = "unavailable"
 SCHEMA_VERSION = "1.0"
 DATASET_JSON_NAME = "dataset_eeglab_provenance.json"
 DATASET_TABLE_NAME = "dataset_eeglab_provenance.csv"
+DATASET_LOCK_NAME = "dataset_eeglab_provenance.lock"
+DATASET_LOCK_TIMEOUT_SECONDS = 10.0
+DATASET_LOCK_RETRY_SECONDS = 0.05
 
 
 def extract_eeglab_provenance(file_path: Path) -> dict[str, Any]:
@@ -87,7 +95,7 @@ def write_eeglab_provenance_artifacts(
         "report": str(report_path),
     }
     summary["artifact_paths"] = artifact_paths
-    json_path.write_text(json.dumps(_json_safe(summary), indent=2), encoding="utf-8")
+    _atomic_write_text(json_path, json.dumps(_json_safe(summary), indent=2))
     report_path.write_text(render_eeglab_provenance_report(summary), encoding="utf-8")
     return artifact_paths
 
@@ -96,31 +104,106 @@ def write_eeglab_dataset_artifacts(output_dir: Path) -> dict[str, str]:
     """Aggregate all per-file provenance summaries and persist dataset artifacts."""
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    summaries = []
-    for json_path in sorted(output_dir.glob("*_eeglab_provenance.json")):
-        if json_path.name == DATASET_JSON_NAME:
-            continue
-        summary = json.loads(json_path.read_text(encoding="utf-8"))
-        if isinstance(summary, dict) and isinstance(summary.get("summary_row"), dict):
-            summaries.append(summary)
-
-    dataset_summary = build_eeglab_dataset_summary(summaries)
     json_path = output_dir / DATASET_JSON_NAME
     table_path = output_dir / DATASET_TABLE_NAME
     artifact_paths = {"json": str(json_path), "table": str(table_path)}
-    dataset_summary["artifact_paths"] = artifact_paths
-    json_path.write_text(
-        json.dumps(_json_safe(dataset_summary), indent=2), encoding="utf-8"
-    )
 
-    rows = dataset_summary["rows"]
+    with _dataset_artifact_lock(output_dir):
+        summaries = []
+        for source_path in sorted(output_dir.glob("*_eeglab_provenance.json")):
+            if source_path.name == DATASET_JSON_NAME:
+                continue
+            summary = json.loads(source_path.read_text(encoding="utf-8"))
+            if isinstance(summary, dict) and isinstance(
+                summary.get("summary_row"), dict
+            ):
+                summaries.append(summary)
+
+        dataset_summary = build_eeglab_dataset_summary(summaries)
+        dataset_summary["artifact_paths"] = artifact_paths
+        _atomic_write_text(json_path, json.dumps(_json_safe(dataset_summary), indent=2))
+        _atomic_write_text(
+            table_path, _render_dataset_table(dataset_summary["rows"]), newline=""
+        )
+
+    return artifact_paths
+
+
+def _render_dataset_table(rows: list[dict[str, Any]]) -> str:
     keys = {key for row in rows for key in row}
     fieldnames = ["source_file", *sorted(keys - {"source_file"})]
-    with table_path.open("w", newline="", encoding="utf-8") as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
-    return artifact_paths
+    output = io.StringIO(newline="")
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(rows)
+    return output.getvalue()
+
+
+def _atomic_write_text(path: Path, payload: str, *, newline: str | None = None) -> None:
+    """Replace a text artifact only after its complete payload is durable."""
+
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        with os.fdopen(
+            descriptor, "w", encoding="utf-8", newline=newline
+        ) as temporary_file:
+            temporary_file.write(payload)
+            temporary_file.flush()
+            os.fsync(temporary_file.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+
+@contextmanager
+def _dataset_artifact_lock(output_dir: Path):
+    """Serialize the dataset scan/build/replace transaction across processes."""
+
+    lock_path = output_dir / DATASET_LOCK_NAME
+    with lock_path.open("a+b") as lock_file:
+        if os.fstat(lock_file.fileno()).st_size == 0:
+            lock_file.seek(0)
+            lock_file.write(b"\0")
+            lock_file.flush()
+        _acquire_dataset_lock(lock_file)
+        try:
+            yield
+        finally:
+            lock_file.seek(0)
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def _acquire_dataset_lock(lock_file: Any) -> None:
+    deadline = time.monotonic() + DATASET_LOCK_TIMEOUT_SECONDS
+    while True:
+        lock_file.seek(0)
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return
+        except OSError as error:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(
+                    f"Timed out acquiring EEGLAB dataset lock: {lock_file.name}"
+                ) from error
+            time.sleep(min(DATASET_LOCK_RETRY_SECONDS, remaining))
 
 
 def render_eeglab_provenance_report(summary: dict[str, Any]) -> str:

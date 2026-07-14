@@ -3,12 +3,15 @@ from __future__ import annotations
 import importlib
 import json
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event, Lock
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
 import pytest
 
+import autoclean.io.eeglab_provenance as eeglab_provenance_module
 from autoclean.io.eeglab_provenance import (
     build_eeglab_dataset_summary,
     render_eeglab_provenance_report,
@@ -167,6 +170,72 @@ def test_write_dataset_artifacts_persists_multiple_rows_and_excludes_itself(
     table = (tmp_path / "dataset_eeglab_provenance.csv").read_text(encoding="utf-8")
     assert "a.set" in table
     assert "b.set" in table
+    assert not list(tmp_path.glob(".*.tmp"))
+
+
+def test_dataset_artifact_updates_serialize_scan_and_replace(
+    tmp_path, monkeypatch
+) -> None:
+    first_summary = summarize_eeglab_provenance(_ns(srate=250, nbchan=1), "a.set")
+    write_eeglab_provenance_artifacts(first_summary, tmp_path, "a")
+
+    original_build = eeglab_provenance_module.build_eeglab_dataset_summary
+    first_build_started = Event()
+    release_first_build = Event()
+    second_build_started = Event()
+    second_call_started = Event()
+    call_guard = Lock()
+    call_count = 0
+
+    def coordinated_build(summaries):
+        nonlocal call_count
+        with call_guard:
+            call_count += 1
+            current_call = call_count
+        if current_call == 1:
+            first_build_started.set()
+            assert release_first_build.wait(timeout=5)
+        else:
+            second_build_started.set()
+        return original_build(summaries)
+
+    monkeypatch.setattr(
+        eeglab_provenance_module,
+        "build_eeglab_dataset_summary",
+        coordinated_build,
+    )
+
+    def second_update():
+        second_call_started.set()
+        return write_eeglab_dataset_artifacts(tmp_path)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first_update = executor.submit(write_eeglab_dataset_artifacts, tmp_path)
+        assert first_build_started.wait(timeout=5)
+
+        second_summary = summarize_eeglab_provenance(_ns(srate=500, nbchan=2), "b.set")
+        write_eeglab_provenance_artifacts(second_summary, tmp_path, "b")
+        second_update_future = executor.submit(second_update)
+        assert second_call_started.wait(timeout=5)
+
+        entered_while_first_locked = second_build_started.wait(timeout=0.5)
+        release_first_build.set()
+        first_update.result(timeout=5)
+        second_update_future.result(timeout=5)
+
+    assert entered_while_first_locked is False
+    assert second_build_started.is_set()
+    persisted = json.loads(
+        (tmp_path / "dataset_eeglab_provenance.json").read_text(encoding="utf-8")
+    )
+    assert [row["source_file"] for row in persisted["rows"]] == [
+        "a.set",
+        "b.set",
+    ]
+    table = (tmp_path / "dataset_eeglab_provenance.csv").read_text(encoding="utf-8")
+    assert "a.set" in table
+    assert "b.set" in table
+    assert not list(tmp_path.glob(".*.tmp"))
 
 
 @pytest.mark.parametrize("dataset_error", [None, RuntimeError("dataset failed")])
