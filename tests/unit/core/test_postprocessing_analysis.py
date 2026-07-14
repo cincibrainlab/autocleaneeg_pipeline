@@ -6,10 +6,49 @@ import pytest
 from schema import SchemaError
 
 from autoclean.configkit.schema import (
+    SCHEMA_VERSION,
     export_task_schema_layout,
     validate_task_module_config,
 )
 from autoclean.core.task import Task
+
+
+def _minimal_postprocessing_schema_config() -> dict:
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "montage": {"enabled": True, "value": None},
+        "resample_step": {"enabled": False, "value": None},
+        "filtering": {
+            "enabled": False,
+            "value": {
+                "l_freq": None,
+                "h_freq": None,
+                "notch_freqs": None,
+                "notch_widths": None,
+            },
+        },
+        "drop_outerlayer": {"enabled": False, "value": None},
+        "eog_step": {"enabled": False, "value": None},
+        "trim_step": {"enabled": False, "value": 0},
+        "crop_step": {"enabled": False, "value": {"start": 0, "end": None}},
+        "reference_step": {"enabled": False, "value": None},
+        "ICA": {"enabled": False, "value": {"method": "fastica"}},
+        "component_rejection": {
+            "enabled": False,
+            "method": "iclabel",
+            "value": {
+                "ic_flags_to_reject": [],
+                "ic_rejection_threshold": 0,
+            },
+        },
+        "epoch_settings": {
+            "enabled": False,
+            "value": {"tmin": None, "tmax": None},
+            "event_id": None,
+            "remove_baseline": {"enabled": False, "window": None},
+            "threshold_rejection": {"enabled": False, "volt_threshold": {}},
+        },
+    }
 
 
 class _PostprocessingTask(Task):
@@ -353,19 +392,18 @@ def test_postprocessing_analysis_is_exported_in_schema_layout():
 
 
 def test_sensor_psd_schema_accepts_default_frequency_bands():
-    validated = validate_task_module_config(
-        {
-            "postprocessing_analysis": {
+    config = _minimal_postprocessing_schema_config()
+    config["postprocessing_analysis"] = {
+        "enabled": True,
+        "value": {
+            "sensor_psd": {
                 "enabled": True,
-                "value": {
-                    "sensor_psd": {
-                        "enabled": True,
-                        "freq_bands": "default",
-                    }
-                },
+                "freq_bands": "default",
             }
-        }
-    )
+        },
+    }
+
+    validated = validate_task_module_config(config)
 
     assert (
         validated["postprocessing_analysis"]["value"]["sensor_psd"]["freq_bands"]
