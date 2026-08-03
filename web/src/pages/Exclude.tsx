@@ -621,6 +621,12 @@ export default function ExcludePage() {
   const [reprocessJobId, setReprocessJobId] = useState<string | null>(null);
   const [reprocessStatus, setReprocessStatus] = useState<string | null>(null);
   const [reprocessMessage, setReprocessMessage] = useState<string | null>(null);
+  const [icaRerunJobId, setIcaRerunJobId] = useState<string | null>(null);
+  const [icaRerunStatus, setIcaRerunStatus] = useState<string | null>(null);
+  const [icaRerunMessage, setIcaRerunMessage] = useState<string | null>(null);
+  const [icaPassView, setIcaPassView] = useState<"original" | "post_epoch_rejection">("original");
+  const [icaRerunSummary, setIcaRerunSummary] = useState<ExcludeIcaSummaryResponse | null>(null);
+  const [icaRerunRejectedDraft, setIcaRerunRejectedDraft] = useState("");
   const [qaExportMessage, setQaExportMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [topographyRequest, setTopographyRequest] = useState<TopographyRequest | null>(null);
@@ -844,6 +850,12 @@ export default function ExcludePage() {
         setReprocessJobId(null);
         setReprocessStatus(null);
         setReprocessMessage(null);
+        setIcaRerunJobId(null);
+        setIcaRerunStatus(null);
+        setIcaRerunMessage(null);
+        setIcaRerunSummary(null);
+        setIcaRerunRejectedDraft("");
+        setIcaPassView("original");
       })
       .catch((err: unknown) => {
         if (!cancelled) setDetailError(err instanceof Error ? err.message : String(err));
@@ -971,6 +983,53 @@ export default function ExcludePage() {
       clearInterval(id);
     };
   }, [reprocessJobId, selectedKey, selectedRoute]);
+
+  useEffect(() => {
+    if (!icaRerunJobId || !selectedKey) return;
+    let cancelled = false;
+    const id = setInterval(() => {
+      api.getRerunIcaStatus(selectedKey, icaRerunJobId)
+        .then((statusData) => {
+          if (cancelled) return;
+          setIcaRerunStatus(statusData.status);
+          setIcaRerunMessage(statusData.message ?? "");
+          if (!statusData.running) {
+            clearInterval(id);
+            if (statusData.status === "completed") {
+              api
+                .getExcludeIcaSummary(selectedKey, selectedRoute || undefined, "post_epoch_rejection")
+                .then((summary) => {
+                  if (cancelled) return;
+                  setIcaRerunSummary(summary);
+                  setIcaRerunRejectedDraft(
+                    summary.components
+                      .filter((component) => component.rejected)
+                      .map((component) => component.component.replace(/^IC/, ""))
+                      .join(", "),
+                  );
+                  setIcaPassView("post_epoch_rejection");
+                })
+                .catch(() => {});
+              api
+                .getExcludeFile(selectedKey, selectedRoute || undefined)
+                .then((refreshed) => setDetail(refreshed))
+                .catch(() => {});
+            }
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setIcaRerunStatus("failed");
+            setIcaRerunMessage("Could not retrieve ICA rerun status.");
+          }
+          clearInterval(id);
+        });
+    }, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [icaRerunJobId, selectedKey, selectedRoute]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1130,6 +1189,74 @@ export default function ExcludePage() {
     }
   }
 
+  async function startIcaRerun() {
+    if (!selectedKey) return;
+    setActionError(null);
+    await flushEpochSave();
+    setIcaRerunSummary(null);
+    setIcaRerunRejectedDraft("");
+    try {
+      const result = await api.startRerunIca(selectedKey, {}, selectedRoute || undefined);
+      setIcaRerunJobId(result.job_id);
+      setIcaRerunStatus(result.status);
+      setIcaRerunMessage(result.message);
+    } catch (err) {
+      setIcaRerunStatus("failed");
+      setIcaRerunMessage(err instanceof Error ? err.message : String(err));
+      setActionError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function promoteIcaRerunAction() {
+    if (!selectedKey || !icaRerunJobId) return;
+    const rejected = icaRerunRejectedDraft
+      .split(",")
+      .map((v) => v.trim())
+      .filter((v) => v.length > 0)
+      .map((v) => Number.parseInt(v, 10))
+      .filter((v) => Number.isInteger(v));
+    const confirmed = window.confirm(
+      `Promote the post-epoch-rejection ICA for ${detail?.name ?? selectedKey}?\n\n` +
+      `Rejected components: ${rejected.length ? rejected.join(", ") : "None"}\n\n` +
+      "This will replace the active ICA and exported data, backing up the previous outputs.",
+    );
+    if (!confirmed) return;
+    setActionError(null);
+    try {
+      await api.promoteIcaRerun(selectedKey, icaRerunJobId, rejected, selectedRoute || undefined);
+      const [fileDetail, summary] = await Promise.all([
+        api.getExcludeFile(selectedKey, selectedRoute || undefined),
+        api.getExcludeIcaSummary(selectedKey, selectedRoute || undefined, "original"),
+      ]);
+      setDetail(fileDetail);
+      setIcaSummary(summary);
+      setIcaPassView("original");
+      setIcaRerunJobId(null);
+      setIcaRerunStatus(null);
+      setIcaRerunMessage(null);
+      setIcaRerunSummary(null);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function discardIcaRerunAction() {
+    if (!selectedKey || !icaRerunJobId) return;
+    setActionError(null);
+    try {
+      await api.discardIcaRerun(selectedKey, icaRerunJobId);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIcaRerunJobId(null);
+      setIcaRerunStatus(null);
+      setIcaRerunMessage(null);
+      setIcaRerunSummary(null);
+      setIcaRerunRejectedDraft("");
+      setIcaPassView("original");
+    }
+  }
+
   async function exportQa() {
     if (!selectedKey) return;
     const confirmed = window.confirm(
@@ -1170,6 +1297,16 @@ export default function ExcludePage() {
     channels_original?: string;
   };
   const artifact = (detail?.artifacts ?? {}) as Record<string, string | null>;
+  const hasIcaRerunPass = Boolean(detail?.ica_passes?.includes("post_epoch_rejection")) || Boolean(icaRerunSummary);
+  const displayIcaSummary = icaPassView === "post_epoch_rejection" ? icaRerunSummary : icaSummary;
+  const displayIcaReportUrl =
+    icaPassView === "post_epoch_rejection"
+      ? selectedKey
+        ? `/api/exclude/files/${selectedKey}/artifacts/ica_report_post_epoch_rejection${
+            selectedRoute ? `?route_id=${encodeURIComponent(selectedRoute)}` : ""
+          }`
+        : null
+      : artifact.ica_report;
   const visibleEpochsInView = epochWindow?.epochs.slice(epochStart, epochStart + visibleEpochCount) ?? [];
   const validChannelSet = new Set((detail?.valid_channels ?? []).map((value) => String(value).toUpperCase()));
   const channelOverridesDirty = !arraysEqual(manualBadChannels, loadedManualBadChannelsRef.current);
@@ -1594,75 +1731,160 @@ export default function ExcludePage() {
               ) : (
                 <div className="py-20 text-center text-zinc-600">Run report not available</div>
               )
-            ) : artifact.ica_report ? (
-              <div className="space-y-4">
-                <div className="flex flex-wrap justify-end gap-3">
-                  {typeof icaSummary?.structure?.topo_grid_page === "number" ? (
-                    <a
-                      href={`${artifact.ica_report}#page=${Number(icaSummary.structure.topo_grid_page) + 1}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-brand hover:underline"
-                    >
-                      Open topography overview
-                    </a>
-                  ) : null}
-                  <a href={artifact.ica_report} target="_blank" rel="noreferrer" className="text-xs text-brand hover:underline">
-                    Open ICA PDF in new tab
-                  </a>
-                </div>
-                <iframe title="ICA report" src={artifact.ica_report} className="w-full min-h-[28rem] rounded-lg border border-border bg-white" />
-                <div className="rounded-lg border border-border bg-surface-50 p-4">
-                  <h3 className="text-sm font-semibold text-zinc-100 mb-3">ICA Override Context</h3>
-                  <div className="text-xs text-zinc-400 space-y-1">
-                    <p>Baseline rejected ICA: {detail.baseline_rejected_ica.length ? detail.baseline_rejected_ica.join(", ") : "None"}</p>
-                    <p>Manual rejected ICA: {manualRejectedIca.length ? manualRejectedIca.join(", ") : "None"}</p>
-                  </div>
-                  {icaSummary?.components?.length ? (
-                    <div className="mt-4 overflow-auto rounded border border-border">
-                      <table className="w-full text-xs">
-                        <thead className="bg-surface-100 text-zinc-500">
-                          <tr>
-                            <th className="px-2 py-1.5 text-left">Component</th>
-                            <th className="px-2 py-1.5 text-left">Type</th>
-                            <th className="px-2 py-1.5 text-left">Confidence</th>
-                            <th className="px-2 py-1.5 text-left">Rejected</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {icaSummary.components.slice(0, 16).map((component) => (
-                            <tr key={component.component} className="border-t border-border-subtle">
-                              <td className="px-2 py-1.5 text-zinc-200">{component.component}</td>
-                              <td className="px-2 py-1.5 text-zinc-400">{component.type}</td>
-                              <td className="px-2 py-1.5 text-zinc-400">{component.confidence.toFixed(3)}</td>
-                              <td className="px-2 py-1.5">
-                                <div className="flex items-center gap-2">
-                                  <span className={component.rejected ? "text-red-400" : "text-emerald-400"}>
-                                    {component.rejected ? "Yes" : "No"}
-                                  </span>
-                                  {typeof icaSummary.structure?.detail_page_map === "object" &&
-                                  component.component in (icaSummary.structure.detail_page_map as Record<string, number>) ? (
-                                    <a
-                                      href={`${artifact.ica_report}#page=${Number((icaSummary.structure.detail_page_map as Record<string, number>)[component.component]) + 1}`}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-brand hover:underline"
-                                    >
-                                      Page
-                                    </a>
-                                  ) : null}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
             ) : (
-              <div className="py-20 text-center text-zinc-600">ICA report not available</div>
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIcaPassView("original")}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                        icaPassView === "original"
+                          ? "border-brand bg-brand/10 text-brand"
+                          : "border-border text-zinc-400 hover:text-zinc-200"
+                      }`}
+                    >
+                      Original{detail.active_ica_pass === "post_epoch_rejection" ? " (promoted)" : ""}
+                    </button>
+                    {hasIcaRerunPass ? (
+                      <button
+                        type="button"
+                        onClick={() => setIcaPassView("post_epoch_rejection")}
+                        className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                          icaPassView === "post_epoch_rejection"
+                            ? "border-brand bg-brand/10 text-brand"
+                            : "border-border text-zinc-400 hover:text-zinc-200"
+                        }`}
+                      >
+                        Post-Epoch-Rejection
+                      </button>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={startIcaRerun}
+                    disabled={badEpochs.length === 0 || icaRerunStatus === "running"}
+                    title={badEpochs.length === 0 ? "Reject at least one epoch during review first" : undefined}
+                    className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-zinc-200 hover:bg-surface-200 disabled:opacity-40"
+                  >
+                    {icaRerunStatus === "running" ? "Rerunning ICA…" : "Rerun ICA on Retained Epochs"}
+                  </button>
+                </div>
+
+                {icaRerunStatus ? (
+                  <div className="rounded-lg border border-border bg-surface-50 p-3 text-xs text-zinc-400">
+                    <p className="font-medium text-zinc-200">ICA rerun: {icaRerunStatus}</p>
+                    {icaRerunMessage && <p className="mt-1">{icaRerunMessage}</p>}
+                  </div>
+                ) : null}
+
+                {icaPassView === "post_epoch_rejection" && icaRerunSummary ? (
+                  <div className="rounded-lg border border-border bg-surface-50 p-4 space-y-3">
+                    <h3 className="text-sm font-semibold text-zinc-100">Promote Post-Epoch-Rejection ICA</h3>
+                    <label className="block text-xs text-zinc-400">
+                      Components to reject (comma-separated indices)
+                      <input
+                        type="text"
+                        value={icaRerunRejectedDraft}
+                        onChange={(event) => setIcaRerunRejectedDraft(event.target.value)}
+                        className="mt-1 w-full rounded border border-border bg-surface-100 px-2 py-1 text-xs text-zinc-100"
+                        placeholder="e.g. 0, 3, 7"
+                      />
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={promoteIcaRerunAction}
+                        className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand/90"
+                      >
+                        Promote to Active
+                      </button>
+                      <button
+                        type="button"
+                        onClick={discardIcaRerunAction}
+                        className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-surface-200"
+                      >
+                        Discard
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {displayIcaReportUrl ? (
+                  <>
+                    <div className="flex flex-wrap justify-end gap-3">
+                      {typeof displayIcaSummary?.structure?.topo_grid_page === "number" ? (
+                        <a
+                          href={`${displayIcaReportUrl}#page=${Number(displayIcaSummary.structure.topo_grid_page) + 1}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-brand hover:underline"
+                        >
+                          Open topography overview
+                        </a>
+                      ) : null}
+                      <a href={displayIcaReportUrl} target="_blank" rel="noreferrer" className="text-xs text-brand hover:underline">
+                        Open ICA PDF in new tab
+                      </a>
+                    </div>
+                    <iframe title="ICA report" src={displayIcaReportUrl} className="w-full min-h-[28rem] rounded-lg border border-border bg-white" />
+                    <div className="rounded-lg border border-border bg-surface-50 p-4">
+                      <h3 className="text-sm font-semibold text-zinc-100 mb-3">
+                        {icaPassView === "post_epoch_rejection" ? "Post-Epoch-Rejection ICA Components" : "ICA Override Context"}
+                      </h3>
+                      {icaPassView === "original" ? (
+                        <div className="text-xs text-zinc-400 space-y-1">
+                          <p>Baseline rejected ICA: {detail.baseline_rejected_ica.length ? detail.baseline_rejected_ica.join(", ") : "None"}</p>
+                          <p>Manual rejected ICA: {manualRejectedIca.length ? manualRejectedIca.join(", ") : "None"}</p>
+                        </div>
+                      ) : null}
+                      {displayIcaSummary?.components?.length ? (
+                        <div className="mt-4 overflow-auto rounded border border-border">
+                          <table className="w-full text-xs">
+                            <thead className="bg-surface-100 text-zinc-500">
+                              <tr>
+                                <th className="px-2 py-1.5 text-left">Component</th>
+                                <th className="px-2 py-1.5 text-left">Type</th>
+                                <th className="px-2 py-1.5 text-left">Confidence</th>
+                                <th className="px-2 py-1.5 text-left">Rejected</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {displayIcaSummary.components.slice(0, 16).map((component) => (
+                                <tr key={component.component} className="border-t border-border-subtle">
+                                  <td className="px-2 py-1.5 text-zinc-200">{component.component}</td>
+                                  <td className="px-2 py-1.5 text-zinc-400">{component.type}</td>
+                                  <td className="px-2 py-1.5 text-zinc-400">{component.confidence.toFixed(3)}</td>
+                                  <td className="px-2 py-1.5">
+                                    <div className="flex items-center gap-2">
+                                      <span className={component.rejected ? "text-red-400" : "text-emerald-400"}>
+                                        {component.rejected ? "Yes" : "No"}
+                                      </span>
+                                      {typeof displayIcaSummary.structure?.detail_page_map === "object" &&
+                                      component.component in (displayIcaSummary.structure.detail_page_map as Record<string, number>) ? (
+                                        <a
+                                          href={`${displayIcaReportUrl}#page=${Number((displayIcaSummary.structure.detail_page_map as Record<string, number>)[component.component]) + 1}`}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-brand hover:underline"
+                                        >
+                                          Page
+                                        </a>
+                                      ) : null}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : null}
+                    </div>
+                  </>
+                ) : (
+                  <div className="py-20 text-center text-zinc-600">ICA report not available</div>
+                )}
+              </div>
             )}
           </div>
         </section>

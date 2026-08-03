@@ -430,6 +430,8 @@ export interface ExcludeFileDetail {
     timestamp: string;
   };
   artifacts: Record<string, string | null>;
+  ica_passes: string[];
+  active_ica_pass: string;
 }
 
 export interface ExcludeFilesResponse {
@@ -476,6 +478,15 @@ export interface ExcludeIcaSummaryResponse {
     rejected: boolean;
   }>;
   structure?: Record<string, unknown>;
+}
+
+export interface RerunIcaStatusResponse {
+  job_id: string;
+  status: "running" | "completed" | "failed" | string;
+  message: string;
+  running: boolean;
+  pass_name: string;
+  artifact_paths?: Record<string, unknown> | null;
 }
 
 export interface ExcludeEpochTopographyResponse {
@@ -574,8 +585,11 @@ export const api = {
     json<ExcludeFilesResponse>(`/api/exclude/files${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`),
   getExcludeFile: (fileKey: string, routeId?: string) =>
     json<ExcludeFileDetail>(`/api/exclude/files/${fileKey}${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`),
-  getExcludeIcaSummary: (fileKey: string, routeId?: string) =>
-    json<ExcludeIcaSummaryResponse>(`/api/exclude/files/${fileKey}/ica-summary${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`),
+  getExcludeIcaSummary: (fileKey: string, routeId?: string, pass: "original" | "post_epoch_rejection" = "original") => {
+    const params = new URLSearchParams({ pass });
+    if (routeId) params.set("route_id", routeId);
+    return json<ExcludeIcaSummaryResponse>(`/api/exclude/files/${fileKey}/ica-summary?${params.toString()}`);
+  },
   getExcludeEpochManifest: (fileKey: string, routeId?: string) =>
     json<EpochManifest>(`/api/exclude/files/${fileKey}/eeg/manifest${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`),
   getExcludeEpochWindow: (fileKey: string, start = 0, count = 10, channels?: string[], routeId?: string) => {
@@ -605,6 +619,30 @@ export const api = {
       manual_rejected_ica: manualRejectedIca,
     }),
   getExcludeReprocessStatus: (jobId: string) => json<Record<string, any>>(`/api/exclude/reprocess/${jobId}`),
+  startRerunIca: (
+    fileKey: string,
+    options: { icaMethod?: string; nComponents?: number; classificationMethod?: string } = {},
+    routeId?: string,
+  ) =>
+    json<{ job_id: string; status: string; message: string }>(
+      `/api/exclude/files/${fileKey}/rerun-ica${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`,
+      "POST",
+      {
+        ica_method: options.icaMethod ?? null,
+        n_components: options.nComponents ?? null,
+        classification_method: options.classificationMethod ?? null,
+      },
+    ),
+  getRerunIcaStatus: (fileKey: string, jobId: string) =>
+    json<RerunIcaStatusResponse>(`/api/exclude/files/${fileKey}/rerun-ica/${jobId}`),
+  promoteIcaRerun: (fileKey: string, jobId: string, rejectedComponents: number[], routeId?: string) =>
+    json<{ promoted: boolean; backups_dir: string; active_ica_pass: string }>(
+      `/api/exclude/files/${fileKey}/rerun-ica/${jobId}/promote${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`,
+      "POST",
+      { rejected_components: rejectedComponents },
+    ),
+  discardIcaRerun: (fileKey: string, jobId: string) =>
+    json<{ discarded: boolean }>(`/api/exclude/files/${fileKey}/rerun-ica/${jobId}/discard`, "POST", {}),
   exportExcludeQa: (fileKeys?: string[]) =>
     json<{ exported: number; skipped: number; errors: Array<{ file_key: string; error: string }>; qa_log_path?: string | null }>(
       "/api/exclude/qa/export",

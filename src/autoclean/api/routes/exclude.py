@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import uuid
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -21,6 +22,13 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from autoclean.api.pdf_extractor import extract_ica_full
+from autoclean.api.routes._exclude_paths import (
+    _load_epochs,
+    _postedit_path,
+    _related_paths,
+    _strip_suffixes,
+)
+from autoclean.api.services import ica_rerun
 from autoclean.api.state import api_state
 from autoclean.utils.reprocess_overrides import (
     epoch_review_override_from_record,
@@ -29,17 +37,11 @@ from autoclean.utils.reprocess_overrides import (
 
 router = APIRouter()
 
-_SUFFIXES = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw", "_clean"]
 _REPROCESS_JOBS: dict[str, dict[str, Any]] = {}
+_ICA_RERUN_JOBS: dict[str, dict[str, Any]] = {}
+_ICA_RERUN_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ica-rerun")
 _PREPROCESSING_LOG_NAME = "preprocessing_log.csv"
 _PREPROCESSING_KEY_COLUMN = "subj_basename"
-
-
-def _strip_suffixes(stem: str) -> str:
-    for suffix in sorted(_SUFFIXES, key=len, reverse=True):
-        if stem.endswith(suffix):
-            return stem[: -len(suffix)]
-    return stem
 
 
 def _resolve_exports_root() -> Path:
@@ -146,6 +148,8 @@ def _default_record(relative_path: str) -> dict[str, Any]:
         "reprocess_timestamp": "",
         "modified_source": "web",
         "revision": 0,
+        "active_ica_pass": "original",
+        "ica_rerun_status": "",
     }
 
 
@@ -188,6 +192,8 @@ def _save_decisions(root: Path, decisions: dict[str, dict[str, Any]]) -> None:
         "reprocess_fix_type",
         "reprocess_timestamp",
         "modified_source",
+        "active_ica_pass",
+        "ica_rerun_status",
     ]
     with csv_path.open("w", newline="", encoding="utf-8") as fp:
         writer = csv.DictWriter(fp, fieldnames=fieldnames)
@@ -220,6 +226,8 @@ def _save_decisions(root: Path, decisions: dict[str, dict[str, Any]]) -> None:
                     "reprocess_fix_type": record.get("reprocess_fix_type", ""),
                     "reprocess_timestamp": record.get("reprocess_timestamp", ""),
                     "modified_source": record.get("modified_source", "web"),
+                    "active_ica_pass": record.get("active_ica_pass", "original"),
+                    "ica_rerun_status": record.get("ica_rerun_status", ""),
                 }
             )
 
@@ -244,29 +252,6 @@ def _resolve_file(root: Path, file_key: str) -> tuple[Path, str]:
         rel = direct.resolve().relative_to(root.resolve())
         return direct.resolve(), str(rel)
     raise HTTPException(status_code=404, detail=f"Exclude file not found: {file_key}")
-
-
-def _related_paths(root: Path, file_path: Path) -> dict[str, Optional[Path]]:
-    stem = _strip_suffixes(file_path.stem)
-    task_root = root.parent
-    candidates = {
-        "run_report": task_root
-        / "reports"
-        / "run_reports"
-        / f"{stem}_autoclean_report.pdf",
-        "ica_report": task_root
-        / "reports"
-        / "ica_components"
-        / f"{stem}_ica_components_all.pdf",
-        "psd": task_root / "reports" / "psd_topo" / f"{stem}_psd_topo_figure.png",
-        "metadata": task_root
-        / "reports"
-        / "run_reports"
-        / f"{stem}_autoclean_metadata.json",
-        "processing_log": task_root / "exports" / f"{stem}_processing_log.csv",
-        "postedit": _postedit_path(task_root, file_path),
-    }
-    return {k: v if v.exists() else None for k, v in candidates.items()}
 
 
 def _parse_metadata(path: Optional[Path]) -> dict[str, Any]:
@@ -755,11 +740,6 @@ def _export_file_to_qa(
     return {"exported": True, "skipped": False, "path": record["qa_export_path"]}
 
 
-def _postedit_path(task_root: Path, file_path: Path) -> Path:
-    stem = _strip_suffixes(file_path.stem)
-    return task_root / "postedit" / f"{stem}_postedit.set"
-
-
 def _sync_postedit_export(
     task_root: Path, file_path: Path, record: dict[str, Any]
 ) -> Optional[str]:
@@ -943,6 +923,8 @@ class ExcludeFileDetail(BaseModel):
     qa_export: dict[str, Any] = Field(default_factory=dict)
     reprocess: dict[str, Any] = Field(default_factory=dict)
     artifacts: dict[str, Optional[str]] = Field(default_factory=dict)
+    ica_passes: list[str] = Field(default_factory=list)
+    active_ica_pass: str = "original"
 
 
 class EpochManifest(BaseModel):
@@ -988,6 +970,24 @@ class ReprocessResponse(BaseModel):
     job_id: str
     status: str
     message: str
+
+
+class RerunIcaRequest(BaseModel):
+    ica_method: Optional[str] = None
+    n_components: Optional[int] = None
+    classification_method: Optional[str] = None
+    min_epochs: Optional[int] = None
+    min_duration_seconds: Optional[float] = None
+
+
+class RerunIcaResponse(BaseModel):
+    job_id: str
+    status: str
+    message: str
+
+
+class PromoteIcaRerunRequest(BaseModel):
+    rejected_components: list[int] = Field(default_factory=list)
 
 
 class QaExportRequest(BaseModel):
@@ -1051,6 +1051,18 @@ async def get_exclude_artifact(
 ):
     root = _resolve_exports_root_for_route(route_id)
     file_path, _relative_path = _resolve_file(root, file_key)
+
+    if asset_name == f"ica_report_{ica_rerun.PASS_NAME}":
+        task_root = root.parent
+        stem = _strip_suffixes(file_path.stem)
+        pass_report = ica_rerun.pass_report_pdf_path(task_root, stem)
+        if not pass_report.exists():
+            raise HTTPException(
+                status_code=404,
+                detail="Artifact not found: ica_report_post_epoch_rejection",
+            )
+        return FileResponse(pass_report)
+
     related = _related_paths(root, file_path)
     path = related.get(asset_name)
     if path is None or not path.exists():
@@ -1060,23 +1072,30 @@ async def get_exclude_artifact(
 
 @router.get("/files/{file_key:path}/ica-summary")
 async def get_exclude_ica_summary(
-    file_key: str, route_id: str | None = Query(default=None)
+    file_key: str,
+    route_id: str | None = Query(default=None),
+    ica_pass: str = Query(default="original", alias="pass"),
 ) -> dict[str, Any]:
     root = _resolve_exports_root_for_route(route_id)
     file_path, _relative_path = _resolve_file(root, file_key)
+
+    if ica_pass == ica_rerun.PASS_NAME:
+        task_root = root.parent
+        stem = _strip_suffixes(file_path.stem)
+        summary = ica_rerun.load_pass_iclabel(task_root, stem)
+        if summary is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Post-epoch-rejection ICA rerun not found for this file",
+            )
+        return summary
+
     related = _related_paths(root, file_path)
     ica_path = related.get("ica_report")
     if ica_path is None or not ica_path.exists():
         raise HTTPException(status_code=404, detail="ICA report not found")
     extracted = extract_ica_full(ica_path)
     return extracted
-
-
-def _load_epochs(file_path: Path) -> mne.BaseEpochs:
-    try:
-        return mne.read_epochs_eeglab(str(file_path), verbose="ERROR")
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Could not load epochs: {exc}")
 
 
 def _render_epoch_topography(
@@ -1353,11 +1372,18 @@ async def get_exclude_file_detail(
     related = _related_paths(root, file_path)
     metadata = _parse_metadata(related["metadata"])
     metrics = _read_processing_metrics(related["processing_log"])
+    task_root = root.parent
+    stem = _strip_suffixes(file_path.stem)
+    ica_passes = ["original"]
+    if ica_rerun.pass_metadata_path(task_root, stem).exists():
+        ica_passes.append(ica_rerun.PASS_NAME)
     return ExcludeFileDetail(
         file_key=file_key,
         relative_path=relative_path,
         name=file_path.name,
         exports_root=str(root),
+        ica_passes=ica_passes,
+        active_ica_pass=str(record.get("active_ica_pass", "original")),
         status=str(record.get("status", "UNSET")),
         notes=str(record.get("notes", "")),
         metrics=metrics,
@@ -1671,6 +1697,230 @@ async def get_reprocess_status(job_id: str) -> dict[str, Any]:
         "exit_code": job.get("exit_code"),
         "file_key": job.get("file_key"),
     }
+
+
+def _run_ica_rerun_worker(
+    *,
+    task_root: Path,
+    stem: str,
+    epochs: mne.BaseEpochs,
+    ica_kwargs: dict[str, Any],
+    classification_method: str,
+    epochs_before: int,
+    parent_run_id: Optional[str],
+) -> dict[str, Any]:
+    ica, ica_flags = ica_rerun.fit_and_classify(
+        epochs, ica_kwargs, classification_method
+    )
+    return ica_rerun.save_rerun_artifacts(
+        task_root=task_root,
+        stem=stem,
+        ica=ica,
+        ica_flags=ica_flags,
+        epochs=epochs,
+        classification_method=classification_method,
+        ica_kwargs=ica_kwargs,
+        epochs_before=epochs_before,
+        parent_run_id=parent_run_id,
+    )
+
+
+def _finalize_ica_rerun_job(job_id: str) -> None:
+    job = _ICA_RERUN_JOBS.get(job_id)
+    if not job or job.get("finalized"):
+        return
+    future: Future = job["future"]
+    if not future.done():
+        return
+    job["finalized"] = True
+    try:
+        artifact_paths = future.result()
+        job["status"] = "completed"
+        job["message"] = f"ICA rerun complete for {job['stem']}"
+        job["artifact_paths"] = artifact_paths
+    except ica_rerun.IcaRerunError as exc:
+        job["status"] = "failed"
+        job["message"] = str(exc)
+    except Exception as exc:  # noqa: BLE001 - surfaced to the reviewer as job status
+        job["status"] = "failed"
+        job["message"] = f"ICA rerun failed: {exc}"
+
+
+@router.post("/files/{file_key:path}/rerun-ica", response_model=RerunIcaResponse)
+async def start_rerun_ica(
+    file_key: str, body: RerunIcaRequest, route_id: str | None = Query(default=None)
+) -> RerunIcaResponse:
+    root = _resolve_exports_root_for_route(route_id)
+    file_path, relative_path = _resolve_file(root, file_key)
+    task_root = root.parent
+    stem = _strip_suffixes(file_path.stem)
+
+    try:
+        epochs = ica_rerun.load_retained_epochs(task_root, file_path)
+    except ica_rerun.IcaRerunError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    threshold_kwargs: dict[str, Any] = {}
+    if body.min_epochs is not None:
+        threshold_kwargs["min_epochs"] = body.min_epochs
+    if body.min_duration_seconds is not None:
+        threshold_kwargs["min_duration"] = body.min_duration_seconds
+    threshold = ica_rerun.check_retained_epochs_threshold(epochs, **threshold_kwargs)
+    if not threshold["ok"]:
+        raise HTTPException(status_code=400, detail=threshold["reason"])
+
+    related = _related_paths(root, file_path)
+    defaults = ica_rerun.read_original_ica_defaults(related.get("metadata"))
+    ica_kwargs = dict(defaults["ica_kwargs"])
+    if body.ica_method is not None:
+        ica_kwargs["method"] = body.ica_method
+    if body.n_components is not None:
+        ica_kwargs["n_components"] = body.n_components
+    classification_method = (
+        body.classification_method or defaults["classification_method"]
+    )
+
+    decisions = _load_decisions(root)
+    record = _record_for(decisions, file_key, relative_path)
+    epochs_before = int(record.get("total_epochs", 0) or 0) or len(epochs)
+
+    future = _ICA_RERUN_EXECUTOR.submit(
+        _run_ica_rerun_worker,
+        task_root=task_root,
+        stem=stem,
+        epochs=epochs,
+        ica_kwargs=ica_kwargs,
+        classification_method=classification_method,
+        epochs_before=epochs_before,
+        parent_run_id=defaults["parent_run_id"],
+    )
+    job_id = uuid.uuid4().hex
+    _ICA_RERUN_JOBS[job_id] = {
+        "job_id": job_id,
+        "status": "running",
+        "message": f"Started ICA rerun for {stem} ({len(epochs)} retained epochs)",
+        "future": future,
+        "task_root": str(task_root),
+        "stem": stem,
+        "file_key": file_key,
+        "relative_path": relative_path,
+        "exports_root": str(root),
+    }
+    return RerunIcaResponse(
+        job_id=job_id,
+        status="running",
+        message=f"Started ICA rerun for {stem} ({len(epochs)} retained epochs)",
+    )
+
+
+@router.get("/files/{file_key:path}/rerun-ica/{job_id}")
+async def get_rerun_ica_status(file_key: str, job_id: str) -> dict[str, Any]:
+    job = _ICA_RERUN_JOBS.get(job_id)
+    if job is None or job.get("file_key") != file_key:
+        raise HTTPException(status_code=404, detail="Unknown ICA rerun job")
+    _finalize_ica_rerun_job(job_id)
+    return {
+        "job_id": job_id,
+        "status": job["status"],
+        "message": job.get("message", ""),
+        "running": job["status"] == "running",
+        "pass_name": ica_rerun.PASS_NAME,
+        "artifact_paths": job.get("artifact_paths"),
+    }
+
+
+@router.post("/files/{file_key:path}/rerun-ica/{job_id}/promote")
+async def promote_rerun_ica(
+    file_key: str,
+    job_id: str,
+    body: PromoteIcaRerunRequest,
+    route_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    job = _ICA_RERUN_JOBS.get(job_id)
+    if job is None or job.get("file_key") != file_key:
+        raise HTTPException(status_code=404, detail="Unknown ICA rerun job")
+    _finalize_ica_rerun_job(job_id)
+    if job["status"] != "completed":
+        raise HTTPException(
+            status_code=400,
+            detail=f"ICA rerun job is not complete (status={job['status']})",
+        )
+
+    root = _resolve_exports_root_for_route(route_id)
+    file_path, relative_path = _resolve_file(root, file_key)
+    task_root = root.parent
+    stem = _strip_suffixes(file_path.stem)
+
+    try:
+        rejected = sorted({int(v) for v in body.rejected_components})
+        ica, epochs = ica_rerun.apply_pass_rejection(task_root, stem, rejected)
+    except ica_rerun.IcaRerunError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backups_dir = root / "backups" / f"{stem}_ica_rerun_{timestamp}"
+    # Back up the exact export file(s) about to be overwritten -- uses the
+    # resolved file_path directly (not a stem glob) so this is correct even
+    # when the file lives in a route-scoped subdirectory of exports/.
+    _backup_existing_file(file_path, backups_dir)
+    _backup_existing_file(file_path.with_suffix(".fdt"), backups_dir)
+    _backup_and_remove_matching_files(
+        task_root / "ica", [f"{stem}-ica.fif"], backups_dir
+    )
+    _backup_and_remove_matching_files(
+        task_root / "reports" / "ica_components",
+        [f"{stem}_ica_components_all.pdf"],
+        backups_dir,
+    )
+
+    # Overwrite the same canonical export filename so there is exactly one
+    # unambiguous "active" file, backed up above.
+    epochs.export(str(file_path), fmt="eeglab", overwrite=True)
+
+    ica_dir = task_root / "ica"
+    ica_dir.mkdir(parents=True, exist_ok=True)
+    ica.save(ica_dir / f"{stem}-ica.fif", overwrite=True)
+
+    pass_report = ica_rerun.pass_report_pdf_path(task_root, stem)
+    if pass_report.exists():
+        primary_report_dir = task_root / "reports" / "ica_components"
+        primary_report_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(pass_report, primary_report_dir / f"{stem}_ica_components_all.pdf")
+
+    pass_meta_path = ica_rerun.pass_metadata_path(task_root, stem)
+    if pass_meta_path.exists():
+        try:
+            meta = json.loads(pass_meta_path.read_text())
+            meta["status"] = "promoted"
+            meta["promoted_at"] = datetime.now().isoformat()
+            pass_meta_path.write_text(json.dumps(meta, indent=2, default=str))
+        except Exception:
+            pass
+
+    decisions = _load_decisions(root)
+    record = _record_for(decisions, file_key, relative_path)
+    record["active_ica_pass"] = ica_rerun.PASS_NAME
+    record["ica_rerun_status"] = "promoted"
+    _touch_record(record)
+    _save_decisions(root, decisions)
+
+    return {
+        "promoted": True,
+        "backups_dir": str(backups_dir),
+        "active_ica_pass": ica_rerun.PASS_NAME,
+    }
+
+
+@router.post("/files/{file_key:path}/rerun-ica/{job_id}/discard")
+async def discard_rerun_ica(file_key: str, job_id: str) -> dict[str, Any]:
+    job = _ICA_RERUN_JOBS.get(job_id)
+    if job is None or job.get("file_key") != file_key:
+        raise HTTPException(status_code=404, detail="Unknown ICA rerun job")
+    task_root = Path(str(job["task_root"]))
+    stem = str(job["stem"])
+    ica_rerun.discard_pass(task_root, stem)
+    del _ICA_RERUN_JOBS[job_id]
+    return {"discarded": True}
 
 
 @router.post("/qa/export")
