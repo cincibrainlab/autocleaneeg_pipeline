@@ -39,21 +39,36 @@ def test_resting_task_configs_default_component_classifier_to_iclabel() -> None:
         resting_closed_config,
     ]
 
-    assert {
-        config["component_rejection"]["method"] for config in configs
-    } == {"iclabel"}
+    assert {config["component_rejection"]["method"] for config in configs} == {
+        "iclabel"
+    }
 
 
 def test_auditory_task_configs_default_component_classifier_to_iclabel() -> None:
     configs = [assr_config, mmn_config]
 
-    assert {
-        config["component_rejection"]["method"] for config in configs
-    } == {"iclabel"}
+    assert {config["component_rejection"]["method"] for config in configs} == {
+        "iclabel"
+    }
 
 
 def test_custom_task_template_defaults_component_classifier_to_iclabel() -> None:
     assert custom_template_config["component_rejection"]["method"] == "iclabel"
+
+
+def test_custom_task_jinja_template_defaults_component_classifier_to_iclabel() -> None:
+    template = (
+        Path(__file__).resolve().parents[2]
+        / "src"
+        / "autoclean"
+        / "templates"
+        / "custom_task_template.jinja"
+    )
+
+    template_source = template.read_text(encoding="utf-8")
+
+    assert '"method": "iclabel"' in template_source
+    assert "Classification method: 'iclabel' or 'icvision'" in template_source
 
 
 def test_reprocess_template_defaults_component_classifier_to_iclabel() -> None:
@@ -68,7 +83,7 @@ def test_reprocess_template_defaults_component_classifier_to_iclabel() -> None:
     rendered = render_template(template, _reprocess_context())
 
     assert '"method": "iclabel"' in rendered
-    assert "classify_ica_components(method=\"iclabel\"" in rendered
+    assert 'classify_ica_components(method="iclabel"' in rendered
 
 
 def test_reprocess_template_preserves_explicit_icvision_override() -> None:
@@ -86,7 +101,7 @@ def test_reprocess_template_preserves_explicit_icvision_override() -> None:
     )
 
     assert '"method": "icvision"' in rendered
-    assert "classify_ica_components(method=\"icvision\"" in rendered
+    assert 'classify_ica_components(method="icvision"' in rendered
 
 
 def test_ica_fitting_method_defaults_are_unchanged() -> None:
