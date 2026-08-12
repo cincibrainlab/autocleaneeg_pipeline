@@ -427,6 +427,7 @@ export interface ExcludeFileDetail {
   reprocess: {
     modified: boolean;
     fix_type: string;
+    action?: string;
     timestamp: string;
   };
   artifacts: Record<string, string | null>;
@@ -599,10 +600,11 @@ export const api = {
       manual_bad_channels: manualBadChannels,
       manual_rejected_ica: manualRejectedIca,
     }),
-  startExcludeReprocess: (fileKey: string, manualBadChannels: string[], manualRejectedIca: number[], routeId?: string) =>
-    json<{ job_id: string; status: string; message: string }>(`/api/exclude/files/${fileKey}/reprocess${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`, "POST", {
+  startExcludeReprocess: (fileKey: string, manualBadChannels: string[], manualRejectedIca: number[], routeId?: string, action = "manual_overrides") =>
+    json<{ job_id: string; status: string; message: string; action: string; warning?: string | null }>(`/api/exclude/files/${fileKey}/reprocess${routeId ? `?route_id=${encodeURIComponent(routeId)}` : ""}`, "POST", {
       manual_bad_channels: manualBadChannels,
       manual_rejected_ica: manualRejectedIca,
+      action,
     }),
   getExcludeReprocessStatus: (jobId: string) => json<Record<string, any>>(`/api/exclude/reprocess/${jobId}`),
   exportExcludeQa: (fileKeys?: string[]) =>
