@@ -461,6 +461,37 @@ Montage Commands
 
       autocleaneeg-pipeline montage test
 
+``autocleaneeg-pipeline montage preflight --input /path/to/input --task /path/to/Task.py --output /path/to/workspace``
+   Scan an EEG file or folder for supported HydroCel 128/129 montage layouts
+   before batch processing. The command writes
+   ``autoclean_montage_scan.csv`` and
+   ``autoclean_montage_batch_plan.json`` and defaults to review-only behavior.
+   Use ``--apply --copy-originals`` and/or ``--clone-tasks`` for explicitly
+   approved copy and task-clone actions.
+
+   Example:
+
+   .. code-block:: bash
+
+      autocleaneeg-pipeline montage preflight \
+        --input /path/to/input_mixed_hydrocel \
+        --task /path/to/workspace/tasks/RestingState_Basic_128.py \
+        --output /path/to/workspace
+
+   Apply example:
+
+   .. code-block:: bash
+
+      autocleaneeg-pipeline montage preflight \
+        --input /path/to/input_mixed_hydrocel \
+        --task /path/to/workspace/tasks/RestingState_Basic_128.py \
+        --output /path/to/workspace \
+        --apply \
+        --copy-originals \
+        --split-output-root /path/to/workspace/montage_preflight_split_inputs \
+        --clone-tasks \
+        --task-output-dir /path/to/workspace/tasks/montage_preflight
+
 Block Commands
 --------------
 
