@@ -11,11 +11,15 @@ def test_quarto_missing_message_explains_scope_and_macos_install(monkeypatch) ->
 
     assert "`autocleaneeg-pipeline serve docs`" in guidance
     assert "`serve`, `serve up`" in guidance
+    assert "do not require Quarto" in guidance
     assert "uv tool install autocleaneeg-pipeline" in guidance
+    assert "not installed by" in guidance
     assert "brew install --cask quarto" in guidance
 
 
-def test_serve_docs_missing_quarto_uses_actionable_message(tmp_path, monkeypatch) -> None:
+def test_serve_docs_missing_quarto_uses_actionable_message(
+    tmp_path, monkeypatch
+) -> None:
     (tmp_path / "plans").mkdir()
     monkeypatch.chdir(tmp_path)
 

@@ -5921,7 +5921,7 @@ def cmd_wizard(args) -> int:
                 break
 
         # Step 3 — Montage selection
-        (_, _, active_task, active_task_path, current_montage, _) = (
+        _, _, active_task, active_task_path, current_montage, _ = (
             _wizard_collect_state()
         )
 
@@ -6044,7 +6044,7 @@ def cmd_wizard(args) -> int:
                 )
 
         # Step 4 — Input source
-        (*_, _, current_input) = _wizard_collect_state()
+        *_, _, current_input = _wizard_collect_state()
 
         display.header(
             "Step 4 • Input",
@@ -12255,13 +12255,16 @@ def _quarto_missing_message() -> str:
     elif sys.platform.startswith("win"):
         install_hint = "winget install --id Posit.Quarto"
     else:
-        install_hint = "Install a Linux package from https://quarto.org/docs/get-started/"
+        install_hint = (
+            "Install a Linux package from https://quarto.org/docs/get-started/"
+        )
 
     return (
         "Quarto CLI is required for `autocleaneeg-pipeline serve docs`, "
         "which previews the internal plans documentation site, but Quarto was not "
         "found on PATH. Normal Serve startup (`serve`, `serve up`) and processing "
-        "do not install Quarto through `uv tool install autocleaneeg-pipeline`. "
+        "do not require Quarto. Quarto is not a Python dependency and is not "
+        "installed by `uv tool install autocleaneeg-pipeline`. "
         "Install Quarto from https://quarto.org/docs/get-started/ or run: "
         f"{install_hint}. Then restart `autocleaneeg-pipeline serve docs`."
     )
