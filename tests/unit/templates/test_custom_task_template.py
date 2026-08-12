@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pytest
 
+from autoclean.configkit.schema import validate_task_module_config
+from autoclean.templates.custom_task_template import config as custom_template_config
 from autoclean.utils.template_renderer import (
     render_template,
     validate_python_identifier,
@@ -16,6 +18,13 @@ def test_custom_task_template_matches_python() -> None:
     rendered = render_template(jinja_template, {"class_name": "CustomTask"})
 
     assert canonical_python.read_text(encoding="utf-8") == rendered
+
+
+def test_custom_task_template_config_matches_schema() -> None:
+    validated = validate_task_module_config(custom_template_config)
+
+    assert "input_path" not in validated
+    assert validated["schema_version"] == custom_template_config["schema_version"]
 
 
 def test_render_template_missing_file(tmp_path: Path) -> None:

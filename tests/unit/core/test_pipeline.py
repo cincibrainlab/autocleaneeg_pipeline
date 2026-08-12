@@ -193,6 +193,43 @@ class TestPipelineValidation:
     @patch("autoclean.core.pipeline.set_database_path")
     @patch("autoclean.core.pipeline.configure_logger")
     @patch("autoclean.core.pipeline.mne.set_log_level")
+    def test_validate_custom_task_rejects_invalid_schema_before_success(
+        self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db, tmp_path
+    ):
+        """Custom task schema errors surface during task validation."""
+        task_file = tmp_path / "bad_task.py"
+        task_file.write_text(
+            """from autoclean.core.task import Task
+from autoclean.templates.custom_task_template import config as template_config
+
+config = dict(template_config)
+config["input_path"] = "/tmp/data"
+
+class BadTask(Task):
+    def run(self):
+        pass
+""",
+            encoding="utf-8",
+        )
+
+        pipeline = Pipeline(output_dir=str(tmp_path / "output"))
+
+        with patch(
+            "autoclean.core.pipeline.user_config.get_custom_task_path",
+            return_value=task_file,
+        ), pytest.raises(
+            ValueError,
+            match="Task config validation failed for BadTask",
+        ) as exc_info:
+            pipeline._validate_task("BadTask")
+
+        assert "Config path: config['input_path']" in str(exc_info.value)
+        assert "Remove the extra key" in str(exc_info.value)
+
+    @patch("autoclean.core.pipeline.manage_database")
+    @patch("autoclean.core.pipeline.set_database_path")
+    @patch("autoclean.core.pipeline.configure_logger")
+    @patch("autoclean.core.pipeline.mne.set_log_level")
     def test_validate_file_valid(
         self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db, tmp_path
     ):

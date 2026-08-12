@@ -30,12 +30,9 @@ config = {
     #   With dataset_name: "Experiment1_07-03-2025"
     #   Without dataset_name: "{{ class_name }}"
     "dataset_name": "Experiment1",  # Uncomment and modify for your dataset
-    # Optional: Specify default input file or directory for this task
-    # This will be used when no input is provided via CLI or API
-    # Examples:
-    #   "input_path": "/path/to/my/data.raw",           # Single file
-    #   "input_path": "/path/to/data/directory/",       # Directory
-    "input_path": "/path/to/my/data/",  # Uncomment and modify for your data
+    # Input files/directories are selected at run time, not in task config:
+    #   autocleaneeg-pipeline input set /path/to/data
+    #   autocleaneeg-pipeline process --input /path/to/data
     # Optional: keep flagged files in standard output directories
     # "move_flagged_files": False,
     "resample_step": {"enabled": True, "value": 250},  # Resample to 250 Hz
@@ -77,46 +74,6 @@ config = {
             "psd_fmax": 45.0,  # Optional PSD ceiling for wavelet QA plots
             "bandpass": [1.0, 30.0],  # Optional pre-filter band (set to None to skip)
             "filter_kwargs": None,  # Extra args forwarded to MNE filtering
-        },
-    },
-    "bad_channel_detection": {
-        "enabled": True,
-        "value": {
-            # "auto" picks thresholds from channel_count_bins below based on
-            # EEG channel count. Other options: "low_density", "mid_density",
-            # "high_density" (force a bin regardless of channel count), or
-            # "legacy" (fixed pre-2025.09 defaults, for reproducibility).
-            "preset": "auto",
-            "cleaning_method": "interpolate",  # 'interpolate', 'drop', or None
-            "channel_count_bins": {
-                "low_density": {
-                    "max_channels": 32,
-                    # Lower = more aggressive. Suggested low-density default: 0.20
-                    "correlation_thresh": 0.20,
-                    # Lower = more aggressive. Suggested low-density default: 4.0
-                    "deviation_thresh": 4.0,
-                    # RANSAC has few neighboring channels to work with below
-                    # ~32 channels and can be unstable; off by default.
-                    "ransac_enabled": False,
-                    # Lower = stricter file flagging. Suggested default: 0.10
-                    "max_bad_fraction": 0.10,
-                },
-                "mid_density": {
-                    "min_channels": 33,
-                    "max_channels": 64,
-                    "correlation_thresh": 0.30,  # Lower = more aggressive
-                    "deviation_thresh": 3.0,  # Lower = more aggressive
-                    "ransac_corr_thresh": 0.65,  # Higher = more aggressive
-                    "max_bad_fraction": 0.15,  # Lower = stricter file flagging
-                },
-                "high_density": {
-                    "min_channels": 65,
-                    "correlation_thresh": 0.35,  # Lower = more aggressive
-                    "deviation_thresh": 2.5,  # Lower = more aggressive
-                    "ransac_corr_thresh": 0.65,  # Higher = more aggressive
-                    "max_bad_fraction": 0.20,  # Lower = stricter file flagging
-                },
-            },
         },
     },
     "reference_step": {
