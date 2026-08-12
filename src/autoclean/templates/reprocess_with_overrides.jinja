@@ -54,7 +54,7 @@ config = {
     },
     "component_rejection": {
         "enabled": True,
-        "method": "{{ ica_classification_method|default('icvision') }}",
+        "method": "{{ ica_classification_method|default('iclabel') }}",
         "value": {
             "ic_flags_to_reject": {{ ic_flags_to_reject|default('["muscle", "heart", "eog", "ch_noise", "line_noise"]') }},
             "ic_rejection_threshold": {{ ic_rejection_threshold|default(0.3) }},
