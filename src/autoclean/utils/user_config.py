@@ -50,6 +50,14 @@ LOGO_ICON = "🧠"
 DIVIDER = "═════════════════════════════════════════════════"
 
 
+def safe_path_exists(path: Path) -> bool:
+    """Return whether a path exists without surfacing inaccessible-mount errors."""
+    try:
+        return path.exists()
+    except OSError:
+        return False
+
+
 def _get_torch_module():
     """Load torch lazily for optional GPU detection."""
     global TORCH_AVAILABLE, _TORCH_MODULE
@@ -77,11 +85,21 @@ class UserConfigManager:
         # Get workspace directory (without auto-creating)
         self.config_dir = self._get_workspace_path()
         self.tasks_dir = self.config_dir / "tasks"
+        self.workspace_accessible = True
 
         # Always create basic directory structure to avoid confusion
         # This eliminates "workspace not configured" messages on fresh installs
-        self.config_dir.mkdir(parents=True, exist_ok=True)
-        self.tasks_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            self.config_dir.mkdir(parents=True, exist_ok=True)
+            self.tasks_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            self.workspace_accessible = False
+            print(
+                "Warning: Saved AutoClean workspace is not accessible: "
+                f"{self.config_dir} ({exc}). "
+                "Use 'autocleaneeg-pipeline workspace set <path>' to choose a "
+                "new workspace or 'autocleaneeg-pipeline workspace unset' to clear it."
+            )
 
     def _get_workspace_path(self) -> Path:
         """Get configured workspace path or default."""
@@ -114,24 +132,38 @@ class UserConfigManager:
             Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
         )
         return (
-            global_config.exists()
-            and self.config_dir.exists()
-            and (self.config_dir / "tasks").exists()
+            safe_path_exists(global_config)
+            and safe_path_exists(self.config_dir)
+            and safe_path_exists(self.config_dir / "tasks")
         )
 
     def get_default_output_dir(self) -> Path:
         """Get default output directory."""
         return self.config_dir / "output"
 
-    def list_custom_tasks(self) -> Dict[str, Dict[str, Any]]:
+    def list_custom_tasks(
+        self, *, raise_on_error: bool = False
+    ) -> Dict[str, Dict[str, Any]]:
         """List custom tasks by scanning tasks directory (including subdirectories)."""
         custom_tasks = {}
 
-        if not self.tasks_dir.exists():
+        try:
+            if not self.tasks_dir.exists():
+                return custom_tasks
+        except OSError:
+            if raise_on_error:
+                raise
             return custom_tasks
 
         # Scan for Python files recursively (including subdirectories)
-        for task_file in self.tasks_dir.rglob("*.py"):
+        try:
+            task_files = list(self.tasks_dir.rglob("*.py"))
+        except OSError:
+            if raise_on_error:
+                raise
+            return custom_tasks
+
+        for task_file in task_files:
             if task_file.name.startswith("_"):
                 continue
 
@@ -195,10 +227,13 @@ class UserConfigManager:
             return None
 
         if ensure_exists:
+            if not getattr(self, "workspace_accessible", True):
+                return active_task
+
             try:
-                custom_tasks = self.list_custom_tasks()
-            except Exception:
-                custom_tasks = {}
+                custom_tasks = self.list_custom_tasks(raise_on_error=True)
+            except OSError:
+                return active_task
 
             if active_task not in custom_tasks:
                 # Clear out stale configuration so future calls reflect reality.

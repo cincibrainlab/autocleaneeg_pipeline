@@ -80,7 +80,7 @@ from autoclean.utils.template_renderer import (
     render_template,
     validate_python_identifier,
 )
-from autoclean.utils.user_config import user_config
+from autoclean.utils.user_config import safe_path_exists, user_config
 
 # Optional Neo support for extended formats (XDAT)
 try:
@@ -352,7 +352,9 @@ def _print_context(
     try:
         workspace_valid = user_config._is_workspace_valid()  # type: ignore[attr-defined]
     except Exception:
-        workspace_valid = workspace_dir.exists() and (workspace_dir / "tasks").exists()
+        workspace_valid = safe_path_exists(workspace_dir) and safe_path_exists(
+            workspace_dir / "tasks"
+        )
 
     home = str(Path.home())
     if workspace_display.startswith(home):
@@ -379,7 +381,7 @@ def _print_context(
             input_display = str(p)
             if input_display.startswith(home):
                 input_display = input_display.replace(home, "~", 1)
-            if p.exists():
+            if safe_path_exists(p):
                 if p.is_file():
                     input_type = "file"
                 elif p.is_dir():
@@ -510,10 +512,10 @@ def _print_context(
             workspace_dir = user_config.config_dir
             usage_path = (
                 workspace_dir
-                if workspace_dir.exists()
+                if safe_path_exists(workspace_dir)
                 else (
                     workspace_dir.parent
-                    if workspace_dir.parent.exists()
+                    if safe_path_exists(workspace_dir.parent)
                     else Path.home()
                 )
             )
