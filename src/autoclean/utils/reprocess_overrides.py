@@ -225,8 +225,12 @@ def generate_reprocess_task_from_original(
                 fix_type == POST_EPOCH_ICA_FIX_TYPE
                 and self.pending_post_epoch_ica_calls
             ):
-                self._append_pending_post_epoch_ica_calls(new_body)
-                self.pending_post_epoch_ica_calls = []
+                supported_methods = ", ".join(sorted(EPOCH_CREATION_METHODS))
+                raise ValueError(
+                    "Cannot generate post_epoch_ica reprocess task: no supported "
+                    "epoch creation call was found before post-epoch ICA rewrite. "
+                    f"Supported epoch creation methods: {supported_methods}."
+                )
 
             node.body = new_body
             self.in_run_method = False

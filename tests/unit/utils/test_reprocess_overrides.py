@@ -332,6 +332,54 @@ def test_generate_post_epoch_ica_task_fits_ica_after_manual_epoch_drop(
     assert "Post-epoch-rejection ICA: True" in generated
 
 
+def test_generate_post_epoch_ica_task_fails_for_custom_epoch_helper(
+    tmp_path: Path,
+):
+    task_path = tmp_path / "ExampleTask.py"
+    task_path.write_text(
+        (
+            "from autoclean.core.task import Task\n\n"
+            "config = {}\n\n"
+            "class ExampleTask(Task):\n"
+            "    def run(self):\n"
+            "        self.import_raw()\n"
+            "        self.run_ica()\n"
+            "        self.create_custom_epochs(export=True)\n"
+            "        self.generate_reports()\n"
+        ),
+        encoding="utf-8",
+    )
+
+    payload = {
+        "file_stem": "subject01",
+        "fix_type": POST_EPOCH_ICA_FIX_TYPE,
+        "timestamp": "2026-03-26T12:00:00",
+        "modifications": {
+            "epoch_review": {"count": 1, "indices": [1], "times": [], "events": []},
+            "bad_channels": {
+                "modified": [],
+                "original": [],
+                "added": [],
+                "removed": [],
+            },
+            "rejected_ica": {
+                "modified": [],
+                "original": [],
+                "added": [],
+                "removed": [],
+            },
+        },
+    }
+
+    with pytest.raises(
+        ValueError,
+        match="Cannot generate post_epoch_ica reprocess task: no supported epoch creation",
+    ):
+        generate_reprocess_task_from_original(
+            task_path, payload, "ExampleTaskReprocess", "20260326_120000"
+        )
+
+
 def test_generate_post_epoch_ica_task_adds_classifier_after_ica_when_missing(
     tmp_path: Path,
 ):
