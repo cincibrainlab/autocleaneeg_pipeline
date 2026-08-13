@@ -70,6 +70,7 @@ from tqdm import tqdm
 from ulid import ULID
 
 from autoclean.configkit.schema import (
+    SchemaError,
     format_task_config_error,
     validate_task_module_config,
 )
@@ -1495,7 +1496,9 @@ class Pipeline:
         if hasattr(module, "config") and isinstance(module.config, dict):
             try:
                 task_config = validate_task_module_config(module.config)
-            except Exception as exc:
+            except SchemaError as exc:
+                if module_name in sys.modules:
+                    del sys.modules[module_name]
                 message_text = format_task_config_error(
                     exc,
                     getattr(exc, "task_config", module.config),

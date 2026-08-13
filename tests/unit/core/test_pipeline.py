@@ -1,5 +1,6 @@
 """Unit tests for the Pipeline class."""
 
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -214,17 +215,21 @@ class BadTask(Task):
 
         pipeline = Pipeline(output_dir=str(tmp_path / "output"))
 
-        with patch(
-            "autoclean.core.pipeline.user_config.get_custom_task_path",
-            return_value=task_file,
-        ), pytest.raises(
-            ValueError,
-            match="Task config validation failed for BadTask",
-        ) as exc_info:
+        with (
+            patch(
+                "autoclean.core.pipeline.user_config.get_custom_task_path",
+                return_value=task_file,
+            ),
+            pytest.raises(
+                ValueError,
+                match="Task config validation failed for BadTask",
+            ) as exc_info,
+        ):
             pipeline._validate_task("BadTask")
 
         assert "Config path: config['input_path']" in str(exc_info.value)
         assert "Remove the extra key" in str(exc_info.value)
+        assert "user_task_bad_task" not in sys.modules
 
     @patch("autoclean.core.pipeline.manage_database")
     @patch("autoclean.core.pipeline.set_database_path")

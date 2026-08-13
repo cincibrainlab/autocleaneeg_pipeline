@@ -76,6 +76,46 @@ config = {
             "filter_kwargs": None,  # Extra args forwarded to MNE filtering
         },
     },
+    "bad_channel_detection": {
+        "enabled": True,
+        "value": {
+            # "auto" picks thresholds from channel_count_bins below based on
+            # EEG channel count. Other options: "low_density", "mid_density",
+            # "high_density" (force a bin regardless of channel count), or
+            # "legacy" (fixed pre-2025.09 defaults, for reproducibility).
+            "preset": "auto",
+            "cleaning_method": "interpolate",  # 'interpolate', 'drop', or None
+            "channel_count_bins": {
+                "low_density": {
+                    "max_channels": 32,
+                    # Lower = more aggressive. Suggested low-density default: 0.20
+                    "correlation_thresh": 0.20,
+                    # Lower = more aggressive. Suggested low-density default: 4.0
+                    "deviation_thresh": 4.0,
+                    # RANSAC has few neighboring channels to work with below
+                    # ~32 channels and can be unstable; off by default.
+                    "ransac_enabled": False,
+                    # Lower = stricter file flagging. Suggested default: 0.10
+                    "max_bad_fraction": 0.10,
+                },
+                "mid_density": {
+                    "min_channels": 33,
+                    "max_channels": 64,
+                    "correlation_thresh": 0.30,  # Lower = more aggressive
+                    "deviation_thresh": 3.0,  # Lower = more aggressive
+                    "ransac_corr_thresh": 0.65,  # Higher = more aggressive
+                    "max_bad_fraction": 0.15,  # Lower = stricter file flagging
+                },
+                "high_density": {
+                    "min_channels": 65,
+                    "correlation_thresh": 0.35,  # Lower = more aggressive
+                    "deviation_thresh": 2.5,  # Lower = more aggressive
+                    "ransac_corr_thresh": 0.65,  # Higher = more aggressive
+                    "max_bad_fraction": 0.20,  # Lower = stricter file flagging
+                },
+            },
+        },
+    },
     "reference_step": {
         "enabled": True,
         "value": "average",  # Reference type: 'average', specific channels, or None
