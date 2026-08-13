@@ -4,9 +4,7 @@ from autoclean.utils import user_config as user_config_module
 from autoclean.utils.user_config import UserConfigManager, safe_path_exists
 
 
-def test_init_does_not_crash_when_saved_workspace_is_inaccessible(
-    monkeypatch, capsys
-):
+def test_init_does_not_crash_when_saved_workspace_is_inaccessible(monkeypatch, capsys):
     inaccessible = Path("/Volumes/srv2/autoclean")
 
     monkeypatch.setattr(

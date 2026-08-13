@@ -31,6 +31,7 @@ except ImportError:
         except OSError:
             return False
 
+
 # Import logging utilities for warnings
 try:
     from autoclean.utils import logging  # noqa: F401
