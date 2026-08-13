@@ -118,6 +118,47 @@ class MontageCopyError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class MontageMoveResult:
+    """Summary of a move-originals apply step."""
+
+    split_output_root: str
+    planned_manifest: str
+    moved_files: list[dict]
+    skipped_files: list[str]
+    required_bytes: int
+    free_bytes_before: int
+    free_bytes_after_estimate: int
+    same_volume: bool
+    source_volume: str
+    destination_volume: str
+    completed: bool = True
+    errors: list[dict] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class MontageMoveEstimate:
+    """Pre-confirmation size, volume, and free-space estimate for move-originals."""
+
+    split_output_root: str
+    actionable_file_count: int
+    unknown_file_count: int
+    required_bytes: int
+    free_bytes_before: int
+    free_bytes_after_estimate: int
+    same_volume: bool
+    source_volume: str
+    destination_volume: str
+
+
+class MontageMoveError(RuntimeError):
+    """Raised when move-originals fails after recording partial progress."""
+
+    def __init__(self, message: str, partial_result: MontageMoveResult) -> None:
+        super().__init__(message)
+        self.partial_result = partial_result
+
+
+@dataclass(frozen=True)
 class MontageTaskCloneResult:
     """Summary of one cloned task file."""
 
@@ -440,10 +481,153 @@ def estimate_copy_originals_for_plan(
     )
 
 
+def estimate_move_originals_for_plan(
+    plan: MontageBatchPlan,
+    *,
+    split_output_root: Path,
+) -> MontageMoveEstimate:
+    """Estimate move-originals size, volume, and temporary free-space needs."""
+
+    actionable = [result for result in plan.files if result.is_actionable]
+    required_bytes = sum(result.size_bytes for result in actionable)
+    source_root = _nearest_existing_path(Path(plan.input_path))
+    destination_root = _nearest_existing_path(split_output_root.parent)
+    free_before = shutil.disk_usage(destination_root).free
+    source_volume = _volume_identity(source_root)
+    destination_volume = _volume_identity(destination_root)
+    return MontageMoveEstimate(
+        split_output_root=str(split_output_root),
+        actionable_file_count=len(actionable),
+        unknown_file_count=len(plan.unknown_files),
+        required_bytes=required_bytes,
+        free_bytes_before=free_before,
+        free_bytes_after_estimate=free_before - required_bytes,
+        same_volume=source_volume == destination_volume,
+        source_volume=source_volume,
+        destination_volume=destination_volume,
+    )
+
+
+def write_planned_move_manifest(
+    plan: MontageBatchPlan,
+    *,
+    output_dir: Path,
+    split_output_root: Path,
+    estimate: MontageMoveEstimate | None = None,
+) -> Path:
+    """Write the machine-readable planned move manifest before moving files."""
+
+    estimate = estimate or estimate_move_originals_for_plan(
+        plan,
+        split_output_root=split_output_root,
+    )
+    targets = _move_targets_for_plan(plan, split_output_root=split_output_root)
+    _validate_move_plan(plan, targets=targets, estimate=estimate)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = output_dir / "autoclean_montage_move_manifest.json"
+    payload = {
+        "input_path": plan.input_path,
+        "task_path": plan.task_path,
+        "split_output_root": str(split_output_root),
+        "required_bytes": estimate.required_bytes,
+        "free_bytes_before": estimate.free_bytes_before,
+        "free_bytes_after_estimate": estimate.free_bytes_after_estimate,
+        "same_volume": estimate.same_volume,
+        "source_volume": estimate.source_volume,
+        "destination_volume": estimate.destination_volume,
+        "unknown_files": plan.unknown_files,
+        "moves": [
+            {
+                "source": result.path,
+                "destination": str(destination),
+                "detected_montage": result.detected_montage,
+                "size_bytes": result.size_bytes,
+            }
+            for result, destination in targets
+        ],
+    }
+    manifest_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return manifest_path
+
+
+def move_originals_for_plan(
+    plan: MontageBatchPlan,
+    *,
+    split_output_root: Path,
+    planned_manifest: Path,
+    estimate: MontageMoveEstimate | None = None,
+) -> MontageMoveResult:
+    """Copy, verify, then delete actionable originals into montage folders."""
+
+    estimate = estimate or estimate_move_originals_for_plan(
+        plan,
+        split_output_root=split_output_root,
+    )
+    if not planned_manifest.is_file():
+        raise FileNotFoundError(f"Planned move manifest not found: {planned_manifest}")
+    targets = _move_targets_for_plan(plan, split_output_root=split_output_root)
+    _validate_move_plan(plan, targets=targets, estimate=estimate)
+
+    moved: list[dict] = []
+    skipped: list[str] = []
+    base_result = {
+        "split_output_root": str(split_output_root),
+        "planned_manifest": str(planned_manifest),
+        "skipped_files": skipped,
+        "required_bytes": estimate.required_bytes,
+        "free_bytes_before": estimate.free_bytes_before,
+        "free_bytes_after_estimate": estimate.free_bytes_after_estimate,
+        "same_volume": estimate.same_volume,
+        "source_volume": estimate.source_volume,
+        "destination_volume": estimate.destination_volume,
+    }
+
+    for result, destination in targets:
+        source = Path(result.path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            _copy_path(source, destination)
+            _verify_copied_path(destination, result.size_bytes)
+            _delete_path(source)
+        except Exception as exc:
+            partial_result = MontageMoveResult(
+                moved_files=moved,
+                completed=False,
+                errors=[
+                    {
+                        "source": result.path,
+                        "destination": str(destination),
+                        "error": str(exc),
+                    }
+                ],
+                **base_result,
+            )
+            raise MontageMoveError(
+                "Move failed after "
+                f"{len(moved)} file(s): {result.path} -> {destination}: {exc}",
+                partial_result,
+            ) from exc
+
+        moved.append(
+            {
+                "source": result.path,
+                "destination": str(destination),
+                "detected_montage": result.detected_montage,
+                "size_bytes": result.size_bytes,
+                "verified": True,
+                "deleted_source": True,
+            }
+        )
+
+    return MontageMoveResult(moved_files=moved, **base_result)
+
+
 def write_apply_summary(
     *,
     output_dir: Path,
     copy_result: MontageCopyResult | None = None,
+    move_result: MontageMoveResult | None = None,
     cloned_tasks: list[MontageTaskCloneResult] | None = None,
 ) -> Path:
     """Write autoclean_montage_apply_summary.json."""
@@ -452,6 +636,7 @@ def write_apply_summary(
     summary_path = output_dir / "autoclean_montage_apply_summary.json"
     summary = {
         "copy_result": asdict(copy_result) if copy_result else None,
+        "move_result": asdict(move_result) if move_result else None,
         "cloned_tasks": [asdict(task) for task in (cloned_tasks or [])],
     }
     summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
@@ -594,6 +779,78 @@ def _nearest_existing_path(path: Path) -> Path:
             )
         current = parent
     return current
+
+
+def _volume_identity(path: Path) -> str:
+    stat_result = path.stat()
+    return f"device:{stat_result.st_dev}"
+
+
+def _move_targets_for_plan(
+    plan: MontageBatchPlan,
+    *,
+    split_output_root: Path,
+) -> list[tuple[MontagePreflightFileResult, Path]]:
+    return [
+        (
+            result,
+            split_output_root / str(result.detected_montage) / result.relative_path,
+        )
+        for result in plan.files
+        if result.is_actionable
+    ]
+
+
+def _validate_move_plan(
+    plan: MontageBatchPlan,
+    *,
+    targets: list[tuple[MontagePreflightFileResult, Path]],
+    estimate: MontageMoveEstimate,
+) -> None:
+    if plan.unknown_files:
+        raise ValueError(
+            "Refusing to move originals while unknown or unsupported files remain: "
+            + ", ".join(plan.unknown_files)
+        )
+
+    if estimate.required_bytes > estimate.free_bytes_before:
+        raise RuntimeError(
+            "Insufficient temporary free space for montage preflight move: "
+            f"need {estimate.required_bytes} bytes, "
+            f"available {estimate.free_bytes_before} bytes"
+        )
+
+    for _result, destination in targets:
+        if destination.exists():
+            raise FileExistsError(
+                f"Refusing to overwrite existing move destination: {destination}"
+            )
+
+
+def _copy_path(source: Path, destination: Path) -> None:
+    if source.is_dir():
+        shutil.copytree(source, destination)
+    else:
+        shutil.copy2(source, destination)
+
+
+def _verify_copied_path(destination: Path, expected_size_bytes: int) -> None:
+    if not destination.exists():
+        raise FileNotFoundError(f"Move destination was not created: {destination}")
+    actual_size = _path_size(destination)
+    if actual_size != expected_size_bytes:
+        raise RuntimeError(
+            "Move destination size mismatch after copy: "
+            f"{destination} expected {expected_size_bytes} bytes, "
+            f"found {actual_size} bytes"
+        )
+
+
+def _delete_path(source: Path) -> None:
+    if source.is_dir():
+        shutil.rmtree(source)
+    else:
+        source.unlink()
 
 
 def _first_task_class_name(source: str) -> str:
