@@ -30,6 +30,8 @@ except Exception:  # pragma: no cover - optional dep
 THRESHOLD_MODES = ("soft", "hard")
 COMP_REJ_METHODS = ("iclabel", "icvision", "hybrid")
 ICA_METHODS = ("fastica", "infomax", "picard")
+BAD_CHANNEL_PRESETS = ("auto", "low_density", "mid_density", "high_density", "legacy")
+BAD_CHANNEL_CLEANING_METHODS = ("interpolate", "drop")
 IC_FLAGS = (
     "brain",
     "muscle",
@@ -238,6 +240,32 @@ def _component_rejection_descriptor() -> dict:
     }
 
 
+def _bad_channel_detection_descriptor() -> dict:
+    threshold = "number"
+    return {
+        "enabled": "bool",
+        "value": {
+            "preset": "'auto'|'low_density'|'mid_density'|'high_density'|'legacy'",
+            "cleaning_method": "'interpolate'|'drop'|None",
+            "channel_count_bins": {
+                "<bin_name>": {
+                    "min_channels": "integer>=0",
+                    "max_channels": "integer>=0",
+                    "correlation_thresh": threshold,
+                    "deviation_thresh": threshold,
+                    "ransac_sample_prop": threshold,
+                    "ransac_corr_thresh": threshold,
+                    "ransac_frac_bad": threshold,
+                    "ransac_channel_wise": "bool",
+                    "ransac_enabled": "bool",
+                    "cleaning_method": "'interpolate'|'drop'|None",
+                    "max_bad_fraction": threshold,
+                }
+            },
+        },
+    }
+
+
 def _is_non_negative_number(value: object) -> bool:
     try:
         return float(value) >= 0
@@ -391,6 +419,34 @@ def _build_task_settings_schema() -> Schema:
         list,
         None,
     )
+    bad_channel_threshold = Or(int, float)
+    bad_channel_cleaning_method = Or(*BAD_CHANNEL_CLEANING_METHODS, None)
+    bad_channel_bin_schema = {
+        Optional("min_channels"): And(int, _is_non_negative_int),
+        Optional("max_channels"): And(int, _is_non_negative_int),
+        Optional("correlation_thresh"): bad_channel_threshold,
+        Optional("deviation_thresh"): bad_channel_threshold,
+        Optional("ransac_sample_prop"): bad_channel_threshold,
+        Optional("ransac_corr_thresh"): bad_channel_threshold,
+        Optional("ransac_frac_bad"): bad_channel_threshold,
+        Optional("ransac_channel_wise"): bool,
+        Optional("ransac_enabled"): bool,
+        Optional("cleaning_method"): bad_channel_cleaning_method,
+        Optional("max_bad_fraction"): bad_channel_threshold,
+    }
+    bad_channel_detection_value_schema = {
+        Optional("preset"): Or(*BAD_CHANNEL_PRESETS),
+        Optional("cleaning_method"): bad_channel_cleaning_method,
+        Optional("channel_count_bins"): Or({str: bad_channel_bin_schema}, None),
+        Optional("correlation_thresh"): bad_channel_threshold,
+        Optional("deviation_thresh"): bad_channel_threshold,
+        Optional("ransac_sample_prop"): bad_channel_threshold,
+        Optional("ransac_corr_thresh"): bad_channel_threshold,
+        Optional("ransac_frac_bad"): bad_channel_threshold,
+        Optional("ransac_channel_wise"): bool,
+        Optional("ransac_enabled"): bool,
+        Optional("max_bad_fraction"): bad_channel_threshold,
+    }
     matlab_step_value = {
         "kind": Or(*MATLAB_ENTRYPOINT_KINDS),
         "entrypoint": And(str, len),
@@ -495,6 +551,10 @@ def _build_task_settings_schema() -> Schema:
                     Optional("mode"): Or("tag", "skip"),
                     Optional("strict"): bool,
                 },
+            },
+            Optional("bad_channel_detection"): {
+                "enabled": bool,
+                "value": bad_channel_detection_value_schema,
             },
             "eog_step": {**step_bool, "value": eog_value_schema},
             "trim_step": {**step_bool, "value": Or(int, float)},
@@ -776,6 +836,7 @@ def export_task_schema_layout() -> dict:
             "filtering": _filtering_descriptor(),
             "drop_outerlayer": {"enabled": "bool", "value": "list|None"},
             "bad_channel_log": _bad_channel_log_descriptor(),
+            "bad_channel_detection": _bad_channel_detection_descriptor(),
             "exclusion_list": _exclusion_list_descriptor(),
             "eog_step": {
                 "enabled": "bool",

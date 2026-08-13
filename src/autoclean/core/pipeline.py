@@ -69,6 +69,12 @@ import mne
 from tqdm import tqdm
 from ulid import ULID
 
+from autoclean.configkit.schema import (
+    SchemaError,
+    format_task_config_error,
+    validate_task_module_config,
+)
+
 # IMPORT TASKS HERE
 from autoclean.core.task import Task
 from autoclean.io.export import copy_final_files, save_epochs_to_set, save_raw_to_set
@@ -88,9 +94,14 @@ from autoclean.utils.auth import (
 )
 from autoclean.utils.block_errors import BlockDependencyError
 from autoclean.utils.config import hash_and_encode_yaml, load_user_config
-from autoclean.utils.database import create_isolated_database, get_run_record
+from autoclean.utils.database import (
+    create_isolated_database,
+    get_run_record,
+)
 from autoclean.utils.database import manage_database_conditionally as manage_database
-from autoclean.utils.database import set_database_path
+from autoclean.utils.database import (
+    set_database_path,
+)
 from autoclean.utils.exclusion_list import ExclusionListResult, evaluate_exclusion_list
 from autoclean.utils.file_system import (
     STATUS_DIR_NAME,
@@ -1485,7 +1496,18 @@ class Pipeline:
         # Extract config dict from module if available
         task_config = {}
         if hasattr(module, "config") and isinstance(module.config, dict):
-            task_config = module.config
+            try:
+                task_config = validate_task_module_config(module.config)
+            except SchemaError as exc:
+                if module_name in sys.modules:
+                    del sys.modules[module_name]
+                message_text = format_task_config_error(
+                    exc,
+                    getattr(exc, "task_config", module.config),
+                    task_name=task_classes[0].__name__,
+                    task_file=str(task_file_path),
+                )
+                raise ValueError(message_text) from exc
 
         return task_classes[0], task_config
 

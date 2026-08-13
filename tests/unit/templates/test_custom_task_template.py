@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pytest
 
+from autoclean.configkit.schema import validate_task_module_config
+from autoclean.templates.custom_task_template import config as custom_template_config
 from autoclean.utils.template_renderer import (
     render_template,
     validate_python_identifier,
@@ -9,13 +11,27 @@ from autoclean.utils.template_renderer import (
 
 
 def test_custom_task_template_matches_python() -> None:
-    templates_dir = Path(__file__).resolve().parents[3] / "src" / "autoclean" / "templates"
+    templates_dir = (
+        Path(__file__).resolve().parents[3] / "src" / "autoclean" / "templates"
+    )
     jinja_template = templates_dir / "custom_task_template.jinja"
     canonical_python = templates_dir / "custom_task_template.py"
 
     rendered = render_template(jinja_template, {"class_name": "CustomTask"})
 
     assert canonical_python.read_text(encoding="utf-8") == rendered
+
+
+def test_custom_task_template_config_matches_schema() -> None:
+    validated = validate_task_module_config(custom_template_config)
+
+    assert "input_path" not in validated
+    assert validated["bad_channel_detection"]["value"]["preset"] == "auto"
+    assert (
+        validated["bad_channel_detection"]["value"]["cleaning_method"] == "interpolate"
+    )
+    assert "channel_count_bins" in validated["bad_channel_detection"]["value"]
+    assert validated["schema_version"] == custom_template_config["schema_version"]
 
 
 def test_render_template_missing_file(tmp_path: Path) -> None:
