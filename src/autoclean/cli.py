@@ -61,6 +61,16 @@ from autoclean.utils.file_system import update_status_marker
 from autoclean.utils.logging import has_logged_errors, message
 from autoclean.utils.matlab_runtime import detect_matlab_engine, start_matlab_engine
 from autoclean.utils.montage import load_valid_montages
+from autoclean.utils.montage_preflight import (
+    MontageCopyError,
+    build_batch_plan,
+    clone_tasks_for_mismatches,
+    copy_originals_for_plan,
+    estimate_copy_originals_for_plan,
+    write_apply_summary,
+    write_batch_plan_json,
+    write_scan_csv,
+)
 from autoclean.utils.montage_validation import (
     analyze_channels,
     create_3d_plot,
@@ -75,6 +85,11 @@ from autoclean.utils.task_discovery import (
     get_task_by_name,
     get_task_overrides,
     safe_discover_tasks,
+)
+from autoclean.utils.task_montage import (
+    extract_montage_value,
+    locate_montage_block,
+    replace_montage_value,
 )
 from autoclean.utils.template_renderer import (
     render_template,
@@ -1729,6 +1744,71 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         add_help=False,
     )
     attach_rich_help(montage_test_parser)
+
+    montage_preflight_parser = montage_subparsers.add_parser(
+        "preflight",
+        help="Scan inputs for HydroCel montage mismatches before batch processing",
+        add_help=False,
+    )
+    attach_rich_help(montage_preflight_parser)
+    montage_preflight_parser.add_argument(
+        "--input",
+        required=True,
+        type=Path,
+        help="EEG file or folder to scan",
+    )
+    montage_preflight_parser.add_argument(
+        "--task",
+        required=True,
+        type=Path,
+        help="Python task file whose montage config is expected",
+    )
+    montage_preflight_parser.add_argument(
+        "--output",
+        required=True,
+        type=Path,
+        help="Directory for scan CSV, batch-plan JSON, and apply summary",
+    )
+    montage_preflight_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Explicitly select the default review-only mode; cannot be combined with --apply",
+    )
+    montage_preflight_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Apply explicitly requested copy/clone actions",
+    )
+    montage_preflight_parser.add_argument(
+        "--copy-originals",
+        action="store_true",
+        help="Copy actionable inputs into montage-specific folders",
+    )
+    montage_preflight_parser.add_argument(
+        "--split-output-root",
+        type=Path,
+        help="Destination root for copied montage-specific input folders",
+    )
+    montage_preflight_parser.add_argument(
+        "--clone-tasks",
+        action="store_true",
+        help="Clone the selected task for detected mismatch montages",
+    )
+    montage_preflight_parser.add_argument(
+        "--task-output-dir",
+        type=Path,
+        help="Destination directory for cloned task files",
+    )
+    montage_preflight_parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Skip confirmation prompts for apply actions",
+    )
+    montage_preflight_parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Allow overwriting generated copy/clone destinations",
+    )
 
     # Blocks management commands
     blocks_parser = subparsers.add_parser(
@@ -4173,6 +4253,8 @@ def cmd_montage(args) -> int:
         return cmd_montage_set(args)
     if action == "test":
         return cmd_montage_test(args)
+    if action == "preflight":
+        return cmd_montage_preflight(args)
 
     message("error", f"Unknown montage action: {action}")
     return 1
@@ -4219,6 +4301,189 @@ def cmd_montage_list(args) -> int:
     )
 
     return 0
+
+
+def cmd_montage_preflight(args) -> int:
+    """Run montage preflight scan and optional apply steps."""
+
+    console = get_console(args)
+    input_path = Path(args.input)
+    task_path = Path(args.task)
+    output_dir = Path(args.output)
+
+    if not input_path.exists():
+        message("error", f"Input path does not exist: {input_path}")
+        return 1
+    if not task_path.is_file():
+        message("error", f"Task file does not exist: {task_path}")
+        return 1
+    if args.apply and args.dry_run:
+        message("error", "Use either --dry-run or --apply, not both.")
+        return 1
+    if not args.apply and (args.copy_originals or args.clone_tasks):
+        message(
+            "error",
+            "--copy-originals and --clone-tasks require --apply; "
+            "rerun with --apply or omit apply-only flags for dry-run review.",
+        )
+        return 1
+
+    try:
+        plan = build_batch_plan(
+            input_path=input_path,
+            task_path=task_path,
+            output_dir=output_dir,
+        )
+        csv_path = write_scan_csv(plan, output_dir)
+        plan_path = write_batch_plan_json(plan, output_dir)
+    except Exception as exc:  # pylint: disable=broad-except
+        message("error", f"Montage preflight failed: {exc}")
+        return 1
+
+    _print_montage_preflight_summary(console, plan, csv_path, plan_path)
+
+    if not args.apply:
+        console.print(
+            "[muted]Dry run only. No files copied and no tasks cloned.[/muted]"
+        )
+        return 0
+
+    copy_result = None
+    cloned_tasks = []
+
+    if args.copy_originals:
+        if args.split_output_root is None:
+            message("error", "--copy-originals requires --split-output-root")
+            return 1
+        try:
+            copy_estimate = estimate_copy_originals_for_plan(
+                plan,
+                split_output_root=Path(args.split_output_root),
+            )
+        except Exception as exc:  # pylint: disable=broad-except
+            message("error", f"Copy estimate failed: {exc}")
+            return 1
+        _print_montage_copy_estimate(console, copy_estimate)
+        if not args.yes and not _confirm_preflight_action(
+            args,
+            "Copy actionable input files into montage-specific folders?",
+        ):
+            message("info", "Copy step skipped.")
+        else:
+            try:
+                copy_result = copy_originals_for_plan(
+                    plan,
+                    split_output_root=Path(args.split_output_root),
+                    overwrite=args.overwrite,
+                )
+            except MontageCopyError as exc:
+                summary_path = write_apply_summary(
+                    output_dir=output_dir,
+                    copy_result=exc.partial_result,
+                    cloned_tasks=cloned_tasks,
+                )
+                message("error", f"Copy step failed: {exc}")
+                message(
+                    "error",
+                    f"Partial copy summary written: {summary_path}",
+                )
+                return 1
+            except Exception as exc:  # pylint: disable=broad-except
+                message("error", f"Copy step failed: {exc}")
+                return 1
+
+    if args.clone_tasks:
+        if args.task_output_dir is None:
+            message("error", "--clone-tasks requires --task-output-dir")
+            return 1
+        if not args.yes and not _confirm_preflight_action(
+            args,
+            "Clone task files for detected mismatch montages?",
+        ):
+            message("info", "Task clone step skipped.")
+        else:
+            try:
+                cloned_tasks = clone_tasks_for_mismatches(
+                    plan=plan,
+                    task_output_dir=Path(args.task_output_dir),
+                    overwrite=args.overwrite,
+                )
+            except Exception as exc:  # pylint: disable=broad-except
+                message("error", f"Task clone step failed: {exc}")
+                return 1
+
+    summary_path = write_apply_summary(
+        output_dir=output_dir,
+        copy_result=copy_result,
+        cloned_tasks=cloned_tasks,
+    )
+    message("success", f"✓ Montage preflight apply summary written: {summary_path}")
+    return 0
+
+
+def _print_montage_preflight_summary(console, plan, csv_path: Path, plan_path: Path):
+    """Render a compact montage preflight summary."""
+
+    console.print()
+    console.print("[title]Montage Preflight[/title]")
+    console.print(f"Expected montage: [accent]{plan.expected_montage}[/accent]")
+    console.print(f"Files scanned: [accent]{len(plan.files)}[/accent]")
+    console.print()
+
+    table = Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+    table.add_column("Detected", style="accent")
+    table.add_column("Status")
+    table.add_column("Files", justify="right")
+    table.add_column("Examples", style="muted")
+    for group in plan.groups:
+        table.add_row(
+            group.detected_montage,
+            group.status,
+            str(group.file_count),
+            ", ".join(group.examples),
+        )
+    console.print(table)
+    console.print()
+    console.print(f"Scan CSV: [info]{csv_path}[/info]")
+    console.print(f"Batch plan: [info]{plan_path}[/info]")
+    if plan.unknown_files:
+        console.print(
+            f"[warning]{len(plan.unknown_files)} unknown/unsupported file(s) were not routed.[/warning]"
+        )
+
+
+def _print_montage_copy_estimate(console, copy_estimate) -> None:
+    """Render copy-originals size and free-space estimate before confirmation."""
+
+    console.print()
+    console.print("[header]Copy Originals Estimate[/header]")
+    console.print(f"Destination: [info]{copy_estimate.split_output_root}[/info]")
+    console.print(
+        "Actionable files: "
+        f"[accent]{copy_estimate.actionable_file_count}[/accent]"
+        f" ([muted]{copy_estimate.skipped_file_count} skipped/unknown[/muted])"
+    )
+    console.print(
+        "Required space: " f"[accent]{copy_estimate.required_bytes:,} bytes[/accent]"
+    )
+    console.print(
+        "Available space: "
+        f"[accent]{copy_estimate.free_bytes_before:,} bytes[/accent]"
+    )
+    console.print(
+        "Estimated free after copy: "
+        f"[accent]{copy_estimate.free_bytes_after_estimate:,} bytes[/accent]"
+    )
+
+
+def _confirm_preflight_action(args, prompt: str) -> bool:
+    try:
+        from rich.prompt import Confirm
+
+        return Confirm.ask(prompt, default=False)
+    except Exception:
+        response = input(f"{prompt} [y/N] ").strip().lower()
+        return response in {"y", "yes"}
 
 
 def cmd_montage_set(args) -> int:
@@ -4846,83 +5111,22 @@ def _prompt_for_montage(args, montages, current_value):
 def _locate_montage_block(text: str):
     """Find the montage configuration block in a task file."""
 
-    match = re.search(r"[\"']montage[\"']\s*:\s*\{", text)
-    if not match:
+    block = locate_montage_block(text)
+    if block is None:
         return None, None, None
-
-    brace_start = text.find("{", match.start())
-    if brace_start == -1:
-        return None, None, None
-
-    depth = 0
-    in_string: Optional[str] = None
-    escape = False
-
-    for idx in range(brace_start, len(text)):
-        char = text[idx]
-        if in_string:
-            if escape:
-                escape = False
-            elif char == "\\":
-                escape = True
-            elif char == in_string:
-                in_string = None
-        else:
-            if char in {'"', "'"}:
-                in_string = char
-            elif char == "{":
-                depth += 1
-            elif char == "}":
-                depth -= 1
-                if depth == 0:
-                    block_end = idx + 1
-                    block_start = match.start()
-                    return text[block_start:block_end], block_start, block_end
-
-    return None, None, None
+    return block.text, block.start, block.end
 
 
 def _extract_montage_value(block_text: str) -> Optional[str]:
     """Extract the montage value from the montage block."""
 
-    value_match = re.search(
-        r"([\"\']value[\"\']\s*:\s*)(?P<quote>[\"\'])(?P<val>.*?)(?P=quote)",
-        block_text,
-        re.DOTALL,
-    )
-    if value_match:
-        return value_match.group("val")
-
-    none_match = re.search(r"[\"\']value[\"\']\s*:\s*None", block_text)
-    if none_match:
-        return None
-
-    return None
+    return extract_montage_value(block_text)
 
 
 def _replace_montage_value(block_text: str, new_value: str) -> Optional[str]:
     """Return a montage block with the value replaced."""
 
-    string_match = re.search(
-        r"([\"\']value[\"\']\s*:\s*)(?P<quote>[\"\'])(?P<val>.*?)(?P=quote)",
-        block_text,
-        re.DOTALL,
-    )
-    if string_match:
-        prefix = block_text[: string_match.start()]
-        suffix = block_text[string_match.end() :]
-        quote = string_match.group("quote")
-        replacement = f"{string_match.group(1)}{quote}{new_value}{quote}"
-        return prefix + replacement + suffix
-
-    none_match = re.search(r"([\"\']value[\"\']\s*:\s*)None", block_text)
-    if none_match:
-        prefix = block_text[: none_match.start()]
-        suffix = block_text[none_match.end() :]
-        replacement = f'{none_match.group(1)}"{new_value}"'
-        return prefix + replacement + suffix
-
-    return None
+    return replace_montage_value(block_text, new_value)
 
 
 def cmd_review(args) -> int:
