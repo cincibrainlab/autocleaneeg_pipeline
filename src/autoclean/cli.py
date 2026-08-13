@@ -4468,6 +4468,15 @@ def cmd_montage_preflight(args) -> int:
                     planned_manifest=planned_manifest,
                     estimate=move_estimate,
                 )
+                summary_path = write_apply_summary(
+                    output_dir=output_dir,
+                    copy_result=copy_result,
+                    move_result=move_result,
+                    cloned_tasks=cloned_tasks,
+                )
+                console.print(
+                    f"[muted]Post-move apply summary: [info]{summary_path}[/info][/muted]"
+                )
             except MontageMoveError as exc:
                 summary_path = write_apply_summary(
                     output_dir=output_dir,
@@ -4503,6 +4512,16 @@ def cmd_montage_preflight(args) -> int:
                 )
             except Exception as exc:  # pylint: disable=broad-except
                 message("error", f"Task clone step failed: {exc}")
+                summary_path = write_apply_summary(
+                    output_dir=output_dir,
+                    copy_result=copy_result,
+                    move_result=move_result,
+                    cloned_tasks=cloned_tasks,
+                )
+                message(
+                    "error",
+                    f"Apply summary written before clone failure: {summary_path}",
+                )
                 return 1
 
     summary_path = write_apply_summary(
@@ -4579,6 +4598,7 @@ def _print_montage_move_estimate(console, move_estimate) -> None:
         "[warning]Move mode copies each source, verifies the destination size, "
         "then deletes the source. It stops on the first failure.[/warning]"
     )
+    console.print(f"Source: [info]{move_estimate.source_path}[/info]")
     console.print(f"Destination: [info]{move_estimate.split_output_root}[/info]")
     console.print(f"Source volume: [info]{move_estimate.source_volume}[/info]")
     console.print(

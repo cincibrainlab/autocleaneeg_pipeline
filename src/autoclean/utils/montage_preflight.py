@@ -139,6 +139,7 @@ class MontageMoveResult:
 class MontageMoveEstimate:
     """Pre-confirmation size, volume, and free-space estimate for move-originals."""
 
+    source_path: str
     split_output_root: str
     actionable_file_count: int
     unknown_file_count: int
@@ -496,6 +497,7 @@ def estimate_move_originals_for_plan(
     source_volume = _volume_identity(source_root)
     destination_volume = _volume_identity(destination_root)
     return MontageMoveEstimate(
+        source_path=plan.input_path,
         split_output_root=str(split_output_root),
         actionable_file_count=len(actionable),
         unknown_file_count=len(plan.unknown_files),
@@ -634,13 +636,126 @@ def write_apply_summary(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     summary_path = output_dir / "autoclean_montage_apply_summary.json"
+    operation_fields = _apply_summary_operation_fields(
+        copy_result=copy_result,
+        move_result=move_result,
+    )
     summary = {
+        **operation_fields,
         "copy_result": asdict(copy_result) if copy_result else None,
         "move_result": asdict(move_result) if move_result else None,
         "cloned_tasks": [asdict(task) for task in (cloned_tasks or [])],
     }
     summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     return summary_path
+
+
+def _apply_summary_operation_fields(
+    *,
+    copy_result: MontageCopyResult | None,
+    move_result: MontageMoveResult | None,
+) -> dict:
+    """Build top-level audit fields for apply-mode file operations."""
+
+    if move_result:
+        return {
+            "operation": "move_originals",
+            "move_originals": True,
+            "copied_originals": False,
+            "delete_after_verified_copy": True,
+            "requires_user_confirmation": True,
+            "same_volume": move_result.same_volume,
+            "temporary_space_required_bytes": move_result.required_bytes,
+            "skipped_unknown_files": move_result.skipped_files,
+            "file_operations": _move_file_operations(move_result),
+        }
+    if copy_result:
+        return {
+            "operation": "copy_originals",
+            "move_originals": False,
+            "copied_originals": True,
+            "delete_after_verified_copy": False,
+            "requires_user_confirmation": True,
+            "same_volume": None,
+            "temporary_space_required_bytes": copy_result.required_bytes,
+            "skipped_unknown_files": copy_result.skipped_files,
+            "file_operations": _copy_file_operations(copy_result),
+        }
+    return {
+        "operation": None,
+        "move_originals": False,
+        "copied_originals": False,
+        "delete_after_verified_copy": False,
+        "requires_user_confirmation": False,
+        "same_volume": None,
+        "temporary_space_required_bytes": 0,
+        "skipped_unknown_files": [],
+        "file_operations": [],
+    }
+
+
+def _move_file_operations(move_result: MontageMoveResult) -> list[dict]:
+    operations = [
+        {
+            "source": item["source"],
+            "destination": item["destination"],
+            "operation": "move",
+            "bytes": item["size_bytes"],
+            "copy_status": "completed",
+            "verification_status": "completed" if item.get("verified") else "unknown",
+            "delete_source_status": (
+                "completed" if item.get("deleted_source") else "unknown"
+            ),
+            "status": "completed",
+        }
+        for item in move_result.moved_files
+    ]
+    operations.extend(
+        {
+            "source": item.get("source"),
+            "destination": item.get("destination"),
+            "operation": "move",
+            "bytes": item.get("size_bytes"),
+            "copy_status": "unknown",
+            "verification_status": "failed",
+            "delete_source_status": "not_started",
+            "status": "failed",
+            "error": item.get("error"),
+        }
+        for item in move_result.errors
+    )
+    return operations
+
+
+def _copy_file_operations(copy_result: MontageCopyResult) -> list[dict]:
+    operations = [
+        {
+            "source": item["source"],
+            "destination": item["destination"],
+            "operation": "copy",
+            "bytes": item["size_bytes"],
+            "copy_status": "completed",
+            "verification_status": "not_applicable",
+            "delete_source_status": "not_applicable",
+            "status": "completed",
+        }
+        for item in copy_result.copied_files
+    ]
+    operations.extend(
+        {
+            "source": item.get("source"),
+            "destination": item.get("destination"),
+            "operation": "copy",
+            "bytes": item.get("size_bytes"),
+            "copy_status": "failed",
+            "verification_status": "not_applicable",
+            "delete_source_status": "not_applicable",
+            "status": "failed",
+            "error": item.get("error"),
+        }
+        for item in copy_result.errors
+    )
+    return operations
 
 
 def clone_task_for_montage(

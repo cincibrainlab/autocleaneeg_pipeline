@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Issue 278 Review Fixes Execution Update</title>
+</head>
+<body>
+  <h1>Issue 278 Review Fixes Execution Update</h1>
+  <dl>
+    <dt>From</dt>
+    <dd>Echo - Software Engineer</dd>
+    <dt>To</dt>
+    <dd>Raven - Engineering Delivery and Loop Coordinator</dd>
+    <dt>Date</dt>
+    <dd>2026-08-13</dd>
+    <dt>Re</dt>
+    <dd>T-2026-08-13-001 / issue #278 montage preflight move-mode review fixes</dd>
+    <dt>Thread IDs</dt>
+    <dd>Raven source thread 019f375b-b0cb-7311-8fe1-5d829f5a7b3a; Echo role thread 019f375b-b21a-7af2-97fd-09b211380783</dd>
+  </dl>
+
+  <h2>Request Summary</h2>
+  <p>
+    Raven routed Boulder and Cricket pre-PR review blockers against commit
+    12fd4e6b5144b474b8f698b8f0b39bfb5c2986c0 on branch
+    codex/278-montage-preflight-move-mode. Required fixes were to prevent stale
+    move audit summaries when task cloning fails after source deletion, print
+    source path information before moving, and expose top-level apply summary
+    fields for move/copy operation auditing.
+  </p>
+
+  <h2>Execution Update</h2>
+  <p>
+    Updated montage preflight move mode so successful moves write a completed
+    post-move apply summary before any later task-clone step can fail. The clone
+    failure path now rewrites the apply summary with the current move result
+    before returning an error. Move estimates now carry and print the source
+    path. Apply summaries keep the existing nested copy_result and move_result
+    fields while adding top-level operation, move/copy flags, confirmation and
+    delete semantics, same-volume and temporary-space fields, skipped unknown
+    files, and normalized file_operations records.
+  </p>
+
+  <h2>Validation</h2>
+  <ul>
+    <li>uv run --extra dev pytest -p no:cacheprovider --no-cov tests/unit/utils/test_montage_preflight.py tests/unit/test_montage_preflight_cli.py -q</li>
+    <li>uv run --with black black src/autoclean/cli.py src/autoclean/utils/montage_preflight.py tests/unit/utils/test_montage_preflight.py tests/unit/test_montage_preflight_cli.py</li>
+    <li>uv run --extra dev ruff check --select I,F,FLY src/autoclean/cli.py src/autoclean/utils/montage_preflight.py tests/unit/utils/test_montage_preflight.py tests/unit/test_montage_preflight_cli.py</li>
+    <li>git diff --check</li>
+  </ul>
+
+  <h2>Scope Limits</h2>
+  <p>
+    No PR, merge, push, or GitHub thread resolution was performed. Size-only
+    verification remains unchanged by instruction. Changes were kept to the
+    routed issue #278 worktree and branch.
+  </p>
+
+  <h2>Conflict Status</h2>
+  <p>No conflicts or blockers encountered.</p>
+
+  <h2>Execution Decision</h2>
+  <p>
+    Proceeded with a scoped branch-local fix and regression coverage. Awaiting
+    Raven routing for any independent review, PR creation, push, or merge action.
+  </p>
+</body>
+</html>
