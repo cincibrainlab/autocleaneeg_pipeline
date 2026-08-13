@@ -90,6 +90,14 @@ async def get_queue_entries(
                 processed_at=data.get("processed_at"),
                 failed_at=data.get("failed_at"),
                 last_error=data.get("last_error"),
+                expected_montage=data.get("expected_montage"),
+                detected_montage=data.get("detected_montage"),
+                taskfile=data.get("taskfile"),
+                route_review_source_path=data.get("route_review_source_path"),
+                route_review_original_route_id=data.get(
+                    "route_review_original_route_id"
+                ),
+                workspace_context=data.get("workspace_context") or {},
             )
         )
 

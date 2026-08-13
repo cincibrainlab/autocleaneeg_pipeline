@@ -55,6 +55,12 @@ export interface QueueEntry {
   processed_at?: string | null;
   failed_at?: string | null;
   last_error?: string | null;
+  expected_montage?: string | null;
+  detected_montage?: string | null;
+  taskfile?: string | null;
+  route_review_source_path?: string | null;
+  route_review_original_route_id?: string | null;
+  workspace_context?: Record<string, unknown>;
 }
 
 export interface QueueStats {
@@ -149,6 +155,85 @@ export interface RouteFormData {
   priority: number;
   version?: string;
   [key: string]: unknown;
+}
+
+export interface RouteMontageReviewScanRequest {
+  input_path?: string | null;
+  split_output_root?: string | null;
+}
+
+export interface RouteMontageReviewApplyRequest extends RouteMontageReviewScanRequest {
+  confirm: boolean;
+  mode?: "copy" | string;
+  overwrite_existing?: boolean;
+}
+
+export interface RouteMontageReviewGroup {
+  detected_montage: string;
+  status: string;
+  file_count: number;
+  total_size_bytes: number;
+  examples: string[];
+  supported: boolean;
+  suggested_route_id?: string | null;
+  suggested_taskfile?: string | null;
+  suggested_workspace_name?: string | null;
+  suggested_ingestion_folder?: string | null;
+}
+
+export interface RouteMontageReviewFile {
+  path: string;
+  relative_path: string;
+  format_id?: string | null;
+  expected_montage?: string | null;
+  detected_montage?: string | null;
+  status: string;
+  eeg_channel_count?: number | null;
+  e129_present?: boolean;
+  reason?: string;
+  size_bytes?: number;
+  suggested_route_id?: string | null;
+  copy_destination?: string | null;
+}
+
+export interface RouteMontageCopyEstimate {
+  split_output_root: string;
+  actionable_file_count: number;
+  skipped_file_count: number;
+  required_bytes: number;
+  free_bytes_before: number;
+  free_bytes_after_estimate: number;
+}
+
+export interface RouteMontageReviewScanResponse {
+  route_id: string;
+  mode: string;
+  workspace_dir: string;
+  taskfile: string;
+  task_path?: string | null;
+  configured_route_montage: string;
+  expected_task_montage?: string | null;
+  input_paths: string[];
+  split_output_root: string;
+  groups: RouteMontageReviewGroup[];
+  files: RouteMontageReviewFile[];
+  unknown_files: string[];
+  copy_estimate: RouteMontageCopyEstimate;
+  can_apply: boolean;
+  warnings: string[];
+}
+
+export interface RouteMontageReviewApplyResponse {
+  success: boolean;
+  message: string;
+  review: RouteMontageReviewScanResponse;
+  copied_files: Array<Record<string, unknown>>;
+  skipped_files: string[];
+  enqueued: number;
+  updated_queue_entries: number;
+  route_actions: Array<Record<string, unknown>>;
+  cloned_tasks: Array<Record<string, unknown>>;
+  warnings: string[];
 }
 
 export interface TaskOption {
@@ -516,6 +601,10 @@ export const api = {
   enableRoute: (id: string) => json<Record<string, any>>(`/api/routes/${encodeURIComponent(id)}/enable`, "POST", {}),
   disableRoute: (id: string) => json<Record<string, any>>(`/api/routes/${encodeURIComponent(id)}/disable`, "POST", {}),
   syncRoutes: () => json<Record<string, any>>("/api/routes/sync", "POST", {}),
+  scanRouteMontageReview: (id: string, body?: RouteMontageReviewScanRequest) =>
+    json<RouteMontageReviewScanResponse>(`/api/routes/${encodeURIComponent(id)}/montage-review/scan`, "POST", body ?? {}),
+  applyRouteMontageReview: (id: string, body: RouteMontageReviewApplyRequest) =>
+    json<RouteMontageReviewApplyResponse>(`/api/routes/${encodeURIComponent(id)}/montage-review/apply`, "POST", body),
 
   getConfig: () => json<Record<string, any>>("/api/config"),
   getConfigYaml: () => json<{ content: string }>("/api/config/yaml"),
