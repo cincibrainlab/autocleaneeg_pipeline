@@ -79,6 +79,24 @@ class QueueEntry(BaseModel):
         default=None, description="ISO timestamp when failed"
     )
     last_error: Optional[str] = Field(default=None, description="Last error message")
+    expected_montage: Optional[str] = Field(
+        default=None, description="Task montage expected during route review"
+    )
+    detected_montage: Optional[str] = Field(
+        default=None, description="File montage detected during route review"
+    )
+    taskfile: Optional[str] = Field(
+        default=None, description="Task file selected during route review"
+    )
+    route_review_source_path: Optional[str] = Field(
+        default=None, description="Original source path copied by route review"
+    )
+    route_review_original_route_id: Optional[str] = Field(
+        default=None, description="Route ID that initiated route review"
+    )
+    workspace_context: dict[str, Any] = Field(
+        default_factory=dict, description="Suggested workspace context"
+    )
 
 
 class QueueEntriesResponse(BaseModel):
@@ -367,6 +385,122 @@ class SyncResponse(BaseModel):
     live_path: Optional[str] = Field(
         default=None, description="Compiled live config path"
     )
+
+
+class RouteMontageReviewScanRequest(BaseModel):
+    """Request to scan one route's inputs for montage preflight review."""
+
+    input_path: Optional[str] = Field(
+        default=None,
+        description="Optional single input path to scan instead of the route folders",
+    )
+    split_output_root: Optional[str] = Field(
+        default=None,
+        description="Optional copy destination root for the review apply step",
+    )
+
+
+class RouteMontageReviewApplyRequest(RouteMontageReviewScanRequest):
+    """Request to apply a confirmed montage preflight review."""
+
+    confirm: bool = Field(
+        default=False,
+        description="Must be true before filesystem or queue changes are made",
+    )
+    mode: str = Field(
+        default="copy",
+        description="Apply mode. Only copy is supported by issue #277.",
+    )
+    overwrite_existing: bool = Field(
+        default=True,
+        description="Refresh existing copied files in the review split folder",
+    )
+
+
+class RouteMontageReviewGroup(BaseModel):
+    """Grouped route montage preflight result."""
+
+    detected_montage: str = Field(description="Detected montage or unknown")
+    status: str = Field(description="Grouped status")
+    file_count: int = Field(description="Number of files in the group")
+    total_size_bytes: int = Field(description="Total source bytes in the group")
+    examples: list[str] = Field(default_factory=list, description="Example paths")
+    supported: bool = Field(description="Whether the group can be routed")
+    suggested_route_id: Optional[str] = Field(
+        default=None, description="Route ID suggested for this group"
+    )
+    suggested_taskfile: Optional[str] = Field(
+        default=None, description="Task file or task name suggested for this group"
+    )
+    suggested_workspace_name: Optional[str] = Field(
+        default=None, description="Serve workspace name for this group"
+    )
+    suggested_ingestion_folder: Optional[str] = Field(
+        default=None, description="Copy-mode ingestion folder for this group"
+    )
+
+
+class RouteMontageReviewFile(BaseModel):
+    """Per-file route montage preflight result."""
+
+    path: str
+    relative_path: str
+    format_id: Optional[str] = None
+    expected_montage: Optional[str] = None
+    detected_montage: Optional[str] = None
+    status: str
+    eeg_channel_count: Optional[int] = None
+    e129_present: bool = False
+    reason: str = ""
+    size_bytes: int = 0
+    suggested_route_id: Optional[str] = None
+    copy_destination: Optional[str] = None
+
+
+class RouteMontageCopyEstimateResponse(BaseModel):
+    """Copy-mode estimate for a route montage review."""
+
+    split_output_root: str
+    actionable_file_count: int
+    skipped_file_count: int
+    required_bytes: int
+    free_bytes_before: int
+    free_bytes_after_estimate: int
+
+
+class RouteMontageReviewScanResponse(BaseModel):
+    """Structured route montage review scan response."""
+
+    route_id: str
+    mode: str
+    workspace_dir: str
+    taskfile: str
+    task_path: Optional[str] = None
+    configured_route_montage: str
+    expected_task_montage: Optional[str] = None
+    input_paths: list[str]
+    split_output_root: str
+    groups: list[RouteMontageReviewGroup]
+    files: list[RouteMontageReviewFile]
+    unknown_files: list[str]
+    copy_estimate: RouteMontageCopyEstimateResponse
+    can_apply: bool
+    warnings: list[str] = Field(default_factory=list)
+
+
+class RouteMontageReviewApplyResponse(BaseModel):
+    """Result from applying a route montage review."""
+
+    success: bool
+    message: str
+    review: RouteMontageReviewScanResponse
+    copied_files: list[dict[str, Any]] = Field(default_factory=list)
+    skipped_files: list[str] = Field(default_factory=list)
+    enqueued: int = 0
+    updated_queue_entries: int = 0
+    route_actions: list[dict[str, Any]] = Field(default_factory=list)
+    cloned_tasks: list[dict[str, Any]] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class ServiceStatusResponse(BaseModel):

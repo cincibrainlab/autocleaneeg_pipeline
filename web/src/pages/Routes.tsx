@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { Plus, MoreVertical, RefreshCw, Pencil, X, FolderOpen, GitBranch } from "lucide-react";
+import { Plus, MoreVertical, RefreshCw, Pencil, X, FolderOpen, GitBranch, Search, Copy, AlertTriangle } from "lucide-react";
 import { usePolling } from "../hooks/usePolling";
 import { api } from "../lib/api";
-import type { RouteSpec, RouteFormData, TaskOption, MontageOption } from "../lib/api";
+import type { RouteSpec, RouteFormData, TaskOption, MontageOption, RouteMontageReviewScanResponse } from "../lib/api";
 import DataTable from "../components/DataTable";
 import type { Column } from "../components/DataTable";
 import StatusBadge from "../components/StatusBadge";
@@ -49,6 +49,19 @@ function modeDots(modes: string[]) {
 function truncatePath(p: string, max = 40) {
   if (p.length <= max) return p;
   return "..." + p.slice(-(max - 3));
+}
+
+function formatBytes(bytes: number | null | undefined) {
+  const value = bytes ?? 0;
+  if (value < 1024) return `${value} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let size = value / 1024;
+  let index = 0;
+  while (size >= 1024 && index < units.length - 1) {
+    size /= 1024;
+    index += 1;
+  }
+  return `${size.toFixed(size >= 10 ? 1 : 2)} ${units[index] ?? "TB"}`;
 }
 
 function getRouteFormError(form: RouteFormData) {
@@ -187,6 +200,12 @@ export default function RoutesPage() {
   const [showFolderBrowser, setShowFolderBrowser] = useState(false);
   const [montageMenuOpen, setMontageMenuOpen] = useState(false);
   const [activeMontageIndex, setActiveMontageIndex] = useState(-1);
+  const [reviewRoute, setReviewRoute] = useState<RouteSpec | null>(null);
+  const [reviewScan, setReviewScan] = useState<RouteMontageReviewScanResponse | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewApplying, setReviewApplying] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [confirmReviewApply, setConfirmReviewApply] = useState(false);
 
   // Tutorial integration
   const { isActive, currentStep, tutorialData, nextStep } = useTutorial();
@@ -434,6 +453,43 @@ export default function RoutesPage() {
     }
   };
 
+  const scanMontageReview = async (route: RouteSpec) => {
+    setReviewRoute(route);
+    setReviewLoading(true);
+    setReviewError(null);
+    setReviewScan(null);
+    try {
+      const result = await api.scanRouteMontageReview(route.id);
+      setReviewScan(result);
+    } catch (err) {
+      setReviewError(err instanceof Error ? err.message : "Montage review scan failed");
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  const applyMontageReview = async () => {
+    if (!reviewRoute) return;
+    setReviewApplying(true);
+    setReviewError(null);
+    try {
+      const result = await api.applyRouteMontageReview(reviewRoute.id, {
+        confirm: true,
+        mode: "copy",
+      });
+      setReviewScan(result.review);
+      setConfirmReviewApply(false);
+      showNotice(
+        `Montage review copied ${result.copied_files.length} file(s), queued ${result.enqueued}, and skipped ${result.skipped_files.length}.`
+      );
+      refresh();
+    } catch (err) {
+      setReviewError(err instanceof Error ? err.message : "Montage review apply failed");
+    } finally {
+      setReviewApplying(false);
+    }
+  };
+
   const handleConfirm = async () => {
     if (confirmAction) {
       const { type, id } = confirmAction;
@@ -526,6 +582,17 @@ export default function RoutesPage() {
       className: "w-20 text-right",
       render: (r) => (
         <div className="flex items-center justify-end gap-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              scanMontageReview(r);
+            }}
+            title="Review montage preflight"
+            aria-label={`Review montage preflight for route ${r.id}`}
+            className="p-1 rounded hover:bg-surface-50 text-zinc-500 hover:text-zinc-300 transition-colors duration-150"
+          >
+            <Search className="w-3.5 h-3.5" />
+          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -708,6 +775,143 @@ export default function RoutesPage() {
       </div>
 
       {/* Table */}
+      {(reviewRoute || reviewLoading || reviewError) && (
+        <div className="rounded-lg border border-border bg-surface-100 overflow-hidden">
+          <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Search className="h-4 w-4 text-brand" />
+                <h3 className="text-sm font-semibold text-zinc-100">
+                  Montage Review{reviewRoute ? `: ${reviewRoute.id}` : ""}
+                </h3>
+              </div>
+              {reviewScan && (
+                <p className="mt-1 text-xs text-zinc-500">
+                  Expected {reviewScan.expected_task_montage ?? "unknown"} from {reviewScan.taskfile}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {reviewRoute && (
+                <button
+                  onClick={() => scanMontageReview(reviewRoute)}
+                  disabled={reviewLoading || reviewApplying}
+                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-zinc-300 hover:bg-surface-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${reviewLoading ? "animate-spin" : ""}`} />
+                  Scan
+                </button>
+              )}
+              <button
+                onClick={() => setConfirmReviewApply(true)}
+                disabled={!reviewScan?.can_apply || reviewLoading || reviewApplying}
+                className="inline-flex items-center gap-2 rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-brand-900 hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                Apply Copy
+              </button>
+              <button
+                onClick={() => {
+                  setReviewRoute(null);
+                  setReviewScan(null);
+                  setReviewError(null);
+                }}
+                className="rounded p-1 text-zinc-500 hover:bg-surface-50 hover:text-zinc-300"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {reviewError && (
+            <div className="px-4 py-3">
+              <ErrorBanner message={reviewError} onDismiss={() => setReviewError(null)} />
+            </div>
+          )}
+
+          {reviewLoading && (
+            <div className="px-4 py-6 text-sm text-zinc-400">Scanning route inputs...</div>
+          )}
+
+          {reviewScan && !reviewLoading && (
+            <div className="space-y-4 px-4 py-4">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-md border border-border-subtle bg-surface-50/40 px-3 py-2">
+                  <div className="text-xs uppercase text-zinc-600">Copy Required</div>
+                  <div className="mt-1 text-sm font-medium text-zinc-200">
+                    {formatBytes(reviewScan.copy_estimate.required_bytes)}
+                  </div>
+                </div>
+                <div className="rounded-md border border-border-subtle bg-surface-50/40 px-3 py-2">
+                  <div className="text-xs uppercase text-zinc-600">Free Space After</div>
+                  <div className="mt-1 text-sm font-medium text-zinc-200">
+                    {formatBytes(reviewScan.copy_estimate.free_bytes_after_estimate)}
+                  </div>
+                </div>
+                <div className="rounded-md border border-border-subtle bg-surface-50/40 px-3 py-2">
+                  <div className="text-xs uppercase text-zinc-600">Copy Destination</div>
+                  <div className="mt-1 truncate font-mono text-xs text-zinc-300" title={reviewScan.split_output_root}>
+                    {truncatePath(reviewScan.split_output_root, 58)}
+                  </div>
+                </div>
+              </div>
+
+              {reviewScan.warnings.length > 0 && (
+                <div className="flex gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <div className="space-y-1">
+                    {reviewScan.warnings.map((warning) => (
+                      <div key={warning}>{warning}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-border text-sm">
+                  <thead>
+                    <tr className="text-left text-xs uppercase tracking-wide text-zinc-600">
+                      <th className="py-2 pr-4">Detected</th>
+                      <th className="py-2 pr-4">Status</th>
+                      <th className="py-2 pr-4">Files</th>
+                      <th className="py-2 pr-4">Size</th>
+                      <th className="py-2 pr-4">Route</th>
+                      <th className="py-2">Workspace</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border-subtle">
+                    {reviewScan.groups.map((group) => (
+                      <tr key={`${group.detected_montage}-${group.status}`} className="text-zinc-300">
+                        <td className="py-2 pr-4 font-mono text-xs">{group.detected_montage}</td>
+                        <td className="py-2 pr-4">
+                          <StatusBadge
+                            status={group.supported ? "ready" : "attention"}
+                            label={group.supported ? group.status : "Skipped"}
+                          />
+                        </td>
+                        <td className="py-2 pr-4">{group.file_count}</td>
+                        <td className="py-2 pr-4">{formatBytes(group.total_size_bytes)}</td>
+                        <td className="py-2 pr-4 font-mono text-xs">
+                          {group.suggested_route_id ?? "not routed"}
+                        </td>
+                        <td className="py-2 font-mono text-xs">
+                          {group.suggested_workspace_name ?? "not routed"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex flex-wrap gap-3 text-xs text-zinc-500">
+                <span>{reviewScan.copy_estimate.actionable_file_count} file(s) will be copied.</span>
+                <span>{reviewScan.copy_estimate.skipped_file_count} unknown/unsupported file(s) will remain untouched.</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="rounded-lg border border-border bg-surface-100 overflow-hidden">
         <DataTable
           columns={columns}
@@ -738,6 +942,35 @@ export default function RoutesPage() {
         }
         onConfirm={handleConfirm}
         onCancel={() => setConfirmAction(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmReviewApply}
+        title="Apply montage review copy?"
+        message={
+          reviewScan ? (
+            <div className="space-y-2">
+              <p>
+                This will copy {reviewScan.copy_estimate.actionable_file_count} supported file(s)
+                into montage-specific folders and add queue entries for the suggested routes.
+              </p>
+              <p>
+                Copy size is {formatBytes(reviewScan.copy_estimate.required_bytes)} with{" "}
+                {formatBytes(reviewScan.copy_estimate.free_bytes_after_estimate)} estimated free
+                space afterward.
+              </p>
+              <p>
+                {reviewScan.copy_estimate.skipped_file_count} unknown or unsupported file(s) will
+                not be copied or routed.
+              </p>
+            </div>
+          ) : (
+            ""
+          )
+        }
+        confirmLabel={reviewApplying ? "Applying..." : "Apply Copy"}
+        onConfirm={applyMontageReview}
+        onCancel={() => setConfirmReviewApply(false)}
       />
 
       {/* ── Route Modal (Create / Edit) ─────────────────────── */}

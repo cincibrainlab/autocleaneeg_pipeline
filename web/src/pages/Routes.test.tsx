@@ -15,6 +15,8 @@ const { api } = vi.hoisted(() => ({
     unarchiveRoute: vi.fn(),
     enableRoute: vi.fn(),
     disableRoute: vi.fn(),
+    scanRouteMontageReview: vi.fn(),
+    applyRouteMontageReview: vi.fn(),
   },
 }));
 
@@ -67,6 +69,68 @@ describe("Routes page actions", () => {
     api.unarchiveRoute.mockResolvedValue({ success: true });
     api.enableRoute.mockResolvedValue({ success: true });
     api.disableRoute.mockResolvedValue({ success: true });
+    const reviewResponse = {
+      route_id: "route-1",
+      mode: "test",
+      workspace_dir: "/workspace",
+      taskfile: "RestingEyesOpen",
+      task_path: "/workspace/tasks/RestingEyesOpen.py",
+      configured_route_montage: "GSN-HydroCel-129",
+      expected_task_montage: "GSN-HydroCel-129",
+      input_paths: ["/input"],
+      split_output_root: "/workspace/montage-preflight/test/route-1",
+      groups: [
+        {
+          detected_montage: "GSN-HydroCel-128",
+          status: "mismatch",
+          file_count: 2,
+          total_size_bytes: 4096,
+          examples: ["sub-001.set"],
+          supported: true,
+          suggested_route_id: "route-1-gsn-hydrocel-128",
+          suggested_taskfile: "tasks/RestingEyesOpen_GSN_HydroCel_128.py",
+          suggested_workspace_name: "RestingEyesOpen_GSN-HydroCel-128",
+          suggested_ingestion_folder: "/workspace/montage-preflight/test/route-1/GSN-HydroCel-128",
+        },
+        {
+          detected_montage: "unknown",
+          status: "unknown",
+          file_count: 1,
+          total_size_bytes: 100,
+          examples: ["notes.txt"],
+          supported: false,
+          suggested_route_id: null,
+          suggested_taskfile: null,
+          suggested_workspace_name: null,
+          suggested_ingestion_folder: null,
+        },
+      ],
+      files: [],
+      unknown_files: ["/input/notes.txt"],
+      copy_estimate: {
+        split_output_root: "/workspace/montage-preflight/test/route-1",
+        actionable_file_count: 2,
+        skipped_file_count: 1,
+        required_bytes: 4096,
+        free_bytes_before: 100000,
+        free_bytes_after_estimate: 95904,
+      },
+      can_apply: true,
+      warnings: ["1 file(s) are unknown or unsupported and will not be routed."],
+    };
+    api.scanRouteMontageReview.mockResolvedValue(reviewResponse);
+    api.applyRouteMontageReview.mockResolvedValue({
+      success: true,
+      message: "Applied",
+      review: reviewResponse,
+      copied_files: [{ destination: "/workspace/montage-preflight/test/route-1/GSN-HydroCel-128/sub-001.set" }],
+      skipped_files: ["/input/notes.txt"],
+      enqueued: 1,
+      updated_queue_entries: 1,
+      route_actions: [],
+      cloned_tasks: [],
+      warnings: [],
+    });
   });
 
   async function openActionMenu(routeId = "route-1") {
@@ -164,6 +228,38 @@ describe("Routes page actions", () => {
 
     expect(
       screen.getByText("Route 'route-1' disabled. Open Settings and click Apply to publish this change for processing."),
+    ).toBeInTheDocument();
+  });
+
+  it("scans and confirms montage review copy mode", async () => {
+    renderPage();
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Review montage preflight for route route-1",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(api.scanRouteMontageReview).toHaveBeenCalledWith("route-1");
+    });
+    expect(await screen.findByText("Montage Review: route-1")).toBeInTheDocument();
+    expect(screen.getByText("route-1-gsn-hydrocel-128")).toBeInTheDocument();
+    expect(screen.getAllByText("not routed").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Apply Copy" })[0]!);
+    expect(await screen.findByText("Apply montage review copy?")).toBeInTheDocument();
+    const applyButtons = screen.getAllByRole("button", { name: "Apply Copy" });
+    fireEvent.click(applyButtons[applyButtons.length - 1]!);
+
+    await waitFor(() => {
+      expect(api.applyRouteMontageReview).toHaveBeenCalledWith("route-1", {
+        confirm: true,
+        mode: "copy",
+      });
+    });
+    expect(
+      screen.getByText("Montage review copied 1 file(s), queued 1, and skipped 1."),
     ).toBeInTheDocument();
   });
 

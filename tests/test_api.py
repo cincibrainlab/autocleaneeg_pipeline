@@ -437,6 +437,260 @@ class TestServeRoutesApi:
         assert payload["route_id"] == "example-route"
         assert not route_path.exists()
 
+    def test_montage_review_scan_groups_route_context(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, incoming, source_task = _make_montage_review_workspace(tmp_path)
+        source_file = incoming / "sub-001.set"
+        unknown_file = incoming / "notes.txt"
+
+        monkeypatch.setattr(
+            "autoclean.api.routes.serve_routes.build_batch_plan",
+            lambda **kwargs: _fake_montage_review_plan(
+                input_path=kwargs["input_path"],
+                task_path=source_task,
+                output_dir=kwargs["output_dir"],
+                source_file=source_file,
+                unknown_file=unknown_file,
+            ),
+        )
+
+        response = client.post("/api/routes/resting/montage-review/scan")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["route_id"] == "resting"
+        assert payload["expected_task_montage"] == "GSN-HydroCel-129"
+        assert payload["copy_estimate"]["actionable_file_count"] == 1
+        assert payload["copy_estimate"]["skipped_file_count"] == 1
+        assert payload["unknown_files"] == [str(unknown_file)]
+
+        groups = {group["detected_montage"]: group for group in payload["groups"]}
+        assert groups["GSN-HydroCel-128"]["status"] == "mismatch"
+        assert groups["GSN-HydroCel-128"]["suggested_route_id"] == (
+            "resting-gsn-hydrocel-128"
+        )
+        assert groups["GSN-HydroCel-128"]["suggested_taskfile"] == (
+            "tasks/RestingEyesOpen_GSN_HydroCel_128.py"
+        )
+        assert groups["unknown"]["supported"] is False
+        assert payload["can_apply"] is True
+
+    def test_montage_review_apply_requires_confirmation(self, tmp_path: Path) -> None:
+        client, _incoming, _source_task = _make_montage_review_workspace(tmp_path)
+
+        response = client.post(
+            "/api/routes/resting/montage-review/apply",
+            json={"confirm": False, "mode": "copy"},
+        )
+
+        assert response.status_code == 400
+        assert "confirmation" in response.json()["detail"]
+
+    def test_montage_review_apply_copies_supported_files_and_tags_queue(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, incoming, source_task = _make_montage_review_workspace(tmp_path)
+        source_file = incoming / "sub-001.set"
+        unknown_file = incoming / "notes.txt"
+
+        monkeypatch.setattr(
+            "autoclean.api.routes.serve_routes.build_batch_plan",
+            lambda **kwargs: _fake_montage_review_plan(
+                input_path=kwargs["input_path"],
+                task_path=source_task,
+                output_dir=kwargs["output_dir"],
+                source_file=source_file,
+                unknown_file=unknown_file,
+            ),
+        )
+
+        response = client.post(
+            "/api/routes/resting/montage-review/apply",
+            json={"confirm": True, "mode": "copy"},
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["success"] is True
+        assert payload["enqueued"] == 1
+        assert payload["updated_queue_entries"] == 1
+        assert payload["skipped_files"] == [str(unknown_file)]
+        assert payload["route_actions"][0]["route_id"] == "resting-gsn-hydrocel-128"
+
+        copied_path = (
+            tmp_path
+            / "montage-preflight"
+            / "test"
+            / "resting"
+            / "GSN-HydroCel-128"
+            / "sub-001.set"
+        )
+        assert copied_path.read_text(encoding="utf-8") == "eeg"
+        assert not (
+            tmp_path
+            / "montage-preflight"
+            / "test"
+            / "resting"
+            / "unknown"
+            / "notes.txt"
+        ).exists()
+        assert (tmp_path / "tasks" / "RestingEyesOpen_GSN_HydroCel_128.py").exists()
+        assert (tmp_path / "routes" / "resting-gsn-hydrocel-128.yaml").exists()
+
+        queue_payload = json.loads(
+            (tmp_path / "queue-test.json").read_text(encoding="utf-8")
+        )
+        entry = queue_payload["entries"][str(copied_path)]
+        assert entry["route_id"] == "resting-gsn-hydrocel-128"
+        assert entry["expected_montage"] == "GSN-HydroCel-129"
+        assert entry["detected_montage"] == "GSN-HydroCel-128"
+        assert entry["taskfile"] == "tasks/RestingEyesOpen_GSN_HydroCel_128.py"
+        assert entry["route_review_source_path"] == str(source_file)
+        assert entry["route_review_original_route_id"] == "resting"
+        assert entry["workspace_context"]["workspace_name"] == (
+            "RestingEyesOpen_GSN_HydroCel_128-GSN-HydroCel-128-v1"
+        )
+        assert str(unknown_file) not in queue_payload["entries"]
+
+
+def _make_montage_review_workspace(tmp_path: Path) -> tuple[TestClient, Path, Path]:
+    app = create_app(workspace_dir=tmp_path, mode="test")
+    client = TestClient(app, raise_server_exceptions=False)
+
+    incoming = tmp_path / "incoming"
+    incoming.mkdir(parents=True)
+    source_file = incoming / "sub-001.set"
+    source_file.write_text("eeg", encoding="utf-8")
+    (incoming / "notes.txt").write_text("skip", encoding="utf-8")
+
+    tasks_dir = tmp_path / "tasks"
+    tasks_dir.mkdir()
+    source_task = tasks_dir / "RestingEyesOpen.py"
+    source_task.write_text(
+        (
+            "config = {\n"
+            "    'montage': {'enabled': True, 'value': 'GSN-HydroCel-129'},\n"
+            "}\n\n"
+            "class RestingEyesOpen(object):\n"
+            "    pass\n"
+        ),
+        encoding="utf-8",
+    )
+
+    routes_dir = tmp_path / "routes"
+    routes_dir.mkdir()
+    (routes_dir / "resting.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "id": "resting",
+                "modes": ["test"],
+                "enabled": True,
+                "priority": 10,
+                "taskfile": "tasks/RestingEyesOpen.py",
+                "montage": "GSN-HydroCel-129",
+                "version": "v1",
+                "ingestion_folders": [str(incoming)],
+                "file_globs": ["*.set"],
+                "recursive": True,
+                "automation_root": "automations",
+                "workspace_name": "taskfile-montage-version",
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+    base_config = {
+        "mode": "test",
+        "runtime": "runtimes/test",
+        "automation_mode": True,
+        "defaults": {
+            "automation_root": "automations",
+            "workspace_name": "taskfile-montage-version",
+            "file_globs": ["*.set"],
+            "sentinel_ext": ".ready",
+            "recursive": True,
+        },
+        "automations": [],
+    }
+    (tmp_path / "serve-test.yaml").write_text(
+        yaml.safe_dump(base_config, sort_keys=False),
+        encoding="utf-8",
+    )
+    base_config["mode"] = "live"
+    base_config["runtime"] = "runtimes/live"
+    (tmp_path / "serve-live.yaml").write_text(
+        yaml.safe_dump(base_config, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    return client, incoming, source_task
+
+
+def _fake_montage_review_plan(
+    *,
+    input_path: Path,
+    task_path: Path,
+    output_dir: Path,
+    source_file: Path,
+    unknown_file: Path,
+):
+    from autoclean.utils.montage_preflight import (
+        MontageBatchPlan,
+        MontagePreflightFileResult,
+        MontagePreflightGroup,
+    )
+
+    results = [
+        MontagePreflightFileResult(
+            path=str(source_file),
+            relative_path=source_file.relative_to(input_path).as_posix(),
+            format_id="eeglab",
+            expected_montage="GSN-HydroCel-129",
+            detected_montage="GSN-HydroCel-128",
+            status="mismatch",
+            eeg_channel_count=128,
+            e129_present=False,
+            size_bytes=source_file.stat().st_size,
+        ),
+        MontagePreflightFileResult(
+            path=str(unknown_file),
+            relative_path=unknown_file.relative_to(input_path).as_posix(),
+            format_id=None,
+            expected_montage="GSN-HydroCel-129",
+            detected_montage=None,
+            status="unknown",
+            reason="Unsupported file extension",
+            size_bytes=unknown_file.stat().st_size,
+        ),
+    ]
+    return MontageBatchPlan(
+        input_path=str(input_path),
+        task_path=str(task_path),
+        expected_montage="GSN-HydroCel-129",
+        output_dir=str(output_dir),
+        groups=[
+            MontagePreflightGroup(
+                detected_montage="GSN-HydroCel-128",
+                status="mismatch",
+                file_count=1,
+                total_size_bytes=source_file.stat().st_size,
+                examples=["sub-001.set"],
+            ),
+            MontagePreflightGroup(
+                detected_montage="unknown",
+                status="unknown",
+                file_count=1,
+                total_size_bytes=unknown_file.stat().st_size,
+                examples=["notes.txt"],
+            ),
+        ],
+        files=results,
+        unknown_files=[str(unknown_file)],
+        actionable_files=[str(source_file)],
+    )
+
 
 class TestResultsApi:
     """Tests for the results API."""
