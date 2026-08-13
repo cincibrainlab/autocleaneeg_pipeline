@@ -47,10 +47,13 @@ class TestPythonTaskFiles:
         task_content = """
 from typing import Any, Dict
 from autoclean.core.task import Task
+from autoclean.templates.custom_task_template import config as template_config
 
-config = {
-    'resample_step': {'enabled': True, 'value': 250},
-    'filtering': {'enabled': True, 'value': {'l_freq': 1, 'h_freq': 40}}
+config = dict(template_config)
+config['resample_step'] = {'enabled': True, 'value': 250}
+config['filtering'] = {
+    'enabled': True,
+    'value': {'l_freq': 1, 'h_freq': 40, 'notch_freqs': None},
 }
 
 class TestTask(Task):
@@ -184,10 +187,10 @@ class TestTask(Task):
             # Add a Python task
             python_task_content = """
 from autoclean.core.task import Task
+from autoclean.templates.custom_task_template import config as template_config
 
-config = {
-    'resample_step': {'enabled': True, 'value': 250}
-}
+config = dict(template_config)
+config['resample_step'] = {'enabled': True, 'value': 250}
 
 class PythonTask(Task):
     def __init__(self, config):

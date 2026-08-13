@@ -40,10 +40,10 @@ class TestPipelinePythonTasks:
             task_content = """
 from typing import Any, Dict
 from autoclean.core.task import Task
+from autoclean.templates.custom_task_template import config as template_config
 
-config = {
-    'resample_step': {'enabled': True, 'value': 250}
-}
+config = dict(template_config)
+config['resample_step'] = {'enabled': True, 'value': 250}
 
 class MockTestTask(Task):
     def __init__(self, config: Dict[str, Any]):
@@ -146,6 +146,10 @@ class TestListTask(Task):
             # Add Python task
             task_content = """
 from autoclean.core.task import Task
+from autoclean.templates.custom_task_template import config as template_config
+
+config = dict(template_config)
+config['resample_step'] = {'enabled': True, 'value': 250}
 
 class PythonTask(Task):
     def run(self):
@@ -183,11 +187,14 @@ class PythonTask(Task):
             result = pipeline._validate_task("MockPythonTask")
             assert result == "MockPythonTask"
 
-    @pytest.mark.parametrize("lookup,expected", [
-        ("CamelCaseTask", "CamelCaseTask"),
-        ("camelcasetask", "camelcasetask"),
-        ("CAMELCASETASK", "CAMELCASETASK"),
-    ])
+    @pytest.mark.parametrize(
+        "lookup,expected",
+        [
+            ("CamelCaseTask", "CamelCaseTask"),
+            ("camelcasetask", "camelcasetask"),
+            ("CAMELCASETASK", "CAMELCASETASK"),
+        ],
+    )
     def test_validate_task_preserves_input_case_while_matching_case_insensitively(
         self, lookup, expected
     ):
@@ -289,7 +296,6 @@ class PythonTask(Task):
                 assert task in final_tasks
 
 
-
 @pytest.mark.skipif(
     not PIPELINE_AVAILABLE, reason="Pipeline module not available for import"
 )
@@ -325,10 +331,13 @@ class TestPipelineUtilities:
             task_with_settings = """
 from typing import Any, Dict
 from autoclean.core.task import Task
+from autoclean.templates.custom_task_template import config as template_config
 
-config = {
-    'montage': {'enabled': True, 'value': 'GSN-HydroCel-129'},
-    'filtering': {'enabled': True, 'value': {'l_freq': 1, 'h_freq': 40}}
+config = dict(template_config)
+config['montage'] = {'enabled': True, 'value': 'GSN-HydroCel-129'}
+config['filtering'] = {
+    'enabled': True,
+    'value': {'l_freq': 1, 'h_freq': 40, 'notch_freqs': None},
 }
 
 class SettingsTask(Task):

@@ -97,9 +97,11 @@ from autoclean.utils.config import hash_and_encode_yaml, load_user_config
 from autoclean.utils.database import (
     create_isolated_database,
     get_run_record,
-    set_database_path,
 )
 from autoclean.utils.database import manage_database_conditionally as manage_database
+from autoclean.utils.database import (
+    set_database_path,
+)
 from autoclean.utils.exclusion_list import ExclusionListResult, evaluate_exclusion_list
 from autoclean.utils.file_system import (
     STATUS_DIR_NAME,
