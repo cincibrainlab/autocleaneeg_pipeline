@@ -545,6 +545,15 @@ class TestServeRoutesApi:
         assert (audit_root / "autoclean_montage_scan.csv").exists()
         assert (audit_root / "autoclean_montage_batch_plan.json").exists()
         assert (audit_root / "autoclean_montage_apply_summary.json").exists()
+        apply_summary = json.loads(
+            (audit_root / "autoclean_montage_apply_summary.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert apply_summary["cloned_tasks"] == payload["cloned_tasks"]
+        assert apply_summary["cloned_tasks"][0]["class_name"] == (
+            "RestingEyesOpen_GSN_HydroCel_128"
+        )
 
         queue_payload = json.loads(
             (tmp_path / "queue-test.json").read_text(encoding="utf-8")
@@ -560,6 +569,87 @@ class TestServeRoutesApi:
             "RestingEyesOpen_GSN_HydroCel_128-GSN-HydroCel-128-v1"
         )
         assert str(unknown_file) not in queue_payload["entries"]
+
+    @pytest.mark.parametrize("existing_status", ["failed", "processed"])
+    def test_montage_review_apply_requeues_existing_destination_entry(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        existing_status: str,
+    ) -> None:
+        client, incoming, source_task = _make_montage_review_workspace(tmp_path)
+        source_file = incoming / "sub-001.set"
+        unknown_file = incoming / "notes.txt"
+        copied_path = (
+            tmp_path
+            / "montage-preflight"
+            / "test"
+            / "resting"
+            / "GSN-HydroCel-128"
+            / "sub-001.set"
+        )
+        (tmp_path / "queue-test.json").write_text(
+            json.dumps(
+                {
+                    "entries": {
+                        str(copied_path): {
+                            "status": existing_status,
+                            "added_at": "2026-08-13T10:00:00+00:00",
+                            "processed_at": (
+                                "2026-08-13T10:02:00+00:00"
+                                if existing_status == "processed"
+                                else None
+                            ),
+                            "failed_at": (
+                                "2026-08-13T10:03:00+00:00"
+                                if existing_status == "failed"
+                                else None
+                            ),
+                            "last_error": (
+                                "previous failure"
+                                if existing_status == "failed"
+                                else None
+                            ),
+                            "route_id": "old-route",
+                            "ingestion_root": "/old/root",
+                        }
+                    }
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        monkeypatch.setattr(
+            "autoclean.api.routes.serve_routes.build_batch_plan",
+            lambda **kwargs: _fake_montage_review_plan(
+                input_path=kwargs["input_path"],
+                task_path=source_task,
+                output_dir=kwargs["output_dir"],
+                source_file=source_file,
+                unknown_file=unknown_file,
+            ),
+        )
+
+        response = client.post(
+            "/api/routes/resting/montage-review/apply",
+            json={"confirm": True, "mode": "copy"},
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["enqueued"] == 0
+        queue_payload = json.loads(
+            (tmp_path / "queue-test.json").read_text(encoding="utf-8")
+        )
+        entry = queue_payload["entries"][str(copied_path)]
+        assert entry["status"] == "pending"
+        assert entry["processed_at"] is None
+        assert entry["failed_at"] is None
+        assert entry["last_error"] is None
+        assert entry["route_id"] == "resting-gsn-hydrocel-128"
+        assert entry["detected_montage"] == "GSN-HydroCel-128"
 
     def test_montage_review_apply_refuses_existing_copy_by_default(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

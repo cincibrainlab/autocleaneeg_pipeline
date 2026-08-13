@@ -385,6 +385,7 @@ async def apply_route_montage_review(
         write_apply_summary(output_dir=split_output_root, copy_result=copy_result)
 
         cloned_tasks = []
+        cloned_task_results = []
         route_actions = []
 
         from autoclean.utils.serve_routes import sync_route_registry, upsert_route_spec
@@ -409,6 +410,7 @@ async def apply_route_montage_review(
                     status_code=400,
                     detail=f"Task clone validation failed: {exc}",
                 ) from exc
+            cloned_task_results.append(cloned_task)
             cloned_tasks.append(asdict(cloned_task))
 
             _path, _spec, action = upsert_route_spec(
@@ -445,6 +447,12 @@ async def apply_route_montage_review(
         if route_actions:
             sync_route_registry(api_state.workspace_dir, modes=("test", "live"))
 
+        write_apply_summary(
+            output_dir=split_output_root,
+            copy_result=copy_result,
+            cloned_tasks=cloned_task_results,
+        )
+
         from autoclean.utils.ingestion import IngestionQueue
 
         queue = IngestionQueue(api_state.get_queue_path())
@@ -471,6 +479,10 @@ async def apply_route_montage_review(
             entry = queue.entries()[destination_key]
             entry.update(
                 {
+                    "status": "pending",
+                    "processed_at": None,
+                    "failed_at": None,
+                    "last_error": None,
                     "expected_montage": plan.expected_montage,
                     "detected_montage": detected_montage,
                     "taskfile": suggestion["suggested_taskfile"],
