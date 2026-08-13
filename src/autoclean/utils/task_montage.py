@@ -48,7 +48,9 @@ def locate_montage_block(text: str) -> MontageBlock | None:
             elif char == "}":
                 depth -= 1
                 if depth == 0:
-                    return MontageBlock(text[match.start() : index + 1], match.start(), index + 1)
+                    return MontageBlock(
+                        text[match.start() : index + 1], match.start(), index + 1
+                    )
 
     return None
 
@@ -126,7 +128,9 @@ def update_task_montage_file(task_path: Path, new_value: str) -> None:
     """Rewrite a task file, changing only its montage value."""
 
     source = task_path.read_text(encoding="utf-8")
-    task_path.write_text(update_task_montage_source(source, new_value), encoding="utf-8")
+    task_path.write_text(
+        update_task_montage_source(source, new_value), encoding="utf-8"
+    )
 
 
 def replace_task_class_name(source: str, old_name: str, new_name: str) -> str:

@@ -32,9 +32,7 @@ def test_montage_preflight_parser_defaults() -> None:
     assert args.clone_tasks is False
 
 
-def test_cmd_montage_preflight_writes_dry_run_artifacts(
-    monkeypatch, tmp_path
-) -> None:
+def test_cmd_montage_preflight_writes_dry_run_artifacts(monkeypatch, tmp_path) -> None:
     input_file = tmp_path / "sub-01.raw"
     input_file.write_text("raw", encoding="utf-8")
     task_file = tmp_path / "Task.py"

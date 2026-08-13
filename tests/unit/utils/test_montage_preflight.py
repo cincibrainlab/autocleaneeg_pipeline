@@ -27,7 +27,7 @@ class FakeRaw:
 def _task_file(tmp_path: Path, montage: str = "GSN-HydroCel-128") -> Path:
     path = tmp_path / "RestingState_Basic_128.py"
     path.write_text(
-        f'''from autoclean.core.task import Task
+        f"""from autoclean.core.task import Task
 
 config = {{
     "schema_version": "2025.09",
@@ -37,7 +37,7 @@ config = {{
 class RestingStateBasic128(Task):
     def run(self):
         pass
-''',
+""",
         encoding="utf-8",
     )
     return path
@@ -58,14 +58,18 @@ def test_detect_hydrocel_128_and_129_without_dropping_e129() -> None:
 
 
 def test_detect_hydrocel_ambiguous_layout_is_unknown() -> None:
-    detected = detect_hydrocel_montage(FakeRaw([f"E{i}" for i in range(1, 128)] + ["E129"]))
+    detected = detect_hydrocel_montage(
+        FakeRaw([f"E{i}" for i in range(1, 128)] + ["E129"])
+    )
 
     assert detected[0] is None
     assert detected[1] == 128
     assert detected[2] is True
 
 
-def test_build_batch_plan_groups_matching_mixed_and_unknown_files(tmp_path: Path) -> None:
+def test_build_batch_plan_groups_matching_mixed_and_unknown_files(
+    tmp_path: Path,
+) -> None:
     input_dir = tmp_path / "input"
     file_128 = _touch(input_dir / "sub-01.raw")
     file_129 = _touch(input_dir / "sub-02.raw")
@@ -89,7 +93,9 @@ def test_build_batch_plan_groups_matching_mixed_and_unknown_files(tmp_path: Path
         raw_loader=loader,
     )
 
-    statuses = {(item.relative_path, item.detected_montage, item.status) for item in plan.files}
+    statuses = {
+        (item.relative_path, item.detected_montage, item.status) for item in plan.files
+    }
     assert ("sub-01.raw", "GSN-HydroCel-128", "match") in statuses
     assert ("sub-02.raw", "GSN-HydroCel-129", "mismatch") in statuses
     assert ("sub-03.raw", None, "unknown") in statuses
@@ -180,7 +186,9 @@ def test_direct_mff_input_copy_preserves_package_name(tmp_path: Path) -> None:
     assert result.copied_files[0]["destination"] == str(copied_package)
 
 
-def test_task_clone_changes_montage_class_name_and_adds_provenance(tmp_path: Path) -> None:
+def test_task_clone_changes_montage_class_name_and_adds_provenance(
+    tmp_path: Path,
+) -> None:
     input_dir = tmp_path / "input"
     _touch(input_dir / "sub-01.raw")
     task = _task_file(tmp_path)

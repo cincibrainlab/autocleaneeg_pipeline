@@ -135,10 +135,14 @@ def detect_hydrocel_montage(raw) -> tuple[str | None, int | None, bool, str]:
     try:
         ch_types = raw.get_channel_types()
     except Exception:
-        ch_types = ["eeg" if re.fullmatch(r"E\d+", name) else "misc" for name in ch_names]
+        ch_types = [
+            "eeg" if re.fullmatch(r"E\d+", name) else "misc" for name in ch_names
+        ]
 
     eeg_names = [
-        name for name, ch_type in zip(ch_names, ch_types, strict=False) if ch_type == "eeg"
+        name
+        for name, ch_type in zip(ch_names, ch_types, strict=False)
+        if ch_type == "eeg"
     ]
     if not eeg_names and ch_names:
         eeg_names = [name for name in ch_names if re.fullmatch(r"E\d+", name)]
@@ -320,9 +324,13 @@ def copy_originals_for_plan(
     copied: list[dict] = []
     skipped = list(plan.unknown_files)
     for result in actionable:
-        destination = split_output_root / str(result.detected_montage) / result.relative_path
+        destination = (
+            split_output_root / str(result.detected_montage) / result.relative_path
+        )
         if destination.exists() and not overwrite:
-            raise FileExistsError(f"Refusing to overwrite existing destination: {destination}")
+            raise FileExistsError(
+                f"Refusing to overwrite existing destination: {destination}"
+            )
 
         destination.parent.mkdir(parents=True, exist_ok=True)
         source = Path(result.path)
@@ -387,7 +395,9 @@ def clone_task_for_montage(
     destination = task_output_dir / f"{file_stem}.py"
 
     if destination.exists() and not overwrite:
-        raise FileExistsError(f"Refusing to overwrite existing task clone: {destination}")
+        raise FileExistsError(
+            f"Refusing to overwrite existing task clone: {destination}"
+        )
 
     updated = update_task_montage_source(source, target_montage)
     updated = replace_task_class_name(updated, old_class, class_name)
@@ -493,7 +503,9 @@ def _path_size(path: Path) -> int:
 
 
 def _first_task_class_name(source: str) -> str:
-    match = re.search(r"^\s*class\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", source, re.MULTILINE)
+    match = re.search(
+        r"^\s*class\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", source, re.MULTILINE
+    )
     if not match:
         raise ValueError("Could not find a Python task class declaration")
     return match.group(1)
@@ -516,7 +528,7 @@ def _add_clone_provenance_comment(
         "# Montage preflight clone note:\n"
         f"# This task was derived from {source_task_name}, which expected {source_montage}.\n"
         "# At creation, the only intended behavioral change was updating the "
-        f"montage value to \"{target_montage}\".\n"
+        f'montage value to "{target_montage}".\n'
         "# Review this task before processing if any other settings should differ.\n\n"
     )
     return comment + source

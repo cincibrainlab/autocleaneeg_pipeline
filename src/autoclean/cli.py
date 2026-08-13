@@ -4332,7 +4332,9 @@ def cmd_montage_preflight(args) -> int:
     _print_montage_preflight_summary(console, plan, csv_path, plan_path)
 
     if not args.apply:
-        console.print("[muted]Dry run only. No files copied and no tasks cloned.[/muted]")
+        console.print(
+            "[muted]Dry run only. No files copied and no tasks cloned.[/muted]"
+        )
         return 0
 
     copy_result = None
@@ -6069,7 +6071,7 @@ def cmd_wizard(args) -> int:
                 break
 
         # Step 3 — Montage selection
-        (_, _, active_task, active_task_path, current_montage, _) = (
+        _, _, active_task, active_task_path, current_montage, _ = (
             _wizard_collect_state()
         )
 
@@ -6192,7 +6194,7 @@ def cmd_wizard(args) -> int:
                 )
 
         # Step 4 — Input source
-        (*_, _, current_input) = _wizard_collect_state()
+        *_, _, current_input = _wizard_collect_state()
 
         display.header(
             "Step 4 • Input",
