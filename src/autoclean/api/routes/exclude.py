@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 from autoclean.api.pdf_extractor import extract_ica_full
 from autoclean.api.state import api_state
 from autoclean.utils.reprocess_overrides import (
+    POST_EPOCH_ICA_FIX_TYPE,
     epoch_review_override_from_record,
     generate_reprocess_task_from_original,
 )
@@ -33,6 +34,7 @@ _SUFFIXES = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw", "_cl
 _REPROCESS_JOBS: dict[str, dict[str, Any]] = {}
 _PREPROCESSING_LOG_NAME = "preprocessing_log.csv"
 _PREPROCESSING_KEY_COLUMN = "subj_basename"
+POST_EPOCH_ICA_ACTION = "post_epoch_ica"
 
 
 def _strip_suffixes(stem: str) -> str:
@@ -143,6 +145,7 @@ def _default_record(relative_path: str) -> dict[str, Any]:
         "qa_export_path": "",
         "reprocess_modified": False,
         "reprocess_fix_type": "",
+        "reprocess_action": "",
         "reprocess_timestamp": "",
         "modified_source": "web",
         "revision": 0,
@@ -186,6 +189,7 @@ def _save_decisions(root: Path, decisions: dict[str, dict[str, Any]]) -> None:
         "qa_export_path",
         "reprocess_modified",
         "reprocess_fix_type",
+        "reprocess_action",
         "reprocess_timestamp",
         "modified_source",
     ]
@@ -218,6 +222,7 @@ def _save_decisions(root: Path, decisions: dict[str, dict[str, Any]]) -> None:
                     "qa_export_path": record.get("qa_export_path", ""),
                     "reprocess_modified": record.get("reprocess_modified", False),
                     "reprocess_fix_type": record.get("reprocess_fix_type", ""),
+                    "reprocess_action": record.get("reprocess_action", ""),
                     "reprocess_timestamp": record.get("reprocess_timestamp", ""),
                     "modified_source": record.get("modified_source", "web"),
                 }
@@ -413,6 +418,8 @@ def _build_manual_fix_payload(
     record: Optional[dict[str, Any]],
     manual_bad_channels: list[str],
     manual_rejected_ica: list[int],
+    action: str = "",
+    post_epoch_ica: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     task_root = root.parent
     stem = _strip_suffixes(file_path.stem)
@@ -435,6 +442,7 @@ def _build_manual_fix_payload(
         "file_key": file_key,
         "file_stem": stem,
         "fix_type": fix_type,
+        "action": action or "manual_overrides",
         "timestamp": datetime.now().isoformat(),
         "modifications": {
             "epoch_review": epoch_review,
@@ -468,7 +476,80 @@ def _build_manual_fix_payload(
             "task_file_exists": bool(task_file and task_file.exists()),
         },
     }
+    if post_epoch_ica:
+        payload["post_epoch_rejection_ica"] = post_epoch_ica
     return payload
+
+
+def _post_epoch_ica_metadata(
+    record: dict[str, Any], file_path: Path, metadata_json: dict[str, Any]
+) -> tuple[dict[str, Any], Optional[str]]:
+    """Build provenance metadata and a non-blocking warning for post-epoch ICA."""
+    total_epochs = int(record.get("total_epochs", 0) or 0)
+    rejected_epochs = int(record.get("bad_epochs_count", 0) or 0)
+    retained_epochs = max(0, total_epochs - rejected_epochs)
+    epoch_duration_seconds = 0.0
+    try:
+        epochs = _load_epochs(file_path)
+        if len(epochs.times) > 1:
+            epoch_duration_seconds = float(epochs.times[-1] - epochs.times[0])
+        if total_epochs <= 0:
+            total_epochs = len(epochs)
+            retained_epochs = max(0, total_epochs - rejected_epochs)
+    except Exception:
+        pass
+
+    retained_duration_seconds = retained_epochs * epoch_duration_seconds
+    metadata = (
+        metadata_json.get("metadata", {}) if isinstance(metadata_json, dict) else {}
+    )
+    run_ica = metadata.get("step_run_ica", {}) if isinstance(metadata, dict) else {}
+    run_ica_details = run_ica.get("ica", {}) if isinstance(run_ica, dict) else {}
+    ica_settings: dict[str, Any] = {}
+    if isinstance(run_ica_details, dict):
+        ica_kwargs = run_ica_details.get("ica_kwargs", {})
+        if isinstance(ica_kwargs, dict):
+            ica_settings.update(ica_kwargs)
+        for key in ("ica_components", "temp_highpass_for_ica", "ica_fit_data_type"):
+            if key in run_ica_details:
+                ica_settings[key] = run_ica_details[key]
+
+    classifier = (
+        metadata.get("classify_ica_components", {})
+        if isinstance(metadata, dict)
+        else {}
+    )
+    classifier_details = (
+        classifier.get("ica", {}) if isinstance(classifier, dict) else {}
+    )
+    classifier_settings = (
+        dict(classifier_details) if isinstance(classifier_details, dict) else {}
+    )
+    warning = None
+    if retained_epochs <= 1:
+        warning = (
+            "Only "
+            f"{retained_epochs} retained epoch{'s' if retained_epochs != 1 else ''} "
+            "remain after manual epoch rejection. ICA may be unreliable; review "
+            "the regenerated components before using this pass."
+        )
+
+    return (
+        {
+            "label": "post_epoch_rejection_ica",
+            "epochs_before_rejection": total_epochs,
+            "manual_bad_epochs": rejected_epochs,
+            "epochs_after_rejection": retained_epochs,
+            "retained_duration_seconds": retained_duration_seconds,
+            "source_ica_settings": ica_settings,
+            "source_classifier_settings": classifier_settings,
+            "iclabel_rerun": True,
+            "component_rejection_deferred_to_review": True,
+            "parent_file": str(file_path),
+            "parent_run_source": str(file_path),
+        },
+        warning,
+    )
 
 
 def _manual_bad_epoch_indices(record: dict[str, Any]) -> list[int]:
@@ -790,7 +871,10 @@ def _inject_reprocess_metadata(
         metadata["reprocess_reason"] = (
             f"manual_override_{payload.get('fix_type', 'unknown')}"
         )
+        metadata["reprocess_action"] = payload.get("action", "manual_overrides")
         metadata["manual_overrides"] = payload.get("modifications", {})
+        if payload.get("post_epoch_rejection_ica"):
+            metadata["post_epoch_rejection_ica"] = payload["post_epoch_rejection_ica"]
         metadata["original_backup"] = f"exports/backups/{stem}_{timestamp}/"
         metadata_json_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
@@ -982,12 +1066,15 @@ class EpochTopographyResponse(BaseModel):
 class ReprocessRequest(BaseModel):
     manual_bad_channels: list[str] = Field(default_factory=list)
     manual_rejected_ica: list[int] = Field(default_factory=list)
+    action: str = "manual_overrides"
 
 
 class ReprocessResponse(BaseModel):
     job_id: str
     status: str
     message: str
+    action: str = "manual_overrides"
+    warning: Optional[str] = None
 
 
 class QaExportRequest(BaseModel):
@@ -1394,6 +1481,7 @@ async def get_exclude_file_detail(
         reprocess={
             "modified": bool(record.get("reprocess_modified", False)),
             "fix_type": str(record.get("reprocess_fix_type", "")),
+            "action": str(record.get("reprocess_action", "")),
             "timestamp": str(record.get("reprocess_timestamp", "")),
         },
         artifacts={
@@ -1573,6 +1661,7 @@ async def start_reprocess(
     existing_bad_channels = [str(v) for v in record.get("manual_bad_channels", [])]
     existing_rejected_ica = [int(v) for v in record.get("manual_rejected_ica", [])]
     epoch_review = epoch_review_override_from_record(record)
+    action = body.action or "manual_overrides"
     payload_fix_type = _resolve_reprocess_fix_type_with_epochs(
         existing_bad_channels=existing_bad_channels,
         existing_rejected_ica=existing_rejected_ica,
@@ -1580,10 +1669,28 @@ async def start_reprocess(
         next_rejected_ica=manual_rejected_ica,
         manual_bad_epoch_count=int(epoch_review.get("count", 0) or 0),
     )
+    post_epoch_ica_metadata: Optional[dict[str, Any]] = None
+    warning: Optional[str] = None
+    if action == POST_EPOCH_ICA_ACTION:
+        if int(epoch_review.get("count", 0) or 0) <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Post-epoch ICA reprocess requires saved bad epoch selections.",
+            )
+        payload_fix_type = POST_EPOCH_ICA_FIX_TYPE
+        post_epoch_ica_metadata, warning = _post_epoch_ica_metadata(
+            record, file_path, metadata_json
+        )
+    elif action != "manual_overrides":
+        raise HTTPException(
+            status_code=400, detail=f"Unknown reprocess action: {action}"
+        )
+
     record["manual_bad_channels"] = manual_bad_channels
     record["manual_rejected_ica"] = manual_rejected_ica
     record["reprocess_modified"] = True
     record["reprocess_fix_type"] = payload_fix_type
+    record["reprocess_action"] = action
     record["reprocess_timestamp"] = _human_timestamp() if payload_fix_type else ""
     record["modified_source"] = "web"
     payload = _build_manual_fix_payload(
@@ -1594,6 +1701,8 @@ async def start_reprocess(
         record=record,
         manual_bad_channels=manual_bad_channels,
         manual_rejected_ica=manual_rejected_ica,
+        action=action,
+        post_epoch_ica=post_epoch_ica_metadata,
     )
     stem = _strip_suffixes(file_path.stem)
     payload_path = _save_manual_fix_payload(task_root, stem, payload)
@@ -1650,9 +1759,15 @@ async def start_reprocess(
         "file_key": file_key,
         "relative_path": relative_path,
         "exports_root": str(root),
+        "action": action,
+        "warning": warning,
     }
     return ReprocessResponse(
-        job_id=job_id, status="running", message=f"Started reprocess for {stem}"
+        job_id=job_id,
+        status="running",
+        message=f"Started reprocess for {stem}",
+        action=action,
+        warning=warning,
     )
 
 
@@ -1670,6 +1785,8 @@ async def get_reprocess_status(job_id: str) -> dict[str, Any]:
         "running": proc.poll() is None,
         "exit_code": job.get("exit_code"),
         "file_key": job.get("file_key"),
+        "action": job.get("action", "manual_overrides"),
+        "warning": job.get("warning"),
     }
 
 

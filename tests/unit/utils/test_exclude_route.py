@@ -11,25 +11,25 @@ from fastapi import HTTPException
 from autoclean.api.routes import exclude
 from autoclean.api.routes.exclude import (
     EpochReviewUpdate,
-    get_eeg_epochs,
-    get_eeg_manifest,
-    get_exclude_file_detail,
-    get_exclude_ica_summary,
-    get_epoch_review,
-    get_exclude_root,
-    get_reprocess_status,
-    QaExportRequest,
     OverridesUpdate,
+    QaExportRequest,
     _create_qa_preprocessing_log,
     _default_record,
     _load_decisions,
     _resolve_reprocess_fix_type_with_epochs,
     _save_decisions,
     export_to_qa,
+    get_eeg_epochs,
+    get_eeg_manifest,
+    get_epoch_review,
+    get_exclude_file_detail,
+    get_exclude_ica_summary,
+    get_exclude_root,
+    get_reprocess_status,
     list_exclude_files,
-    start_reprocess,
     save_epoch_review,
     save_overrides,
+    start_reprocess,
 )
 from autoclean.api.state import api_state
 
@@ -153,12 +153,14 @@ class _FakeEpochs:
         self.ch_names = ["FP1", "FP2"]
         self.info = {"sfreq": 250.0}
         self.times = np.array([0.0, 0.5, 1.0])
-        self.events = np.array([
-            [0, 0, 101],
-            [250, 0, 102],
-            [500, 0, 103],
-            [750, 0, 104],
-        ])
+        self.events = np.array(
+            [
+                [0, 0, 101],
+                [250, 0, 102],
+                [500, 0, 103],
+                [750, 0, 104],
+            ]
+        )
 
     def drop(self, indices, reason="USER", verbose=False):
         self.dropped.extend(indices)
@@ -173,7 +175,10 @@ class _FakeEpochs:
         if picks is None:
             picks = self.ch_names
         n_channels = len(picks)
-        return np.array([[[0.0, 0.000001, 0.0] for _ in range(n_channels)] for _ in range(4)], dtype=float)
+        return np.array(
+            [[[0.0, 0.000001, 0.0] for _ in range(n_channels)] for _ in range(4)],
+            dtype=float,
+        )
 
 
 @pytest.mark.asyncio
@@ -207,7 +212,9 @@ async def test_export_to_qa_updates_record_and_creates_log(workspace, monkeypatc
     assert (task_root / "qa" / "subject01_comp_epo.set").exists()
     assert (task_root / "qa" / "qa_preprocessing_log.csv").exists()
 
-    updated = json.loads((exports_dir / "autoclean_exclusion_decisions.json").read_text())
+    updated = json.loads(
+        (exports_dir / "autoclean_exclusion_decisions.json").read_text()
+    )
     record = updated["subject01_comp_epo"]
     assert record["qa_export_hash"]
     assert record["qa_export_timestamp"]
@@ -257,7 +264,13 @@ async def test_get_file_detail_includes_postedit_artifact(workspace):
     _workspace_dir, exports_dir = workspace
     set_file = exports_dir / "subject01_comp_epo.set"
     set_file.write_text("", encoding="utf-8")
-    decisions = {"subject01_comp_epo": {**_default_record("subject01_comp_epo.set"), "bad_epoch_indices": "1", "bad_epochs_count": 1}}
+    decisions = {
+        "subject01_comp_epo": {
+            **_default_record("subject01_comp_epo.set"),
+            "bad_epoch_indices": "1",
+            "bad_epochs_count": 1,
+        }
+    }
     _save_decisions(exports_dir, decisions)
     postedit_dir = exports_dir.parent / "postedit"
     postedit_dir.mkdir()
@@ -265,7 +278,10 @@ async def test_get_file_detail_includes_postedit_artifact(workspace):
 
     detail = await get_exclude_file_detail("subject01_comp_epo", route_id=None)
 
-    assert detail.artifacts["postedit"] == "/api/exclude/files/subject01_comp_epo/artifacts/postedit"
+    assert (
+        detail.artifacts["postedit"]
+        == "/api/exclude/files/subject01_comp_epo/artifacts/postedit"
+    )
 
 
 @pytest.mark.asyncio
@@ -276,7 +292,14 @@ async def test_get_exclude_ica_summary_uses_pdf_extractor(workspace, monkeypatch
     ica_dir = exports_dir.parent / "reports" / "ica_components"
     ica_dir.mkdir(parents=True)
     (ica_dir / "subject01_ica_components_all.pdf").write_text("pdf", encoding="utf-8")
-    monkeypatch.setattr(exclude, "extract_ica_full", lambda _path: {"components": [{"component": "IC1"}], "structure": {"detail_page_map": {"IC1": 3}}})
+    monkeypatch.setattr(
+        exclude,
+        "extract_ica_full",
+        lambda _path: {
+            "components": [{"component": "IC1"}],
+            "structure": {"detail_page_map": {"IC1": 3}},
+        },
+    )
 
     result = await get_exclude_ica_summary("subject01_comp_epo", route_id=None)
 
@@ -332,7 +355,10 @@ async def test_reprocess_start_and_status(workspace, monkeypatch):
     status_dir = task_root / "status"
     status_dir.mkdir()
     task_file = status_dir / "ExampleTask.py"
-    task_file.write_text("class ExampleTask:\n    config = {}\n    def run(self):\n        self.clean_bad_channels()\n", encoding="utf-8")
+    task_file.write_text(
+        "class ExampleTask:\n    config = {}\n    def run(self):\n        self.clean_bad_channels()\n",
+        encoding="utf-8",
+    )
 
     monkeypatch.setattr(exclude, "extract_ica_full", lambda _path: {})
     fake_subprocess = _FakeSubprocessModule()
@@ -355,16 +381,135 @@ async def test_reprocess_start_and_status(workspace, monkeypatch):
         route_id=None,
     )
     status = await get_reprocess_status(response.job_id)
-    payload = json.loads((task_root / "qa" / "manual_fixes" / "subject01_manual_fix.json").read_text(encoding="utf-8"))
+    payload = json.loads(
+        (task_root / "qa" / "manual_fixes" / "subject01_manual_fix.json").read_text(
+            encoding="utf-8"
+        )
+    )
 
     assert response.status == "running"
     assert status["job_id"] == response.job_id
     assert payload["modifications"]["epoch_review"]["indices"] == [1, 3]
     assert payload["modifications"]["epoch_review"]["count"] == 2
     assert fake_subprocess.calls[0][:3] == [exclude.sys.executable, "-m", "autoclean"]
-    reprocess_folder_name = Path(exclude._REPROCESS_JOBS[response.job_id]["reprocess_folder"]).name
+    reprocess_folder_name = Path(
+        exclude._REPROCESS_JOBS[response.job_id]["reprocess_folder"]
+    ).name
     assert reprocess_folder_name.startswith("subject01_")
     assert not reprocess_folder_name.startswith(f"{task_root.name}_")
+
+
+@pytest.mark.asyncio
+async def test_post_epoch_ica_reprocess_records_metadata_and_warning(
+    workspace, monkeypatch
+):
+    _workspace_dir, exports_dir = workspace
+    task_root = exports_dir.parent
+    set_file = exports_dir / "subject01_comp_epo.set"
+    set_file.write_text("", encoding="utf-8")
+    reports_dir = task_root / "reports" / "run_reports"
+    reports_dir.mkdir(parents=True)
+    metadata_path = reports_dir / "subject01_autoclean_metadata.json"
+    raw_file = task_root / "subject01_raw.set"
+    raw_file.write_text("", encoding="utf-8")
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "unprocessed_file": str(raw_file),
+                "metadata": {
+                    "import_eeg": {"originalChannelNames": ["FP1", "FP2"]},
+                    "step_run_ica": {
+                        "ica": {
+                            "ica_components": 2,
+                            "ica_kwargs": {
+                                "method": "fastica",
+                                "n_components": None,
+                                "random_state": 97,
+                            },
+                            "ica_fit_data_type": "raw",
+                        }
+                    },
+                    "classify_ica_components": {
+                        "ica": {
+                            "classification_method": "iclabel",
+                            "ica_components": 2,
+                        }
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    status_dir = task_root / "status"
+    status_dir.mkdir()
+    task_file = status_dir / "ExampleTask.py"
+    task_file.write_text(
+        (
+            "from autoclean.core.task import Task\n\n"
+            "config = {}\n\n"
+            "class ExampleTask(Task):\n"
+            "    def run(self):\n"
+            "        self.import_raw()\n"
+            "        self.run_ica()\n"
+            "        self.classify_ica_components(method='iclabel')\n"
+            "        self.create_regular_epochs(export=True)\n"
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(exclude, "_load_epochs", lambda _path: _FakeEpochs())
+    monkeypatch.setattr(exclude, "extract_ica_full", lambda _path: {})
+    fake_subprocess = _FakeSubprocessModule()
+    monkeypatch.setattr(exclude, "subprocess", fake_subprocess)
+
+    decisions = {
+        "subject01_comp_epo": {
+            **_default_record("subject01_comp_epo.set"),
+            "bad_epochs_count": 3,
+            "bad_epoch_indices": "0,1,2",
+            "bad_epoch_times": "0.000,0.500,1.000",
+            "bad_epoch_events": "101,102,103",
+            "total_epochs": 4,
+        }
+    }
+    _save_decisions(exports_dir, decisions)
+
+    response = await start_reprocess(
+        "subject01_comp_epo",
+        exclude.ReprocessRequest(
+            manual_bad_channels=[],
+            manual_rejected_ica=[],
+            action="post_epoch_ica",
+        ),
+        route_id=None,
+    )
+    payload = json.loads(
+        (task_root / "qa" / "manual_fixes" / "subject01_manual_fix.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    generated_task = (status_dir / "subject01_Reprocess.py").read_text(encoding="utf-8")
+
+    assert response.action == "post_epoch_ica"
+    assert response.warning
+    assert payload["fix_type"] == "post_epoch_ica"
+    assert payload["action"] == "post_epoch_ica"
+    assert payload["post_epoch_rejection_ica"]["epochs_before_rejection"] == 4
+    assert payload["post_epoch_rejection_ica"]["epochs_after_rejection"] == 1
+    assert payload["post_epoch_rejection_ica"]["iclabel_rerun"] is True
+    assert payload["post_epoch_rejection_ica"]["source_ica_settings"] == {
+        "method": "fastica",
+        "n_components": None,
+        "random_state": 97,
+        "ica_components": 2,
+        "ica_fit_data_type": "raw",
+    }
+    assert payload["post_epoch_rejection_ica"]["source_classifier_settings"] == {
+        "classification_method": "iclabel",
+        "ica_components": 2,
+    }
+    assert "run_ica(use_epochs=True" in generated_task
+    assert "classify_ica_components(method='iclabel', reject=False" in generated_task
 
 
 @pytest.mark.asyncio
@@ -441,7 +586,10 @@ async def test_second_ica_reprocess_keeps_existing_bad_channels(workspace, monke
 
     assert "manual_bad_channels=['FP1']" in generated_task
     assert "classify_ica_components(reject=False)" in generated_task
-    assert "apply_ica_component_rejection(manual_rejected_components=[1])" in generated_task
+    assert (
+        "apply_ica_component_rejection(manual_rejected_components=[1])"
+        in generated_task
+    )
 
 
 @pytest.mark.asyncio

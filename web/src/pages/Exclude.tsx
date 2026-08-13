@@ -1120,7 +1120,49 @@ export default function ExcludePage() {
       const result = await api.startExcludeReprocess(selectedKey, manualBadChannels, manualRejectedIca, selectedRoute || undefined);
       setReprocessJobId(result.job_id);
       setReprocessStatus(result.status);
-      setReprocessMessage(result.message);
+      setReprocessMessage(result.warning ? `${result.message} ${result.warning}` : result.message);
+      setSaveState("saved");
+    } catch (err) {
+      setSaveState("error");
+      setReprocessStatus("failed");
+      setReprocessMessage(err instanceof Error ? err.message : String(err));
+      setActionError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function startPostEpochIcaReprocess() {
+    if (!selectedKey) return;
+    if (invalidCombinedOverrideChange) {
+      setActionError("Change either bad channels or ICA in this run, not both. Epoch edits can still be combined with channel edits.");
+      return;
+    }
+    if (badEpochs.length === 0) {
+      setActionError("Save at least one bad epoch before rerunning ICA on retained epochs.");
+      return;
+    }
+    const retainedEpochs = Math.max(0, (manifest?.n_epochs ?? 0) - badEpochs.length);
+    const confirmed = window.confirm(
+      `Rerun ICA using retained epochs for ${detail?.name ?? selectedKey}?\n\n` +
+      `Saved bad epochs: ${badEpochs.length}\n` +
+      `Retained epochs: ${retainedEpochs}\n\n` +
+      "This creates a post-epoch-rejection ICA reprocess pass and keeps prior outputs backed up for comparison.",
+    );
+    if (!confirmed) return;
+    setActionError(null);
+    await flushEpochSave();
+    await flushNotesSave();
+    setSaveState("saving");
+    try {
+      const result = await api.startExcludeReprocess(
+        selectedKey,
+        manualBadChannels,
+        manualRejectedIca,
+        selectedRoute || undefined,
+        "post_epoch_ica",
+      );
+      setReprocessJobId(result.job_id);
+      setReprocessStatus(result.status);
+      setReprocessMessage(result.warning ? `${result.message} ${result.warning}` : result.message);
       setSaveState("saved");
     } catch (err) {
       setSaveState("error");
@@ -1175,6 +1217,7 @@ export default function ExcludePage() {
   const channelOverridesDirty = !arraysEqual(manualBadChannels, loadedManualBadChannelsRef.current);
   const icaOverridesDirty = !arraysEqual(manualRejectedIca, loadedManualRejectedIcaRef.current);
   const invalidCombinedOverrideChange = channelOverridesDirty && icaOverridesDirty;
+  const canPostEpochIca = badEpochs.length > 0;
 
   function openTopography(request: TopographyRequest) {
     setTopographyRequest(request);
@@ -1724,6 +1767,7 @@ export default function ExcludePage() {
               <MetricRow label="Epochs reviewed" value={`${detail?.epoch_review.bad_epochs_count ?? 0} bad`} />
               <MetricRow label="Baseline ICA" value={detail?.baseline_rejected_ica.length ? detail.baseline_rejected_ica.join(", ") : "None"} />
               <MetricRow label="Reprocess fix type" value={detail?.reprocess.fix_type || "None"} />
+              <MetricRow label="Reprocess action" value={detail?.reprocess.action || "None"} />
               <MetricRow label="QA export" value={detail?.qa_export.timestamp || "Not exported"} />
             </div>
           </section>
@@ -1850,9 +1894,26 @@ export default function ExcludePage() {
                 Reprocess with Overrides
               </button>
 
+              <button
+                onClick={startPostEpochIcaReprocess}
+                disabled={invalidCombinedOverrideChange || !canPostEpochIca}
+                className="w-full rounded-md border border-brand/40 bg-brand/10 px-3 py-2 text-sm font-medium text-brand hover:bg-brand/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span className="inline-flex items-center justify-center gap-2">
+                  <Brain className="h-4 w-4" />
+                  Rerun ICA using retained epochs
+                </span>
+              </button>
+
               {invalidCombinedOverrideChange ? (
                 <p className="text-[11px] text-amber-400">
                   Change either bad channels or ICA in this run, not both. Channel overrides can carry forward into a later ICA run.
+                </p>
+              ) : null}
+
+              {!canPostEpochIca ? (
+                <p className="text-[11px] text-zinc-500">
+                  Mark and save bad epochs to enable post-epoch-rejection ICA.
                 </p>
               ) : null}
 
