@@ -7,12 +7,16 @@ import pytest
 
 from autoclean.utils.montage_preflight import (
     MontageCopyError,
+    MontageMoveError,
     build_batch_plan,
     clone_tasks_for_mismatches,
     copy_originals_for_plan,
     detect_hydrocel_montage,
     estimate_copy_originals_for_plan,
+    estimate_move_originals_for_plan,
+    move_originals_for_plan,
     write_batch_plan_json,
+    write_planned_move_manifest,
     write_scan_csv,
 )
 
@@ -316,6 +320,7 @@ def test_copy_originals_reports_partial_failure(
         {
             "source": str(file_b),
             "destination": str(tmp_path / "split" / "GSN-HydroCel-128" / "b.raw"),
+            "size_bytes": 4,
             "error": "blocked",
         }
     ]
@@ -338,6 +343,255 @@ def test_direct_mff_input_copy_preserves_package_name(tmp_path: Path) -> None:
     assert copied_package.is_dir()
     assert (copied_package / "signal1.bin").read_text(encoding="utf-8") == "alpha"
     assert result.copied_files[0]["destination"] == str(copied_package)
+
+
+def test_move_originals_refuses_unknown_files(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    file_128 = _touch(input_dir / "sub-01.raw", "alpha")
+    file_unknown = _touch(input_dir / "sub-02.raw", "beta")
+    task = _task_file(tmp_path)
+
+    def loader(path: Path) -> FakeRaw:
+        if path == file_128:
+            return FakeRaw([f"E{i}" for i in range(1, 129)])
+        if path == file_unknown:
+            return FakeRaw([f"E{i}" for i in range(1, 128)])
+        raise AssertionError(f"unexpected path {path}")
+
+    plan = build_batch_plan(
+        input_path=input_dir,
+        task_path=task,
+        output_dir=tmp_path / "out",
+        raw_loader=loader,
+    )
+
+    with pytest.raises(ValueError, match="unknown or unsupported"):
+        write_planned_move_manifest(
+            plan,
+            output_dir=tmp_path / "out",
+            split_output_root=tmp_path / "split",
+        )
+
+    assert file_128.exists()
+    assert file_unknown.exists()
+    assert not (tmp_path / "out" / "autoclean_montage_move_manifest.json").exists()
+
+
+def test_move_originals_blocks_existing_destinations(tmp_path: Path) -> None:
+    input_file = _touch(tmp_path / "input" / "sub-01.raw", "alpha")
+    task = _task_file(tmp_path)
+    plan = build_batch_plan(
+        input_path=input_file,
+        task_path=task,
+        output_dir=tmp_path / "out",
+        raw_loader=lambda _path: FakeRaw([f"E{i}" for i in range(1, 129)]),
+    )
+    _touch(tmp_path / "split" / "GSN-HydroCel-128" / "sub-01.raw", "exists")
+
+    with pytest.raises(FileExistsError, match="overwrite"):
+        write_planned_move_manifest(
+            plan,
+            output_dir=tmp_path / "out",
+            split_output_root=tmp_path / "split",
+        )
+
+    assert input_file.read_text(encoding="utf-8") == "alpha"
+
+
+def test_move_originals_writes_manifest_before_copy(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    input_file = _touch(tmp_path / "input" / "sub-01.raw", "alpha")
+    task = _task_file(tmp_path)
+    output_dir = tmp_path / "out"
+    split_root = tmp_path / "split"
+    plan = build_batch_plan(
+        input_path=input_file,
+        task_path=task,
+        output_dir=output_dir,
+        raw_loader=lambda _path: FakeRaw([f"E{i}" for i in range(1, 129)]),
+    )
+    manifest = write_planned_move_manifest(
+        plan,
+        output_dir=output_dir,
+        split_output_root=split_root,
+    )
+    calls = []
+
+    def fake_copy2(source: Path, destination: Path):
+        assert manifest.is_file()
+        calls.append((source, destination))
+        Path(destination).write_text(Path(source).read_text(encoding="utf-8"))
+
+    monkeypatch.setattr("autoclean.utils.montage_preflight.shutil.copy2", fake_copy2)
+
+    result = move_originals_for_plan(
+        plan,
+        split_output_root=split_root,
+        planned_manifest=manifest,
+    )
+
+    assert calls
+    assert result.planned_manifest == str(manifest)
+    assert result.completed is True
+
+
+def test_move_originals_verifies_before_delete(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    input_file = _touch(tmp_path / "input" / "sub-01.raw", "alpha")
+    task = _task_file(tmp_path)
+    split_root = tmp_path / "split"
+    destination = split_root / "GSN-HydroCel-128" / "sub-01.raw"
+    plan = build_batch_plan(
+        input_path=input_file,
+        task_path=task,
+        output_dir=tmp_path / "out",
+        raw_loader=lambda _path: FakeRaw([f"E{i}" for i in range(1, 129)]),
+    )
+    manifest = write_planned_move_manifest(
+        plan,
+        output_dir=tmp_path / "out",
+        split_output_root=split_root,
+    )
+    expected_size = input_file.stat().st_size
+    original_unlink = Path.unlink
+    delete_checks = []
+
+    def checked_unlink(self, *args, **kwargs):
+        if self == input_file:
+            delete_checks.append(destination.stat().st_size)
+            assert destination.exists()
+            assert destination.stat().st_size == expected_size
+        return original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", checked_unlink)
+
+    move_originals_for_plan(
+        plan,
+        split_output_root=split_root,
+        planned_manifest=manifest,
+    )
+
+    assert delete_checks == [expected_size]
+    assert not input_file.exists()
+    assert destination.read_text(encoding="utf-8") == "alpha"
+
+
+def test_move_originals_preserves_source_on_verification_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    input_file = _touch(tmp_path / "input" / "sub-01.raw", "alpha")
+    task = _task_file(tmp_path)
+    split_root = tmp_path / "split"
+    plan = build_batch_plan(
+        input_path=input_file,
+        task_path=task,
+        output_dir=tmp_path / "out",
+        raw_loader=lambda _path: FakeRaw([f"E{i}" for i in range(1, 129)]),
+    )
+    manifest = write_planned_move_manifest(
+        plan,
+        output_dir=tmp_path / "out",
+        split_output_root=split_root,
+    )
+
+    def fake_copy2(_source: Path, destination: Path):
+        Path(destination).write_text("truncated", encoding="utf-8")
+
+    monkeypatch.setattr("autoclean.utils.montage_preflight.shutil.copy2", fake_copy2)
+
+    with pytest.raises(MontageMoveError) as exc_info:
+        move_originals_for_plan(
+            plan,
+            split_output_root=split_root,
+            planned_manifest=manifest,
+        )
+
+    assert input_file.read_text(encoding="utf-8") == "alpha"
+    assert exc_info.value.partial_result.completed is False
+    assert exc_info.value.partial_result.errors[0]["size_bytes"] == 5
+    assert "size mismatch" in exc_info.value.partial_result.errors[0]["error"]
+
+
+def test_move_originals_refuses_insufficient_temporary_space(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    input_file = _touch(tmp_path / "input" / "sub-01.raw", "alpha")
+    task = _task_file(tmp_path)
+    plan = build_batch_plan(
+        input_path=input_file,
+        task_path=task,
+        output_dir=tmp_path / "out",
+        raw_loader=lambda _path: FakeRaw([f"E{i}" for i in range(1, 129)]),
+    )
+    monkeypatch.setattr(
+        "autoclean.utils.montage_preflight.shutil.disk_usage",
+        lambda _path: type("DiskUsage", (), {"free": 1})(),
+    )
+
+    estimate = estimate_move_originals_for_plan(
+        plan,
+        split_output_root=tmp_path / "split",
+    )
+
+    assert estimate.required_bytes == input_file.stat().st_size
+    with pytest.raises(RuntimeError, match="Insufficient temporary free space"):
+        write_planned_move_manifest(
+            plan,
+            output_dir=tmp_path / "out",
+            split_output_root=tmp_path / "split",
+            estimate=estimate,
+        )
+    assert input_file.exists()
+
+
+def test_move_originals_synthetic_temp_dir_move(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    file_128 = _touch(input_dir / "sub-01.raw", "alpha")
+    file_129 = _touch(input_dir / "sub-02.raw", "bravo")
+    task = _task_file(tmp_path)
+
+    def loader(path: Path) -> FakeRaw:
+        if path == file_128:
+            return FakeRaw([f"E{i}" for i in range(1, 129)])
+        if path == file_129:
+            return FakeRaw([f"E{i}" for i in range(1, 130)])
+        raise AssertionError(f"unexpected path {path}")
+
+    plan = build_batch_plan(
+        input_path=input_dir,
+        task_path=task,
+        output_dir=tmp_path / "out",
+        raw_loader=loader,
+    )
+    manifest = write_planned_move_manifest(
+        plan,
+        output_dir=tmp_path / "out",
+        split_output_root=tmp_path / "split",
+    )
+
+    result = move_originals_for_plan(
+        plan,
+        split_output_root=tmp_path / "split",
+        planned_manifest=manifest,
+    )
+
+    assert result.completed is True
+    assert len(result.moved_files) == 2
+    assert not file_128.exists()
+    assert not file_129.exists()
+    assert (tmp_path / "split" / "GSN-HydroCel-128" / "sub-01.raw").read_text(
+        encoding="utf-8"
+    ) == "alpha"
+    assert (tmp_path / "split" / "GSN-HydroCel-129" / "sub-02.raw").read_text(
+        encoding="utf-8"
+    ) == "bravo"
+    manifest_payload = json.loads(manifest.read_text(encoding="utf-8"))
+    assert [Path(item["source"]).name for item in manifest_payload["moves"]] == [
+        "sub-01.raw",
+        "sub-02.raw",
+    ]
 
 
 def test_task_clone_changes_montage_class_name_and_adds_provenance(

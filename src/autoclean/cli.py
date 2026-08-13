@@ -63,12 +63,17 @@ from autoclean.utils.matlab_runtime import detect_matlab_engine, start_matlab_en
 from autoclean.utils.montage import load_valid_montages
 from autoclean.utils.montage_preflight import (
     MontageCopyError,
+    MontageMoveError,
+    MontageMoveResult,
     build_batch_plan,
     clone_tasks_for_mismatches,
     copy_originals_for_plan,
     estimate_copy_originals_for_plan,
+    estimate_move_originals_for_plan,
+    move_originals_for_plan,
     write_apply_summary,
     write_batch_plan_json,
+    write_planned_move_manifest,
     write_scan_csv,
 )
 from autoclean.utils.montage_validation import (
@@ -1779,15 +1784,23 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         action="store_true",
         help="Apply explicitly requested copy/clone actions",
     )
-    montage_preflight_parser.add_argument(
+    montage_preflight_action_group = (
+        montage_preflight_parser.add_mutually_exclusive_group()
+    )
+    montage_preflight_action_group.add_argument(
         "--copy-originals",
         action="store_true",
         help="Copy actionable inputs into montage-specific folders",
     )
+    montage_preflight_action_group.add_argument(
+        "--move-originals",
+        action="store_true",
+        help="Move actionable inputs into montage-specific folders after copy verification",
+    )
     montage_preflight_parser.add_argument(
         "--split-output-root",
         type=Path,
-        help="Destination root for copied montage-specific input folders",
+        help="Destination root for copied or moved montage-specific input folders",
     )
     montage_preflight_parser.add_argument(
         "--clone-tasks",
@@ -4320,10 +4333,14 @@ def cmd_montage_preflight(args) -> int:
     if args.apply and args.dry_run:
         message("error", "Use either --dry-run or --apply, not both.")
         return 1
-    if not args.apply and (args.copy_originals or args.clone_tasks):
+    move_originals = getattr(args, "move_originals", False)
+    if args.copy_originals and move_originals:
+        message("error", "Use either --copy-originals or --move-originals, not both.")
+        return 1
+    if not args.apply and (args.copy_originals or move_originals or args.clone_tasks):
         message(
             "error",
-            "--copy-originals and --clone-tasks require --apply; "
+            "--copy-originals, --move-originals, and --clone-tasks require --apply; "
             "rerun with --apply or omit apply-only flags for dry-run review.",
         )
         return 1
@@ -4349,6 +4366,7 @@ def cmd_montage_preflight(args) -> int:
         return 0
 
     copy_result = None
+    move_result = None
     cloned_tasks = []
 
     if args.copy_originals:
@@ -4380,6 +4398,7 @@ def cmd_montage_preflight(args) -> int:
                 summary_path = write_apply_summary(
                     output_dir=output_dir,
                     copy_result=exc.partial_result,
+                    move_result=move_result,
                     cloned_tasks=cloned_tasks,
                 )
                 message("error", f"Copy step failed: {exc}")
@@ -4390,6 +4409,89 @@ def cmd_montage_preflight(args) -> int:
                 return 1
             except Exception as exc:  # pylint: disable=broad-except
                 message("error", f"Copy step failed: {exc}")
+                return 1
+
+    if move_originals:
+        if args.split_output_root is None:
+            message("error", "--move-originals requires --split-output-root")
+            return 1
+        try:
+            move_estimate = estimate_move_originals_for_plan(
+                plan,
+                split_output_root=Path(args.split_output_root),
+            )
+        except Exception as exc:  # pylint: disable=broad-except
+            message("error", f"Move estimate failed: {exc}")
+            return 1
+        _print_montage_move_estimate(console, move_estimate)
+        if not args.yes and not _confirm_preflight_action(
+            args,
+            "Move actionable input files into montage-specific folders?",
+        ):
+            message("info", "Move step skipped.")
+        else:
+            try:
+                planned_manifest = write_planned_move_manifest(
+                    plan,
+                    output_dir=output_dir,
+                    split_output_root=Path(args.split_output_root),
+                    estimate=move_estimate,
+                )
+                move_result = MontageMoveResult(
+                    split_output_root=str(args.split_output_root),
+                    planned_manifest=str(planned_manifest),
+                    moved_files=[],
+                    skipped_files=[],
+                    required_bytes=move_estimate.required_bytes,
+                    free_bytes_before=move_estimate.free_bytes_before,
+                    free_bytes_after_estimate=move_estimate.free_bytes_after_estimate,
+                    same_volume=move_estimate.same_volume,
+                    source_volume=move_estimate.source_volume,
+                    destination_volume=move_estimate.destination_volume,
+                    completed=False,
+                )
+                summary_path = write_apply_summary(
+                    output_dir=output_dir,
+                    copy_result=copy_result,
+                    move_result=move_result,
+                    cloned_tasks=cloned_tasks,
+                )
+                console.print(
+                    f"[muted]Planned move manifest: [info]{planned_manifest}[/info][/muted]"
+                )
+                console.print(
+                    f"[muted]Pre-move apply summary: [info]{summary_path}[/info][/muted]"
+                )
+                move_result = move_originals_for_plan(
+                    plan,
+                    split_output_root=Path(args.split_output_root),
+                    planned_manifest=planned_manifest,
+                    estimate=move_estimate,
+                )
+                summary_path = write_apply_summary(
+                    output_dir=output_dir,
+                    copy_result=copy_result,
+                    move_result=move_result,
+                    cloned_tasks=cloned_tasks,
+                )
+                console.print(
+                    f"[muted]Post-move apply summary: [info]{summary_path}[/info][/muted]"
+                )
+            except MontageMoveError as exc:
+                summary_path = write_apply_summary(
+                    output_dir=output_dir,
+                    copy_result=copy_result,
+                    move_result=exc.partial_result,
+                    cloned_tasks=cloned_tasks,
+                )
+                message("error", f"Move step failed: {exc}")
+                message(
+                    "error",
+                    f"Partial move summary written: {summary_path}",
+                )
+                return 1
+            except Exception as exc:  # pylint: disable=broad-except
+                message("error", f"Move step failed: {exc}")
                 return 1
 
     if args.clone_tasks:
@@ -4410,11 +4512,22 @@ def cmd_montage_preflight(args) -> int:
                 )
             except Exception as exc:  # pylint: disable=broad-except
                 message("error", f"Task clone step failed: {exc}")
+                summary_path = write_apply_summary(
+                    output_dir=output_dir,
+                    copy_result=copy_result,
+                    move_result=move_result,
+                    cloned_tasks=cloned_tasks,
+                )
+                message(
+                    "error",
+                    f"Apply summary written before clone failure: {summary_path}",
+                )
                 return 1
 
     summary_path = write_apply_summary(
         output_dir=output_dir,
         copy_result=copy_result,
+        move_result=move_result,
         cloned_tasks=cloned_tasks,
     )
     message("success", f"✓ Montage preflight apply summary written: {summary_path}")
@@ -4473,6 +4586,44 @@ def _print_montage_copy_estimate(console, copy_estimate) -> None:
     console.print(
         "Estimated free after copy: "
         f"[accent]{copy_estimate.free_bytes_after_estimate:,} bytes[/accent]"
+    )
+
+
+def _print_montage_move_estimate(console, move_estimate) -> None:
+    """Render move-originals warning, volume, and free-space estimate."""
+
+    console.print()
+    console.print("[header]Move Originals Estimate[/header]")
+    console.print(
+        "[warning]Move mode copies each source, verifies the destination size, "
+        "then deletes the source. It stops on the first failure.[/warning]"
+    )
+    console.print(f"Source: [info]{move_estimate.source_path}[/info]")
+    console.print(f"Destination: [info]{move_estimate.split_output_root}[/info]")
+    console.print(f"Source volume: [info]{move_estimate.source_volume}[/info]")
+    console.print(
+        f"Destination volume: [info]{move_estimate.destination_volume}[/info]"
+    )
+    console.print(
+        "Same volume: "
+        f"[accent]{'yes' if move_estimate.same_volume else 'no'}[/accent]"
+    )
+    console.print(
+        "Actionable files: "
+        f"[accent]{move_estimate.actionable_file_count}[/accent]"
+        f" ([muted]{move_estimate.unknown_file_count} unknown[/muted])"
+    )
+    console.print(
+        "Temporary space needed before source deletion: "
+        f"[accent]{move_estimate.required_bytes:,} bytes[/accent]"
+    )
+    console.print(
+        "Available destination space: "
+        f"[accent]{move_estimate.free_bytes_before:,} bytes[/accent]"
+    )
+    console.print(
+        "Estimated free after copy-before-delete: "
+        f"[accent]{move_estimate.free_bytes_after_estimate:,} bytes[/accent]"
     )
 
 
