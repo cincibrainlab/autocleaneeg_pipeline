@@ -412,8 +412,8 @@ class RouteMontageReviewApplyRequest(RouteMontageReviewScanRequest):
         description="Apply mode. Only copy is supported by issue #277.",
     )
     overwrite_existing: bool = Field(
-        default=True,
-        description="Refresh existing copied files in the review split folder",
+        default=False,
+        description="Overwrite existing copied files and task clones only when explicitly requested",
     )
 
 

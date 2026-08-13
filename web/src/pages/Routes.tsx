@@ -206,6 +206,7 @@ export default function RoutesPage() {
   const [reviewApplying, setReviewApplying] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [confirmReviewApply, setConfirmReviewApply] = useState(false);
+  const [reviewOverwriteExisting, setReviewOverwriteExisting] = useState(false);
 
   // Tutorial integration
   const { isActive, currentStep, tutorialData, nextStep } = useTutorial();
@@ -458,6 +459,7 @@ export default function RoutesPage() {
     setReviewLoading(true);
     setReviewError(null);
     setReviewScan(null);
+    setReviewOverwriteExisting(false);
     try {
       const result = await api.scanRouteMontageReview(route.id);
       setReviewScan(result);
@@ -476,9 +478,11 @@ export default function RoutesPage() {
       const result = await api.applyRouteMontageReview(reviewRoute.id, {
         confirm: true,
         mode: "copy",
+        ...(reviewOverwriteExisting ? { overwrite_existing: true } : {}),
       });
       setReviewScan(result.review);
       setConfirmReviewApply(false);
+      setReviewOverwriteExisting(false);
       showNotice(
         `Montage review copied ${result.copied_files.length} file(s), queued ${result.enqueued}, and skipped ${result.skipped_files.length}.`
       );
@@ -835,11 +839,17 @@ export default function RoutesPage() {
 
           {reviewScan && !reviewLoading && (
             <div className="space-y-4 px-4 py-4">
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-4">
                 <div className="rounded-md border border-border-subtle bg-surface-50/40 px-3 py-2">
                   <div className="text-xs uppercase text-zinc-600">Copy Required</div>
                   <div className="mt-1 text-sm font-medium text-zinc-200">
                     {formatBytes(reviewScan.copy_estimate.required_bytes)}
+                  </div>
+                </div>
+                <div className="rounded-md border border-border-subtle bg-surface-50/40 px-3 py-2">
+                  <div className="text-xs uppercase text-zinc-600">Free Space Before</div>
+                  <div className="mt-1 text-sm font-medium text-zinc-200">
+                    {formatBytes(reviewScan.copy_estimate.free_bytes_before)}
                   </div>
                 </div>
                 <div className="rounded-md border border-border-subtle bg-surface-50/40 px-3 py-2">
@@ -955,14 +965,31 @@ export default function RoutesPage() {
                 into montage-specific folders and add queue entries for the suggested routes.
               </p>
               <p>
+                Supported mismatched groups may create cloned task files and route specs after the
+                copy succeeds.
+              </p>
+              <p>
                 Copy size is {formatBytes(reviewScan.copy_estimate.required_bytes)} with{" "}
-                {formatBytes(reviewScan.copy_estimate.free_bytes_after_estimate)} estimated free
-                space afterward.
+                {formatBytes(reviewScan.copy_estimate.free_bytes_before)} free before copy and{" "}
+                {formatBytes(reviewScan.copy_estimate.free_bytes_after_estimate)} estimated free space
+                afterward.
               </p>
               <p>
                 {reviewScan.copy_estimate.skipped_file_count} unknown or unsupported file(s) will
                 not be copied or routed.
               </p>
+              <label className="flex items-start gap-2 pt-2 text-sm text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={reviewOverwriteExisting}
+                  onChange={(event) => setReviewOverwriteExisting(event.target.checked)}
+                  className="mt-0.5 rounded border-border bg-surface-100 text-brand focus:ring-brand/50"
+                />
+                <span>
+                  Overwrite existing copied files and generated task clones when destinations
+                  already exist.
+                </span>
+              </label>
             </div>
           ) : (
             ""
@@ -970,7 +997,10 @@ export default function RoutesPage() {
         }
         confirmLabel={reviewApplying ? "Applying..." : "Apply Copy"}
         onConfirm={applyMontageReview}
-        onCancel={() => setConfirmReviewApply(false)}
+        onCancel={() => {
+          setConfirmReviewApply(false);
+          setReviewOverwriteExisting(false);
+        }}
       />
 
       {/* ── Route Modal (Create / Edit) ─────────────────────── */}

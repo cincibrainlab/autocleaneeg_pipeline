@@ -244,6 +244,7 @@ describe("Routes page actions", () => {
       expect(api.scanRouteMontageReview).toHaveBeenCalledWith("route-1");
     });
     expect(await screen.findByText("Montage Review: route-1")).toBeInTheDocument();
+    expect(screen.getByText("Free Space Before")).toBeInTheDocument();
     expect(screen.getByText("route-1-gsn-hydrocel-128")).toBeInTheDocument();
     expect(screen.getAllByText("not routed").length).toBeGreaterThan(0);
 
@@ -261,6 +262,50 @@ describe("Routes page actions", () => {
     expect(
       screen.getByText("Montage review copied 1 file(s), queued 1, and skipped 1."),
     ).toBeInTheDocument();
+  });
+
+  it("does not apply montage review when confirmation is cancelled", async () => {
+    renderPage();
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Review montage preflight for route route-1",
+      }),
+    );
+    await screen.findByText("Montage Review: route-1");
+    fireEvent.click(screen.getAllByRole("button", { name: "Apply Copy" })[0]!);
+    expect(await screen.findByText("Apply montage review copy?")).toBeInTheDocument();
+    expect(screen.getByText(/cloned task files and route specs/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(api.applyRouteMontageReview).not.toHaveBeenCalled();
+  });
+
+  it("sends overwrite only after the operator opts in", async () => {
+    renderPage();
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Review montage preflight for route route-1",
+      }),
+    );
+    await screen.findByText("Montage Review: route-1");
+    fireEvent.click(screen.getAllByRole("button", { name: "Apply Copy" })[0]!);
+    fireEvent.click(
+      await screen.findByLabelText(/Overwrite existing copied files/i),
+    );
+
+    const applyButtons = screen.getAllByRole("button", { name: "Apply Copy" });
+    fireEvent.click(applyButtons[applyButtons.length - 1]!);
+
+    await waitFor(() => {
+      expect(api.applyRouteMontageReview).toHaveBeenCalledWith("route-1", {
+        confirm: true,
+        mode: "copy",
+        overwrite_existing: true,
+      });
+    });
   });
 
   it("shows action errors instead of success notice when an action fails", async () => {

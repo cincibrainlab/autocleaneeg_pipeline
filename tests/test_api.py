@@ -463,6 +463,10 @@ class TestServeRoutesApi:
         assert payload["expected_task_montage"] == "GSN-HydroCel-129"
         assert payload["copy_estimate"]["actionable_file_count"] == 1
         assert payload["copy_estimate"]["skipped_file_count"] == 1
+        assert (
+            payload["copy_estimate"]["free_bytes_before"]
+            >= payload["copy_estimate"]["required_bytes"]
+        )
         assert payload["unknown_files"] == [str(unknown_file)]
 
         groups = {group["detected_montage"]: group for group in payload["groups"]}
@@ -537,6 +541,10 @@ class TestServeRoutesApi:
         ).exists()
         assert (tmp_path / "tasks" / "RestingEyesOpen_GSN_HydroCel_128.py").exists()
         assert (tmp_path / "routes" / "resting-gsn-hydrocel-128.yaml").exists()
+        audit_root = tmp_path / "montage-preflight" / "test" / "resting"
+        assert (audit_root / "autoclean_montage_scan.csv").exists()
+        assert (audit_root / "autoclean_montage_batch_plan.json").exists()
+        assert (audit_root / "autoclean_montage_apply_summary.json").exists()
 
         queue_payload = json.loads(
             (tmp_path / "queue-test.json").read_text(encoding="utf-8")
@@ -552,6 +560,122 @@ class TestServeRoutesApi:
             "RestingEyesOpen_GSN_HydroCel_128-GSN-HydroCel-128-v1"
         )
         assert str(unknown_file) not in queue_payload["entries"]
+
+    def test_montage_review_apply_refuses_existing_copy_by_default(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, incoming, source_task = _make_montage_review_workspace(tmp_path)
+        source_file = incoming / "sub-001.set"
+        unknown_file = incoming / "notes.txt"
+        existing_copy = (
+            tmp_path
+            / "montage-preflight"
+            / "test"
+            / "resting"
+            / "GSN-HydroCel-128"
+            / "sub-001.set"
+        )
+        existing_copy.parent.mkdir(parents=True)
+        existing_copy.write_text("existing", encoding="utf-8")
+
+        monkeypatch.setattr(
+            "autoclean.api.routes.serve_routes.build_batch_plan",
+            lambda **kwargs: _fake_montage_review_plan(
+                input_path=kwargs["input_path"],
+                task_path=source_task,
+                output_dir=kwargs["output_dir"],
+                source_file=source_file,
+                unknown_file=unknown_file,
+            ),
+        )
+
+        response = client.post(
+            "/api/routes/resting/montage-review/apply",
+            json={"confirm": True, "mode": "copy"},
+        )
+
+        assert response.status_code == 400
+        assert "Refusing to overwrite existing destination" in response.json()["detail"]
+        assert existing_copy.read_text(encoding="utf-8") == "existing"
+        assert not (tmp_path / "tasks" / "RestingEyesOpen_GSN_HydroCel_128.py").exists()
+        assert not (tmp_path / "routes" / "resting-gsn-hydrocel-128.yaml").exists()
+
+    def test_montage_review_apply_copy_failure_does_not_mutate_config(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, incoming, source_task = _make_montage_review_workspace(tmp_path)
+        source_file = incoming / "sub-001.set"
+        unknown_file = incoming / "notes.txt"
+        serve_test_before = (tmp_path / "serve-test.yaml").read_text(encoding="utf-8")
+
+        monkeypatch.setattr(
+            "autoclean.api.routes.serve_routes.build_batch_plan",
+            lambda **kwargs: _fake_montage_review_plan(
+                input_path=kwargs["input_path"],
+                task_path=source_task,
+                output_dir=kwargs["output_dir"],
+                source_file=source_file,
+                unknown_file=unknown_file,
+            ),
+        )
+
+        def fail_copy(*_args, **_kwargs):
+            raise RuntimeError(
+                "Insufficient free space for montage preflight copy: need 3 bytes, available 1 bytes"
+            )
+
+        monkeypatch.setattr(
+            "autoclean.api.routes.serve_routes.copy_originals_for_plan", fail_copy
+        )
+
+        response = client.post(
+            "/api/routes/resting/montage-review/apply",
+            json={"confirm": True, "mode": "copy"},
+        )
+
+        assert response.status_code == 400
+        assert "Insufficient free space" in response.json()["detail"]
+        assert (tmp_path / "serve-test.yaml").read_text(
+            encoding="utf-8"
+        ) == serve_test_before
+        assert not (tmp_path / "tasks" / "RestingEyesOpen_GSN_HydroCel_128.py").exists()
+        assert not (tmp_path / "routes" / "resting-gsn-hydrocel-128.yaml").exists()
+        assert not (tmp_path / "queue-test.json").exists()
+
+    def test_montage_review_apply_reports_task_clone_validation_failure(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, incoming, source_task = _make_montage_review_workspace(tmp_path)
+        source_task.write_text(
+            (
+                "config = {\n"
+                "    'montage': {'enabled': True, 'value': 'GSN-HydroCel-129'},\n"
+                "}\n"
+            ),
+            encoding="utf-8",
+        )
+        source_file = incoming / "sub-001.set"
+        unknown_file = incoming / "notes.txt"
+
+        monkeypatch.setattr(
+            "autoclean.api.routes.serve_routes.build_batch_plan",
+            lambda **kwargs: _fake_montage_review_plan(
+                input_path=kwargs["input_path"],
+                task_path=source_task,
+                output_dir=kwargs["output_dir"],
+                source_file=source_file,
+                unknown_file=unknown_file,
+            ),
+        )
+
+        response = client.post(
+            "/api/routes/resting/montage-review/apply",
+            json={"confirm": True, "mode": "copy"},
+        )
+
+        assert response.status_code == 400
+        assert "Task clone validation failed" in response.json()["detail"]
+        assert not (tmp_path / "routes" / "resting-gsn-hydrocel-128.yaml").exists()
 
 
 def _make_montage_review_workspace(tmp_path: Path) -> tuple[TestClient, Path, Path]:

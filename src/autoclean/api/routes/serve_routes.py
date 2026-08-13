@@ -42,6 +42,9 @@ from autoclean.utils.montage_preflight import (
     clone_task_for_montage,
     copy_originals_for_plan,
     estimate_copy_originals_for_plan,
+    write_apply_summary,
+    write_batch_plan_json,
+    write_scan_csv,
 )
 
 logger = logging.getLogger(__name__)
@@ -369,6 +372,18 @@ async def apply_route_montage_review(
             )
 
         review = _route_review_response_from_plan(plan, route_spec, suggestions)
+        split_output_root = Path(review.split_output_root)
+
+        write_scan_csv(plan, split_output_root)
+        write_batch_plan_json(plan, split_output_root)
+
+        copy_result = copy_originals_for_plan(
+            plan,
+            split_output_root=split_output_root,
+            overwrite=body.overwrite_existing,
+        )
+        write_apply_summary(output_dir=split_output_root, copy_result=copy_result)
+
         cloned_tasks = []
         route_actions = []
 
@@ -380,14 +395,20 @@ async def apply_route_montage_review(
             if suggestion["suggested_route_id"] == route_spec["id"]:
                 continue
 
-            cloned_task = clone_task_for_montage(
-                source_task_path=Path(plan.task_path),
-                task_output_dir=api_state.workspace_dir / "tasks",
-                target_montage=detected_montage,
-                class_name=suggestion["clone_class_name"],
-                file_stem=Path(str(suggestion["suggested_taskfile"])).stem,
-                overwrite=body.overwrite_existing,
-            )
+            try:
+                cloned_task = clone_task_for_montage(
+                    source_task_path=Path(plan.task_path),
+                    task_output_dir=api_state.workspace_dir / "tasks",
+                    target_montage=detected_montage,
+                    class_name=suggestion["clone_class_name"],
+                    file_stem=Path(str(suggestion["suggested_taskfile"])).stem,
+                    overwrite=body.overwrite_existing,
+                )
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Task clone validation failed: {exc}",
+                ) from exc
             cloned_tasks.append(asdict(cloned_task))
 
             _path, _spec, action = upsert_route_spec(
@@ -423,12 +444,6 @@ async def apply_route_montage_review(
 
         if route_actions:
             sync_route_registry(api_state.workspace_dir, modes=("test", "live"))
-
-        copy_result = copy_originals_for_plan(
-            plan,
-            split_output_root=Path(review.split_output_root),
-            overwrite=body.overwrite_existing,
-        )
 
         from autoclean.utils.ingestion import IngestionQueue
 
@@ -787,7 +802,11 @@ def _clone_class_name_for_montage(task_path: Path, montage: str) -> str:
         source,
         re.MULTILINE,
     )
-    base = match.group(1) if match else task_path.stem
+    if not match:
+        raise ValueError(
+            "Task clone validation failed: could not find a Python task class declaration"
+        )
+    base = match.group(1)
     suffix = re.sub(r"[^0-9A-Za-z]+", "_", montage).strip("_")
     if suffix and suffix[0].isdigit():
         suffix = f"Montage_{suffix}"
