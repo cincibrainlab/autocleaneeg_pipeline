@@ -5923,7 +5923,7 @@ def cmd_wizard(args) -> int:
                 break
 
         # Step 3 — Montage selection
-        (_, _, active_task, active_task_path, current_montage, _) = (
+        _, _, active_task, active_task_path, current_montage, _ = (
             _wizard_collect_state()
         )
 
@@ -6046,7 +6046,7 @@ def cmd_wizard(args) -> int:
                 )
 
         # Step 4 — Input source
-        (*_, _, current_input) = _wizard_collect_state()
+        *_, _, current_input = _wizard_collect_state()
 
         display.header(
             "Step 4 • Input",
@@ -12224,10 +12224,10 @@ def cmd_serve_docs(args) -> int:
 
         result = subprocess.run(["quarto", "--version"], capture_output=True, text=True)
         if result.returncode != 0:
-            message("error", "Quarto not found. Please install quarto CLI.")
+            message("error", _quarto_missing_message())
             return 1
     except FileNotFoundError:
-        message("error", "Quarto not found. Please install quarto CLI.")
+        message("error", _quarto_missing_message())
         return 1
 
     # Run quarto preview
@@ -12247,6 +12247,29 @@ def cmd_serve_docs(args) -> int:
     except Exception as e:
         message("error", f"Failed to serve: {e}")
         return 1
+
+
+def _quarto_missing_message() -> str:
+    """Return actionable guidance for missing Quarto CLI."""
+
+    if sys.platform == "darwin":
+        install_hint = "brew install --cask quarto"
+    elif sys.platform.startswith("win"):
+        install_hint = "winget install --id Posit.Quarto"
+    else:
+        install_hint = (
+            "Install a Linux package from https://quarto.org/docs/get-started/"
+        )
+
+    return (
+        "Quarto CLI is required for `autocleaneeg-pipeline serve docs`, "
+        "which previews the internal plans documentation site, but Quarto was not "
+        "found on PATH. Normal Serve startup (`serve`, `serve up`) and processing "
+        "do not require Quarto. Quarto is not a Python dependency and is not "
+        "installed by `uv tool install autocleaneeg-pipeline`. "
+        "Install Quarto from https://quarto.org/docs/get-started/ or run: "
+        f"{install_hint}. Then restart `autocleaneeg-pipeline serve docs`."
+    )
 
 
 def cmd_auth(args) -> int:
