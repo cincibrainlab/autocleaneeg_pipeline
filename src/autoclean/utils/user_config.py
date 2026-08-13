@@ -98,7 +98,8 @@ class UserConfigManager:
                 "Warning: Saved AutoClean workspace is not accessible: "
                 f"{self.config_dir} ({exc}). "
                 "Use 'autocleaneeg-pipeline workspace set <path>' to choose a "
-                "new workspace or 'autocleaneeg-pipeline workspace unset' to clear it."
+                "new workspace or 'autocleaneeg-pipeline workspace unset' to clear it.",
+                file=sys.stderr,
             )
 
     def _get_workspace_path(self) -> Path:

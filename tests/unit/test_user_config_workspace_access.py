@@ -26,7 +26,9 @@ def test_init_does_not_crash_when_saved_workspace_is_inaccessible(
     assert manager.config_dir == inaccessible
     assert manager.tasks_dir == inaccessible / "tasks"
     assert manager.workspace_accessible is False
-    assert "workspace set <path>" in capsys.readouterr().out
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "workspace set <path>" in captured.err
 
 
 def test_safe_path_exists_returns_false_for_permission_errors(monkeypatch):
