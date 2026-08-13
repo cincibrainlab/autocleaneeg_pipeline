@@ -432,6 +432,7 @@ def copy_originals_for_plan(
                     {
                         "source": result.path,
                         "destination": str(destination),
+                        "size_bytes": result.size_bytes,
                         "error": str(exc),
                     }
                 ],
@@ -600,6 +601,7 @@ def move_originals_for_plan(
                     {
                         "source": result.path,
                         "destination": str(destination),
+                        "size_bytes": result.size_bytes,
                         "error": str(exc),
                     }
                 ],

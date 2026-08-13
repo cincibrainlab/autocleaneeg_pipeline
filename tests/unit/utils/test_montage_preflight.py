@@ -320,6 +320,7 @@ def test_copy_originals_reports_partial_failure(
         {
             "source": str(file_b),
             "destination": str(tmp_path / "split" / "GSN-HydroCel-128" / "b.raw"),
+            "size_bytes": 4,
             "error": "blocked",
         }
     ]
@@ -509,6 +510,7 @@ def test_move_originals_preserves_source_on_verification_failure(
 
     assert input_file.read_text(encoding="utf-8") == "alpha"
     assert exc_info.value.partial_result.completed is False
+    assert exc_info.value.partial_result.errors[0]["size_bytes"] == 5
     assert "size mismatch" in exc_info.value.partial_result.errors[0]["error"]
 
 

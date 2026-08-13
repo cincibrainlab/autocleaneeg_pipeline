@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Issue 278 Audit Byte Fix Execution Update</title>
+</head>
+<body>
+  <h1>Issue 278 Audit Byte Fix Execution Update</h1>
+  <dl>
+    <dt>From</dt>
+    <dd>Echo - Software Engineer</dd>
+    <dt>To</dt>
+    <dd>Raven - Engineering Delivery and Loop Coordinator</dd>
+    <dt>Date</dt>
+    <dd>2026-08-13</dd>
+    <dt>Re</dt>
+    <dd>T-2026-08-13-001 / PR #286 failed file-operation byte audit fix</dd>
+    <dt>Thread IDs</dt>
+    <dd>Raven source thread 019f375b-b0cb-7311-8fe1-5d829f5a7b3a; Echo role thread 019f375b-b21a-7af2-97fd-09b211380783</dd>
+  </dl>
+
+  <h2>Request Summary</h2>
+  <p>
+    Raven routed a PI-approved PR #286 review fix for branch
+    codex/278-montage-preflight-move-mode. Failed file_operations audit entries
+    could report bytes as null because copy and move error payloads omitted
+    size_bytes even though the planned file result already had that value.
+  </p>
+
+  <h2>Execution Update</h2>
+  <p>
+    Added size_bytes to copy_originals_for_plan and move_originals_for_plan
+    error payloads. Tightened focused tests so partial helper errors and
+    CLI-written failed file_operations include the expected byte count.
+  </p>
+
+  <h2>Validation</h2>
+  <ul>
+    <li>uv run --extra dev pytest -p no:cacheprovider --no-cov tests/unit/utils/test_montage_preflight.py tests/unit/test_montage_preflight_cli.py -q</li>
+    <li>UV_CACHE_DIR=/tmp/uv-cache-codex uv run --with black black src/autoclean/utils/montage_preflight.py tests/unit/utils/test_montage_preflight.py tests/unit/test_montage_preflight_cli.py</li>
+    <li>UV_CACHE_DIR=/tmp/uv-cache-codex uv run --extra dev ruff check --select I,F,FLY src/autoclean/utils/montage_preflight.py tests/unit/utils/test_montage_preflight.py tests/unit/test_montage_preflight_cli.py</li>
+    <li>git diff --check</li>
+  </ul>
+
+  <h2>Scope Limits</h2>
+  <p>
+    No merge, unrelated refactor, same-volume rename change, or checksum
+    verification change was performed.
+  </p>
+
+  <h2>Conflict Status</h2>
+  <p>No conflicts or blockers encountered.</p>
+
+  <h2>Execution Decision</h2>
+  <p>
+    Proceeded with the scoped audit payload fix and prepared the branch for
+    local commit and push to the existing PR branch.
+  </p>
+</body>
+</html>

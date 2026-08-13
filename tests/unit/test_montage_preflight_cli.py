@@ -456,7 +456,14 @@ def test_cmd_montage_preflight_copy_failure_writes_partial_summary(
         free_bytes_before=100,
         free_bytes_after_estimate=94,
         completed=False,
-        errors=[{"source": "sub-02.raw", "destination": "dest", "error": "blocked"}],
+        errors=[
+            {
+                "source": "sub-02.raw",
+                "destination": "dest",
+                "size_bytes": 3,
+                "error": "blocked",
+            }
+        ],
     )
 
     def fake_copy_originals_for_plan(*_args, **_kwargs):
@@ -488,7 +495,10 @@ def test_cmd_montage_preflight_copy_failure_writes_partial_summary(
     assert cmd_montage_preflight(args) == 1
     summary = output_dir / "autoclean_montage_apply_summary.json"
     assert summary.is_file()
-    assert '"completed": false' in summary.read_text(encoding="utf-8")
+    payload = json.loads(summary.read_text(encoding="utf-8"))
+    assert payload["copy_result"]["completed"] is False
+    assert payload["file_operations"][-1]["status"] == "failed"
+    assert payload["file_operations"][-1]["bytes"] == 3
 
 
 def test_cmd_montage_preflight_apply_move_writes_summary_before_move(
@@ -755,7 +765,14 @@ def test_cmd_montage_preflight_move_failure_writes_partial_summary(
         source_volume="device:1",
         destination_volume="device:1",
         completed=False,
-        errors=[{"source": str(input_file), "destination": "dest", "error": "bad"}],
+        errors=[
+            {
+                "source": str(input_file),
+                "destination": "dest",
+                "size_bytes": 3,
+                "error": "bad",
+            }
+        ],
     )
 
     def fake_move_originals_for_plan(*_args, **_kwargs):
@@ -811,6 +828,8 @@ def test_cmd_montage_preflight_move_failure_writes_partial_summary(
     )
     assert summary["move_result"]["completed"] is False
     assert summary["move_result"]["errors"][0]["error"] == "bad"
+    assert summary["file_operations"][0]["status"] == "failed"
+    assert summary["file_operations"][0]["bytes"] == 3
 
 
 def test_cmd_montage_preflight_apply_clone_uses_keyword_plan(
