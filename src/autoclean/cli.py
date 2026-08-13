@@ -62,6 +62,7 @@ from autoclean.utils.logging import has_logged_errors, message
 from autoclean.utils.matlab_runtime import detect_matlab_engine, start_matlab_engine
 from autoclean.utils.montage import load_valid_montages
 from autoclean.utils.montage_preflight import (
+    MontageCopyError,
     build_batch_plan,
     clone_tasks_for_mismatches,
     copy_originals_for_plan,
@@ -1768,7 +1769,7 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     montage_preflight_parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Review only; write scan artifacts without copying or cloning",
+        help="Explicitly select the default review-only mode; cannot be combined with --apply",
     )
     montage_preflight_parser.add_argument(
         "--apply",
@@ -4316,6 +4317,13 @@ def cmd_montage_preflight(args) -> int:
     if args.apply and args.dry_run:
         message("error", "Use either --dry-run or --apply, not both.")
         return 1
+    if not args.apply and (args.copy_originals or args.clone_tasks):
+        message(
+            "error",
+            "--copy-originals and --clone-tasks require --apply; "
+            "rerun with --apply or omit apply-only flags for dry-run review.",
+        )
+        return 1
 
     try:
         plan = build_batch_plan(
@@ -4356,6 +4364,18 @@ def cmd_montage_preflight(args) -> int:
                     split_output_root=Path(args.split_output_root),
                     overwrite=args.overwrite,
                 )
+            except MontageCopyError as exc:
+                summary_path = write_apply_summary(
+                    output_dir=output_dir,
+                    copy_result=exc.partial_result,
+                    cloned_tasks=cloned_tasks,
+                )
+                message("error", f"Copy step failed: {exc}")
+                message(
+                    "error",
+                    f"Partial copy summary written: {summary_path}",
+                )
+                return 1
             except Exception as exc:  # pylint: disable=broad-except
                 message("error", f"Copy step failed: {exc}")
                 return 1

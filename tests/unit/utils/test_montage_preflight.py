@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from autoclean.utils.montage_preflight import (
+    MontageCopyError,
     build_batch_plan,
     clone_tasks_for_mismatches,
     copy_originals_for_plan,
@@ -105,6 +106,58 @@ def test_build_batch_plan_groups_matching_mixed_and_unknown_files(
     assert str(input_dir / "notes.txt") not in plan.actionable_files
 
 
+def test_build_batch_plan_discovers_plugin_registered_edf(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    input_dir = tmp_path / "input"
+    edf_file = _touch(input_dir / "sub-01.edf")
+    task = _task_file(tmp_path)
+    discovery_calls = []
+
+    def fake_discover_plugins() -> None:
+        from autoclean.io.import_ import register_format
+
+        discovery_calls.append(True)
+        register_format("edf", "EDF_FORMAT")
+
+    monkeypatch.setattr(
+        "autoclean.utils.montage_preflight.discover_plugins",
+        fake_discover_plugins,
+    )
+
+    plan = build_batch_plan(
+        input_path=input_dir,
+        task_path=task,
+        output_dir=tmp_path / "out",
+        raw_loader=lambda _path: FakeRaw([f"E{i}" for i in range(1, 129)]),
+    )
+
+    assert discovery_calls
+    assert [Path(result.path) for result in plan.files] == [edf_file]
+    assert plan.files[0].format_id == "EDF_FORMAT"
+
+
+def test_mff_package_internals_are_not_scanned(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    mff_dir = input_dir / "sub-01.mff"
+    _touch(mff_dir / "signal.raw")
+    task = _task_file(tmp_path)
+
+    def loader(path: Path) -> FakeRaw:
+        assert path == mff_dir
+        return FakeRaw([f"E{i}" for i in range(1, 129)])
+
+    plan = build_batch_plan(
+        input_path=input_dir,
+        task_path=task,
+        output_dir=tmp_path / "out",
+        raw_loader=loader,
+    )
+
+    assert [Path(result.path) for result in plan.files] == [mff_dir]
+    assert plan.files[0].relative_path == "sub-01.mff"
+
+
 def test_write_scan_csv_and_batch_plan_json(tmp_path: Path) -> None:
     input_file = _touch(tmp_path / "input" / "sub-01.raw")
     task = _task_file(tmp_path)
@@ -152,6 +205,28 @@ def test_copy_originals_preserves_source_and_skips_unknown(tmp_path: Path) -> No
     assert result.required_bytes >= len("alpha")
 
 
+def test_copy_originals_allows_missing_destination_parent(tmp_path: Path) -> None:
+    input_file = _touch(tmp_path / "input" / "sub-01.raw", "alpha")
+    task = _task_file(tmp_path)
+    plan = build_batch_plan(
+        input_path=input_file,
+        task_path=task,
+        output_dir=tmp_path / "out",
+        raw_loader=lambda _path: FakeRaw([f"E{i}" for i in range(1, 129)]),
+    )
+
+    result = copy_originals_for_plan(
+        plan,
+        split_output_root=tmp_path / "missing-parent" / "split",
+    )
+
+    copied_path = (
+        tmp_path / "missing-parent" / "split" / "GSN-HydroCel-128" / "sub-01.raw"
+    )
+    assert copied_path.read_text(encoding="utf-8") == "alpha"
+    assert result.completed is True
+
+
 def test_copy_originals_blocks_existing_destinations(tmp_path: Path) -> None:
     input_file = _touch(tmp_path / "input" / "sub-01.raw")
     task = _task_file(tmp_path)
@@ -165,6 +240,45 @@ def test_copy_originals_blocks_existing_destinations(tmp_path: Path) -> None:
 
     with pytest.raises(FileExistsError):
         copy_originals_for_plan(plan, split_output_root=tmp_path / "split")
+
+
+def test_copy_originals_reports_partial_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    input_dir = tmp_path / "input"
+    file_a = _touch(input_dir / "a.raw", "alpha")
+    file_b = _touch(input_dir / "b.raw", "beta")
+    task = _task_file(tmp_path)
+    plan = build_batch_plan(
+        input_path=input_dir,
+        task_path=task,
+        output_dir=tmp_path / "out",
+        raw_loader=lambda _path: FakeRaw([f"E{i}" for i in range(1, 129)]),
+    )
+
+    def fake_copy2(source: Path, destination: Path):
+        if Path(source) == file_b:
+            raise PermissionError("blocked")
+        Path(destination).write_text(Path(source).read_text(encoding="utf-8"))
+
+    monkeypatch.setattr(
+        "autoclean.utils.montage_preflight.shutil.copy2",
+        fake_copy2,
+    )
+
+    with pytest.raises(MontageCopyError) as exc_info:
+        copy_originals_for_plan(plan, split_output_root=tmp_path / "split")
+
+    partial = exc_info.value.partial_result
+    assert partial.completed is False
+    assert partial.copied_files[0]["source"] == str(file_a)
+    assert partial.errors == [
+        {
+            "source": str(file_b),
+            "destination": str(tmp_path / "split" / "GSN-HydroCel-128" / "b.raw"),
+            "error": "blocked",
+        }
+    ]
 
 
 def test_direct_mff_input_copy_preserves_package_name(tmp_path: Path) -> None:

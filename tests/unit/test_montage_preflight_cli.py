@@ -5,6 +5,8 @@ from types import SimpleNamespace
 from autoclean.cli import cmd_montage_preflight, create_parser
 from autoclean.utils.montage_preflight import (
     MontageBatchPlan,
+    MontageCopyError,
+    MontageCopyResult,
     MontagePreflightFileResult,
     MontagePreflightGroup,
 )
@@ -91,6 +93,205 @@ def test_cmd_montage_preflight_writes_dry_run_artifacts(monkeypatch, tmp_path) -
     assert (output_dir / "autoclean_montage_scan.csv").is_file()
     assert (output_dir / "autoclean_montage_batch_plan.json").is_file()
     assert not (output_dir / "autoclean_montage_apply_summary.json").exists()
+
+
+def test_cmd_montage_preflight_rejects_apply_flags_without_apply(
+    monkeypatch, tmp_path
+) -> None:
+    input_file = tmp_path / "sub-01.raw"
+    input_file.write_text("raw", encoding="utf-8")
+    task_file = tmp_path / "Task.py"
+    task_file.write_text("config = {}", encoding="utf-8")
+    messages = []
+
+    monkeypatch.setattr(
+        "autoclean.cli.build_batch_plan",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("build should not run")),
+    )
+    monkeypatch.setattr(
+        "autoclean.cli.message",
+        lambda _level, text: messages.append(text),
+    )
+
+    args = SimpleNamespace(
+        input=input_file,
+        task=task_file,
+        output=tmp_path / "out",
+        dry_run=False,
+        apply=False,
+        copy_originals=True,
+        split_output_root=tmp_path / "split",
+        clone_tasks=True,
+        task_output_dir=tmp_path / "tasks",
+        yes=True,
+        overwrite=False,
+        no_color=True,
+        quiet=True,
+    )
+
+    assert cmd_montage_preflight(args) == 1
+    assert any("require --apply" in text for text in messages)
+
+
+def test_cmd_montage_preflight_rejects_apply_and_dry_run(monkeypatch, tmp_path) -> None:
+    input_file = tmp_path / "sub-01.raw"
+    input_file.write_text("raw", encoding="utf-8")
+    task_file = tmp_path / "Task.py"
+    task_file.write_text("config = {}", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "autoclean.cli.build_batch_plan",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("build should not run")),
+    )
+
+    args = SimpleNamespace(
+        input=input_file,
+        task=task_file,
+        output=tmp_path / "out",
+        dry_run=True,
+        apply=True,
+        copy_originals=False,
+        split_output_root=None,
+        clone_tasks=False,
+        task_output_dir=None,
+        yes=True,
+        overwrite=False,
+        no_color=True,
+        quiet=True,
+    )
+
+    assert cmd_montage_preflight(args) == 1
+
+
+def test_cmd_montage_preflight_apply_copy_uses_split_output_root(
+    monkeypatch, tmp_path
+) -> None:
+    input_file = tmp_path / "sub-01.raw"
+    input_file.write_text("raw", encoding="utf-8")
+    task_file = tmp_path / "Task.py"
+    task_file.write_text("config = {}", encoding="utf-8")
+    output_dir = tmp_path / "out"
+    split_output_root = tmp_path / "split"
+    plan = MontageBatchPlan(
+        input_path=str(input_file),
+        task_path=str(task_file),
+        expected_montage="GSN-HydroCel-128",
+        output_dir=str(output_dir),
+        groups=[],
+        files=[],
+        unknown_files=[],
+        actionable_files=[],
+    )
+    calls = {}
+
+    def fake_copy_originals_for_plan(plan_arg, **kwargs):
+        calls["plan"] = plan_arg
+        calls.update(kwargs)
+        return MontageCopyResult(
+            split_output_root=str(split_output_root),
+            copied_files=[],
+            skipped_files=[],
+            required_bytes=0,
+            free_bytes_before=100,
+            free_bytes_after_estimate=100,
+        )
+
+    monkeypatch.setattr("autoclean.cli.build_batch_plan", lambda **kwargs: plan)
+    monkeypatch.setattr(
+        "autoclean.cli.copy_originals_for_plan",
+        fake_copy_originals_for_plan,
+    )
+
+    args = SimpleNamespace(
+        input=input_file,
+        task=task_file,
+        output=output_dir,
+        dry_run=False,
+        apply=True,
+        copy_originals=True,
+        split_output_root=split_output_root,
+        clone_tasks=False,
+        task_output_dir=None,
+        yes=True,
+        overwrite=False,
+        no_color=True,
+        quiet=True,
+    )
+
+    assert cmd_montage_preflight(args) == 0
+    assert calls["plan"] is plan
+    assert calls["split_output_root"] == split_output_root
+    assert (output_dir / "autoclean_montage_apply_summary.json").is_file()
+
+
+def test_cmd_montage_preflight_copy_failure_writes_partial_summary(
+    monkeypatch, tmp_path
+) -> None:
+    input_file = tmp_path / "sub-01.raw"
+    input_file.write_text("raw", encoding="utf-8")
+    task_file = tmp_path / "Task.py"
+    task_file.write_text("config = {}", encoding="utf-8")
+    output_dir = tmp_path / "out"
+    split_output_root = tmp_path / "split"
+    plan = MontageBatchPlan(
+        input_path=str(input_file),
+        task_path=str(task_file),
+        expected_montage="GSN-HydroCel-128",
+        output_dir=str(output_dir),
+        groups=[],
+        files=[],
+        unknown_files=[],
+        actionable_files=[],
+    )
+    partial_result = MontageCopyResult(
+        split_output_root=str(split_output_root),
+        copied_files=[
+            {
+                "source": str(input_file),
+                "destination": str(
+                    split_output_root / "GSN-HydroCel-128" / "sub-01.raw"
+                ),
+                "detected_montage": "GSN-HydroCel-128",
+                "size_bytes": 3,
+            }
+        ],
+        skipped_files=[],
+        required_bytes=6,
+        free_bytes_before=100,
+        free_bytes_after_estimate=94,
+        completed=False,
+        errors=[{"source": "sub-02.raw", "destination": "dest", "error": "blocked"}],
+    )
+
+    def fake_copy_originals_for_plan(*_args, **_kwargs):
+        raise MontageCopyError("blocked", partial_result)
+
+    monkeypatch.setattr("autoclean.cli.build_batch_plan", lambda **kwargs: plan)
+    monkeypatch.setattr(
+        "autoclean.cli.copy_originals_for_plan",
+        fake_copy_originals_for_plan,
+    )
+
+    args = SimpleNamespace(
+        input=input_file,
+        task=task_file,
+        output=output_dir,
+        dry_run=False,
+        apply=True,
+        copy_originals=True,
+        split_output_root=split_output_root,
+        clone_tasks=False,
+        task_output_dir=None,
+        yes=True,
+        overwrite=False,
+        no_color=True,
+        quiet=True,
+    )
+
+    assert cmd_montage_preflight(args) == 1
+    summary = output_dir / "autoclean_montage_apply_summary.json"
+    assert summary.is_file()
+    assert '"completed": false' in summary.read_text(encoding="utf-8")
 
 
 def test_cmd_montage_preflight_apply_clone_uses_keyword_plan(

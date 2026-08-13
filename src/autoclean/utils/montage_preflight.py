@@ -12,7 +12,7 @@ from typing import Callable
 
 import mne
 
-from autoclean.io.import_ import get_format_from_extension
+from autoclean.io.import_ import discover_plugins, get_format_from_extension
 from autoclean.utils.task_montage import (
     read_task_montage,
     replace_task_class_name,
@@ -93,6 +93,16 @@ class MontageCopyResult:
     required_bytes: int
     free_bytes_before: int
     free_bytes_after_estimate: int
+    completed: bool = True
+    errors: list[dict] = field(default_factory=list)
+
+
+class MontageCopyError(RuntimeError):
+    """Raised when copy-originals fails after recording partial progress."""
+
+    def __init__(self, message: str, partial_result: MontageCopyResult) -> None:
+        super().__init__(message)
+        self.partial_result = partial_result
 
 
 @dataclass(frozen=True)
@@ -119,11 +129,17 @@ def discover_eeg_inputs(input_path: Path) -> list[Path]:
         raise FileNotFoundError(f"Input path does not exist: {input_path}")
 
     inputs: list[Path] = []
-    for child in input_path.rglob("*"):
-        if child.is_dir() and child.suffix.lower() == ".mff":
-            inputs.append(child)
-        elif child.is_file() and get_format_from_extension(child.suffix):
-            inputs.append(child)
+    pending = [input_path]
+    while pending:
+        current = pending.pop()
+        children = sorted(current.iterdir())
+        for child in children:
+            if child.is_dir() and child.suffix.lower() == ".mff":
+                inputs.append(child)
+            elif child.is_dir():
+                pending.append(child)
+            elif child.is_file() and get_format_from_extension(child.suffix):
+                inputs.append(child)
 
     return sorted(inputs)
 
@@ -234,6 +250,7 @@ def build_batch_plan(
 ) -> MontageBatchPlan:
     """Scan inputs and build a dry-run montage batch plan."""
 
+    discover_plugins()
     expected_montage = read_task_montage(task_path)
     if input_path.is_dir() and input_path.suffix.lower() == ".mff":
         input_root = input_path.parent
@@ -313,7 +330,8 @@ def copy_originals_for_plan(
 
     actionable = [result for result in plan.files if result.is_actionable]
     required_bytes = sum(result.size_bytes for result in actionable)
-    free_before = shutil.disk_usage(split_output_root.parent).free
+    disk_usage_path = _nearest_existing_path(split_output_root.parent)
+    free_before = shutil.disk_usage(disk_usage_path).free
     free_after = free_before - required_bytes
     if required_bytes > free_before:
         raise RuntimeError(
@@ -321,23 +339,51 @@ def copy_originals_for_plan(
             f"need {required_bytes} bytes, available {free_before} bytes"
         )
 
-    copied: list[dict] = []
-    skipped = list(plan.unknown_files)
-    for result in actionable:
-        destination = (
-            split_output_root / str(result.detected_montage) / result.relative_path
+    copy_targets = [
+        (
+            result,
+            split_output_root / str(result.detected_montage) / result.relative_path,
         )
+        for result in actionable
+    ]
+    for _result, destination in copy_targets:
         if destination.exists() and not overwrite:
             raise FileExistsError(
                 f"Refusing to overwrite existing destination: {destination}"
             )
 
+    copied: list[dict] = []
+    skipped = list(plan.unknown_files)
+    for result, destination in copy_targets:
         destination.parent.mkdir(parents=True, exist_ok=True)
         source = Path(result.path)
-        if source.is_dir():
-            shutil.copytree(source, destination, dirs_exist_ok=overwrite)
-        else:
-            shutil.copy2(source, destination)
+        try:
+            if source.is_dir():
+                shutil.copytree(source, destination, dirs_exist_ok=overwrite)
+            else:
+                shutil.copy2(source, destination)
+        except Exception as exc:
+            partial_result = MontageCopyResult(
+                split_output_root=str(split_output_root),
+                copied_files=copied,
+                skipped_files=skipped,
+                required_bytes=required_bytes,
+                free_bytes_before=free_before,
+                free_bytes_after_estimate=free_after,
+                completed=False,
+                errors=[
+                    {
+                        "source": result.path,
+                        "destination": str(destination),
+                        "error": str(exc),
+                    }
+                ],
+            )
+            raise MontageCopyError(
+                "Copy failed after "
+                f"{len(copied)} file(s): {result.path} -> {destination}: {exc}",
+                partial_result,
+            ) from exc
 
         copied.append(
             {
@@ -500,6 +546,18 @@ def _path_size(path: Path) -> int:
     if path.is_dir():
         return sum(child.stat().st_size for child in path.rglob("*") if child.is_file())
     return path.stat().st_size if path.exists() else 0
+
+
+def _nearest_existing_path(path: Path) -> Path:
+    current = path
+    while not current.exists():
+        parent = current.parent
+        if parent == current:
+            raise FileNotFoundError(
+                f"No existing parent directory for copy destination: {path}"
+            )
+        current = parent
+    return current
 
 
 def _first_task_class_name(source: str) -> str:
