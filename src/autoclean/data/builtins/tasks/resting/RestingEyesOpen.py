@@ -38,7 +38,7 @@ config = {
     },
     "component_rejection": {
         "enabled": True,
-        "method": "icvision",
+        "method": "iclabel",
         "value": {
             "ic_flags_to_reject": [
                 "muscle",
