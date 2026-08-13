@@ -97,6 +97,18 @@ class MontageCopyResult:
     errors: list[dict] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class MontageCopyEstimate:
+    """Pre-confirmation size and free-space estimate for copy-originals."""
+
+    split_output_root: str
+    actionable_file_count: int
+    skipped_file_count: int
+    required_bytes: int
+    free_bytes_before: int
+    free_bytes_after_estimate: int
+
+
 class MontageCopyError(RuntimeError):
     """Raised when copy-originals fails after recording partial progress."""
 
@@ -328,11 +340,14 @@ def copy_originals_for_plan(
 ) -> MontageCopyResult:
     """Copy actionable original inputs into montage-specific folders."""
 
+    estimate = estimate_copy_originals_for_plan(
+        plan,
+        split_output_root=split_output_root,
+    )
     actionable = [result for result in plan.files if result.is_actionable]
-    required_bytes = sum(result.size_bytes for result in actionable)
-    disk_usage_path = _nearest_existing_path(split_output_root.parent)
-    free_before = shutil.disk_usage(disk_usage_path).free
-    free_after = free_before - required_bytes
+    required_bytes = estimate.required_bytes
+    free_before = estimate.free_bytes_before
+    free_after = estimate.free_bytes_after_estimate
     if required_bytes > free_before:
         raise RuntimeError(
             "Insufficient free space for montage preflight copy: "
@@ -401,6 +416,27 @@ def copy_originals_for_plan(
         required_bytes=required_bytes,
         free_bytes_before=free_before,
         free_bytes_after_estimate=free_after,
+    )
+
+
+def estimate_copy_originals_for_plan(
+    plan: MontageBatchPlan,
+    *,
+    split_output_root: Path,
+) -> MontageCopyEstimate:
+    """Estimate copy-originals size and destination free space without copying."""
+
+    actionable = [result for result in plan.files if result.is_actionable]
+    required_bytes = sum(result.size_bytes for result in actionable)
+    disk_usage_path = _nearest_existing_path(split_output_root.parent)
+    free_before = shutil.disk_usage(disk_usage_path).free
+    return MontageCopyEstimate(
+        split_output_root=str(split_output_root),
+        actionable_file_count=len(actionable),
+        skipped_file_count=len(plan.unknown_files),
+        required_bytes=required_bytes,
+        free_bytes_before=free_before,
+        free_bytes_after_estimate=free_before - required_bytes,
     )
 
 

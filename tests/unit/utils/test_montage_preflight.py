@@ -11,6 +11,7 @@ from autoclean.utils.montage_preflight import (
     clone_tasks_for_mismatches,
     copy_originals_for_plan,
     detect_hydrocel_montage,
+    estimate_copy_originals_for_plan,
     write_batch_plan_json,
     write_scan_csv,
 )
@@ -203,6 +204,45 @@ def test_copy_originals_preserves_source_and_skips_unknown(tmp_path: Path) -> No
     assert file_128.read_text(encoding="utf-8") == "alpha"
     assert str(file_unknown) in result.skipped_files
     assert result.required_bytes >= len("alpha")
+
+
+def test_estimate_copy_originals_reports_size_and_free_space(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    input_dir = tmp_path / "input"
+    file_128 = _touch(input_dir / "sub-01.raw", "alpha")
+    file_unknown = _touch(input_dir / "sub-02.raw", "beta")
+    task = _task_file(tmp_path)
+
+    def loader(path: Path) -> FakeRaw:
+        if path == file_128:
+            return FakeRaw([f"E{i}" for i in range(1, 129)])
+        if path == file_unknown:
+            return FakeRaw([f"E{i}" for i in range(1, 128)])
+        raise AssertionError(f"unexpected path {path}")
+
+    plan = build_batch_plan(
+        input_path=input_dir,
+        task_path=task,
+        output_dir=tmp_path / "out",
+        raw_loader=loader,
+    )
+    monkeypatch.setattr(
+        "autoclean.utils.montage_preflight.shutil.disk_usage",
+        lambda _path: type("DiskUsage", (), {"free": 1_000})(),
+    )
+
+    estimate = estimate_copy_originals_for_plan(
+        plan,
+        split_output_root=tmp_path / "missing-parent" / "split",
+    )
+
+    assert estimate.split_output_root == str(tmp_path / "missing-parent" / "split")
+    assert estimate.actionable_file_count == 1
+    assert estimate.skipped_file_count == 1
+    assert estimate.required_bytes == file_128.stat().st_size
+    assert estimate.free_bytes_before == 1_000
+    assert estimate.free_bytes_after_estimate == 1_000 - file_128.stat().st_size
 
 
 def test_copy_originals_allows_missing_destination_parent(tmp_path: Path) -> None:

@@ -6,6 +6,7 @@ from autoclean.cli import cmd_montage_preflight, create_parser
 from autoclean.utils.montage_preflight import (
     MontageBatchPlan,
     MontageCopyError,
+    MontageCopyEstimate,
     MontageCopyResult,
     MontagePreflightFileResult,
     MontagePreflightGroup,
@@ -222,6 +223,91 @@ def test_cmd_montage_preflight_apply_copy_uses_split_output_root(
     assert calls["plan"] is plan
     assert calls["split_output_root"] == split_output_root
     assert (output_dir / "autoclean_montage_apply_summary.json").is_file()
+
+
+def test_cmd_montage_preflight_prints_copy_estimate_before_copy(
+    monkeypatch, tmp_path, capsys
+) -> None:
+    input_file = tmp_path / "sub-01.raw"
+    input_file.write_text("raw", encoding="utf-8")
+    task_file = tmp_path / "Task.py"
+    task_file.write_text("config = {}", encoding="utf-8")
+    output_dir = tmp_path / "out"
+    split_output_root = tmp_path / "split"
+    plan = MontageBatchPlan(
+        input_path=str(input_file),
+        task_path=str(task_file),
+        expected_montage="GSN-HydroCel-128",
+        output_dir=str(output_dir),
+        groups=[],
+        files=[],
+        unknown_files=[],
+        actionable_files=[],
+    )
+    calls = {}
+
+    def fake_estimate_copy_originals_for_plan(plan_arg, **kwargs):
+        calls["estimate_seen_copy"] = "copy" in calls
+        calls["estimate_plan"] = plan_arg
+        calls["estimate_kwargs"] = kwargs
+        return MontageCopyEstimate(
+            split_output_root=str(split_output_root),
+            actionable_file_count=2,
+            skipped_file_count=1,
+            required_bytes=256,
+            free_bytes_before=1024,
+            free_bytes_after_estimate=768,
+        )
+
+    def fake_copy_originals_for_plan(plan_arg, **kwargs):
+        calls["copy"] = True
+        return MontageCopyResult(
+            split_output_root=str(split_output_root),
+            copied_files=[],
+            skipped_files=[],
+            required_bytes=256,
+            free_bytes_before=1024,
+            free_bytes_after_estimate=768,
+        )
+
+    monkeypatch.setattr("autoclean.cli.build_batch_plan", lambda **kwargs: plan)
+    monkeypatch.setattr(
+        "autoclean.cli.estimate_copy_originals_for_plan",
+        fake_estimate_copy_originals_for_plan,
+    )
+    monkeypatch.setattr(
+        "autoclean.cli.copy_originals_for_plan",
+        fake_copy_originals_for_plan,
+    )
+
+    args = SimpleNamespace(
+        input=input_file,
+        task=task_file,
+        output=output_dir,
+        dry_run=False,
+        apply=True,
+        copy_originals=True,
+        split_output_root=split_output_root,
+        clone_tasks=False,
+        task_output_dir=None,
+        yes=True,
+        overwrite=False,
+        no_color=True,
+        quiet=True,
+    )
+
+    assert cmd_montage_preflight(args) == 0
+    assert calls["estimate_seen_copy"] is False
+    assert calls["estimate_plan"] is plan
+    assert calls["estimate_kwargs"]["split_output_root"] == split_output_root
+    assert calls["copy"] is True
+    output = capsys.readouterr().out
+    assert "Copy Originals Estimate" in output
+    assert str(split_output_root) in output
+    assert "Required space" in output
+    assert "256 bytes" in output
+    assert "Available space" in output
+    assert "1,024 bytes" in output
 
 
 def test_cmd_montage_preflight_copy_failure_writes_partial_summary(

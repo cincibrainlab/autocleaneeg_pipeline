@@ -66,6 +66,7 @@ from autoclean.utils.montage_preflight import (
     build_batch_plan,
     clone_tasks_for_mismatches,
     copy_originals_for_plan,
+    estimate_copy_originals_for_plan,
     write_apply_summary,
     write_batch_plan_json,
     write_scan_csv,
@@ -4352,6 +4353,15 @@ def cmd_montage_preflight(args) -> int:
         if args.split_output_root is None:
             message("error", "--copy-originals requires --split-output-root")
             return 1
+        try:
+            copy_estimate = estimate_copy_originals_for_plan(
+                plan,
+                split_output_root=Path(args.split_output_root),
+            )
+        except Exception as exc:  # pylint: disable=broad-except
+            message("error", f"Copy estimate failed: {exc}")
+            return 1
+        _print_montage_copy_estimate(console, copy_estimate)
         if not args.yes and not _confirm_preflight_action(
             args,
             "Copy actionable input files into montage-specific folders?",
@@ -4438,6 +4448,30 @@ def _print_montage_preflight_summary(console, plan, csv_path: Path, plan_path: P
         console.print(
             f"[warning]{len(plan.unknown_files)} unknown/unsupported file(s) were not routed.[/warning]"
         )
+
+
+def _print_montage_copy_estimate(console, copy_estimate) -> None:
+    """Render copy-originals size and free-space estimate before confirmation."""
+
+    console.print()
+    console.print("[header]Copy Originals Estimate[/header]")
+    console.print(f"Destination: [info]{copy_estimate.split_output_root}[/info]")
+    console.print(
+        "Actionable files: "
+        f"[accent]{copy_estimate.actionable_file_count}[/accent]"
+        f" ([muted]{copy_estimate.skipped_file_count} skipped/unknown[/muted])"
+    )
+    console.print(
+        "Required space: " f"[accent]{copy_estimate.required_bytes:,} bytes[/accent]"
+    )
+    console.print(
+        "Available space: "
+        f"[accent]{copy_estimate.free_bytes_before:,} bytes[/accent]"
+    )
+    console.print(
+        "Estimated free after copy: "
+        f"[accent]{copy_estimate.free_bytes_after_estimate:,} bytes[/accent]"
+    )
 
 
 def _confirm_preflight_action(args, prompt: str) -> bool:
