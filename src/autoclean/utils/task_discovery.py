@@ -11,7 +11,7 @@ from autoclean.core.task import Task
 
 # Optional dependencies - may not be available in all contexts
 try:
-    from autoclean.utils.user_config import user_config
+    from autoclean.utils.user_config import safe_path_exists, user_config
 
     USER_CONFIG_AVAILABLE = True
 except ImportError:
@@ -24,6 +24,13 @@ except ImportError:
             return Path.home() / ".autoclean" / "tasks"
 
     user_config = MockUserConfig()
+
+    def safe_path_exists(path: Path) -> bool:
+        try:
+            return path.exists()
+        except OSError:
+            return False
+
 
 # Import logging utilities for warnings
 try:
@@ -177,15 +184,22 @@ def _discover_custom_tasks() -> (
         )
         return valid_tasks, invalid_files, skipped_files
 
+    tasks_dir = user_config.tasks_dir
+
     # Check if tasks directory exists
-    if not user_config.tasks_dir.exists():
+    if not safe_path_exists(tasks_dir):
         return valid_tasks, invalid_files, skipped_files
 
     # Scan for Python files recursively (including subdirectories)
-    for task_file in user_config.tasks_dir.rglob("*.py"):
+    try:
+        task_files = list(tasks_dir.rglob("*.py"))
+    except OSError:
+        return valid_tasks, invalid_files, skipped_files
+
+    for task_file in task_files:
         # Skip generated built-in/reference task copies stored under a reserved
         # subfolder (e.g. tasks/builtin/) so they aren't discovered as user tasks
-        relative_parts = task_file.relative_to(user_config.tasks_dir).parts
+        relative_parts = task_file.relative_to(tasks_dir).parts
         if RESERVED_TASK_DISCOVERY_DIRS.intersection(relative_parts):
             skipped_files.append(
                 SkippedTaskFile(

@@ -33,6 +33,65 @@ def test_safe_discover_tasks(monkeypatch):
     assert isinstance(invalid_files, list)
 
 
+def test_safe_discover_tasks_tolerates_inaccessible_tasks_dir_exists(
+    monkeypatch,
+):
+    """Task discovery should not crash when a saved tasks dir is inaccessible."""
+    inaccessible = Path("/Volumes/srv2/autoclean/tasks")
+    monkeypatch.setattr(
+        "autoclean.utils.user_config.user_config.tasks_dir",
+        inaccessible,
+    )
+
+    original_exists = Path.exists
+
+    def raise_for_inaccessible(self):
+        if self == inaccessible:
+            raise PermissionError("permission denied")
+        return original_exists(self)
+
+    monkeypatch.setattr(Path, "exists", raise_for_inaccessible)
+
+    valid_tasks, invalid_files, skipped_files = safe_discover_tasks()
+
+    assert not any(str(inaccessible) in task.source for task in valid_tasks)
+    assert not any(str(inaccessible) in entry.source for entry in invalid_files)
+    assert not any(str(inaccessible) in entry.source for entry in skipped_files)
+
+
+def test_safe_discover_tasks_tolerates_inaccessible_tasks_dir_scan(
+    monkeypatch,
+):
+    """Task discovery should not crash when recursive scanning fails."""
+    inaccessible = Path("/Volumes/srv2/autoclean/tasks")
+    monkeypatch.setattr(
+        "autoclean.utils.user_config.user_config.tasks_dir",
+        inaccessible,
+    )
+
+    original_exists = Path.exists
+    original_rglob = Path.rglob
+
+    def exists_for_inaccessible(self):
+        if self == inaccessible:
+            return True
+        return original_exists(self)
+
+    def rglob_for_inaccessible(self, pattern):
+        if self == inaccessible:
+            raise PermissionError("permission denied")
+        return original_rglob(self, pattern)
+
+    monkeypatch.setattr(Path, "exists", exists_for_inaccessible)
+    monkeypatch.setattr(Path, "rglob", rglob_for_inaccessible)
+
+    valid_tasks, invalid_files, skipped_files = safe_discover_tasks()
+
+    assert not any(str(inaccessible) in task.source for task in valid_tasks)
+    assert not any(str(inaccessible) in entry.source for entry in invalid_files)
+    assert not any(str(inaccessible) in entry.source for entry in skipped_files)
+
+
 def test_discovered_task_structure():
     """Test that DiscoveredTask has the expected structure."""
     task = DiscoveredTask(
