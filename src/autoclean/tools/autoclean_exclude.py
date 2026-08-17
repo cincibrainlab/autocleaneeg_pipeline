@@ -217,6 +217,21 @@ def _group_channel_removals(channel_removals: List[Dict]) -> Dict[str, List[str]
     return grouped
 
 
+def _unique_channels(channels: List[str]) -> List[str]:
+    """Return channel names once each, preserving first-seen order."""
+    return list(dict.fromkeys(channels))
+
+
+def _bad_channels_from_metadata(metadata: Dict) -> List[str]:
+    """Extract the unique operational bad-channel list from run metadata."""
+    channel_removals = metadata.get("channel_removals", [])
+    if channel_removals:
+        return _unique_channels([removal["channel"] for removal in channel_removals])
+
+    legacy_bad_channels = metadata.get("step_clean_bad_channels", {}).get("bads", [])
+    return _unique_channels(legacy_bad_channels)
+
+
 def _get_removal_reason_display(reason_code: str) -> Tuple[str, str]:
     """Get human-readable label and color for a removal reason code.
 
@@ -1865,7 +1880,7 @@ class ReprocessWidget(QWidget):
         self.channel_combo.clear()
 
         # Extract data from metadata
-        bad_channels = metadata.get("bad_channels", [])
+        bad_channels = _unique_channels(metadata.get("bad_channels", []))
         rejected_ica = metadata.get("rejected_ica", [])
         valid_channels = metadata.get("valid_channels", [])
         max_components = metadata.get("max_components", 0)
@@ -3727,14 +3742,7 @@ class ExclusionFileSelector(ReviewBase):
 
             # Extract unified channel removals (preferred)
             channel_removals = metadata_section.get("channel_removals", [])
-            if channel_removals:
-                # Build bad_channels list from unified removals
-                bad_channels = [r["channel"] for r in channel_removals]
-            else:
-                # Fallback to legacy bad channels extraction
-                bad_channels = metadata_section.get("step_clean_bad_channels", {}).get(
-                    "bads", []
-                )
+            bad_channels = _bad_channels_from_metadata(metadata_section)
 
             # Extract rejected ICA components
             ica_rejection = metadata_section.get(
@@ -5848,15 +5856,8 @@ class ExclusionFileSelector(ReviewBase):
             channel_removals = metadata_section.get("channel_removals", [])
             if channel_removals and isinstance(channel_removals, list):
                 result["channel_removals"] = channel_removals
-                # Build bad_channels list from removals for backward compatibility
-                result["bad_channels"] = [r["channel"] for r in channel_removals]
-            else:
-                # Fallback to legacy bad channels extraction
-                bad_channels = metadata_section.get("step_clean_bad_channels", {}).get(
-                    "bads", []
-                )
-                if isinstance(bad_channels, list):
-                    result["bad_channels"] = bad_channels
+
+            result["bad_channels"] = _bad_channels_from_metadata(metadata_section)
 
             # Extract rejected ICA components
             ica_rejection = metadata_section.get(
