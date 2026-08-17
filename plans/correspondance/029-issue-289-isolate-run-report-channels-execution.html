@@ -16,7 +16,7 @@
       <dt>Source thread ID</dt><dd>019f42de-12c8-7681-b931-f19e15bdde8d</dd>
       <dt>Local work thread ID</dt><dd>T-2026-08-17-001; CI correction T-2026-08-17-002</dd>
       <dt>Role task thread ID</dt><dd>01a00fb9-7b0d-7a21-8579-a4a014d6435a</dd>
-      <dt>Status</dt><dd>Internal draft; Ruff F401 correction complete; Cricket and CI checks pending</dd>
+      <dt>Status</dt><dd>Internal draft; corrected and verified green on GitHub Actions</dd>
       <dt>Record type</dt><dd>Execution update</dd>
     </dl>
 
@@ -119,12 +119,18 @@
     unused-import finding. After removing that import, Raven reran CI's exact pinned
     Black, isort, and Ruff versions locally; all passed, as recorded above. Cricket's
     final evidence acknowledgment and a GitHub Actions rerun are pending.</p>
+    <p>Authoritative post-correction GitHub Actions run
+    <a href="https://github.com/cincibrainlab/autocleaneeg_pipeline/actions/runs/32038406434">32038406434</a>
+    passed quality, tests, package, frontend, and docs at code head
+    <code>9ef172ad58bc4c1a8edbaa26001172f15862a4a0</code>. Companion Claude review run
+    <a href="https://github.com/cincibrainlab/autocleaneeg_pipeline/actions/runs/32038406441">32038406441</a>
+    also passed. Cricket accepted the durable pinned-tool evidence and marked the
+    correction safe for push.</p>
 
     <h2>Next Actions</h2>
     <ol>
-      <li>Cricket performs read-only verification that the final Python diff removes only the unused import.</li>
-      <li>GitHub Actions reruns the exact pinned Black, isort, and Ruff quality checks after a later approved commit/push.</li>
-      <li>Raven coordinates any integration step; merge and publication remain PI-gated.</li>
+      <li>The documentation-only custody commit containing this result must retain green PR-head checks.</li>
+      <li>Raven performs the final mergeability/conflict audit; merge and publication remain PI-gated.</li>
     </ol>
 
     <h2>Publication Boundary</h2>
