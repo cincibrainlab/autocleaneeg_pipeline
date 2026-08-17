@@ -23,7 +23,7 @@ import os
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import matplotlib
 import pandas as pd
@@ -48,6 +48,19 @@ __all__ = [
     "create_json_summary",
     "generate_bad_channels_tsv",
 ]
+
+CHANNEL_REMOVAL_REASON_LABELS = {
+    "NOISY": "Noisy",
+    "UNCORRELATED": "Uncorrelated",
+    "DEVIATION": "Deviation",
+    "RANSAC": "Ransac",
+    "BRIDGED": "Bridged",
+    "RANK": "Rank",
+    "EOG_DROPPED": "EOG",
+    "OUTER_LAYER": "OuterLayer",
+    "MANUAL_EXCLUDE": "Manual",
+    "TEMPLATE_EXCLUDE": "Template",
+}
 
 # Force matplotlib to use non-interactive backend for async operations
 matplotlib.use("Agg")
@@ -1464,38 +1477,15 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
             "ransac_channels"
         ]
 
-    flagged_chs_path: Optional[Path] = None
-    run_reports_dir = reports_dir / "run_reports"
-    if run_reports_dir.exists():
-        candidates = sorted(run_reports_dir.glob("*flagged_channels.tsv"))
-        if not candidates:
-            candidates = sorted(run_reports_dir.glob("*FlaggedChs.tsv"))
-        if candidates:
-            flagged_chs_path = candidates[0]
-
-    if flagged_chs_path is None:
-        legacy_path = derivatives_dir / "FlaggedChs.tsv"
-        if legacy_path.exists():
-            flagged_chs_path = legacy_path
-
-    if flagged_chs_path and not flagged_chs_path.name.startswith("._"):
-        try:
-            with open(flagged_chs_path, "r", encoding="utf8", errors="strict") as f:
-                # Skip the header line
-                next(f)
-                # Read each line and extract the label and channel name
-                for line in f:
-                    parts = line.strip().split("\t")
-                    if len(parts) == 2:
-                        label, channel = parts
-                        if label not in channel_dict:
-                            channel_dict[label] = []
-                        channel_dict[label].append(channel)
-        except UnicodeDecodeError:
-            message(
-                "warning",
-                f"Skipping flagged-channels file with invalid encoding: {flagged_chs_path.name}",
-            )
+    # Build report labels only from this run's metadata. The flagged-channels TSV is
+    # generated after this summary and the reports directory is shared across runs.
+    for removal in metadata.get("channel_removals", []):
+        label = CHANNEL_REMOVAL_REASON_LABELS.get(
+            removal["reason"], removal["reason"]
+        )
+        category = channel_dict.setdefault(label, [])
+        if removal["channel"] not in category:
+            category.append(removal["channel"])
 
     # Add outer layer dropped channels as a named category in channel_dict
     if "step_drop_outerlayer" in metadata:
@@ -1913,19 +1903,9 @@ def generate_bad_channels_tsv(summary_dict: Dict[str, Any]) -> None:
         # Use unified removals (includes all sources)
         for removal in unified_removals:
             # Map reason codes to TSV labels (backward compatible)
-            reason_map = {
-                "NOISY": "Noisy",
-                "UNCORRELATED": "Uncorrelated",
-                "DEVIATION": "Deviation",
-                "RANSAC": "Ransac",
-                "BRIDGED": "Bridged",
-                "RANK": "Rank",
-                "EOG_DROPPED": "EOG",
-                "OUTER_LAYER": "OuterLayer",
-                "MANUAL_EXCLUDE": "Manual",
-                "TEMPLATE_EXCLUDE": "Template",
-            }
-            label = reason_map.get(removal["reason"], removal["reason"])
+            label = CHANNEL_REMOVAL_REASON_LABELS.get(
+                removal["reason"], removal["reason"]
+            )
             channels_to_write.append((label, removal["channel"]))
     else:
         # Fallback: use legacy detection lists
