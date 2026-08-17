@@ -55,16 +55,29 @@
     <code>["E3", "E1", "E3"]</code> while retaining the expected stable unique
     result <code>["E3", "E1"]</code>. Production code was not changed in this
     correction.</p>
+    <p><strong>PR #290 CI correction:</strong> The quality job reported that
+    <code>tests/unit/tools/test_autoclean_exclude.py</code> would be reformatted by
+    Black. The tests job stopped during collection because importing
+    <code>autoclean.tools.autoclean_exclude</code> caused PyQt6 QtPdf to fail on
+    missing <code>libEGL.so.1</code>; no assertions ran. With explicit PI
+    approval, Echo applied Black-equivalent formatting only to the test file and
+    added an Ubuntu tests-job step containing <code>apt-get update</code> and
+    installation of only <code>libegl1</code>. No speculative Qt/X11 packages,
+    test weakening, mocks, production dependency-guard changes, or helper
+    refactors were introduced.</p>
   </section>
 
   <section>
     <h2>Scope Limits</h2>
-    <p>Changed only <code>src/autoclean/tools/autoclean_exclude.py</code>, the new
-    directly relevant test file, and this required correspondence artifact. No
-    scientific interpretation, statistical choice, schema change, external
-    write, branch operation, commit, push, PR, or publication occurred. Full GUI
-    interaction and pytest execution were not verified because the local test
-    environment failed before collection.</p>
+    <p>The original bug fix changed the production exclusion module, its directly
+    relevant test file, and this required correspondence artifact. The approved CI
+    correction changes only <code>.github/workflows/ci.yml</code>, formatting in
+    <code>tests/unit/tools/test_autoclean_exclude.py</code>, and this artifact;
+    production code and test semantics are unchanged. No scientific interpretation,
+    statistical choice, schema change, merge, or public-archive publication occurred.
+    Full GUI interaction and pytest execution were not verified locally because the
+    local test environment failed before collection; GitHub Actions is the
+    authoritative Linux verification gate.</p>
   </section>
 
   <section>
@@ -97,6 +110,25 @@
       environment mutation was attempted.</li>
       <li>Observed working-tree state before this artifact: modified source file
       and new <code>tests/unit/tools/</code>; no unrelated edits observed.</li>
+      <li>PR #290 CI run:
+      <a href="https://github.com/cincibrainlab/autocleaneeg_pipeline/actions/runs/32035975470">CI run 32035975470</a>.
+      Failed quality job:
+      <a href="https://github.com/cincibrainlab/autocleaneeg_pipeline/actions/runs/32035975470/job/95406427166">job 95406427166</a>.
+      Failed tests job:
+      <a href="https://github.com/cincibrainlab/autocleaneeg_pipeline/actions/runs/32035975470/job/95406427163">job 95406427163</a>.</li>
+      <li>CI-correction custody gate: exit 0, 0.69s; approved branch, clean tree,
+      exact repository root, and HEAD
+      <code>120795e67ed4e646ef5b6f3483f638d4a1abaa9b</code>.</li>
+      <li><code>gh pr checks 290 --repo cincibrainlab/autocleaneeg_pipeline</code>:
+      exit 1, 1.13s because <code>gh</code> is not installed. The connected GitHub
+      app then confirmed CI run 32035975470 and the two failed job IDs recorded
+      above; this was a read-only lookup.</li>
+      <li><code>git diff --check</code>, standard-library AST parse of the changed
+      Python test, <code>git status --short</code>, and scoped diff inspection:
+      exit 0, 0.84s; no whitespace errors, <code>syntax-ok</code>, exactly the
+      approved three files changed, and the <code>libegl1</code> step correctly
+      indented within the tests job. Black was not installed, so no installation
+      or local Black execution occurred.</li>
     </ul>
   </section>
 
@@ -124,7 +156,9 @@
     Cipher completed a bounded security and data-integrity review with no
     findings. The Boulder found no code defects and classified the code as
     conditionally ready subject to running the focused tests in a functioning
-    project environment.</p>
+    project environment. After the approved CI correction, checker state is
+    pending: Cricket has not yet verified this three-file diff, and the next CI
+    run is authoritative for Black and the Ubuntu Qt runtime dependency.</p>
   </section>
 
   <section>
@@ -135,6 +169,9 @@
       project environment; stop on any failure.</li>
       <li>Run named Black/isort check-only validation when the project tools are
       available.</li>
+      <li>Cricket should perform read-only verification of this CI correction;
+      the next GitHub CI run should confirm Black formatting and whether
+      <code>libegl1</code> is the complete concrete Ubuntu dependency fix.</li>
       <li>Raven should integrate the reviewed branch while preserving the
       documented dynamic-verification gap; merge remains a PI decision.</li>
     </ol>

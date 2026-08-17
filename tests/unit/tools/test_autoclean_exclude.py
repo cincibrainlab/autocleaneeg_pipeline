@@ -60,11 +60,7 @@ def test_parse_metadata_json_preserves_legacy_bad_channels(tmp_path):
     json_path = tmp_path / "metadata.json"
     json_path.write_text(
         json.dumps(
-            {
-                "metadata": {
-                    "step_clean_bad_channels": {"bads": ["E3", "E1", "E3"]}
-                }
-            }
+            {"metadata": {"step_clean_bad_channels": {"bads": ["E3", "E1", "E3"]}}}
         ),
         encoding="utf-8",
     )
