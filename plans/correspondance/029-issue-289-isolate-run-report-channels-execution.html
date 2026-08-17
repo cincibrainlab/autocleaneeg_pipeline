@@ -16,7 +16,7 @@
       <dt>Source thread ID</dt><dd>019f42de-12c8-7681-b931-f19e15bdde8d</dd>
       <dt>Local work thread ID</dt><dd>T-2026-08-17-001; CI correction T-2026-08-17-002</dd>
       <dt>Role task thread ID</dt><dd>01a00fb9-7b0d-7a21-8579-a4a014d6435a</dd>
-      <dt>Status</dt><dd>Internal draft; formatting-only CI correction complete; Cricket check pending</dd>
+      <dt>Status</dt><dd>Internal draft; Ruff F401 correction complete; Cricket and CI checks pending</dd>
       <dt>Record type</dt><dd>Execution update</dd>
     </dl>
 
@@ -55,6 +55,14 @@
     failed only because Black would reformat the two changed Python files. River applied
     the corresponding whitespace-only layouts; production and test semantics were not
     changed.</p>
+    <p>Follow-up GitHub Actions run
+    <a href="https://github.com/cincibrainlab/autocleaneeg_pipeline/actions/runs/32037965820">32037965820</a>
+    reached quality job
+    <a href="https://github.com/cincibrainlab/autocleaneeg_pipeline/actions/runs/32037965820/job/95412025547">95412025547</a>.
+    After Black 25.9.0 and isort 6.0.1 passed, Ruff 0.15.20 reported only
+    <code>F401</code> at <code>tests/unit/reporting/test_reports.py:4</code> because
+    <code>json</code> was imported but unused. River removed only that import; Cricket
+    verification and the authoritative CI rerun remain pending.</p>
 
     <h2>Scope Limits</h2>
     <p>No data definitions, schemas, scientific or statistical behavior, TSV filenames,
@@ -73,6 +81,15 @@
       <li>Modified artifacts: <code>src/autoclean/step_functions/reports.py</code>, <code>tests/unit/reporting/test_reports.py</code>, and this correspondence file.</li>
       <li>CI correction custody: branch <code>codex/fix-289-isolate-report-channels</code>, clean starting status, repository root as above, HEAD <code>37a3844e68379098facd7fab2cb2601d7aee71bf</code>.</li>
       <li>Formatting-only proof: AST hashes before and after were identical. <code>reports.py</code>: <code>c16ac9c7d68d41a7ae333c8d388147221dc4e9ecdcd9a60c35c47aa695e7fb5f</code>; <code>test_reports.py</code>: <code>8360129c97f4ba4b58b7f535a13091e7d6a9b741aeffc32f7849c812d1bfa716</code>.</li>
+      <li>Lint follow-up custody: clean branch <code>codex/fix-289-isolate-report-channels</code> at HEAD <code>9f75dbbc8c7e56a5a6ea780d1c0c28990f8d1987</code>. The approved correction removes the single unused <code>json</code> import and updates this record.</li>
+      <li>Raven exact-tool verification used an isolated temporary uv cache and CI's
+      pinned commands: <code>uvx --from black==25.9.0 black --check
+      src/autoclean/step_functions/reports.py tests/unit/reporting/test_reports.py</code>,
+      exit 0, reported both files unchanged; <code>uvx --from isort==6.0.1 isort
+      --check-only</code> on the same files, exit 0; and <code>uvx --from
+      ruff==0.15.20 ruff check</code> on the same files, exit 0 with
+      <code>All checks passed!</code>. <code>git diff --check</code> also passed.
+      The tools were ephemeral; no project dependency or lockfile changed.</li>
     </ul>
 
     <h2>Conflict Status</h2>
@@ -98,11 +115,15 @@
     tests in a functioning pytest environment. GitHub Actions subsequently passed the
     test job; only Black formatting failed. The formatting-only correction preserves
     identical ASTs, and Cricket's read-only check of this final correction is pending.</p>
+    <p>The next pinned quality run passed Black and isort before Ruff exposed the sole
+    unused-import finding. After removing that import, Raven reran CI's exact pinned
+    Black, isort, and Ruff versions locally; all passed, as recorded above. Cricket's
+    final evidence acknowledgment and a GitHub Actions rerun are pending.</p>
 
     <h2>Next Actions</h2>
     <ol>
-      <li>Cricket performs read-only verification that the final diff is formatting-only; stop on any semantic difference.</li>
-      <li>GitHub Actions reruns the authoritative Black quality check after a later approved commit/push.</li>
+      <li>Cricket performs read-only verification that the final Python diff removes only the unused import.</li>
+      <li>GitHub Actions reruns the exact pinned Black, isort, and Ruff quality checks after a later approved commit/push.</li>
       <li>Raven coordinates any integration step; merge and publication remain PI-gated.</li>
     </ol>
 
