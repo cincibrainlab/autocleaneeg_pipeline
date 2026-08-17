@@ -14,9 +14,9 @@
       <dt>Date</dt><dd>2026-08-17</dd>
       <dt>Re</dt><dd>GitHub issue #289, "Run report can show flagged channels from another file"</dd>
       <dt>Source thread ID</dt><dd>019f42de-12c8-7681-b931-f19e15bdde8d</dd>
-      <dt>Local work thread ID</dt><dd>T-2026-08-17-001</dd>
+      <dt>Local work thread ID</dt><dd>T-2026-08-17-001; CI correction T-2026-08-17-002</dd>
       <dt>Role task thread ID</dt><dd>01a00fb9-7b0d-7a21-8579-a4a014d6435a</dd>
-      <dt>Status</dt><dd>Internal draft; independently reviewed; dynamic tests blocked</dd>
+      <dt>Status</dt><dd>Internal draft; formatting-only CI correction complete; Cricket check pending</dd>
       <dt>Record type</dt><dd>Execution update</dd>
     </dl>
 
@@ -48,6 +48,13 @@
     constant used by summary and TSV generation, and applies stable first-seen uniqueness
     within each summary category. A channel recorded under different reasons remains in
     every applicable category. Global <code>removed_channels</code> behavior is unchanged.</p>
+    <p>GitHub Actions run
+    <a href="https://github.com/cincibrainlab/autocleaneeg_pipeline/actions/runs/32036043439">32036043439</a>
+    reported passing tests, package, frontend, docs, and Claude review checks. Quality job
+    <a href="https://github.com/cincibrainlab/autocleaneeg_pipeline/actions/runs/32036043439/job/95406640048">95406640048</a>
+    failed only because Black would reformat the two changed Python files. River applied
+    the corresponding whitespace-only layouts; production and test semantics were not
+    changed.</p>
 
     <h2>Scope Limits</h2>
     <p>No data definitions, schemas, scientific or statistical behavior, TSV filenames,
@@ -64,11 +71,14 @@
       <li>Static command: <code>git diff --check</code>; same cwd; elapsed 0.37 s; exit 0; no output.</li>
       <li>Static command: <code>python -B -c "import ast, pathlib; ..."</code>; same cwd; completed during a 1.59 s combined availability probe; AST parsing passed for both modified Python files. The combined probe exited 1 only because neither Black nor isort was discoverable by <code>Get-Command</code>; no formatter ran.</li>
       <li>Modified artifacts: <code>src/autoclean/step_functions/reports.py</code>, <code>tests/unit/reporting/test_reports.py</code>, and this correspondence file.</li>
+      <li>CI correction custody: branch <code>codex/fix-289-isolate-report-channels</code>, clean starting status, repository root as above, HEAD <code>37a3844e68379098facd7fab2cb2601d7aee71bf</code>.</li>
+      <li>Formatting-only proof: AST hashes before and after were identical. <code>reports.py</code>: <code>c16ac9c7d68d41a7ae333c8d388147221dc4e9ecdcd9a60c35c47aa695e7fb5f</code>; <code>test_reports.py</code>: <code>8360129c97f4ba4b58b7f535a13091e7d6a9b741aeffc32f7849c812d1bfa716</code>.</li>
     </ul>
 
     <h2>Conflict Status</h2>
     <p>No conflict flagged. Cricket's two actionable QA findings were accepted and
-    corrected within the approved scope. Flag/Respond/Decide/Document state: not applicable.</p>
+    corrected within the approved scope. GitHub reports PR #291 as mergeable with no
+    conflicts. Flag/Respond/Decide/Document state: not applicable.</p>
 
     <h2>Execution Decision</h2>
     <p>Disposition: implemented within approved scope. Owner: River. Rationale: current
@@ -85,13 +95,15 @@
     retest passed all acceptance criteria. Cipher completed a bounded security and
     data-integrity review with no findings. The Boulder found no code defects and
     classified the change as conditionally ready subject to running the focused reporting
-    tests in a functioning pytest environment.</p>
+    tests in a functioning pytest environment. GitHub Actions subsequently passed the
+    test job; only Black formatting failed. The formatting-only correction preserves
+    identical ASTs, and Cricket's read-only check of this final correction is pending.</p>
 
     <h2>Next Actions</h2>
     <ol>
-      <li>Run the focused <code>TestCreateJsonSummary</code> reporting tests in a functioning pytest environment; stop on any failure.</li>
-      <li>Run named Black/isort check-only validation when the project tools are available.</li>
-      <li>Raven integrates the reviewed branch while preserving the documented dynamic-verification gap; merge and publication remain PI-gated.</li>
+      <li>Cricket performs read-only verification that the final diff is formatting-only; stop on any semantic difference.</li>
+      <li>GitHub Actions reruns the authoritative Black quality check after a later approved commit/push.</li>
+      <li>Raven coordinates any integration step; merge and publication remain PI-gated.</li>
     </ol>
 
     <h2>Publication Boundary</h2>
@@ -99,9 +111,9 @@
     Draft GitHub PR
     <a href="https://github.com/cincibrainlab/autocleaneeg_pipeline/pull/291">#291</a>
     was opened against <code>main</code> from
-    <code>codex/fix-289-isolate-report-channels</code> at reviewed head
-    <code>36608ec5ea2d4f46328a4e588b70d4581246aa26</code>. The PR remains draft,
-    dynamic pytest verification remains pending, and merge remains PI-gated. The
+    <code>codex/fix-289-isolate-report-channels</code>. CI correction started from head
+    <code>37a3844e68379098facd7fab2cb2601d7aee71bf</code>. The PR has no conflicts;
+    the formatting correction remains uncommitted and merge remains PI-gated. The
     record contains no credentials, patient-level data, or scientific results; all
     test inputs are synthetic.</p>
   </main>

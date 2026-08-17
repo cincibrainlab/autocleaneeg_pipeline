@@ -231,7 +231,9 @@ class TestCreateRunReport:
             return_value=run_record,
         ):
             # Should not raise
-            create_run_report(run_id=run_record["run_id"], autoclean_dict=None, json_summary={})
+            create_run_report(
+                run_id=run_record["run_id"], autoclean_dict=None, json_summary={}
+            )
 
     def test_skips_sections_for_missing_step_prepare_directories(self, tmp_path):
         """Returns when required step_prepare_directories metadata key is missing."""

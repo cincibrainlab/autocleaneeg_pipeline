@@ -1480,9 +1480,7 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
     # Build report labels only from this run's metadata. The flagged-channels TSV is
     # generated after this summary and the reports directory is shared across runs.
     for removal in metadata.get("channel_removals", []):
-        label = CHANNEL_REMOVAL_REASON_LABELS.get(
-            removal["reason"], removal["reason"]
-        )
+        label = CHANNEL_REMOVAL_REASON_LABELS.get(removal["reason"], removal["reason"])
         category = channel_dict.setdefault(label, [])
         if removal["channel"] not in category:
             category.append(removal["channel"])
