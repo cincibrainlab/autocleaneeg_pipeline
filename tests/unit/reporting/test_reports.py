@@ -1,7 +1,6 @@
 """Unit tests for step_functions/reports.py."""
 
 import csv
-import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -231,7 +230,9 @@ class TestCreateRunReport:
             return_value=run_record,
         ):
             # Should not raise
-            create_run_report(run_id=run_record["run_id"], autoclean_dict=None, json_summary={})
+            create_run_report(
+                run_id=run_record["run_id"], autoclean_dict=None, json_summary={}
+            )
 
     def test_skips_sections_for_missing_step_prepare_directories(self, tmp_path):
         """Returns when required step_prepare_directories metadata key is missing."""
@@ -256,6 +257,41 @@ class TestCreateRunReport:
 
 
 class TestCreateJsonSummary:
+    @staticmethod
+    def _run_record(tmp_path, run_id, channel_removals):
+        derivatives_dir = tmp_path / "derivatives" / run_id
+        derivatives_dir.mkdir(parents=True)
+        for directory in ["metadata", "reports", "ica", "exports", "bids"]:
+            (tmp_path / directory).mkdir(exist_ok=True)
+
+        return {
+            "run_id": run_id,
+            "task": "TestTask",
+            "created_at": "2026-08-17 00:00:00",
+            "success": True,
+            "report_file": f"{run_id}_autoclean_report.pdf",
+            "metadata": {
+                "step_create_bids_path": {
+                    "derivatives_dir": str(derivatives_dir),
+                    "bids_subject": run_id,
+                },
+                "step_prepare_directories": {
+                    "bids": str(tmp_path / "bids"),
+                    "metadata": str(tmp_path / "metadata"),
+                    "reports": str(tmp_path / "reports"),
+                    "ica": str(tmp_path / "ica"),
+                    "exports": str(tmp_path / "exports"),
+                },
+                "import_eeg": {
+                    "sampleRate": 500,
+                    "channelCount": 3,
+                    "durationSec": 10,
+                    "unprocessedFile": f"{run_id}.set",
+                },
+                "channel_removals": channel_removals,
+            },
+        }
+
     def test_returns_none_when_no_run_record(self, tmp_path):
         """create_json_summary returns None when run_id not in DB."""
         with patch(
@@ -318,3 +354,127 @@ class TestCreateJsonSummary:
                 result = None
         # The call itself should not crash unhandled — None or dict is acceptable
         assert result is None or isinstance(result, dict)
+
+    def test_ignores_foreign_flagged_channels_tsv(self, tmp_path):
+        """A shared report artifact from another file cannot affect this run."""
+        run_record = self._run_record(
+            tmp_path,
+            "current",
+            [{"channel": "E1", "reason": "NOISY"}],
+        )
+        run_reports = tmp_path / "reports" / "run_reports"
+        run_reports.mkdir()
+        (run_reports / "foreign_flagged_channels.tsv").write_text(
+            "label\tchannel\nNoisy\tE99\n", encoding="utf8"
+        )
+
+        with patch(
+            "autoclean.step_functions.reports.get_run_record",
+            return_value=run_record,
+        ):
+            result = create_json_summary(run_id="current")
+
+        assert result["channel_dict"]["Noisy"] == ["E1"]
+        assert "E99" not in result["channel_dict"]["removed_channels"]
+
+    def test_current_metadata_wins_before_current_tsv_exists(self, tmp_path):
+        """Current removal metadata supplies labels before TSV generation."""
+        run_record = self._run_record(
+            tmp_path,
+            "current",
+            [
+                {"channel": "E2", "reason": "UNCORRELATED"},
+                {"channel": "E3", "reason": "MANUAL_EXCLUDE"},
+            ],
+        )
+
+        with patch(
+            "autoclean.step_functions.reports.get_run_record",
+            return_value=run_record,
+        ):
+            result = create_json_summary(run_id="current")
+
+        assert not (tmp_path / "reports" / "run_reports").exists()
+        assert result["channel_dict"]["Uncorrelated"] == ["E2"]
+        assert result["channel_dict"]["Manual"] == ["E3"]
+
+    @pytest.mark.parametrize("order", [("first", "second"), ("second", "first")])
+    def test_runs_keep_channel_sets_isolated_in_any_order(self, tmp_path, order):
+        """Two summaries sharing a reports directory remain order-independent."""
+        records = {
+            "first": self._run_record(
+                tmp_path,
+                "first",
+                [{"channel": "E1", "reason": "NOISY"}],
+            ),
+            "second": self._run_record(
+                tmp_path,
+                "second",
+                [{"channel": "E2", "reason": "RANSAC"}],
+            ),
+        }
+        run_reports = tmp_path / "reports" / "run_reports"
+        run_reports.mkdir()
+        (run_reports / "first_flagged_channels.tsv").write_text(
+            "label\tchannel\nNoisy\tE1\n", encoding="utf8"
+        )
+        (run_reports / "second_flagged_channels.tsv").write_text(
+            "label\tchannel\nRansac\tE2\n", encoding="utf8"
+        )
+        results = {}
+
+        for run_id in order:
+            with patch(
+                "autoclean.step_functions.reports.get_run_record",
+                return_value=records[run_id],
+            ):
+                results[run_id] = create_json_summary(run_id=run_id)
+
+        assert results["first"]["channel_dict"]["removed_channels"] == ["E1"]
+        assert results["second"]["channel_dict"]["removed_channels"] == ["E2"]
+        assert results["first"]["channel_dict"]["Noisy"] == ["E1"]
+        assert results["second"]["channel_dict"]["Ransac"] == ["E2"]
+        assert "Ransac" not in results["first"]["channel_dict"]
+        assert "Noisy" not in results["second"]["channel_dict"]
+
+    def test_removed_channels_are_unique_and_stable(self, tmp_path):
+        """Repeated audit entries retain order without duplicating removals."""
+        run_record = self._run_record(
+            tmp_path,
+            "current",
+            [
+                {"channel": "E2", "reason": "NOISY"},
+                {"channel": "E1", "reason": "RANSAC"},
+                {"channel": "E2", "reason": "MANUAL_EXCLUDE"},
+            ],
+        )
+
+        with patch(
+            "autoclean.step_functions.reports.get_run_record",
+            return_value=run_record,
+        ):
+            result = create_json_summary(run_id="current")
+
+        assert result["channel_dict"]["removed_channels"] == ["E2", "E1"]
+        assert result["channel_dict"]["Noisy"] == ["E2"]
+        assert result["channel_dict"]["Manual"] == ["E2"]
+
+    def test_category_deduplicates_repeated_channel_and_reason(self, tmp_path):
+        """Repeated same-reason audit entries produce one category item."""
+        run_record = self._run_record(
+            tmp_path,
+            "current",
+            [
+                {"channel": "E2", "reason": "NOISY"},
+                {"channel": "E2", "reason": "NOISY"},
+            ],
+        )
+
+        with patch(
+            "autoclean.step_functions.reports.get_run_record",
+            return_value=run_record,
+        ):
+            result = create_json_summary(run_id="current")
+
+        assert result["channel_dict"]["Noisy"] == ["E2"]
+        assert result["channel_dict"]["removed_channels"] == ["E2"]
