@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Correspondence 028 - Issue 288 execution update</title>
+</head>
+<body>
+  <header>
+    <h1>Correspondence 028: Issue #288 execution update</h1>
+    <dl>
+      <dt>From</dt><dd>Echo - Software Engineer</dd>
+      <dt>To</dt><dd>Raven - Engineering Delivery and Loop Coordinator</dd>
+      <dt>Date</dt><dd>2026-08-17</dd>
+      <dt>Re</dt><dd>De-duplicate bad channels in Exclude GUI reprocess tab</dd>
+      <dt>Source thread ID</dt><dd>019f42de-12c8-7681-b931-f19e15bdde8d</dd>
+      <dt>Delegation thread ID</dt><dd>01a00fb9-6e6c-7e23-a088-d7240bb721c6</dd>
+      <dt>Local work thread ID</dt><dd>T-2026-08-17-001</dd>
+      <dt>Issue</dt><dd>GitHub #288</dd>
+      <dt>Status</dt><dd>Implemented; verification blocked by local test environment</dd>
+      <dt>Record type</dt><dd>Internal draft execution update</dd>
+    </dl>
+  </header>
+
+  <section>
+    <h2>Request Summary</h2>
+    <p>PI-approved, Raven-routed implementation to preserve duplicate
+    <code>channel_removals</code> records while presenting and saving a unique,
+    stable-first-seen operational bad-channel selection in the Exclude GUI
+    reprocess path. Non-goals included schema or metadata semantic changes, UI
+    redesign, dependency changes, broad refactoring, commits, pushes, and PRs.
+    No specialist consultation was requested or performed.</p>
+  </section>
+
+  <section>
+    <h2>Execution Update</h2>
+    <p>Added a small stable-order de-duplication helper and a metadata extraction
+    helper. The preferred unified-removal path now derives a unique operational
+    list without mutating the removal records; the legacy path retains its
+    existing order and values. The widget also normalizes incoming operational
+    values before storing and displaying them. Added three focused regression
+    tests for duplicate reasons and metadata preservation, unique stable saved
+    selection, and unchanged legacy non-duplicate behavior.</p>
+    <p>Assumption: channel names are valid strings under the existing metadata
+    contract. Malformed-input handling was intentionally not broadened.</p>
+    <p><strong>QA correction:</strong> Cricket found that
+    <code>_parse_metadata_json</code> still emitted duplicate operational channel
+    names into the related-files summary path. Echo routed that parser through
+    the same metadata helper, retained its unchanged <code>channel_removals</code>
+    result for reason display, and added direct parser-boundary tests for unified
+    duplicate removals and legacy metadata. No Qt widget harness was introduced;
+    direct widget behavior remains an independent GUI verification gap.</p>
+    <p><strong>QA retest correction:</strong> Cricket noted that the direct legacy
+    parser fixture contained no duplicate and therefore would not fail against
+    the pre-fix parser. Echo changed that test fixture to
+    <code>["E3", "E1", "E3"]</code> while retaining the expected stable unique
+    result <code>["E3", "E1"]</code>. Production code was not changed in this
+    correction.</p>
+  </section>
+
+  <section>
+    <h2>Scope Limits</h2>
+    <p>Changed only <code>src/autoclean/tools/autoclean_exclude.py</code>, the new
+    directly relevant test file, and this required correspondence artifact. No
+    scientific interpretation, statistical choice, schema change, external
+    write, branch operation, commit, push, PR, or publication occurred. Full GUI
+    interaction and pytest execution were not verified because the local test
+    environment failed before collection.</p>
+  </section>
+
+  <section>
+    <h2>Evidence</h2>
+    <ul>
+      <li>Gate command (cwd <code>C:\Users\SYEX8X\Documents\autocleaneeg_pipeline</code>):
+      <code>git branch --show-current; git status --short; git rev-parse --show-toplevel; git rev-parse HEAD</code>.
+      Exit 0, 0.63s. Branch <code>codex/fix-288-dedupe-reprocess-channels</code>;
+      clean status; exact repository root; HEAD
+      <code>e095cc60debf3e0aa4bda7525f2936f7eb0bebe0</code>. Git warned that the
+      user-level ignore file was inaccessible.</li>
+      <li><code>git diff --check; git diff -- src/autoclean/tools/autoclean_exclude.py tests/unit/tools/test_autoclean_exclude.py</code>:
+      exit 0, 0.48s; no whitespace errors.</li>
+      <li>Exact pytest nodes through system Python: exit 1, 0.33s;
+      <code>No module named pytest</code>.</li>
+      <li>Single focused recovery through <code>uv run python -B -m pytest</code>
+      with the same three nodes and flags: exit 1, 0.38s; uv failed before
+      collection while initializing <code>C:\Users\SYEX8X\AppData\Local\uv\cache</code>
+      with OS error 183.</li>
+      <li>Standard-library AST parse of both Python files: exit 0, 0.91s;
+      <code>syntax-ok</code>.</li>
+      <li>Correction custody gate: exit 0, 0.64s; approved branch, exact base
+      HEAD and repository root, with only the existing maker source, tests, and
+      this correspondence artifact dirty.</li>
+      <li>Correction <code>git diff --check</code> plus standard-library AST parse:
+      exit 0, 0.53s; no whitespace errors and <code>syntax-ok</code>.</li>
+      <li>One system-Python pytest attempt for the two direct parser regression
+      nodes: exit 1, 0.29s; failed before collection because system Python 3.13
+      has no <code>pytest</code>. Per Raven's instruction, no uv retry or
+      environment mutation was attempted.</li>
+      <li>Observed working-tree state before this artifact: modified source file
+      and new <code>tests/unit/tools/</code>; no unrelated edits observed.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Conflict Status</h2>
+    <p>No conflict flagged. Cricket's acceptance finding was accepted and
+    corrected within the approved scope. Flag/Respond/Decide/Document state:
+    not applicable.</p>
+  </section>
+
+  <section>
+    <h2>Execution Decision</h2>
+    <p>Disposition: implemented within the approved boundary by Echo. Final
+    acceptance, review, and integration remain with Raven and independently
+    routed checkers. Echo does not self-approve.</p>
+  </section>
+
+  <section>
+    <h2>Verification</h2>
+    <p>Echo's maker-side static diff and syntax checks passed. Pytest was blocked
+    before collection in all permitted attempts, so dynamic test behavior and
+    direct GUI interaction remain unverified. Cricket independently found the
+    unnormalized parser path and the insufficient legacy fixture; Echo corrected
+    both, and Cricket's final read-only QA retest passed all acceptance criteria.
+    Cipher completed a bounded security and data-integrity review with no
+    findings. The Boulder found no code defects and classified the code as
+    conditionally ready subject to running the focused tests in a functioning
+    project environment.</p>
+  </section>
+
+  <section>
+    <h2>Next Actions</h2>
+    <ol>
+      <li>Run all five tests in
+      <code>tests/unit/tools/test_autoclean_exclude.py</code> in a functioning
+      project environment; stop on any failure.</li>
+      <li>Run named Black/isort check-only validation when the project tools are
+      available.</li>
+      <li>Raven should integrate the reviewed branch while preserving the
+      documented dynamic-verification gap; merge remains a PI decision.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Publication Boundary</h2>
+    <p>Internal draft. Do not publish. No patient-level data, credentials, or
+    secrets are included. Repository paths and command evidence are real, not
+    synthetic. Publication requires Raven review and the applicable PI gate.</p>
+  </section>
+</body>
+</html>
