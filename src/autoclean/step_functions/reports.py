@@ -1917,29 +1917,27 @@ def generate_bad_channels_tsv(summary_dict: Dict[str, Any]) -> None:
             label = CHANNEL_REMOVAL_REASON_LABELS.get(
                 removal["reason"], removal["reason"]
             )
-            action = removal.get("action", "dropped")
-            channels_to_write.append((label, removal["channel"], action))
+            channels_to_write.append((label, removal["channel"]))
     else:
-        # Fallback: use legacy detection lists (action unknown, assume dropped)
+        # Fallback: use legacy detection lists
         for channel in noisy_channels:
-            channels_to_write.append(("Noisy", channel, "dropped"))
+            channels_to_write.append(("Noisy", channel))
         for channel in uncorrelated_channels:
-            channels_to_write.append(("Uncorrelated", channel, "dropped"))
+            channels_to_write.append(("Uncorrelated", channel))
         for channel in deviation_channels:
-            channels_to_write.append(("Deviation", channel, "dropped"))
+            channels_to_write.append(("Deviation", channel))
         for channel in ransac_channels:
-            channels_to_write.append(("Ransac", channel, "dropped"))
+            channels_to_write.append(("Ransac", channel))
         for channel in bridged_channels:
-            channels_to_write.append(("Bridged", channel, "dropped"))
+            channels_to_write.append(("Bridged", channel))
         for channel in rank_channels:
-            channels_to_write.append(("Rank", channel, "dropped"))
+            channels_to_write.append(("Rank", channel))
 
-    # Write TSV file (adds an "action" column; label/channel stay in the
-    # original first two columns for backward compatibility)
+    # Write TSV file (backward compatible format)
     with flagged_path.open("w", encoding="utf8") as f:
-        f.write("label\tchannel\taction\n")
-        for label, channel, action in channels_to_write:
-            f.write(f"{label}\t{channel}\t{action}\n")
+        f.write("label\tchannel\n")
+        for label, channel in channels_to_write:
+            f.write(f"{label}\t{channel}\n")
 
     summary_dict["flagged_channels_file"] = str(flagged_path)
 

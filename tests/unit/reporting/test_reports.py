@@ -511,9 +511,7 @@ class TestCreateJsonSummary:
         assert result["export_details"]["net_nbchan_post"] == 3
         assert "channel_count_mismatch" not in result["export_details"]
 
-    def test_channel_count_mismatch_still_detected_for_dropped_channels(
-        self, tmp_path
-    ):
+    def test_channel_count_mismatch_still_detected_for_dropped_channels(self, tmp_path):
         """Dropped channels must still be subtracted from the expected count,
         so a genuine mismatch is still caught."""
         run_record = self._run_record(
