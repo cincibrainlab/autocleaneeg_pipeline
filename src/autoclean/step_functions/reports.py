@@ -1498,13 +1498,26 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
 
     # Get all removed channels from unified metadata (preferred) or legacy sources
     if "channel_removals" in metadata:
-        # Use unified channel removals for accurate tracking
+        # Use unified channel removals for accurate tracking. Interpolated
+        # channels are reconstructed in place (not physically removed), so
+        # they're excluded here and tracked separately -- otherwise they'd be
+        # double-counted against the final exported channel count.
         unified_removals = metadata["channel_removals"]
         unique_bad_channels = []
+        unique_interpolated_channels = []
         for removal in unified_removals:
+            # "interpolated" and "marked" channels stay in the exported data
+            # (unlike "dropped"), so they don't reduce the expected channel
+            # count. Entries predating this field have no "action" and are
+            # treated as "dropped" to preserve prior report behavior.
+            if removal.get("action") in ("interpolated", "marked"):
+                if removal["channel"] not in unique_interpolated_channels:
+                    unique_interpolated_channels.append(removal["channel"])
+                continue
             if removal["channel"] not in unique_bad_channels:
                 unique_bad_channels.append(removal["channel"])
         channel_dict["removed_channels"] = unique_bad_channels
+        channel_dict["interpolated_channels"] = unique_interpolated_channels
     else:
         # Fallback: legacy method using channel_dict values
         bad_channels = [
@@ -1904,27 +1917,29 @@ def generate_bad_channels_tsv(summary_dict: Dict[str, Any]) -> None:
             label = CHANNEL_REMOVAL_REASON_LABELS.get(
                 removal["reason"], removal["reason"]
             )
-            channels_to_write.append((label, removal["channel"]))
+            action = removal.get("action", "dropped")
+            channels_to_write.append((label, removal["channel"], action))
     else:
-        # Fallback: use legacy detection lists
+        # Fallback: use legacy detection lists (action unknown, assume dropped)
         for channel in noisy_channels:
-            channels_to_write.append(("Noisy", channel))
+            channels_to_write.append(("Noisy", channel, "dropped"))
         for channel in uncorrelated_channels:
-            channels_to_write.append(("Uncorrelated", channel))
+            channels_to_write.append(("Uncorrelated", channel, "dropped"))
         for channel in deviation_channels:
-            channels_to_write.append(("Deviation", channel))
+            channels_to_write.append(("Deviation", channel, "dropped"))
         for channel in ransac_channels:
-            channels_to_write.append(("Ransac", channel))
+            channels_to_write.append(("Ransac", channel, "dropped"))
         for channel in bridged_channels:
-            channels_to_write.append(("Bridged", channel))
+            channels_to_write.append(("Bridged", channel, "dropped"))
         for channel in rank_channels:
-            channels_to_write.append(("Rank", channel))
+            channels_to_write.append(("Rank", channel, "dropped"))
 
-    # Write TSV file (backward compatible format)
+    # Write TSV file (adds an "action" column; label/channel stay in the
+    # original first two columns for backward compatibility)
     with flagged_path.open("w", encoding="utf8") as f:
-        f.write("label\tchannel\n")
-        for label, channel in channels_to_write:
-            f.write(f"{label}\t{channel}\n")
+        f.write("label\tchannel\taction\n")
+        for label, channel, action in channels_to_write:
+            f.write(f"{label}\t{channel}\t{action}\n")
 
     summary_dict["flagged_channels_file"] = str(flagged_path)
 

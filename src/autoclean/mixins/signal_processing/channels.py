@@ -200,6 +200,17 @@ class ChannelsMixin:
                 if cleaning_method is not _UNSET
                 else resolved.cleaning_method
             )
+            # Only "drop" physically removes channels from the data. Both
+            # "interpolate" (reconstructed in place) and an explicit
+            # cleaning_method=None (left marked bad, untouched) keep every
+            # channel in the exported file, so neither should reduce the
+            # expected final channel count.
+            if final_cleaning_method == "drop":
+                removal_action = "dropped"
+            elif final_cleaning_method == "interpolate":
+                removal_action = "interpolated"
+            else:
+                removal_action = "marked"
 
             message(
                 "info",
@@ -313,6 +324,7 @@ class ChannelsMixin:
                         channels=channel,
                         reason="MANUAL_OVERRIDE",
                         source_step="clean_bad_channels",
+                        action=removal_action,
                     )
             else:
                 message("info", f"Detected {len(bads)} bad channels: {bads}")
@@ -323,18 +335,28 @@ class ChannelsMixin:
                         channels=channel,
                         reason="UNCORRELATED",
                         source_step="clean_bad_channels",
+                        action=removal_action,
                     )
                 for channel in deviation_channels:
                     self._track_channel_removal(
                         channels=channel,
                         reason="DEVIATION",
                         source_step="clean_bad_channels",
+                        action=removal_action,
                     )
                 for channel in ransac_channels:
                     self._track_channel_removal(
                         channels=channel,
                         reason="RANSAC",
                         source_step="clean_bad_channels",
+                        action=removal_action,
+                    )
+                if imported_bad_channels:
+                    self._track_channel_removal(
+                        channels=imported_bad_channels,
+                        reason="BAD_CHANNEL_LOG",
+                        source_step="bad_channel_log",
+                        action=removal_action,
                     )
 
             # Update metadata
@@ -443,11 +465,10 @@ class ChannelsMixin:
 
         if applied:
             raw.info["bads"] = list(dict.fromkeys([*raw.info["bads"], *applied]))
-            self._track_channel_removal(
-                channels=applied,
-                reason="BAD_CHANNEL_LOG",
-                source_step="bad_channel_log",
-            )
+            # Not tracked here: the caller (clean_bad_channels) doesn't yet know
+            # whether these channels will end up interpolated or dropped. It
+            # tracks them itself, tagged with the correct action, once the
+            # cleaning method for this run is resolved.
             message("info", f"Applied bad-channel log channels: {applied}")
 
         self._record_bad_channel_log_metadata(

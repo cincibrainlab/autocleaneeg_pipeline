@@ -283,6 +283,7 @@ class BaseMixin:
         channels: Union[str, list],
         reason: str,
         source_step: str,
+        action: str = "dropped",
     ) -> None:
         """Track channel removal in unified metadata.
 
@@ -297,6 +298,12 @@ class BaseMixin:
                    'RANK', 'MANUAL_EXCLUDE', 'MANUAL_OVERRIDE', 'TEMPLATE_EXCLUDE')
             source_step: Name of the step that removed the channel(s)
                         (e.g., 'drop_eog_channels', 'drop_outer_layer')
+            action: What actually happened to the channel: 'dropped' (physically
+                   removed from the data, the default), 'interpolated' (flagged
+                   bad but reconstructed in place), or 'marked' (flagged bad but
+                   left untouched). Only 'dropped' reduces the channel count --
+                   report generation uses this field to avoid subtracting
+                   interpolated/marked channels from the expected final count.
         """
         if not hasattr(self, "config") or not self.config.get("run_id"):
             return
@@ -337,6 +344,7 @@ class BaseMixin:
                         "channel": channel,
                         "reason": reason,
                         "source_step": source_step,
+                        "action": action,
                         "timestamp": timestamp,
                     }
                 )
