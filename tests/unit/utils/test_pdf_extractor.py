@@ -147,3 +147,31 @@ def test_current_generation_pdf_tolerates_a_missing_detail_page(fake_fitz):
     page_map = result["structure"]["detail_page_map"]
     assert page_map == {"IC0": 1, "IC2": 2}
     assert "IC1" not in page_map
+
+
+def test_legacy_pdf_missing_first_summary_row_still_detects_offset(fake_fitz):
+    """If the summary row for the lowest-indexed component failed to parse
+    (e.g. a malformed row), comparing only the two minimums would wrongly
+    conclude offset=0 (min(summary)=2, min(detail)+1=1, mismatch). Overlap
+    across the whole set should still detect the legacy 1-indexed offset
+    from the remaining rows."""
+    pages = [
+        _summary_page(
+            [
+                # IC1's row (real component 0) is missing from the summary.
+                ("IC2", "eog", "0.80", "Yes"),
+                ("IC3", "other", "0.70", "No"),
+                ("IC4", "brain", "0.60", "No"),
+            ]
+        ),
+        _detail_page("IC0"),
+        _detail_page("IC1"),
+        _detail_page("IC2"),
+        _detail_page("IC3"),
+    ]
+    fake_fitz["doc"] = _FakeDoc(pages)
+
+    result = pdf_extractor.extract_ica_full(Path("/fake.pdf"))
+
+    page_map = result["structure"]["detail_page_map"]
+    assert page_map == {"IC2": 2, "IC3": 3, "IC4": 4}

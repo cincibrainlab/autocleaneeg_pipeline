@@ -259,15 +259,23 @@ def extract_ica_full(pdf_path: Path) -> dict[str, Any]:
         # was fixed have 1-indexed summary names (IC1, IC2, ...) against
         # 0-indexed detail names (IC0, IC1, ...) - a constant offset of 1.
         #
-        # The offset is determined once for the whole document from the
-        # *minimum* numeric suffix on each side, not per row: matching each
-        # summary name against detail_page_map directly is unsafe when the
-        # two label spaces are one apart, because "IC1"-as-1-indexed-summary
-        # and "IC1"-as-0-indexed-detail refer to *different* components but
-        # are the same string - a per-row direct match (or a per-row check
-        # against a single shifted candidate) can silently pair the wrong
-        # pages together in that case. Comparing minimums instead of
-        # individual labels sidesteps that collision.
+        # The offset is determined once for the whole document, not per row:
+        # matching each summary name against detail_page_map directly is
+        # unsafe when the two label spaces are one apart, because
+        # "IC1"-as-1-indexed-summary and "IC1"-as-0-indexed-detail refer to
+        # *different* components but are the same string - a per-row direct
+        # match can silently pair the wrong pages together in that case.
+        #
+        # The offset is picked by whichever candidate (0 or 1) makes more of
+        # the summary numbers overlap with the detail numbers, rather than
+        # just comparing the two minimums: a single missing page can shift
+        # the minimum on one side without changing the offset, and overlap
+        # over the whole set is more resilient to that than one data point.
+        # It can still tie (and falls back to offset 0) in the narrow case
+        # where the missing page is specifically the lowest-indexed
+        # component's *detail* page on a legacy (1-indexed-summary) PDF -
+        # the label text alone doesn't carry enough information to
+        # disambiguate that from a current-generation PDF in that case.
         summary_names = [c["component"] for c in components]
 
         def _numeric_suffix(label: str) -> Optional[int]:
@@ -276,20 +284,23 @@ def extract_ica_full(pdf_path: Path) -> dict[str, Any]:
             except (ValueError, IndexError):
                 return None
 
-        summary_nums = [
+        summary_num_set = {
             n
             for n in (_numeric_suffix(name) for name in summary_names)
             if n is not None
-        ]
-        detail_nums = [
+        }
+        detail_num_set = {
             n
             for n in (_numeric_suffix(name) for name in detail_page_map)
             if n is not None
-        ]
+        }
 
         offset = 0
-        if summary_nums and detail_nums and min(summary_nums) == min(detail_nums) + 1:
-            offset = 1
+        if summary_num_set and detail_num_set:
+            overlap_no_shift = len(summary_num_set & detail_num_set)
+            overlap_shifted = len({n - 1 for n in summary_num_set} & detail_num_set)
+            if overlap_shifted > overlap_no_shift:
+                offset = 1
 
         component_page_map: dict[str, int] = {}
         for summary_name in summary_names:
