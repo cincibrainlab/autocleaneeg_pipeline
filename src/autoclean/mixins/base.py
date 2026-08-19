@@ -334,7 +334,13 @@ class BaseMixin:
         # Add new removal entries with deduplication
         timestamp = datetime.now().isoformat()
         for channel in channels:
-            # Check if this channel+reason combo already exists
+            # Check if this channel+reason combo already exists. Note: the
+            # dedup key is (channel, reason) only, not action -- if a caller
+            # ever tracks the same channel+reason twice with a different
+            # action in one run, the second call's action is silently
+            # dropped. No current call site does this (each channel+reason
+            # pair is tracked at most once per run), but keep it in mind
+            # before reusing a reason code for a differently-resolved action.
             if not any(
                 r["channel"] == channel and r["reason"] == reason
                 for r in channel_removals
