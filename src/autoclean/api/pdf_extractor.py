@@ -12,7 +12,7 @@ import base64
 import logging
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -119,8 +119,9 @@ def get_ica_structure(pdf_path: Path) -> dict[str, Any]:
     Instead of hardcoding page indices, this scans each page's text to
     classify it as summary, topo grid, or per-component detail. This
     handles variable summary page counts (ceil(n_components / 20)),
-    variable topo grid page counts, and 1-indexed component names (IC1,
-    IC2, ...) as produced by the actual generator.
+    variable topo grid page counts, and legacy 1-indexed summary
+    component names (IC1, IC2, ...) from PDFs generated before the
+    generator was fixed to use 0-indexed names everywhere (issue #294).
 
     UPDATE HERE if the PDF generator changes its page layout or naming.
     """
@@ -253,21 +254,51 @@ def extract_ica_full(pdf_path: Path) -> dict[str, Any]:
                 detail_page_map[ic_fallback.group(1)] = page_idx
 
         # Build a mapping from summary component names to detail page numbers.
-        # The summary table uses 1-indexed names (IC1, IC2, ...) while detail
-        # pages use 0-indexed names (IC0, IC1, ...). Match them positionally:
-        # the Nth summary component corresponds to the Nth detail page.
+        # Current-generation PDFs use 0-indexed names on both summary and
+        # detail pages (offset 0). Legacy PDFs generated before issue #294
+        # was fixed have 1-indexed summary names (IC1, IC2, ...) against
+        # 0-indexed detail names (IC0, IC1, ...) - a constant offset of 1.
+        #
+        # The offset is determined once for the whole document from the
+        # *minimum* numeric suffix on each side, not per row: matching each
+        # summary name against detail_page_map directly is unsafe when the
+        # two label spaces are one apart, because "IC1"-as-1-indexed-summary
+        # and "IC1"-as-0-indexed-detail refer to *different* components but
+        # are the same string - a per-row direct match (or a per-row check
+        # against a single shifted candidate) can silently pair the wrong
+        # pages together in that case. Comparing minimums instead of
+        # individual labels sidesteps that collision.
         summary_names = [c["component"] for c in components]
-        detail_names_sorted = sorted(detail_page_map.keys(), key=lambda k: int(k[2:]))
+
+        def _numeric_suffix(label: str) -> Optional[int]:
+            try:
+                return int(label[2:])
+            except (ValueError, IndexError):
+                return None
+
+        summary_nums = [
+            n
+            for n in (_numeric_suffix(name) for name in summary_names)
+            if n is not None
+        ]
+        detail_nums = [
+            n
+            for n in (_numeric_suffix(name) for name in detail_page_map)
+            if n is not None
+        ]
+
+        offset = 0
+        if summary_nums and detail_nums and min(summary_nums) == min(detail_nums) + 1:
+            offset = 1
+
         component_page_map: dict[str, int] = {}
-        for i, summary_name in enumerate(summary_names):
-            # Direct match first (handles same-indexed PDFs)
-            if summary_name in detail_page_map:
-                component_page_map[summary_name] = detail_page_map[summary_name]
-            # Positional fallback (handles 1-indexed summary vs 0-indexed detail)
-            elif i < len(detail_names_sorted):
-                component_page_map[summary_name] = detail_page_map[
-                    detail_names_sorted[i]
-                ]
+        for summary_name in summary_names:
+            num = _numeric_suffix(summary_name)
+            if num is None:
+                continue
+            detail_name = f"IC{num - offset}"
+            if detail_name in detail_page_map:
+                component_page_map[summary_name] = detail_page_map[detail_name]
 
         structure = {
             "total_pages": n_pages,

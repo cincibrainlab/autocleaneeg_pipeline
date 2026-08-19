@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
+import matplotlib.axes as maxes
 import mne
 import numpy as np
 import pandas as pd
@@ -578,3 +579,131 @@ class TestApplyICAStageFile:
             task.apply_ica_component_rejection(manual_rejected_components=[0])
 
         mock_export.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# ICA component label numbering (issue #294)
+#
+# The summary table, full-duration activation plot, and ICLabel/Vision
+# comparison report must all label the first ICA component "IC0", matching
+# MNE's own 0-based indexing and the topography pages - not "IC1".
+# ---------------------------------------------------------------------------
+
+
+class TestIcLabelHelper:
+    def test_zero_based_formatting(self):
+        from autoclean.mixins.viz.ica import _ic_label
+
+        assert _ic_label(0) == "IC0"
+        assert _ic_label(1) == "IC1"
+        assert _ic_label(9) == "IC9"
+
+
+class TestPlotIcaComponentsSummaryLabels:
+    """Regression test for the summary table's per-component label."""
+
+    @patch("autoclean.utils.database.manage_database", return_value=None)
+    @patch("autoclean.mixins.viz.ica.plot_ica_topographies_overview", return_value=[])
+    @patch(
+        "autoclean.mixins.viz.ica.plot_component_for_classification", return_value=None
+    )
+    def test_summary_table_first_row_is_ic0_not_ic1(
+        self, mock_plot_component, mock_topo_overview, mock_db, task, tmp_path
+    ):
+        task.config["reports_dir"] = str(tmp_path / "reports")
+
+        task.run_ica()
+        n_components = task.final_ica.n_components_
+        task.ica_flags = pd.DataFrame(
+            {
+                "ic_type": ["brain"] * n_components,
+                "confidence": [0.9] * n_components,
+                "annotator": ["ic_label"] * n_components,
+            }
+        )
+
+        with patch.object(
+            maxes.Axes, "table", autospec=True, wraps=maxes.Axes.table
+        ) as mock_table:
+            result = task._plot_ica_components(components="all")
+
+        assert result is not None
+        assert mock_table.call_args_list, "summary table was never built"
+        first_call_kwargs = mock_table.call_args_list[0].kwargs
+        first_row = first_call_kwargs["cellText"][0]
+        assert first_row[0] == "IC0"
+
+    @patch("autoclean.mixins.viz.ica.plot_ica_topographies_overview", return_value=[])
+    @patch(
+        "autoclean.mixins.viz.ica.plot_component_for_classification", return_value=None
+    )
+    def test_summary_table_labels_single_component_ic0(
+        self, mock_plot_component, mock_topo_overview, task, tmp_path
+    ):
+        """A 1-component ICA must still label its only row IC0, not IC1 -
+        the off-by-one bug is easy to miss when there's only one row.
+
+        A real single-component fit isn't possible (MNE rejects
+        n_components=1), so this uses a mock ICA instead - the label
+        construction under test only touches the component index, not the
+        fitted decomposition itself.
+        """
+        task.config["reports_dir"] = str(tmp_path / "reports")
+        task.final_ica = _make_mock_ica(n_components=1)
+        task.ica_flags = pd.DataFrame(
+            {"ic_type": ["brain"], "confidence": [0.9], "annotator": ["ic_label"]}
+        )
+
+        with patch.object(
+            maxes.Axes, "table", autospec=True, wraps=maxes.Axes.table
+        ) as mock_table:
+            result = task._plot_ica_components(components="all")
+
+        assert result is not None
+        first_row = mock_table.call_args_list[0].kwargs["cellText"][0]
+        assert first_row[0] == "IC0"
+
+
+class TestPlotIcaFullLabels:
+    """Regression test for the full-duration activation plot's y-tick labels."""
+
+    @patch("autoclean.utils.database.manage_database", return_value=None)
+    def test_first_yticklabel_is_ic0_not_ic1(self, mock_db, task, tmp_path):
+        task.config["reports_dir"] = str(tmp_path / "reports")
+
+        task.run_ica()
+        n_components = task.final_ica.n_components_
+        task.ica_flags = pd.DataFrame(
+            {
+                "ic_type": ["brain"] * n_components,
+                "confidence": [0.9] * n_components,
+                "annotator": ["ic_label"] * n_components,
+            }
+        )
+
+        fig = task.plot_ica_full()
+
+        assert fig is not None
+        first_label = fig.axes[0].get_yticklabels()[0].get_text()
+        assert first_label.startswith("IC0:"), first_label
+
+
+class TestCompareVisionIclabelLabels:
+    """Regression test for the ICLabel-vs-Vision comparison bar chart/table."""
+
+    @patch("autoclean.utils.database.manage_database", return_value=None)
+    def test_first_component_labeled_ic0_not_ic1(self, mock_db, task, tmp_path):
+        task.config["reports_dir"] = str(tmp_path / "reports")
+        task.ica_flags = pd.DataFrame(
+            {"ic_type": ["brain", "eog"], "confidence": [0.9, 0.8]}
+        )
+        task.ica_vision_flags = pd.DataFrame(
+            {"label": ["brain", "eye"], "confidence": [0.85, 0.75]}
+        )
+
+        fig = task.compare_vision_iclabel_classifications()
+
+        assert fig is not None
+        ax1 = fig.axes[0]
+        xtick_labels = [t.get_text() for t in ax1.get_xticklabels()]
+        assert xtick_labels[0] == "IC0"
