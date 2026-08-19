@@ -478,3 +478,95 @@ class TestCreateJsonSummary:
 
         assert result["channel_dict"]["Noisy"] == ["E2"]
         assert result["channel_dict"]["removed_channels"] == ["E2"]
+
+    def test_interpolated_channels_excluded_from_expected_count(self, tmp_path):
+        """Regression test for #292: interpolated channels stay in the export,
+        so they must not be subtracted from the expected channel count (which
+        previously produced a false "channel count mismatch" warning)."""
+        run_record = self._run_record(
+            tmp_path,
+            "current",
+            [
+                {"channel": "E1", "reason": "UNCORRELATED", "action": "interpolated"},
+                {"channel": "E2", "reason": "DEVIATION", "action": "interpolated"},
+            ],
+        )
+        # import_eeg.channelCount is 3; both bad channels were interpolated,
+        # so the exported file should still have all 3 channels.
+        run_record["metadata"]["save_epochs_to_set"] = {
+            "tmin": 0,
+            "tmax": 1,
+            "n_epochs": 1,
+            "n_channels": 3,
+        }
+
+        with patch(
+            "autoclean.step_functions.reports.get_run_record",
+            return_value=run_record,
+        ):
+            result = create_json_summary(run_id="current")
+
+        assert result["channel_dict"]["removed_channels"] == []
+        assert result["channel_dict"]["interpolated_channels"] == ["E1", "E2"]
+        assert result["channel_dict"]["marked_channels"] == []
+        assert result["export_details"]["net_nbchan_post"] == 3
+        assert "channel_count_mismatch" not in result["export_details"]
+
+    def test_marked_channels_tracked_separately_from_interpolated(self, tmp_path):
+        """Regression test: 'marked' (flagged bad but neither interpolated nor
+        dropped) and 'interpolated' channels are distinct outcomes and must
+        not be collapsed into one bucket -- a 'marked' channel's data was
+        never touched, unlike an interpolated one."""
+        run_record = self._run_record(
+            tmp_path,
+            "current",
+            [
+                {"channel": "E1", "reason": "UNCORRELATED", "action": "interpolated"},
+                {"channel": "E2", "reason": "DEVIATION", "action": "marked"},
+            ],
+        )
+        run_record["metadata"]["save_epochs_to_set"] = {
+            "tmin": 0,
+            "tmax": 1,
+            "n_epochs": 1,
+            "n_channels": 3,
+        }
+
+        with patch(
+            "autoclean.step_functions.reports.get_run_record",
+            return_value=run_record,
+        ):
+            result = create_json_summary(run_id="current")
+
+        assert result["channel_dict"]["removed_channels"] == []
+        assert result["channel_dict"]["interpolated_channels"] == ["E1"]
+        assert result["channel_dict"]["marked_channels"] == ["E2"]
+        assert "channel_count_mismatch" not in result["export_details"]
+
+    def test_channel_count_mismatch_still_detected_for_dropped_channels(self, tmp_path):
+        """Dropped channels must still be subtracted from the expected count,
+        so a genuine mismatch is still caught."""
+        run_record = self._run_record(
+            tmp_path,
+            "current",
+            [
+                {"channel": "E1", "reason": "MANUAL_EXCLUDE", "action": "dropped"},
+            ],
+        )
+        # 3 total channels, 1 dropped -> exported file should have 2, but we
+        # simulate an exported file that still reports 3 to trigger the check.
+        run_record["metadata"]["save_epochs_to_set"] = {
+            "tmin": 0,
+            "tmax": 1,
+            "n_epochs": 1,
+            "n_channels": 3,
+        }
+
+        with patch(
+            "autoclean.step_functions.reports.get_run_record",
+            return_value=run_record,
+        ):
+            result = create_json_summary(run_id="current")
+
+        assert result["channel_dict"]["removed_channels"] == ["E1"]
+        assert result["export_details"]["channel_count_mismatch"] is True

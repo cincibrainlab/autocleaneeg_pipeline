@@ -199,6 +199,55 @@ class TestCleanBadChannels:
         # After interpolation with reset_bads=True (default), bads list should be empty
         assert ch_to_mark not in result.info["bads"]
 
+    def test_track_channel_removal_action_matches_cleaning_method(self, task):
+        """Regression test for #292: channels tracked as 'interpolated' when
+        cleaning_method='interpolate', not 'dropped' -- interpolated channels
+        stay in the exported data, so reports must not treat them as removed."""
+        ch_to_mark = task.raw.ch_names[3]
+
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_raw_result"),
+            patch.object(task, "_update_instance_data"),
+            patch.object(task, "_track_channel_removal") as mock_track,
+        ):
+            task.clean_bad_channels(
+                data=task.raw,
+                manual_bad_channels=[ch_to_mark],
+                cleaning_method="interpolate",
+            )
+
+        mock_track.assert_called_once_with(
+            channels=ch_to_mark,
+            reason="MANUAL_OVERRIDE",
+            source_step="clean_bad_channels",
+            action="interpolated",
+        )
+
+    def test_track_channel_removal_action_is_dropped_for_drop_method(self, task):
+        """cleaning_method='drop' physically removes channels, so they should
+        still be tracked as 'dropped'."""
+        ch_to_mark = task.raw.ch_names[3]
+
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_raw_result"),
+            patch.object(task, "_update_instance_data"),
+            patch.object(task, "_track_channel_removal") as mock_track,
+        ):
+            task.clean_bad_channels(
+                data=task.raw,
+                manual_bad_channels=[ch_to_mark],
+                cleaning_method="drop",
+            )
+
+        mock_track.assert_called_once_with(
+            channels=ch_to_mark,
+            reason="MANUAL_OVERRIDE",
+            source_step="clean_bad_channels",
+            action="dropped",
+        )
+
     def test_raises_type_error_for_non_raw_input(self, task):
         with pytest.raises(TypeError):
             task.clean_bad_channels(data="not_raw")

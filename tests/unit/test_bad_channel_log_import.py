@@ -38,12 +38,18 @@ class DummyBadChannelLogTask(ChannelsMixin, BaseMixin):
         channels: Any,
         reason: str,
         source_step: str,
+        action: str = "dropped",
     ) -> None:
         if isinstance(channels, str):
             channels = [channels]
         for channel in channels:
             self.tracked_removals.append(
-                {"channel": channel, "reason": reason, "source_step": source_step}
+                {
+                    "channel": channel,
+                    "reason": reason,
+                    "source_step": source_step,
+                    "action": action,
+                }
             )
 
 

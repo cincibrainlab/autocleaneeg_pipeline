@@ -1498,13 +1498,38 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
 
     # Get all removed channels from unified metadata (preferred) or legacy sources
     if "channel_removals" in metadata:
-        # Use unified channel removals for accurate tracking
+        # Use unified channel removals for accurate tracking. Interpolated
+        # channels are reconstructed in place (not physically removed), so
+        # they're excluded here and tracked separately -- otherwise they'd be
+        # double-counted against the final exported channel count.
         unified_removals = metadata["channel_removals"]
         unique_bad_channels = []
+        unique_interpolated_channels = []
+        unique_marked_channels = []
         for removal in unified_removals:
+            # "interpolated" and "marked" channels stay in the exported data
+            # (unlike "dropped"), so they don't reduce the expected channel
+            # count. Entries predating this field have no "action" and are
+            # treated as "dropped" to preserve prior report behavior. Kept as
+            # separate lists (rather than one combined bucket) since they
+            # aren't the same thing: "interpolated" channels are
+            # reconstructed from neighbors, "marked" channels are left
+            # untouched -- collapsing them could read as "this channel's
+            # data was fixed" when it wasn't.
+            action = removal.get("action")
+            if action == "interpolated":
+                if removal["channel"] not in unique_interpolated_channels:
+                    unique_interpolated_channels.append(removal["channel"])
+                continue
+            if action == "marked":
+                if removal["channel"] not in unique_marked_channels:
+                    unique_marked_channels.append(removal["channel"])
+                continue
             if removal["channel"] not in unique_bad_channels:
                 unique_bad_channels.append(removal["channel"])
         channel_dict["removed_channels"] = unique_bad_channels
+        channel_dict["interpolated_channels"] = unique_interpolated_channels
+        channel_dict["marked_channels"] = unique_marked_channels
     else:
         # Fallback: legacy method using channel_dict values
         bad_channels = [

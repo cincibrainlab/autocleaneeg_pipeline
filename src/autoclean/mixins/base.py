@@ -283,6 +283,7 @@ class BaseMixin:
         channels: Union[str, list],
         reason: str,
         source_step: str,
+        action: str = "dropped",
     ) -> None:
         """Track channel removal in unified metadata.
 
@@ -297,6 +298,12 @@ class BaseMixin:
                    'RANK', 'MANUAL_EXCLUDE', 'MANUAL_OVERRIDE', 'TEMPLATE_EXCLUDE')
             source_step: Name of the step that removed the channel(s)
                         (e.g., 'drop_eog_channels', 'drop_outer_layer')
+            action: What actually happened to the channel: 'dropped' (physically
+                   removed from the data, the default), 'interpolated' (flagged
+                   bad but reconstructed in place), or 'marked' (flagged bad but
+                   left untouched). Only 'dropped' reduces the channel count --
+                   report generation uses this field to avoid subtracting
+                   interpolated/marked channels from the expected final count.
         """
         if not hasattr(self, "config") or not self.config.get("run_id"):
             return
@@ -327,7 +334,13 @@ class BaseMixin:
         # Add new removal entries with deduplication
         timestamp = datetime.now().isoformat()
         for channel in channels:
-            # Check if this channel+reason combo already exists
+            # Check if this channel+reason combo already exists. Note: the
+            # dedup key is (channel, reason) only, not action -- if a caller
+            # ever tracks the same channel+reason twice with a different
+            # action in one run, the second call's action is silently
+            # dropped. No current call site does this (each channel+reason
+            # pair is tracked at most once per run), but keep it in mind
+            # before reusing a reason code for a differently-resolved action.
             if not any(
                 r["channel"] == channel and r["reason"] == reason
                 for r in channel_removals
@@ -337,6 +350,7 @@ class BaseMixin:
                         "channel": channel,
                         "reason": reason,
                         "source_step": source_step,
+                        "action": action,
                         "timestamp": timestamp,
                     }
                 )

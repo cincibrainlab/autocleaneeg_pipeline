@@ -40,12 +40,18 @@ class DummyManualOverrideTask(ChannelsMixin, BaseMixin):
         channels: Any,
         reason: str,
         source_step: str,
+        action: str = "dropped",
     ) -> None:
         if isinstance(channels, str):
             channels = [channels]
         for channel in channels:
             self.tracked_removals.append(
-                {"channel": channel, "reason": reason, "source_step": source_step}
+                {
+                    "channel": channel,
+                    "reason": reason,
+                    "source_step": source_step,
+                    "action": action,
+                }
             )
 
 
@@ -80,6 +86,9 @@ def test_manual_override_skips_detection(monkeypatch, dummy_raw):
     assert all(
         entry["reason"] == "MANUAL_OVERRIDE"
         and entry["source_step"] == "clean_bad_channels"
+        # cleaning_method=None means channels are left marked bad, neither
+        # interpolated nor dropped, so they must not count as removed.
+        and entry["action"] == "marked"
         for entry in task.tracked_removals
     )
 
