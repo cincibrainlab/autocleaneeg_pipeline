@@ -118,10 +118,14 @@ def get_ica_structure(pdf_path: Path) -> dict[str, Any]:
 
     Instead of hardcoding page indices, this scans each page's text to
     classify it as summary, topo grid, or per-component detail. This
-    handles variable summary page counts (ceil(n_components / 20)),
-    variable topo grid page counts, and legacy 1-indexed summary
-    component names (IC1, IC2, ...) from PDFs generated before the
-    generator was fixed to use 0-indexed names everywhere (issue #294).
+    handles variable summary page counts (ceil(n_components / 20)) and
+    variable topo grid page counts.
+
+    Note: `detail_page_map` here is keyed by the component name found on
+    each detail page itself, with no correction applied for older PDFs
+    where the summary table used 1-indexed names against 0-indexed detail
+    names (issue #294) - that reconciliation is done by extract_ica_full(),
+    which is what production code calls instead of this function.
 
     UPDATE HERE if the PDF generator changes its page layout or naming.
     """
@@ -271,11 +275,15 @@ def extract_ica_full(pdf_path: Path) -> dict[str, Any]:
         # just comparing the two minimums: a single missing page can shift
         # the minimum on one side without changing the offset, and overlap
         # over the whole set is more resilient to that than one data point.
-        # It can still tie (and falls back to offset 0) in the narrow case
-        # where the missing page is specifically the lowest-indexed
-        # component's *detail* page on a legacy (1-indexed-summary) PDF -
-        # the label text alone doesn't carry enough information to
-        # disambiguate that from a current-generation PDF in that case.
+        # It can still tie (and falls back to offset 0) in narrow cases -
+        # e.g. the missing page is specifically the lowest-indexed
+        # component's *detail* page on a legacy (1-indexed-summary) PDF, or
+        # enough summary rows fail to parse that the remaining overlap is
+        # identical at both offsets. The label text alone doesn't carry
+        # enough information to disambiguate those from a current-
+        # generation PDF; a follow-up ticket would be needed if this shows
+        # up in practice, e.g. having the generator stamp an explicit
+        # index scheme in the PDF instead of inferring it from labels.
         summary_names = [c["component"] for c in components]
 
         def _numeric_suffix(label: str) -> Optional[int]:
