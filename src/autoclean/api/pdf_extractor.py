@@ -289,7 +289,7 @@ def extract_ica_full(pdf_path: Path) -> dict[str, Any]:
         def _numeric_suffix(label: str) -> Optional[int]:
             try:
                 return int(label[2:])
-            except (ValueError, IndexError):
+            except ValueError:
                 return None
 
         summary_num_set = {
