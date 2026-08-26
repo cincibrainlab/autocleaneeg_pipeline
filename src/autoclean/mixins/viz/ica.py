@@ -44,6 +44,11 @@ logger = logging.getLogger(__name__)
 matplotlib.use("Agg")
 
 
+def _ic_label(idx: int) -> str:
+    """Human-readable ICA component label, matching MNE's 0-based indexing."""
+    return f"IC{idx}"
+
+
 class ICAReportingMixin:
     """Mixin providing ICA reporting functionality for EEG data.
 
@@ -160,7 +165,7 @@ class ICAReportingMixin:
                 " [Vision]" if str(annotator).lower() in {"ic_vision", "vision"} else ""
             )
             label_text = (
-                f"IC{idx + 1}: {ic_labels['ic_type'][idx]} "
+                f"{_ic_label(idx)}: {ic_labels['ic_type'][idx]} "
                 f"({ic_labels['confidence'][idx]:.2f}){source_tag}"
             )
             yticklabels.append(label_text)
@@ -411,7 +416,7 @@ class ICAReportingMixin:
                         )
                         table_data.append(
                             [
-                                f"IC{idx + 1}",
+                                _ic_label(idx),
                                 f"{comp_info['ic_type']}{src_suffix}",
                                 f"{comp_info['confidence']:.2f}",
                                 "Yes" if idx in excluded_set else "No",
@@ -428,7 +433,7 @@ class ICAReportingMixin:
                     else:
                         table_data.append(
                             [
-                                f"IC{idx + 1}",
+                                _ic_label(idx),
                                 "N/A",
                                 "N/A",
                                 "Yes" if idx in excluded_set else "No",
@@ -777,7 +782,7 @@ class ICAReportingMixin:
         ax1.set_title("Classification Comparison: ICLabel vs. Vision API", fontsize=14)
         ax1.set_xlabel("Component Number", fontsize=12)
         ax1.set_xticks(indices)
-        ax1.set_xticklabels([f"IC{i + 1}" for i in range(n_components)])
+        ax1.set_xticklabels([_ic_label(i) for i in range(n_components)])
         ax1.set_yticks([0, 1])
         ax1.set_yticklabels(["Artifact", "Brain"])
         ax1.legend()
@@ -808,7 +813,7 @@ class ICAReportingMixin:
 
             table_data.append(
                 [
-                    f"IC{i + 1}",
+                    _ic_label(i),
                     iclabel_category,
                     f"{iclabel_conf:.2f}",
                     vision_type.title(),
