@@ -78,7 +78,7 @@ def _resolve_component_index(component_idx: int, ica_obj: ICA) -> int:
 
 def plot_component_for_classification(
     ica_obj: ICA,
-    raw_obj: mne.io.Raw,
+    raw_obj: mne.io.BaseRaw | mne.BaseEpochs,
     component_idx: int,
     output_dir: Optional[Path] = None,
     *,
@@ -86,7 +86,7 @@ def plot_component_for_classification(
     classification_confidence: Optional[float] = None,
     classification_reason: Optional[str] = None,
     classification_method: Optional[str] = None,
-    raw_full: Optional[mne.io.Raw] = None,
+    raw_full: Optional[mne.io.BaseRaw | mne.BaseEpochs] = None,
     return_fig_object: bool = False,
     source_filename: Optional[str] = None,
     psd_fmax: Optional[float] = None,
@@ -98,7 +98,7 @@ def plot_component_for_classification(
     ica_obj
         The fitted :class:`~mne.preprocessing.ICA` instance.
     raw_obj
-        The :class:`~mne.io.Raw` object that supplied the data for ICA.
+        The Raw or Epochs object that supplied the data for ICA.
     component_idx
         Zero-based index of the component to visualize.
     output_dir
@@ -116,8 +116,8 @@ def plot_component_for_classification(
         Optional classifier identifier (e.g., ``"iclabel"``, ``"icvision"``, ``"hybrid"``)
         to embed in figure titles.
     raw_full
-        Optional full-duration raw object used strictly for PSD estimation when
-        the visualized snippet (``raw_obj``) is cropped.
+        Optional full-duration Raw or full Epochs object used strictly for PSD
+        estimation when the visualized snippet (``raw_obj``) is cropped.
     return_fig_object
         When ``True`` the matplotlib :class:`~matplotlib.figure.Figure` is
         returned directly instead of saving to disk.
@@ -189,7 +189,7 @@ def plot_component_for_classification(
 
     try:
         # Use cached sources for better performance
-        if SOURCES_CACHE_AVAILABLE:
+        if SOURCES_CACHE_AVAILABLE and not isinstance(raw_obj, mne.BaseEpochs):
             sources = get_cached_ica_sources(ica_obj, raw_obj)
         else:
             sources = ica_obj.get_sources(raw_obj)
@@ -199,7 +199,14 @@ def plot_component_for_classification(
         component_data = np.asarray(component_data)
         if component_data.size == 0:
             raise ValueError("empty component data")
-        component_data_array = component_data[0]
+        epoch_component_data = (
+            component_data[:, 0, :] if component_data.ndim == 3 else None
+        )
+        component_data_array = (
+            epoch_component_data[0]
+            if epoch_component_data is not None
+            else component_data[0]
+        )
     except Exception as exc:  # pragma: no cover - safety net for production runs
         logger.error("Failed to pull ICA sources for IC%s: %s", component_idx, exc)
         plt.close(fig)
@@ -209,17 +216,23 @@ def plot_component_for_classification(
     psd_sfreq = sfreq
     if raw_full is not None:
         try:
-            # Use cached sources for full-duration data as well
-            if SOURCES_CACHE_AVAILABLE:
+            if raw_full is raw_obj:
+                sources_full = sources
+                component_data_full = component_data
+            elif SOURCES_CACHE_AVAILABLE and not isinstance(raw_full, mne.BaseEpochs):
                 sources_full = get_cached_ica_sources(ica_obj, raw_full)
+                component_data_full = sources_full.get_data(picks=[component_idx])
             else:
                 sources_full = ica_obj.get_sources(raw_full)
+                component_data_full = sources_full.get_data(picks=[component_idx])
 
             psd_sfreq = sources_full.info["sfreq"]
-            component_data_full = sources_full.get_data(picks=[component_idx])
             component_data_full = np.asarray(component_data_full)
             if component_data_full.size:
-                psd_data = component_data_full[0]
+                if component_data_full.ndim == 3:
+                    psd_data = component_data_full[:, 0, :]
+                else:
+                    psd_data = component_data_full[0]
             else:
                 psd_sfreq = sfreq
         except Exception as exc:  # pragma: no cover - PSD fallback
@@ -282,19 +295,25 @@ def plot_component_for_classification(
 
     # --- ERP-style image ------------------------------------------------
     try:
-        continuous_data_array = psd_data
+        continuous_data_array = (
+            epoch_component_data if epoch_component_data is not None else psd_data
+        )
         continuous_sfreq = psd_sfreq
         comp_data_centered = continuous_data_array - np.mean(continuous_data_array)
         target_segment_duration_s = 1.5
         target_max_segments = 200
         segment_len_samples = int(target_segment_duration_s * continuous_sfreq) or 1
 
-        available_samples = comp_data_centered.shape[0]
+        available_samples = comp_data_centered.shape[-1]
         segment_sfreq = continuous_sfreq
         max_total_samples = int(target_max_segments * segment_len_samples)
         samples_to_use = min(available_samples, max_total_samples)
 
-        if segment_len_samples > 0 and samples_to_use >= segment_len_samples:
+        if epoch_component_data is not None:
+            erp_image_data = comp_data_centered[:target_max_segments, :samples_to_use]
+            n_segments = erp_image_data.shape[0]
+            segment_len_samples = erp_image_data.shape[1]
+        elif segment_len_samples > 0 and samples_to_use >= segment_len_samples:
             n_segments = math.floor(samples_to_use / segment_len_samples)
             final_samples = n_segments * segment_len_samples
             erp_image_data = comp_data_centered[:final_samples].reshape(
@@ -334,9 +353,12 @@ def plot_component_for_classification(
             vmax=clim_val,
         )
 
-        ax_cont_data.set_title(
-            f"Continuous Data Segments (Max {target_max_segments})", fontsize=10
+        title_prefix = (
+            "Epoch Data (Max "
+            if epoch_component_data is not None
+            else "Continuous Data Segments (Max "
         )
+        ax_cont_data.set_title(title_prefix + f"{target_max_segments})", fontsize=10)
         ax_cont_data.set_xlabel("Time (ms)", fontsize=9)
         if segment_len_samples > 1:
             num_xticks = min(4, segment_len_samples)
@@ -347,7 +369,10 @@ def plot_component_for_classification(
         else:
             ax_cont_data.set_xticks([])
 
-        ax_cont_data.set_ylabel("Trials (Segments)", fontsize=9)
+        ax_cont_data.set_ylabel(
+            "Epoch" if epoch_component_data is not None else "Trials (Segments)",
+            fontsize=9,
+        )
         if n_segments > 1:
             num_yticks = min(5, n_segments)
             ytick_positions = np.linspace(0, n_segments - 1, num_yticks).astype(int)
@@ -382,19 +407,24 @@ def plot_component_for_classification(
         else:
             fmax_psd = min(80.0, nyquist - 0.51)
 
+        psd_n_times = psd_data.shape[-1]
         n_fft_psd = int(psd_sfreq * 2.0)
-        n_fft_psd = min(n_fft_psd, len(psd_data))
-        if len(psd_data) >= 256:
+        n_fft_psd = min(n_fft_psd, psd_n_times)
+        if psd_n_times >= 256:
             n_fft_psd = max(n_fft_psd, 256)
-        elif len(psd_data) > 0:
-            n_fft_psd = max(n_fft_psd, len(psd_data))
+        elif psd_n_times > 0:
+            n_fft_psd = max(n_fft_psd, psd_n_times)
         else:
             n_fft_psd = 1
 
         if n_fft_psd <= 0 or fmax_psd <= fmin_psd:
             raise ValueError("Invalid parameters for PSD computation")
 
-        if PSD_CACHE_AVAILABLE and raw_full is not None:
+        if (
+            PSD_CACHE_AVAILABLE
+            and raw_full is not None
+            and not isinstance(raw_full, mne.BaseEpochs)
+        ):
             # Use cached batch PSD computation for better performance
             try:
                 psd_data_cached, freqs = get_cached_component_psds(
@@ -421,6 +451,8 @@ def plot_component_for_classification(
                     verbose=False,
                     average="mean",
                 )
+                if psds.ndim > 1:
+                    psds = psds.mean(axis=0)
         else:
             # Fallback to individual PSD computation
             psds, freqs = psd_array_welch(
@@ -433,6 +465,8 @@ def plot_component_for_classification(
                 verbose=False,
                 average="mean",
             )
+            if psds.ndim > 1:
+                psds = psds.mean(axis=0)
 
         if psds.size == 0:
             raise ValueError("PSD computation returned empty array")
@@ -546,7 +580,7 @@ def plot_component_for_classification(
 
 def plot_components_batch(
     ica_obj: ICA,
-    raw_obj: mne.io.Raw,
+    raw_obj: mne.io.BaseRaw | mne.BaseEpochs,
     component_indices: Iterable[int],
     output_dir: Path,
     *,

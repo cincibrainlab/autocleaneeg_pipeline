@@ -148,6 +148,35 @@ class TestRunICA:
         assert isinstance(fit_call_kwargs["raw"], mne.BaseEpochs)
         assert epochs_task._ica_used_epochs is True
 
+    @patch("autoclean.mixins.signal_processing.ica.save_ica_to_fif")
+    @patch("autoclean.mixins.signal_processing.ica.fit_ica")
+    def test_prerejection_snapshot_matches_filtered_ica_input(
+        self, mock_fit, mock_save_fif, epochs_task
+    ):
+        """ICA reports should use the same temporary-filtered copy as the fit."""
+        mock_fit.return_value = _make_mock_ica()
+
+        def _mark_filtered(epochs, *args, **kwargs):
+            epochs_task._filter_was_called = True
+            epochs._data = epochs.get_data(copy=True) + 1.0
+            return None
+
+        with (
+            patch.object(epochs_task, "_update_metadata"),
+            patch.object(mne.BaseEpochs, "filter", autospec=True) as mock_filter,
+        ):
+            mock_filter.side_effect = _mark_filtered
+            epochs_task.run_ica(use_epochs=True, temp_highpass_for_ica=1.0)
+
+        fit_data = mock_fit.call_args.kwargs["raw"]
+        assert epochs_task.ica_prerejection_data is epochs_task.epochs_prerejection
+        assert epochs_task.ica_prerejection_data is not epochs_task.epochs
+        assert epochs_task.ica_prerejection_data is not fit_data
+        assert np.allclose(
+            epochs_task.ica_prerejection_data.get_data(), fit_data.get_data()
+        )
+        mock_filter.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # apply_ica_component_rejection
@@ -276,15 +305,14 @@ class TestGetIcaReportData:
 
         assert result is task.raw
 
-    def test_returns_none_when_ica_fit_on_epochs(self, epochs_task):
-        """ICA reports are raw-only. When ICA was fit on epochs, this should
-        return None (triggering a graceful skip) rather than silently
-        returning a stale/incompatible self.raw."""
+    def test_returns_epochs_when_ica_fit_on_epochs(self, epochs_task):
+        """Epoch-fit ICA reports use the epoch data supplied to ICA."""
         epochs_task._ica_used_epochs = True
+        epochs_task.epochs_prerejection = epochs_task.epochs.copy()
 
         result = epochs_task._get_ica_report_data()
 
-        assert result is None
+        assert result is epochs_task.epochs_prerejection
 
     def test_ignores_stale_raw_when_ica_fit_on_epochs(self, epochs_task):
         """Even if self.raw happens to exist (e.g. left over from an earlier
@@ -297,7 +325,7 @@ class TestGetIcaReportData:
 
         result = epochs_task._get_ica_report_data()
 
-        assert result is None
+        assert result is epochs_task.epochs
 
 
 class TestPlotIcaFull:
@@ -315,11 +343,11 @@ class TestPlotIcaFull:
 
 
 class TestPlotIcaComponentsEpochsGuard:
-    def test_skips_gracefully_when_ica_fit_on_epochs(self, epochs_task):
-        """_plot_ica_components should skip gracefully (not crash) when ICA
-        was fit on epochs, consistent with reports being raw-only."""
+    def test_skips_gracefully_when_report_data_missing(self, epochs_task):
+        """_plot_ica_components should skip gracefully when data is missing."""
         epochs_task.final_ica = _make_mock_ica()
         epochs_task._ica_used_epochs = True
+        epochs_task._get_ica_report_data = lambda: None
 
         result = epochs_task._plot_ica_components()
 

@@ -17,6 +17,9 @@ from autoclean.functions.visualization import (
     plot_psd_topography,
     plot_raw_comparison,
 )
+from autoclean.functions.visualization.icvision_layouts import (
+    plot_component_for_classification,
+)
 from autoclean.mixins.viz.ica import ICAReportingMixin
 
 
@@ -140,6 +143,36 @@ class TestPlotIcaComponents:
         """Test input validation."""
         with pytest.raises(TypeError):
             plot_ica_components("not_ica")
+
+    def test_epoch_component_psd_keeps_epoch_rows(self, mock_ica):
+        """Epoch-fit component PSD should not concatenate epochs end-to-end."""
+        info = mne.create_info(["EEG_001", "EEG_002"], sfreq=100.0, ch_types="eeg")
+        epochs = mne.EpochsArray(np.random.randn(4, 2, 100), info, verbose=False)
+
+        sources = MagicMock()
+        sources.info = {"sfreq": 100.0}
+        source_data = np.random.randn(4, 1, 100)
+        sources.get_data.return_value = source_data
+        mock_ica.get_sources.return_value = sources
+
+        def _assert_epoch_matrix(data, **kwargs):
+            assert data.shape == (4, 100)
+            return np.ones((4, 10)), np.linspace(1, 40, 10)
+
+        with patch(
+            "autoclean.functions.visualization.icvision_layouts.psd_array_welch",
+            side_effect=_assert_epoch_matrix,
+        ):
+            fig = plot_component_for_classification(
+                mock_ica,
+                epochs,
+                component_idx=0,
+                raw_full=epochs,
+                return_fig_object=True,
+            )
+
+        assert isinstance(fig, plt.Figure)
+        plt.close(fig)
 
 
 class TestPlotPsdTopography:
