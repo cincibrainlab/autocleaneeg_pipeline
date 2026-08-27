@@ -38,3 +38,17 @@ def test_autoclean_exclude_import_does_not_abort_python():
     assert "pyqt6" in output
     assert "True" in output
     assert "import ok" in output
+
+
+def test_pyqt6_core_and_pdf_import_do_not_abort_python():
+    """The bundled PyQt6 runtime must support the active platform's CPU."""
+
+    result = subprocess.run(
+        [sys.executable, "-c", "from PyQt6 import QtCore, QtPdf"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr

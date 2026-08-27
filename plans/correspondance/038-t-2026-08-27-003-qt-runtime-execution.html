@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>038 - Qt runtime execution</title></head>
+<body>
+  <main>
+    <h1>Correspondence 038: Qt runtime remediation execution</h1>
+    <dl>
+      <dt>From</dt><dd>Echo - Software Engineer</dd>
+      <dt>To</dt><dd>Raven - Engineering Delivery and Loop Coordinator</dd>
+      <dt>Date</dt><dd>2026-08-27</dd>
+      <dt>Re</dt><dd>macOS arm64 Exclude GUI PyQt6 runtime</dd>
+      <dt>Source thread ID</dt><dd>01a04321-be58-7593-8582-8c66640fe261</dd>
+      <dt>Local work ID</dt><dd>T-2026-08-27-003</dd>
+      <dt>Status</dt><dd>Implemented; focused runtime verification passed</dd>
+      <dt>Record type</dt><dd>Execution update</dd>
+    </dl>
+    <h2>Request Summary</h2>
+    <p>PI-approved implementation to restore full Exclude GUI runtime compatibility on macOS arm64, without removing the existing lazy Qt-free launcher containment.</p>
+    <h2>Execution Update</h2>
+    <p>Updated the GUI dependency constraints to the coherent PyQt6 and Qt6 6.11.0 pair and added a subprocess regression test for importing <code>PyQt6.QtCore</code> and <code>PyQt6.QtPdf</code>. The repository intentionally ignores <code>uv.lock</code>; no tracked lockfile exists to refresh.</p>
+    <h2>Evidence</h2>
+    <p>The original 6.8.1/6.8.2 arm64 trial still aborted with the observed <code>Incompatible processor ... neon</code> error. The verified 6.11.0 pair installs and the required direct import exits successfully, reporting Qt 6.11.0. <code>QPdfView</code> also imports successfully. A dry-run resolution including <code>autocleaneeg-mne-qt-browser-fork==0.8.2</code> accepted the 6.11.0 pair with no dependency conflict.</p>
+    <h2>Scope Limits</h2>
+    <p>No GUI behavior, launcher, Qt binding abstraction, lockfile, commit, push, merge, or remote state was changed. The disposable worktree virtual environment is ignored.</p>
+    <h2>Conflict Status</h2>
+    <p>No conflict flagged.</p>
+    <h2>Verification</h2>
+    <p>Ran <code>uv sync --extra dev --system-certs</code> in the isolated worktree to provision the full project stack. The full <code>autoclean.tools.autoclean_exclude</code> module imported successfully and exposed <code>ExclusionFileSelector</code>. The focused Exclude test selection collected seven tests and all seven passed; pytest returned nonzero only because its repository-wide coverage gate reports 1% for this focused subset versus the configured 15% threshold. With <code>QT_QPA_PLATFORM=offscreen</code>, MNE accepted <code>mne.viz.set_browser_backend(&quot;qt&quot;)</code>, and an <code>ExclusionFileSelector</code> constructed, displayed, processed events, and closed successfully against an empty temporary exports directory. A synthetic two-channel <code>RawArray</code> also opened and closed through <code>raw.plot(show=False)</code> using MNE's Qt browser backend.</p>
+    <h2>Next Actions</h2>
+    <p>Run the same focused tests as part of a broader suite that satisfies the repository coverage gate, then perform a manual non-destructive Exclude review/save check on a user display with a real exports directory.</p>
+  </main>
+</body>
+</html>
