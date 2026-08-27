@@ -38,3 +38,17 @@ def test_autoclean_exclude_import_does_not_abort_python():
     assert "pyqt6" in output
     assert "True" in output
     assert "import ok" in output
+
+
+def test_pymupdf_import_is_available_for_pdf_previews():
+    """PDF previews use PyMuPDF instead of QtPdf."""
+
+    result = subprocess.run(
+        [sys.executable, "-c", "import fitz"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
