@@ -146,6 +146,14 @@ class IcaMixin:
                     l_freq=temp_highpass_for_ica, h_freq=None, verbose=False
                 )
 
+            # Preserve the exact pre-rejection object ICA is fit on for reports.
+            if use_epochs:
+                self.epochs_prerejection = data_for_ica.copy()
+                self.ica_prerejection_data = self.epochs_prerejection
+            else:
+                self.raw_prerejection = data_for_ica.copy()
+                self.ica_prerejection_data = self.raw_prerejection
+
             message("info", f"Fitting ICA with {ica_kwargs}")
 
             # Call standalone function for ICA fitting on (potentially filtered) data
@@ -559,12 +567,10 @@ class IcaMixin:
             data_to_clean if data_to_clean is not None else self._get_ica_fit_data()
         )
 
-        # Snapshot pre-rejection data so ICA reports can show original component
-        # activity/PSD even for components that get rejected below. Only do this
-        # when we're operating on self.raw (not an arbitrary externally-provided
-        # data object, and not self.epochs - ICA reports are raw-only), and only
-        # take the snapshot once per task instance so a second call can't
-        # overwrite it with already-partially-rejected data.
+        # Backfill legacy raw snapshots for flows that load/apply an ICA object
+        # without going through run_ica(). Normal raw and epoch-fit paths now
+        # preserve their report snapshots during run_ica(); legacy epoch
+        # backfill is left out because there is no historical epoch report path.
         if (
             data_to_clean is None
             and target_data is getattr(self, "raw", None)
