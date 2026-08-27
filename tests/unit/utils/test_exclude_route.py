@@ -121,17 +121,14 @@ def test_replace_reprocess_artifacts_removes_all_ica_report_pdfs(tmp_path: Path)
     all_pdf.write_text("all components", encoding="utf-8")
     rejected_pdf.write_text("rejected components", encoding="utf-8")
 
-    exclude._replace_existing_reprocess_artifacts(
-        task_root, "subject01", backups_dir
-    )
+    exclude._replace_existing_reprocess_artifacts(task_root, "subject01", backups_dir)
 
     assert not all_pdf.exists()
     assert not rejected_pdf.exists()
     assert (backups_dir / all_pdf.name).read_text(encoding="utf-8") == "all components"
-    assert (
-        (backups_dir / rejected_pdf.name).read_text(encoding="utf-8")
-        == "rejected components"
-    )
+    assert (backups_dir / rejected_pdf.name).read_text(
+        encoding="utf-8"
+    ) == "rejected components"
 
 
 def test_resolve_reprocess_fix_type_with_epochs_returns_epoch_for_epoch_only():
