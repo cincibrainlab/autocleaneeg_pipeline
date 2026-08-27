@@ -111,6 +111,26 @@ def test_create_qa_preprocessing_log_merges_manual_review_data(tmp_path: Path):
     assert rows[0]["epoch_badtrials"] in {"3", "3.0"}
 
 
+def test_replace_reprocess_artifacts_removes_all_ica_report_pdfs(tmp_path: Path):
+    task_root = tmp_path / "task"
+    ica_dir = task_root / "reports" / "ica_components"
+    backups_dir = task_root / "exports" / "backups" / "subject01_reprocess"
+    ica_dir.mkdir(parents=True)
+    all_pdf = ica_dir / "subject01_ica_components_all.pdf"
+    rejected_pdf = ica_dir / "subject01_ica_components_rejected.pdf"
+    all_pdf.write_text("all components", encoding="utf-8")
+    rejected_pdf.write_text("rejected components", encoding="utf-8")
+
+    exclude._replace_existing_reprocess_artifacts(task_root, "subject01", backups_dir)
+
+    assert not all_pdf.exists()
+    assert not rejected_pdf.exists()
+    assert (backups_dir / all_pdf.name).read_text(encoding="utf-8") == "all components"
+    assert (backups_dir / rejected_pdf.name).read_text(
+        encoding="utf-8"
+    ) == "rejected components"
+
+
 def test_resolve_reprocess_fix_type_with_epochs_returns_epoch_for_epoch_only():
     result = _resolve_reprocess_fix_type_with_epochs(
         existing_bad_channels=[],
