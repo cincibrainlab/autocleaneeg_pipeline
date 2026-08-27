@@ -25,13 +25,14 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import yaml
 
+os.environ.setdefault("QT_API", "pyqt6")
+
 
 def check_gui_dependencies() -> None:
     """Fail fast if the optional GUI stack is missing."""
 
     try:  # pragma: no cover - import guard only
-        import PyQt6  # noqa: F401
-        from PyQt6 import QtPdf  # noqa: F401
+        from PyQt6 import QtCore, QtPdf  # noqa: F401
     except ImportError as e:  # pragma: no cover - runtime dependency guard
         print("Error: Missing required GUI dependencies for the exclusion tool.")
         print("Reinstall the package to get all dependencies:")
@@ -47,9 +48,6 @@ check_gui_dependencies()
 
 import mne  # noqa: E402
 import scipy.io as sio  # noqa: E402
-from PyQt6.QtCore import pyqtRemoveInputHook  # noqa: E402
-from PyQt6.QtPdf import QPdfDocument  # noqa: E402
-from PyQt6.QtPdfWidgets import QPdfView  # noqa: E402
 from qtpy.QtCore import (  # noqa: E402
     QAbstractItemModel,
     QEvent,
@@ -95,6 +93,15 @@ from qtpy.QtWidgets import (  # noqa: E402
 )
 
 from autoclean.io.export import save_epochs_to_set  # noqa: E402
+from autoclean.tools.exclude_metadata import (  # noqa: E402
+    bad_channels_from_metadata as _bad_channels_from_metadata,
+)
+from autoclean.tools.exclude_metadata import (  # noqa: E402
+    parse_metadata_json as _parse_metadata_json,
+)
+from autoclean.tools.exclude_metadata import (  # noqa: E402
+    unique_channels as _unique_channels,
+)
 from autoclean.utils.database import (  # noqa: E402
     get_run_record,
     merge_reprocess_database,
@@ -109,10 +116,7 @@ from autoclean.utils.reprocess_overrides import (  # noqa: E402
 )
 from autoclean.utils.user_config import user_config  # noqa: E402
 
-pyqtRemoveInputHook()
-
 os.environ["MNE_BROWSER_THEME"] = "light"
-mne.viz.set_browser_backend("qt")
 
 
 STATUS_DEFINITIONS: dict[str, dict[str, str]] = {
@@ -215,21 +219,6 @@ def _group_channel_removals(channel_removals: List[Dict]) -> Dict[str, List[str]
                 grouped[reason] = []
             grouped[reason].append(channel)
     return grouped
-
-
-def _unique_channels(channels: List[str]) -> List[str]:
-    """Return channel names once each, preserving first-seen order."""
-    return list(dict.fromkeys(channels))
-
-
-def _bad_channels_from_metadata(metadata: Dict) -> List[str]:
-    """Extract the unique operational bad-channel list from run metadata."""
-    channel_removals = metadata.get("channel_removals", [])
-    if channel_removals:
-        return _unique_channels([removal["channel"] for removal in channel_removals])
-
-    legacy_bad_channels = metadata.get("step_clean_bad_channels", {}).get("bads", [])
-    return _unique_channels(legacy_bad_channels)
 
 
 def _get_removal_reason_display(reason_code: str) -> Tuple[str, str]:
@@ -448,7 +437,11 @@ class PdfPreviewWidget(QWidget):
 
     def __init__(self, placeholder: str, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        from PyQt6.QtPdf import QPdfDocument
+        from PyQt6.QtPdfWidgets import QPdfView
+
         self._placeholder = placeholder
+        self._pdf_view_cls = QPdfView
         self._document = QPdfDocument(self)
         self._view = QPdfView(self)
         self._view.setDocument(self._document)
@@ -597,9 +590,9 @@ class PdfPreviewWidget(QWidget):
             self._navigator.jump(0, QPointF(0, 0))
 
         if self._total_pages > 1:
-            self._view.setPageMode(QPdfView.PageMode.MultiPage)
+            self._view.setPageMode(self._pdf_view_cls.PageMode.MultiPage)
         else:
-            self._view.setPageMode(QPdfView.PageMode.SinglePage)
+            self._view.setPageMode(self._pdf_view_cls.PageMode.SinglePage)
 
         navigator = self._view.pageNavigator()
         if navigator is not None:
@@ -5834,46 +5827,6 @@ class ExclusionFileSelector(ReviewBase):
     # ------------------------------------------------------------------
     # Related files + helpers
     # ------------------------------------------------------------------
-    def _parse_metadata_json(self, json_path: Path) -> dict[str, list]:
-        """Parse metadata JSON and extract bad channels and rejected ICA components.
-
-        Args:
-            json_path: Path to the JSON metadata file
-
-        Returns:
-            Dict with 'bad_channels' and 'rejected_ica' keys
-        """
-        result = {"bad_channels": [], "rejected_ica": []}
-
-        if not json_path or not json_path.exists():
-            return result
-
-        try:
-            data = json.loads(json_path.read_text())
-            metadata_section = data.get("metadata", {})
-
-            # Extract unified channel removals (preferred)
-            channel_removals = metadata_section.get("channel_removals", [])
-            if channel_removals and isinstance(channel_removals, list):
-                result["channel_removals"] = channel_removals
-
-            result["bad_channels"] = _bad_channels_from_metadata(metadata_section)
-
-            # Extract rejected ICA components
-            ica_rejection = metadata_section.get(
-                "step_apply_ica_component_rejection", {}
-            )
-            rejected_comps = ica_rejection.get("ica", {}).get(
-                "final_excluded_indices", []
-            )
-            if isinstance(rejected_comps, list):
-                result["rejected_ica"] = rejected_comps
-
-        except Exception as e:
-            print(f"Warning: Could not parse metadata JSON {json_path}: {e}")
-
-        return result
-
     def _refresh_related_list(self, file_path: Path) -> None:
         if self.related_list is None:
             return
@@ -5909,7 +5862,7 @@ class ExclusionFileSelector(ReviewBase):
 
         # Parse and display metadata if JSON exists
         if json_path:
-            metadata = self._parse_metadata_json(json_path)
+            metadata = _parse_metadata_json(json_path)
 
             # Add separator
             separator = QListWidgetItem("─────────────────")
@@ -6422,6 +6375,11 @@ def run_autoclean_exclusion_tool(
     task_root: Optional[Path] = None,
 ) -> None:
     """Launch the Qt inclusion/exclusion helper."""
+
+    from PyQt6.QtCore import pyqtRemoveInputHook
+
+    pyqtRemoveInputHook()
+    mne.viz.set_browser_backend("qt")
 
     app = QApplication(sys.argv)
     try:

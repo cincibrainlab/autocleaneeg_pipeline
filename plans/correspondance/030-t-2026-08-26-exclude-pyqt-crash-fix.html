@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>T-2026-08-26-002 Exclude PyQt Crash Fix</title>
+</head>
+<body>
+  <h1>T-2026-08-26-002 Exclude PyQt Crash Fix</h1>
+  <p><strong>From:</strong> Raven</p>
+  <p><strong>To:</strong> PI</p>
+  <p><strong>Date:</strong> 2026-08-26</p>
+  <p><strong>Re:</strong> macOS/PyQt hard crash during Exclude import and broad unit tests</p>
+
+  <h2>Request Summary</h2>
+  <p>
+    Diagnose and fix the macOS/PyQt crash path that appeared when broad tests
+    imported the Exclude GUI module.
+  </p>
+
+  <h2>Execution Update</h2>
+  <p>
+    The crash reproduced as a native process abort when importing
+    <code>PyQt6.QtCore</code> under the repository's previous dependency pin.
+    The observed message was
+    <code>Incompatible processor. This Qt build requires the following features: neon</code>.
+    This is not a Python exception and cannot be caught by normal
+    <code>try/except ImportError</code> guards once the bad native import starts.
+  </p>
+  <p>
+    The final minimal bugfix keeps the dependency pin unchanged, sets
+    <code>QT_API=pyqt6</code> before <code>qtpy</code> imports, keeps
+    launch-only MNE Qt backend setup out of module import, and moves pure
+    metadata parsing helpers into a Qt-free module so metadata tests do not
+    import the full GUI. It also adds a subprocess regression test that imports
+    <code>autoclean.tools.autoclean_exclude</code>, so future hard aborts are
+    caught.
+  </p>
+
+  <h2>Scope Limits</h2>
+  <p>
+    This fix is scoped to the Exclude PyQt import/crash path. It does not change
+    ICA report behavior, Exclude product behavior, or reprocessing artifact
+    cleanup semantics.
+  </p>
+
+  <h2>Conflict Status</h2>
+  <p>No unresolved conflicts. Work is isolated in a separate bugfix worktree.</p>
+
+  <h2>Verification</h2>
+  <ul>
+    <li><code>PYTHONPATH=src .venv/bin/python -c 'import autoclean.tools.autoclean_exclude'</code>: passed.</li>
+    <li><code>tests/unit/tools/test_autoclean_exclude_import.py</code>: 1 passed.</li>
+    <li><code>tests/unit/tools/test_autoclean_exclude_import.py tests/unit/tools/test_autoclean_exclude.py tests/unit/utils/test_exclude_route.py</code>: 20 passed.</li>
+    <li><code>tests/unit</code>: progressed past the PyQt/Exclude crash path, then stopped at <code>ProcessPoolExecutor</code> semaphore permission in the sandbox. This is a separate sandbox limitation.</li>
+    <li><code>git diff --check</code>: passed.</li>
+  </ul>
+
+  <h2>Execution Decision</h2>
+  <p>
+    Keep this as a separate bugfix branch from the epoch-fit ICA report feature.
+    The branch is <code>codex/fix-exclude-pyqt-import-crash</code> in
+    <code>.worktrees/fix-exclude-pyqt-import-crash</code>.
+  </p>
+</body>
+</html>
