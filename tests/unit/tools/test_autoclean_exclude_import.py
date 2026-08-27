@@ -40,11 +40,11 @@ def test_autoclean_exclude_import_does_not_abort_python():
     assert "import ok" in output
 
 
-def test_pyqt6_core_and_pdf_import_do_not_abort_python():
-    """The bundled PyQt6 runtime must support the active platform's CPU."""
+def test_pymupdf_import_is_available_for_pdf_previews():
+    """PDF previews use PyMuPDF instead of QtPdf."""
 
     result = subprocess.run(
-        [sys.executable, "-c", "from PyQt6 import QtCore, QtPdf"],
+        [sys.executable, "-c", "import fitz"],
         capture_output=True,
         text=True,
         timeout=30,
