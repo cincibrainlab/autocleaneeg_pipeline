@@ -25,13 +25,14 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import yaml
 
+os.environ.setdefault("QT_API", "pyqt6")
+
 
 def check_gui_dependencies() -> None:
     """Fail fast if the optional GUI stack is missing."""
 
     try:  # pragma: no cover - import guard only
-        import PyQt6  # noqa: F401
-        from PyQt6 import QtPdf  # noqa: F401
+        import fitz  # noqa: F401
     except ImportError as e:  # pragma: no cover - runtime dependency guard
         print("Error: Missing required GUI dependencies for the exclusion tool.")
         print("Reinstall the package to get all dependencies:")
@@ -42,27 +43,20 @@ def check_gui_dependencies() -> None:
         sys.exit(1)
 
 
-check_gui_dependencies()
-
-
 import mne  # noqa: E402
 import scipy.io as sio  # noqa: E402
-from PyQt6.QtCore import pyqtRemoveInputHook  # noqa: E402
-from PyQt6.QtPdf import QPdfDocument  # noqa: E402
-from PyQt6.QtPdfWidgets import QPdfView  # noqa: E402
 from qtpy.QtCore import (  # noqa: E402
     QAbstractItemModel,
     QEvent,
     QModelIndex,
     QObject,
-    QPointF,
     QProcess,
     QSize,
     Qt,
     QTimer,
     Signal,
 )
-from qtpy.QtGui import QColor, QKeySequence, QPalette, QPixmap  # noqa: E402
+from qtpy.QtGui import QColor, QImage, QKeySequence, QPalette, QPixmap  # noqa: E402
 from qtpy.QtWidgets import (  # noqa: E402
     QApplication,
     QCheckBox,
@@ -95,6 +89,15 @@ from qtpy.QtWidgets import (  # noqa: E402
 )
 
 from autoclean.io.export import save_epochs_to_set  # noqa: E402
+from autoclean.tools.exclude_metadata import (  # noqa: E402
+    bad_channels_from_metadata as _bad_channels_from_metadata,
+)
+from autoclean.tools.exclude_metadata import (  # noqa: E402
+    parse_metadata_json as _parse_metadata_json,
+)
+from autoclean.tools.exclude_metadata import (  # noqa: E402
+    unique_channels as _unique_channels,
+)
 from autoclean.utils.database import (  # noqa: E402
     get_run_record,
     merge_reprocess_database,
@@ -109,10 +112,7 @@ from autoclean.utils.reprocess_overrides import (  # noqa: E402
 )
 from autoclean.utils.user_config import user_config  # noqa: E402
 
-pyqtRemoveInputHook()
-
 os.environ["MNE_BROWSER_THEME"] = "light"
-mne.viz.set_browser_backend("qt")
 
 
 STATUS_DEFINITIONS: dict[str, dict[str, str]] = {
@@ -215,21 +215,6 @@ def _group_channel_removals(channel_removals: List[Dict]) -> Dict[str, List[str]
                 grouped[reason] = []
             grouped[reason].append(channel)
     return grouped
-
-
-def _unique_channels(channels: List[str]) -> List[str]:
-    """Return channel names once each, preserving first-seen order."""
-    return list(dict.fromkeys(channels))
-
-
-def _bad_channels_from_metadata(metadata: Dict) -> List[str]:
-    """Extract the unique operational bad-channel list from run metadata."""
-    channel_removals = metadata.get("channel_removals", [])
-    if channel_removals:
-        return _unique_channels([removal["channel"] for removal in channel_removals])
-
-    legacy_bad_channels = metadata.get("step_clean_bad_channels", {}).get("bads", [])
-    return _unique_channels(legacy_bad_channels)
 
 
 def _get_removal_reason_display(reason_code: str) -> Tuple[str, str]:
@@ -444,16 +429,17 @@ def _load_preprocessing_log(
 
 
 class PdfPreviewWidget(QWidget):
-    """Lightweight PDF viewer that embeds Qt's native renderer."""
+    """Embedded PDF preview rendered by PyMuPDF instead of QtPdf."""
 
     def __init__(self, placeholder: str, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._placeholder = placeholder
-        self._document = QPdfDocument(self)
-        self._view = QPdfView(self)
-        self._view.setDocument(self._document)
-        self._view.setZoomMode(QPdfView.ZoomMode.FitToWidth)
-        self._view.setPageMode(QPdfView.PageMode.SinglePage)
+        self._document = None
+        self._view = QScrollArea(self)
+        self._view.setWidgetResizable(True)
+        self._page_image = QLabel(self._view)
+        self._page_image.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._view.setWidget(self._page_image)
 
         self._message = QLabel(placeholder)
         self._message.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -477,10 +463,6 @@ class PdfPreviewWidget(QWidget):
         self._total_pages = 0
         self._current_page = 0
 
-        self._navigator = self._view.pageNavigator()
-        if self._navigator is not None:
-            self._navigator.currentPageChanged.connect(self._on_page_changed)
-
         self._next_page_shortcut = QShortcut(
             QKeySequence(QKeySequence.StandardKey.MoveToNextPage), self
         )
@@ -495,7 +477,10 @@ class PdfPreviewWidget(QWidget):
         self.clear(suppress_log=True)
 
     def clear(self, suppress_log: bool = False) -> None:
-        self._document.close()
+        if self._document is not None:
+            self._document.close()
+            self._document = None
+        self._page_image.clear()
         self._current_path = None
         self._total_pages = 0
         self._current_page = 0
@@ -514,98 +499,28 @@ class PdfPreviewWidget(QWidget):
 
     def load(self, path: Path) -> None:
         log_debug(f"[{_human_timestamp()}] Attempting to load PDF preview: {path}")
-        status = self._document.load(str(path))
-        status_name = _enum_name(status)
-
         try:
-            doc_status = self._document.status()
+            import fitz
+
+            document = fitz.open(path)
         except Exception as exc:
-            doc_status = None
-            doc_status_name = f"status_call_failed={exc}"
-        else:
-            doc_status_name = _enum_name(doc_status)
-
-        error_value: Optional[object] = None
-        error_name = "unsupported"
-        if hasattr(self._document, "error"):
-            try:
-                error_value = self._document.error()
-                error_name = _enum_name(error_value)
-            except Exception as exc:
-                error_name = f"error_call_failed={exc}"
-
-        ready = doc_status_name == "Ready"
-        error_ok = error_name in {"None", "None_", "NoError", "NoError_", "unsupported"}
-
-        if not ready or not error_ok:
-            diagnostics: list[str] = []
-            try:
-                exists = path.exists()
-            except Exception as exc:
-                diagnostics.append(f"exists_check_failed={exc}")
-                exists = False
-
-            if exists:
-                try:
-                    stat = path.stat()
-                except OSError as exc:
-                    diagnostics.append(f"stat_error={exc}")
-                else:
-                    diagnostics.append(f"size={stat.st_size} bytes")
-                    diagnostics.append(
-                        f"mtime={datetime.fromtimestamp(stat.st_mtime).isoformat(timespec='seconds')}"
-                    )
-            else:
-                diagnostics.append("file_missing")
-
-            if hasattr(self._document, "errorString"):
-                try:
-                    error_string = self._document.errorString()
-                except Exception as exc:
-                    diagnostics.append(f"error_string_failed={exc}")
-                else:
-                    if error_string:
-                        diagnostics.append(f"error_string={error_string!r}")
-
-            diag_text = ", ".join(diagnostics) if diagnostics else "no file diagnostics"
-            log_warning(
-                f"[{_human_timestamp()}] PDF load failed for {path}; "
-                f"requested_status={status_name}, document_status={doc_status_name}, "
-                f"error={error_name}, {diag_text}."
-            )
+            log_warning(f"[{_human_timestamp()}] PDF load failed for {path}: {exc}")
             self.clear(suppress_log=True)
             self.show_message("Failed to load preview")
             return
 
-        try:
-            page_count = self._document.pageCount()
-        except Exception as exc:
-            page_count = f"page_count_failed={exc}"
+        if self._document is not None:
+            self._document.close()
+        self._document = document
+        page_count = len(document)
         log_info(
-            f"[{_human_timestamp()}] PDF load succeeded: {path} "
-            f"(requested_status={status_name}, document_status={doc_status_name}, "
-            f"error={error_name}, pages={page_count})."
+            f"[{_human_timestamp()}] PDF load succeeded: {path} (pages={page_count})."
         )
 
-        if isinstance(page_count, int) and page_count > 0:
-            self._total_pages = page_count
-        else:
-            self._total_pages = 0
+        self._total_pages = page_count
         self._current_page = 0
-
-        if self._navigator is not None:
-            self._navigator.jump(0, QPointF(0, 0))
-
-        if self._total_pages > 1:
-            self._view.setPageMode(QPdfView.PageMode.MultiPage)
-        else:
-            self._view.setPageMode(QPdfView.PageMode.SinglePage)
-
-        navigator = self._view.pageNavigator()
-        if navigator is not None:
-            navigator.jump(0, QPointF(0, 0))
-
         self._current_path = path
+        self._render_current_page()
         self._message.hide()
         self._view.show()
         self._status_label.show()
@@ -616,34 +531,37 @@ class PdfPreviewWidget(QWidget):
             self._status_label.setText("No document loaded")
             return
         page_text = f"Page {self._current_page + 1} / {self._total_pages}"
-        try:
-            zoom = self._view.zoomFactor()
-        except Exception:
-            zoom = 1.0
-        zoom_pct = int(round(zoom * 100))
-        mode = self._view.pageMode()
-        mode_name = getattr(mode, "name", str(mode))
-        self._status_label.setText(f"{page_text} · Zoom {zoom_pct}% · Mode {mode_name}")
+        self._status_label.setText(f"{page_text} · Rendered with PyMuPDF")
 
     def _step_page(self, delta: int) -> None:
-        if self._navigator is None or self._total_pages <= 0:
+        if self._document is None or self._total_pages <= 0:
             return
-        try:
-            current = self._navigator.currentPage()
-        except Exception:
-            current = self._current_page
-        target = max(0, min(self._total_pages - 1, current + delta))
-        if target == current:
+        target = max(0, min(self._total_pages - 1, self._current_page + delta))
+        if target == self._current_page:
             return
-        self._navigator.jump(target, QPointF(0, 0))
         self._current_page = target
+        self._render_current_page()
         self._update_status_label()
 
-    def _on_page_changed(self, page: int) -> None:
-        if self._total_pages <= 0:
+    def _render_current_page(self) -> None:
+        if self._document is None or self._total_pages <= 0:
             return
-        self._current_page = max(0, min(self._total_pages - 1, page))
-        self._update_status_label()
+        try:
+            page = self._document.load_page(self._current_page)
+            import fitz
+
+            pixmap = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
+            image = QImage(
+                pixmap.samples,
+                pixmap.width,
+                pixmap.height,
+                pixmap.stride,
+                QImage.Format.Format_RGB888,
+            ).copy()
+            self._page_image.setPixmap(QPixmap.fromImage(image))
+        except Exception as exc:
+            log_warning(f"[{_human_timestamp()}] PDF page render failed: {exc}")
+            self.show_message("Failed to render preview")
 
 
 class ReviewBase(QWidget):
@@ -5834,46 +5752,6 @@ class ExclusionFileSelector(ReviewBase):
     # ------------------------------------------------------------------
     # Related files + helpers
     # ------------------------------------------------------------------
-    def _parse_metadata_json(self, json_path: Path) -> dict[str, list]:
-        """Parse metadata JSON and extract bad channels and rejected ICA components.
-
-        Args:
-            json_path: Path to the JSON metadata file
-
-        Returns:
-            Dict with 'bad_channels' and 'rejected_ica' keys
-        """
-        result = {"bad_channels": [], "rejected_ica": []}
-
-        if not json_path or not json_path.exists():
-            return result
-
-        try:
-            data = json.loads(json_path.read_text())
-            metadata_section = data.get("metadata", {})
-
-            # Extract unified channel removals (preferred)
-            channel_removals = metadata_section.get("channel_removals", [])
-            if channel_removals and isinstance(channel_removals, list):
-                result["channel_removals"] = channel_removals
-
-            result["bad_channels"] = _bad_channels_from_metadata(metadata_section)
-
-            # Extract rejected ICA components
-            ica_rejection = metadata_section.get(
-                "step_apply_ica_component_rejection", {}
-            )
-            rejected_comps = ica_rejection.get("ica", {}).get(
-                "final_excluded_indices", []
-            )
-            if isinstance(rejected_comps, list):
-                result["rejected_ica"] = rejected_comps
-
-        except Exception as e:
-            print(f"Warning: Could not parse metadata JSON {json_path}: {e}")
-
-        return result
-
     def _refresh_related_list(self, file_path: Path) -> None:
         if self.related_list is None:
             return
@@ -5909,7 +5787,7 @@ class ExclusionFileSelector(ReviewBase):
 
         # Parse and display metadata if JSON exists
         if json_path:
-            metadata = self._parse_metadata_json(json_path)
+            metadata = _parse_metadata_json(json_path)
 
             # Add separator
             separator = QListWidgetItem("─────────────────")
@@ -6422,6 +6300,12 @@ def run_autoclean_exclusion_tool(
     task_root: Optional[Path] = None,
 ) -> None:
     """Launch the Qt inclusion/exclusion helper."""
+
+    check_gui_dependencies()
+    from PyQt6.QtCore import pyqtRemoveInputHook
+
+    pyqtRemoveInputHook()
+    mne.viz.set_browser_backend("qt")
 
     app = QApplication(sys.argv)
     try:

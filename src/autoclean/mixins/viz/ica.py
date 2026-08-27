@@ -22,6 +22,7 @@ from typing import Optional
 
 import matplotlib
 import matplotlib.pyplot as plt
+import mne
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 from mne.preprocessing import ICA
@@ -99,7 +100,7 @@ class ICAReportingMixin:
         """
         # Get raw and ICA from pipeline
         report_data = self._get_ica_report_data()
-        if report_data is None:
+        if report_data is None or isinstance(report_data, mne.BaseEpochs):
             message(
                 "warning",
                 "plot_ica_full skipped because raw or ICA data is missing "
@@ -229,6 +230,9 @@ class ICAReportingMixin:
         duration : Optional[int]
             Duration in seconds for plotting time series data
         """
+        report_metadata = {
+            "creationDateTime": datetime.now().isoformat(),
+        }
         try:
             # Generate report for all components
             message("info", "Generating ICA report for all components...")
@@ -238,13 +242,7 @@ class ICAReportingMixin:
             )
 
             if report_filename is not None:
-                metadata = {
-                    "artifact_reports": {
-                        "creationDateTime": datetime.now().isoformat(),
-                        "ica_all_components": report_filename,
-                    }
-                }
-                self._update_metadata("generate_ica_reports", metadata)
+                report_metadata["ica_all_components"] = report_filename
                 message("success", "Successfully generated 'all components' ICA report")
             else:
                 message("warning", "Failed to generate 'all components' ICA report")
@@ -264,13 +262,7 @@ class ICAReportingMixin:
             )
 
             if report_filename is not None:
-                metadata = {
-                    "artifact_reports": {
-                        "creationDateTime": datetime.now().isoformat(),
-                        "ica_rejected_components": report_filename,
-                    }
-                }
-                self._update_metadata("generate_ica_reports", metadata)
+                report_metadata["ica_rejected_components"] = report_filename
                 message(
                     "success", "Successfully generated 'rejected components' ICA report"
                 )
@@ -284,6 +276,11 @@ class ICAReportingMixin:
             message(
                 "error",
                 f"Critical error in 'rejected components' ICA report generation: {exc}",
+            )
+
+        if len(report_metadata) > 1:
+            self._update_metadata(
+                "generate_ica_reports", {"artifact_reports": report_metadata}
             )
 
     def _plot_ica_components(
@@ -317,6 +314,7 @@ class ICAReportingMixin:
             return None
 
         raw = report_data
+        is_epochs = isinstance(raw, mne.BaseEpochs)
         ica = self.final_ica
         ic_labels = getattr(self, "ica_flags", None)
         psd_fmax = self._resolve_psd_fmax()
@@ -367,9 +365,12 @@ class ICAReportingMixin:
             return None
 
         sfreq = raw.info["sfreq"]
-        n_samples = int(min(duration * sfreq, raw.n_times))
-        tmax = raw.times[n_samples - 1] if n_samples > 0 else 0.0
-        raw_fast = raw.copy().crop(tmin=0, tmax=tmax)
+        if is_epochs:
+            raw_fast = raw
+        else:
+            n_samples = int(min(duration * sfreq, raw.n_times))
+            tmax = raw.times[n_samples - 1] if n_samples > 0 else 0.0
+            raw_fast = raw.copy().crop(tmin=0, tmax=tmax)
 
         basename = Path(self.config["unprocessed_file"]).stem
         basename = f"{basename}_{report_name}"
@@ -487,7 +488,7 @@ class ICAReportingMixin:
                 pdf.savefig(topo_fig)
                 plt.close(topo_fig)
 
-            if components == "rejected":
+            if components == "rejected" and not is_epochs:
                 end_time = min(float(duration), raw_fast.times[-1])
                 raw_copy = raw_fast.copy()
                 ica_ch_names = self.final_ica.ch_names
@@ -524,16 +525,20 @@ class ICAReportingMixin:
                 logger.debug(
                     f"Pre-computing PSDs for {len(component_indices)} components"
                 )
-                get_cached_component_psds(ica, raw, component_indices, fmax=psd_fmax)
-                get_cached_component_psds(
-                    ica, raw_fast, component_indices, fmax=psd_fmax
-                )
-                get_cached_topographies(ica, component_indices)
+                if not is_epochs:
+                    get_cached_component_psds(
+                        ica, raw, component_indices, fmax=psd_fmax
+                    )
+                    get_cached_component_psds(
+                        ica, raw_fast, component_indices, fmax=psd_fmax
+                    )
+                    get_cached_topographies(ica, component_indices)
 
-                message(
-                    "info",
-                    f"Pre-computed batch data for {len(component_indices)} components",
-                )
+                    message(
+                        "info",
+                        "Pre-computed batch data for "
+                        f"{len(component_indices)} components",
+                    )
             except Exception as exc:
                 logger.warning(f"Batch pre-computation failed (will fallback): {exc}")
 
@@ -627,13 +632,16 @@ class ICAReportingMixin:
         components still show their original activity/PSD instead of the
         zeroed-out values left behind after ICA.apply() runs.
 
-        ICA reports currently only support raw-based plotting. If ICA was fit
-        on epochs (`self._ica_used_epochs`), there is no raw-shaped data to
-        report on, so this returns None rather than silently falling back to
-        a stale/incompatible `self.raw` left over from an earlier step.
+        Raw-fit ICA reports use raw snapshots; epoch-fit ICA reports use epoch
+        snapshots. Falling back to the current working object is intentionally
+        last so reports prefer the exact pre-rejection data used for ICA.
         """
+        snapshot = getattr(self, "ica_prerejection_data", None)
+        if snapshot is not None:
+            return snapshot
         if getattr(self, "_ica_used_epochs", False):
-            return None
+            epochs = getattr(self, "epochs_prerejection", None)
+            return epochs if epochs is not None else getattr(self, "epochs", None)
         snapshot = getattr(self, "raw_prerejection", None)
         return snapshot if snapshot is not None else getattr(self, "raw", None)
 
