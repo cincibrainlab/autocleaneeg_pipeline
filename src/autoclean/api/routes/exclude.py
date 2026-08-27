@@ -687,7 +687,10 @@ def _replace_existing_reprocess_artifacts(
     )
     _backup_and_remove_matching_files(
         task_root / "reports" / "ica_components",
-        [f"{stem}_ica_components_all.pdf"],
+        [
+            f"{stem}_ica_components_all.pdf",
+            f"{stem}_ica_components_rejected.pdf",
+        ],
         backups_dir,
     )
     _backup_and_remove_matching_files(
