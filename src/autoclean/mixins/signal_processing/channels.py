@@ -262,32 +262,34 @@ class ChannelsMixin:
                     dict.fromkeys([*imported_bad_channels, *all_bad_channels])
                 )
 
-            # Check for reference channels to exclude from bad channels
-            ref_channels = []
-            if hasattr(self, "config"):
-                task = self.config.get("task")
-                ref_step = (
-                    self.config.get("tasks", {})
-                    .get(task, {})
-                    .get("settings", {})
-                    .get("reference_step", {})
+            named_ref_channels = self._named_reference_channel_names(
+                self._reference_step_value(), list(result_raw.ch_names)
+            )
+            if named_ref_channels:
+                message(
+                    "info",
+                    f"Excluding reference channel(s) from bad channels: "
+                    f"{sorted(named_ref_channels)}",
                 )
-                if ref_step and ref_step.get("enabled") and ref_step.get("value"):
-                    ref_channels = ref_step.get("value", [])
-                    message(
-                        "info",
-                        f"Excluding reference channel(s) from bad channels: {ref_channels}",
-                    )
 
-            # Add bad channels to info, but exclude reference channels
-            filtered_bad_channels = [
-                str(ch) for ch in all_bad_channels if str(ch) not in ref_channels
+            pre_existing_bads = [str(ch) for ch in data.info.get("bads", [])]
+            if manual_override:
+                candidate_channels = list(
+                    dict.fromkeys([*pre_existing_bads, *manual_bad_channels])
+                )
+            else:
+                candidate_channels = list(
+                    dict.fromkeys([*pre_existing_bads, *all_bad_channels])
+                )
+
+            effective_bads = [
+                ch
+                for ch in candidate_channels
+                if ch not in named_ref_channels and ch in result_raw.ch_names
             ]
-            result_raw.info["bads"].extend(filtered_bad_channels)
-
-            # Remove duplicates
-            bads = list(set(result_raw.info["bads"]))
-            result_raw.info["bads"] = bads
+            result_raw.info["bads"] = effective_bads
+            bads = list(effective_bads)
+            effective_bad_set = set(effective_bads)
 
             if final_cleaning_method == "interpolate":
                 result_raw.interpolate_bads(reset_bads=reset_bads)
@@ -329,31 +331,39 @@ class ChannelsMixin:
             else:
                 message("info", f"Detected {len(bads)} bad channels: {bads}")
 
-                # Track channel removals in unified metadata by detection method
+                # Track channel removals in unified metadata by detection method.
+                # Only channels in the effective bad set were actually cleaned or
+                # marked; reference channels excluded above must not be logged.
                 for channel in uncorrelated_channels:
-                    self._track_channel_removal(
-                        channels=channel,
-                        reason="UNCORRELATED",
-                        source_step="clean_bad_channels",
-                        action=removal_action,
-                    )
+                    if channel in effective_bad_set:
+                        self._track_channel_removal(
+                            channels=channel,
+                            reason="UNCORRELATED",
+                            source_step="clean_bad_channels",
+                            action=removal_action,
+                        )
                 for channel in deviation_channels:
-                    self._track_channel_removal(
-                        channels=channel,
-                        reason="DEVIATION",
-                        source_step="clean_bad_channels",
-                        action=removal_action,
-                    )
+                    if channel in effective_bad_set:
+                        self._track_channel_removal(
+                            channels=channel,
+                            reason="DEVIATION",
+                            source_step="clean_bad_channels",
+                            action=removal_action,
+                        )
                 for channel in ransac_channels:
+                    if channel in effective_bad_set:
+                        self._track_channel_removal(
+                            channels=channel,
+                            reason="RANSAC",
+                            source_step="clean_bad_channels",
+                            action=removal_action,
+                        )
+                tracked_imported = [
+                    ch for ch in imported_bad_channels if ch in effective_bad_set
+                ]
+                if tracked_imported:
                     self._track_channel_removal(
-                        channels=channel,
-                        reason="RANSAC",
-                        source_step="clean_bad_channels",
-                        action=removal_action,
-                    )
-                if imported_bad_channels:
-                    self._track_channel_removal(
-                        channels=imported_bad_channels,
+                        channels=tracked_imported,
                         reason="BAD_CHANNEL_LOG",
                         source_step="bad_channel_log",
                         action=removal_action,
@@ -393,6 +403,36 @@ class ChannelsMixin:
         except Exception as e:
             message("error", f"Error during bad channel detection: {str(e)}")
             raise RuntimeError(f"Failed to detect bad channels: {str(e)}") from e
+
+    def _reference_step_value(self) -> Any:
+        if not hasattr(self, "config"):
+            return None
+        task = self.config.get("task")
+        ref_step = (
+            self.config.get("tasks", {})
+            .get(task, {})
+            .get("settings", {})
+            .get("reference_step", {})
+        )
+        if not ref_step or not ref_step.get("enabled"):
+            return None
+        return ref_step.get("value")
+
+    @staticmethod
+    def _named_reference_channel_names(ref_value: Any, ch_names: List[str]) -> set[str]:
+        """Return EEG channel names used as explicit references, not ref modes."""
+        ch_set = set(ch_names)
+        if ref_value is None:
+            return set()
+        if isinstance(ref_value, str):
+            if ref_value in ("average", "REST"):
+                return set()
+            if ref_value in ch_set:
+                return {ref_value}
+            return set()
+        if isinstance(ref_value, (list, tuple)):
+            return {str(ch) for ch in ref_value if str(ch) in ch_set}
+        return set()
 
     def _apply_bad_channel_log(self, raw: mne.io.Raw) -> List[str]:
         """Apply configured user-provided bad channels to ``raw.info['bads']``."""
