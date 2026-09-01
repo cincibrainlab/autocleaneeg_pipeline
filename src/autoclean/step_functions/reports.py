@@ -78,6 +78,48 @@ def _resolve_study_user() -> str:
         return "autocleaneeg_user"
 
 
+def _processing_log_channel_fields(metadata: dict[str, Any]) -> dict[str, str]:
+    """Return distinct outer-layer and bad-channel fields for processing logs."""
+    outer_layer = metadata.get("step_drop_outerlayer")
+    if isinstance(outer_layer, dict) and outer_layer.get("enabled", True):
+        dropped_channels = outer_layer.get("dropped_outer_layer_channels") or []
+        if not isinstance(dropped_channels, list):
+            dropped_channels = []
+        outer_layer_fields = {
+            "outerlayer_chans_dropped_n": str(len(dropped_channels)),
+            "outerlayer_chans_dropped": str(dropped_channels),
+        }
+    else:
+        outer_layer_fields = {
+            "outerlayer_chans_dropped_n": "NA",
+            "outerlayer_chans_dropped": "NA",
+        }
+
+    clean_bad_channels = metadata.get("step_clean_bad_channels")
+    if not isinstance(clean_bad_channels, dict):
+        return {
+            **outer_layer_fields,
+            "proc_badchans_n": "NA",
+            "proc_badchans": "NA",
+            "proc_badchans_action": "NA",
+        }
+
+    bad_channels = clean_bad_channels.get("bads") or []
+    if not isinstance(bad_channels, list):
+        bad_channels = []
+    cleaning_method = clean_bad_channels.get("cleaning_method")
+    action = {
+        "interpolate": "interpolated",
+        "drop": "dropped",
+    }.get(cleaning_method, "marked_only")
+    return {
+        **outer_layer_fields,
+        "proc_badchans_n": str(len(bad_channels)),
+        "proc_badchans": str(bad_channels),
+        "proc_badchans_action": action,
+    }
+
+
 def _collect_report_notes(metadata: dict[str, Any]) -> list[str]:
     """Collect report notes emitted by processing steps."""
     report_notes: list[str] = []
@@ -1215,6 +1257,9 @@ def update_task_processing_log(
 
         # Combine flags into a single string
         flags = "; ".join(flagged_reasons) if flagged_reasons else ""
+        channel_fields = _processing_log_channel_fields(
+            summary_dict.get("metadata", {})
+        )
 
         # Extract details from summary_dict with safe access
         details = {
@@ -1232,9 +1277,7 @@ def update_task_processing_log(
             "net_nbchan_post": str(
                 safe_get(summary_dict, "export_details", "net_nbchan_post", default="")
             ),
-            "proc_badchans": str(
-                safe_get(summary_dict, "channel_dict", "removed_channels", default="")
-            ),
+            **channel_fields,
             "proc_filt_lowcutoff": str(
                 safe_get(summary_dict, "processing_details", "l_freq", default="")
             ),
