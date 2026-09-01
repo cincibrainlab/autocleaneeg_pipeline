@@ -1476,6 +1476,7 @@ class ReprocessWidget(QWidget):
 
         # Bad Channels Section
         self.channels_group = QGroupBox("Bad Channels")
+        self.channels_group.setMinimumWidth(260)
         channels_layout = QVBoxLayout()
         channels_layout.setSpacing(6)
 
@@ -1487,6 +1488,7 @@ class ReprocessWidget(QWidget):
         self.channel_combo = QComboBox()
         self.channel_combo.setEditable(True)
         self.channel_combo.setPlaceholderText("Select channel...")
+        self.channel_combo.setMinimumWidth(120)
         channels_controls.addWidget(self.channel_combo, 1)
 
         self.add_channel_btn = QPushButton("Add")
@@ -1505,6 +1507,7 @@ class ReprocessWidget(QWidget):
 
         # Rejected ICA Components Section
         self.ica_group = QGroupBox("Rejected ICA Components")
+        self.ica_group.setMinimumWidth(260)
         ica_layout = QVBoxLayout()
         ica_layout.setSpacing(6)
 
@@ -1517,6 +1520,7 @@ class ReprocessWidget(QWidget):
         self.ica_spinbox.setMinimum(0)
         self.ica_spinbox.setMaximum(0)
         self.ica_spinbox.setPrefix("Component ")
+        self.ica_spinbox.setMinimumWidth(130)
         ica_controls.addWidget(self.ica_spinbox, 1)
 
         self.add_ica_btn = QPushButton("Add")
@@ -1851,6 +1855,7 @@ class ReprocessWidget(QWidget):
         self._suppress_change_signal = False
 
         # Update changes summary display
+        self._select_next_available_ica_component()
         self._update_changes_summary()
 
     def _add_channel(self) -> None:
@@ -1894,7 +1899,7 @@ class ReprocessWidget(QWidget):
             # Set modification mode to channels and update UI states
             if self._modification_mode is None:
                 self._modification_mode = "channels"
-                self._update_section_states()
+            self._reconcile_modification_mode()
 
             self._emit_change_signal()
 
@@ -1906,6 +1911,7 @@ class ReprocessWidget(QWidget):
         # Check if already in list
         items = [self.ica_list.item(i).text() for i in range(self.ica_list.count())]
         if component_text in items:
+            self._select_next_available_ica_component()
             return
 
         self.ica_list.addItem(component_text)
@@ -1913,22 +1919,28 @@ class ReprocessWidget(QWidget):
         # Set modification mode to components and update UI states
         if self._modification_mode is None:
             self._modification_mode = "components"
-            self._update_section_states()
+        self._reconcile_modification_mode()
 
+        self._select_next_available_ica_component()
         self._emit_change_signal()
 
     def _remove_ica_component(self) -> None:
         """Remove selected ICA component from list."""
-        current_item = self.ica_list.currentItem()
-        if current_item:
-            self.ica_list.takeItem(self.ica_list.row(current_item))
+        row = self.ica_list.currentRow()
+        if row < 0:
+            return
 
-            # Set modification mode to components and update UI states
-            if self._modification_mode is None:
-                self._modification_mode = "components"
-                self._update_section_states()
+        # Release ownership before callbacks can process the updated Qt model.
+        removed_item = self.ica_list.takeItem(row)
+        del removed_item
 
-            self._emit_change_signal()
+        # Set modification mode to components and update UI states
+        if self._modification_mode is None:
+            self._modification_mode = "components"
+        self._reconcile_modification_mode()
+
+        self._select_next_available_ica_component()
+        self._emit_change_signal()
 
     def _reset_to_original(self) -> None:
         """Reset to original values from metadata."""
@@ -1944,8 +1956,55 @@ class ReprocessWidget(QWidget):
         # Clear modification mode and re-enable both sections
         self._modification_mode = None
         self._update_section_states()
+        self._select_next_available_ica_component()
 
         self._emit_change_signal()
+
+    @staticmethod
+    def _component_number_from_item_text(text: str) -> int | None:
+        """Parse the component number from the visible list label."""
+        try:
+            return int(text.replace("Component", "").strip())
+        except (TypeError, ValueError):
+            return None
+
+    def _reconcile_modification_mode(self) -> None:
+        """Unlock sections again when edits return to original values."""
+        current = self.get_current_values()
+        channel_changed = set(current["bad_channels"]) != set(
+            self.original_bad_channels
+        )
+        ica_changed = set(current["rejected_ica"]) != set(self.original_rejected_ica)
+
+        if channel_changed and not ica_changed:
+            self._modification_mode = "channels"
+        elif ica_changed and not channel_changed:
+            self._modification_mode = "components"
+        elif channel_changed and ica_changed:
+            # This should not happen through the locked UI, but preserve the
+            # current mode rather than surprising the user if legacy state exists.
+            self._modification_mode = self._modification_mode or "channels"
+        else:
+            self._modification_mode = None
+
+        self._update_section_states()
+
+    def _select_next_available_ica_component(self) -> None:
+        """Point the spinbox at the next component not already rejected."""
+        selected = set()
+        for i in range(self.ica_list.count()):
+            component = self._component_number_from_item_text(
+                self.ica_list.item(i).text()
+            )
+            if component is not None:
+                selected.add(component)
+
+        for component in range(self.max_components):
+            if component not in selected:
+                self.ica_spinbox.setValue(component)
+                self.add_ica_btn.setEnabled(self._modification_mode != "channels")
+                return
+        self.add_ica_btn.setEnabled(False)
 
     def get_current_values(self) -> dict:
         """Get current bad channels and rejected ICA components."""
@@ -1953,10 +2012,13 @@ class ReprocessWidget(QWidget):
             self.channels_list.item(i).text() for i in range(self.channels_list.count())
         ]
 
-        rejected_ica = [
-            int(self.ica_list.item(i).text().replace("Component ", ""))
-            for i in range(self.ica_list.count())
-        ]
+        rejected_ica = []
+        for i in range(self.ica_list.count()):
+            component = self._component_number_from_item_text(
+                self.ica_list.item(i).text()
+            )
+            if component is not None:
+                rejected_ica.append(component)
 
         return {"bad_channels": bad_channels, "rejected_ica": rejected_ica}
 
