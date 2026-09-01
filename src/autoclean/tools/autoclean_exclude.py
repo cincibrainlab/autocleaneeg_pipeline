@@ -556,9 +556,7 @@ class PdfPreviewWidget(QWidget):
             self._next_page_btn.setEnabled(False)
             return
         page_text = f"Page {self._current_page + 1} / {self._total_pages}"
-        self._status_label.setText(
-            f"{page_text} · Rendered with PyMuPDF · PgUp/PgDn"
-        )
+        self._status_label.setText(f"{page_text} · Rendered with PyMuPDF · PgUp/PgDn")
         self._prev_page_btn.setEnabled(self._current_page > 0)
         self._next_page_btn.setEnabled(self._current_page < self._total_pages - 1)
 
