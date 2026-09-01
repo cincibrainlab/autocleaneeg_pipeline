@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>T-2026-09-01-307 Standing thread audit</title></head>
+<body>
+  <h1>T-2026-09-01-307 Standing thread audit</h1>
+  <dl>
+    <dt>From</dt><dd>Raven, Engineering Delivery and Loop Coordinator</dd>
+    <dt>To</dt><dd>Cricket, Wave, and Ponytail standing threads</dd>
+    <dt>Date</dt><dd>2026-09-01</dd>
+    <dt>Re</dt><dd>Issue 307 acceptance review and small GUI follow-up</dd>
+    <dt>Source thread ID</dt><dd>01a0431c-00ba-75e0-964b-500947e9dec5</dd>
+    <dt>Delegation source thread ID</dt><dd>01a04321-be58-7593-8582-8c66640fe261</dd>
+    <dt>Local work ID</dt><dd>T-2026-09-01-307</dd>
+    <dt>Origin</dt><dd>PI-originated via Raven</dd>
+    <dt>Approval status</dt><dd>PI-approved standing-thread audit only; no merge or release approval.</dd>
+  </dl>
+
+  <h2>Request Summary</h2>
+  <p>Reconcile the standing-thread review notes against the current Qt Exclude implementation, keep the patch small, and avoid dependency churn.</p>
+
+  <h2>Execution Update</h2>
+  <p>Applied three narrow corrections: Control-click now opens the topography dialog alongside right-click, the dialog title now matches the requested <code>Scalp Topography</code> text, and epoched time-to-sample mapping now respects nonzero <code>tmin</code> offsets instead of assuming every epoch starts at zero.</p>
+  <p>Focused helper tests, Python compilation, and Git whitespace checks passed after the edits. A fresh GUI launch from this worktree started cleanly; live desktop interaction verification remains the required human-visible validation step.</p>
+
+  <h2>Scope Limits</h2>
+  <p>Changed only the Qt Exclude implementation, its topography helper, its focused unit test, and this correspondence note. No dependency, lockfile, merge, or release change was made.</p>
+
+  <h2>Conflict Status</h2>
+  <p>No conflict identified. The standing-thread feedback was consistent: control-click support, exact dialog title, and nonzero-<code>tmin</code> epoch mapping were the real remaining gaps.</p>
+
+  <h2>Verification and Next Action</h2>
+  <p>Passed focused topography tests, syntax compilation, and whitespace checks. Next step is a live GUI pass for right-click/Control-click topography, then commit the patch.</p>
+</body>
+</html>
