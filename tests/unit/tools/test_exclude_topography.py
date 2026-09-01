@@ -47,9 +47,7 @@ def test_topography_click_gate_only_accepts_secondary_target_release() -> None:
     assert not should_open_topography_from_click(
         **{**base_event, "is_secondary_button": False}
     )
-    assert not should_open_topography_from_click(
-        **{**base_event, "widget_width": 100}
-    )
+    assert not should_open_topography_from_click(**{**base_event, "widget_width": 100})
 
 
 def test_review_shortcut_action_maps_decision_keys() -> None:

@@ -14,9 +14,7 @@ class EpochSample:
     sample_index: int
 
 
-def raw_sample_from_time(
-    time_seconds: float, *, sfreq: float, n_samples: int
-) -> int:
+def raw_sample_from_time(time_seconds: float, *, sfreq: float, n_samples: int) -> int:
     """Map a raw-browser time to a valid sample index."""
     if n_samples <= 0:
         raise ValueError("Raw data has no samples")

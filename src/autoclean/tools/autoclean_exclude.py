@@ -4311,17 +4311,14 @@ class ExclusionFileSelector(ReviewBase):
         is_control_click = mouse_button == Qt.MouseButton.LeftButton and bool(
             modifiers & Qt.KeyboardModifier.ControlModifier
         )
-        if (
-            should_open_topography_from_click(
-                is_target=watched in self._topography_click_targets,
-                is_mouse_release=event.type() == QEvent.Type.MouseButtonRelease,
-                is_secondary_button=mouse_button == Qt.MouseButton.RightButton,
-                is_control_click=is_control_click,
-                widget_width=watched.width() if isinstance(watched, QWidget) else 0,
-                widget_height=watched.height() if isinstance(watched, QWidget) else 0,
-            )
-            and isinstance(watched, QWidget)
-        ):
+        if should_open_topography_from_click(
+            is_target=watched in self._topography_click_targets,
+            is_mouse_release=event.type() == QEvent.Type.MouseButtonRelease,
+            is_secondary_button=mouse_button == Qt.MouseButton.RightButton,
+            is_control_click=is_control_click,
+            widget_width=watched.width() if isinstance(watched, QWidget) else 0,
+            widget_height=watched.height() if isinstance(watched, QWidget) else 0,
+        ) and isinstance(watched, QWidget):
             position = getattr(event, "position", lambda: None)()
             if position is not None:
                 time_seconds = self._time_from_viewbox_click(watched, position)
@@ -4384,7 +4381,7 @@ class ExclusionFileSelector(ReviewBase):
                     epoch_times=epoch_times,
                     n_epochs=len(self.current_epochs),
                 )
-                data = self.current_epochs.get_data()[location.epoch_index]
+                data = self.current_epochs[location.epoch_index].get_data()[0]
                 values, info, channels = self._topography_values(
                     self.current_epochs, data, location.sample_index
                 )
@@ -4543,9 +4540,7 @@ class ExclusionFileSelector(ReviewBase):
             colorbar.set_label("µV")
             axis.set_title(title, fontsize=9, pad=10)
             buffer = BytesIO()
-            figure.savefig(
-                buffer, format="png", bbox_inches="tight", pad_inches=0.1
-            )
+            figure.savefig(buffer, format="png", bbox_inches="tight", pad_inches=0.1)
             image_data = QImage.fromData(buffer.getvalue(), "PNG")
             if image_data.isNull():
                 raise RuntimeError("Could not create the topography image")
@@ -4968,6 +4963,11 @@ class ExclusionFileSelector(ReviewBase):
             widget.removeEventFilter(self)
         self._topography_click_targets.clear()
         self._topography_viewbox = None
+        if self._topography_dialog is not None:
+            try:
+                self._topography_dialog.close()
+            except RuntimeError:
+                self._topography_dialog = None
 
     def _check_epoch_changes(self) -> None:
         """Check if epochs have been marked/unmarked and save immediately."""
