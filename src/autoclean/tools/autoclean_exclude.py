@@ -12,7 +12,6 @@ import argparse
 import ast
 import csv
 import hashlib
-from io import BytesIO
 import json
 import os
 import subprocess
@@ -20,6 +19,7 @@ import sys
 from collections import Counter, OrderedDict
 from datetime import datetime
 from functools import partial
+from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
