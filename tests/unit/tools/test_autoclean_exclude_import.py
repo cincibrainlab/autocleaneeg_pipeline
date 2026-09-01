@@ -114,6 +114,21 @@ def test_reprocess_selected_ica_remove_does_not_abort_python(tmp_path):
         assert original_widget._modification_mode is None
         assert original_widget.add_channel_btn.isEnabled()
         assert original_widget.add_ica_btn.isEnabled()
+
+        no_ica_widget = ReprocessWidget()
+        no_ica_widget.load_from_metadata(
+            {
+                "bad_channels": ["Cz"],
+                "rejected_ica": [],
+                "valid_channels": ["Cz"],
+                "max_components": 0,
+            }
+        )
+        no_ica_widget.channels_list.setCurrentRow(0)
+        no_ica_widget.remove_channel_btn.click()
+        app.processEvents()
+
+        assert no_ica_widget.add_ica_btn.isEnabled() is False
         print("remove ok")
         """
     )

@@ -1988,6 +1988,7 @@ class ReprocessWidget(QWidget):
             self._modification_mode = None
 
         self._update_section_states()
+        self._select_next_available_ica_component()
 
     def _select_next_available_ica_component(self) -> None:
         """Point the spinbox at the next component not already rejected."""
