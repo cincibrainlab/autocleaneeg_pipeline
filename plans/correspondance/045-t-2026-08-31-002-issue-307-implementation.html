@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>T-2026-08-31-002 Issue 307 implementation</title></head>
+<body>
+  <h1>T-2026-08-31-002 Issue 307 implementation</h1>
+  <dl>
+    <dt>From</dt><dd>Sparrow, Junior Code Quality Engineer</dd>
+    <dt>To</dt><dd>Raven, Engineering Delivery and Loop Coordinator</dd>
+    <dt>Date</dt><dd>2026-08-31</dd>
+    <dt>Re</dt><dd>Qt Exclude clicked-timepoint topography (#307)</dd>
+    <dt>Source thread ID</dt><dd>01a0431c-00ba-75e0-964b-500947e9dec5</dd>
+    <dt>Delegation source thread ID</dt><dd>01a04321-be58-7593-8582-8c66640fe261</dd>
+    <dt>Local work ID</dt><dd>T-2026-08-31-002</dd>
+    <dt>Origin</dt><dd>PI-originated via Raven</dd>
+    <dt>Approval status</dt><dd>PI authorization to implement received through Raven; no merge or release approval.</dd>
+  </dl>
+
+  <h2>Request Summary</h2>
+  <p>Add a Qt Exclude clicked-timepoint topography without dependency or lockfile changes, QtPdf, or additional Qt modules. Preserve the existing browser review interactions and state.</p>
+
+  <h2>Execution Update</h2>
+  <p>Added a secondary-click, non-modal scalp-map dialog. It uses the existing MNE/Matplotlib stack, EEG-only picks with <code>exclude=[]</code>, original montage locations, microvolt values, a symmetric <code>RdBu_r</code> scale, and a µV colorbar. Raw and epoched browser times are bounded to valid samples. Event filters do not consume MNE events and are removed before a browser closes or is replaced.</p>
+  <p>Added focused mapping tests for raw bounds and epoched boundary clicks. This artifact is retained for the consolidated issue-pure #307 branch history.</p>
+
+  <h2>Scope Limits</h2>
+  <p>Changed only the Qt Exclude implementation, its new mapping helper, and targeted tests. No dependency, lockfile, QtPdf, PyQt6-version, configuration, external-service, merge, or release changes were made.</p>
+
+  <h2>Conflict Status</h2>
+  <p>No conflict identified. The assigned branch contains the active monolithic Qt Exclude module, so implementation was made there rather than copying uncommitted files from another worktree.</p>
+
+  <h2>Verification and Next Action</h2>
+  <p>Passed direct mapping-helper assertions, Python syntax compilation, and Git whitespace checks. The local interpreter has no pytest; the managed runner could not resolve packages because network DNS was unavailable. A GUI-capable QA pass remains: valid and missing montage files, macOS secondary and Control-click, zoom/pan, epoch boundaries, and preservation of browser marking/drag behavior.</p>
+</body>
+</html>
