@@ -81,7 +81,7 @@ def _resolve_study_user() -> str:
 def _processing_log_channel_fields(metadata: dict[str, Any]) -> dict[str, str]:
     """Return distinct outer-layer and bad-channel fields for processing logs."""
     outer_layer = metadata.get("step_drop_outerlayer")
-    if isinstance(outer_layer, dict):
+    if isinstance(outer_layer, dict) and outer_layer.get("enabled", True):
         dropped_channels = outer_layer.get("dropped_outer_layer_channels") or []
         if not isinstance(dropped_channels, list):
             dropped_channels = []

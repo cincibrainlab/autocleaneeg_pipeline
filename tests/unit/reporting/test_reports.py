@@ -117,6 +117,21 @@ class TestUpdateTaskProcessingLog:
             ),
             (
                 {
+                    "step_drop_outerlayer": {
+                        "enabled": False,
+                        "dropped_outer_layer_channels": ["E1"],
+                    }
+                },
+                {
+                    "outerlayer_chans_dropped_n": "NA",
+                    "outerlayer_chans_dropped": "NA",
+                    "proc_badchans_n": "NA",
+                    "proc_badchans": "NA",
+                    "proc_badchans_action": "NA",
+                },
+            ),
+            (
+                {
                     "step_clean_bad_channels": {
                         "bads": [],
                         "cleaning_method": "interpolate",
@@ -179,6 +194,7 @@ class TestUpdateTaskProcessingLog:
         ids=[
             "not-run",
             "outer-layer-dropped",
+            "outer-layer-disabled",
             "empty",
             "interpolated",
             "dropped",
