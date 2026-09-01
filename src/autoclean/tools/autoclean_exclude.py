@@ -451,12 +451,29 @@ class PdfPreviewWidget(QWidget):
         self._status_label.setObjectName("pdfStatusLabel")
         self._status_label.hide()
 
+        self._prev_page_btn = QPushButton("Previous Page")
+        self._prev_page_btn.clicked.connect(lambda: self._step_page(-1))
+        self._prev_page_btn.hide()
+
+        self._next_page_btn = QPushButton("Next Page")
+        self._next_page_btn.clicked.connect(lambda: self._step_page(+1))
+        self._next_page_btn.hide()
+
+        nav_layout = QHBoxLayout()
+        nav_layout.setContentsMargins(0, 0, 0, 0)
+        nav_layout.setSpacing(8)
+        nav_layout.addStretch(1)
+        nav_layout.addWidget(self._prev_page_btn)
+        nav_layout.addWidget(self._status_label)
+        nav_layout.addWidget(self._next_page_btn)
+        nav_layout.addStretch(1)
+
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
         layout.addWidget(self._message)
         layout.addWidget(self._view, 1)
-        layout.addWidget(self._status_label)
+        layout.addLayout(nav_layout)
         self.setLayout(layout)
 
         self._current_path: Optional[Path] = None
@@ -485,6 +502,8 @@ class PdfPreviewWidget(QWidget):
         self._total_pages = 0
         self._current_page = 0
         self._status_label.hide()
+        self._prev_page_btn.hide()
+        self._next_page_btn.hide()
         if not suppress_log:
             log_debug(
                 f"[{_human_timestamp()}] PDF preview cleared; placeholder restored."
@@ -496,6 +515,8 @@ class PdfPreviewWidget(QWidget):
         self._message.show()
         self._view.hide()
         self._status_label.hide()
+        self._prev_page_btn.hide()
+        self._next_page_btn.hide()
 
     def load(self, path: Path) -> None:
         log_debug(f"[{_human_timestamp()}] Attempting to load PDF preview: {path}")
@@ -524,14 +545,20 @@ class PdfPreviewWidget(QWidget):
         self._message.hide()
         self._view.show()
         self._status_label.show()
+        self._prev_page_btn.show()
+        self._next_page_btn.show()
         self._update_status_label()
 
     def _update_status_label(self) -> None:
         if self._total_pages <= 0:
             self._status_label.setText("No document loaded")
+            self._prev_page_btn.setEnabled(False)
+            self._next_page_btn.setEnabled(False)
             return
         page_text = f"Page {self._current_page + 1} / {self._total_pages}"
-        self._status_label.setText(f"{page_text} · Rendered with PyMuPDF")
+        self._status_label.setText(f"{page_text} · Rendered with PyMuPDF · PgUp/PgDn")
+        self._prev_page_btn.setEnabled(self._current_page > 0)
+        self._next_page_btn.setEnabled(self._current_page < self._total_pages - 1)
 
     def _step_page(self, delta: int) -> None:
         if self._document is None or self._total_pages <= 0:
