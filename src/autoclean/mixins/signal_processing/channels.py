@@ -4,7 +4,12 @@ from typing import Any, Dict, List, Optional, Union
 
 import mne
 
-from autoclean.functions.artifacts.channels import detect_bad_channels
+from autoclean.functions.artifacts.channels import (
+    GSN129_CZ_NEIGHBORS,
+    confirm_candidates_after_avg_ref,
+    detect_bad_channels,
+    is_gsn129_configured,
+)
 from autoclean.utils.bad_channel_presets import (
     merge_channel_count_bins,
     resolve_bad_channel_settings,
@@ -256,6 +261,52 @@ class ChannelsMixin:
 
                 # Get the overall bad channels list for backward compatibility
                 all_bad_channels = bad_channels.get("combined", [])
+
+                # Reference-aware guardrail for GSN129 Cz-neighbor channels.
+                # RANSAC runs before average rereferencing, so channels near
+                # the renamed reference (Cz) can be falsely flagged due to
+                # reference geometry (low amplitude near the reference). If
+                # RANSAC is the only detector flagging one of these channels,
+                # confirm it on a temporary average-referenced copy before
+                # treating it as bad.
+                if ransac_channels and is_gsn129_configured(self.config, result_raw):
+                    ransac_only_candidates = [
+                        ch
+                        for ch in ransac_channels
+                        if ch in GSN129_CZ_NEIGHBORS
+                        and ch not in set(uncorrelated_channels)
+                        and ch not in set(deviation_channels)
+                        and ch not in set(all_bad_channels) - set(ransac_channels)
+                    ]
+                    ransac_only_candidates = [
+                        ch for ch in ransac_only_candidates if ch in result_raw.ch_names
+                    ]
+                    if ransac_only_candidates:
+                        supported = confirm_candidates_after_avg_ref(
+                            result_raw,
+                            ransac_only_candidates,
+                            corr_thresh=options["ransac_corr_thresh"],
+                        )
+                        unsupported = [
+                            ch for ch in ransac_only_candidates if ch not in supported
+                        ]
+                        if unsupported:
+                            message(
+                                "info",
+                                "Reference-aware check did not support RANSAC "
+                                "flag for GSN129 Cz-neighbor channel(s): "
+                                f"{sorted(unsupported)}; keeping channel(s)",
+                            )
+                        # Remove unsupported candidates so they are neither
+                        # cleaned nor logged.
+                        ransac_channels = [
+                            ch for ch in ransac_channels if ch not in set(unsupported)
+                        ]
+                        all_bad_channels = list(
+                            set(uncorrelated_channels)
+                            | set(deviation_channels)
+                            | set(ransac_channels)
+                        )
 
             if imported_bad_channels and not manual_override:
                 all_bad_channels = list(

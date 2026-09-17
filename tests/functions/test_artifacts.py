@@ -11,6 +11,11 @@ from mne.channels import make_standard_montage
 
 # Import the functions to test
 from autoclean.functions.artifacts import detect_bad_channels, interpolate_bad_channels
+from autoclean.functions.artifacts.channels import (
+    GSN129_CZ_NEIGHBORS,
+    confirm_candidates_after_avg_ref,
+    is_gsn129_configured,
+)
 
 # Import test utilities
 from tests.fixtures.synthetic_data import create_synthetic_raw
@@ -125,6 +130,53 @@ class TestBadChannelDetection:
         # Test invalid data type
         with pytest.raises(TypeError, match="Data must be an MNE Raw object"):
             detect_bad_channels("not_raw_data")
+
+
+class TestGsn129CzGuardrailHelpers:
+    """Tests for the GSN129 Cz-neighbor reference guardrail helpers."""
+
+    @pytest.fixture
+    def gsn129_raw(self):
+        return create_synthetic_raw(
+            montage="GSN-HydroCel-129", n_channels=129, duration=5.0, sfreq=250.0
+        )
+
+    def test_is_gsn129_configured_true(self, gsn129_raw):
+        assert is_gsn129_configured({"eeg_system": "GSN-HydroCel-129"}, gsn129_raw)
+
+    def test_is_gsn129_configured_false_without_config(self, gsn129_raw):
+        assert is_gsn129_configured(None, gsn129_raw) is False
+        assert is_gsn129_configured({}, gsn129_raw) is False
+
+    def test_is_gsn129_configured_false_for_other_montage(self, gsn129_raw):
+        assert (
+            is_gsn129_configured({"eeg_system": "standard_1020"}, gsn129_raw) is False
+        )
+
+    def test_is_gsn129_configured_false_without_cz(self, gsn129_raw):
+        raw = gsn129_raw.drop_channels(["Cz"])
+        assert is_gsn129_configured({"eeg_system": "GSN-HydroCel-129"}, raw) is False
+
+    def test_confirm_candidates_after_avg_ref_no_candidates_returns_empty(
+        self, gsn129_raw
+    ):
+        assert confirm_candidates_after_avg_ref(gsn129_raw, []) == set()
+
+    def test_confirm_candidates_after_avg_ref_does_not_mutate_input(self, gsn129_raw):
+        before = gsn129_raw.get_data().copy()
+        before_names = list(gsn129_raw.ch_names)
+
+        confirm_candidates_after_avg_ref(gsn129_raw, ["E7"])
+
+        assert np.array_equal(gsn129_raw.get_data(), before)
+        assert list(gsn129_raw.ch_names) == before_names
+
+    def test_confirm_candidates_after_avg_ref_returns_only_still_bad(self, gsn129_raw):
+        candidates = list(GSN129_CZ_NEIGHBORS)
+        result = confirm_candidates_after_avg_ref(gsn129_raw, candidates)
+
+        assert isinstance(result, set)
+        assert result <= set(candidates)
 
 
 class TestChannelInterpolation:
