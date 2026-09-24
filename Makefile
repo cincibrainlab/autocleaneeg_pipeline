@@ -2,12 +2,15 @@
 # Provides convenient commands for local development and code quality checks
 # Uses uv tool for isolated tool management (no dependency conflicts!)
 
-.PHONY: help install-dev install-uv-tool serve-setup upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-quick test-unit-short test-ingestion test-cov test-integration test-integration-short test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve deploy plans-serve plans-stop ensure-serve-workspace web-ui serve-run app-up app-stop
+.PHONY: help install-dev install-uv-tool serve-setup upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-quick test-unit-short test-ingestion test-cov test-integration test-integration-short test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve deploy plans-serve plans-stop ensure-serve-workspace web-ui serve-run app-up app-stop gui-smoke-exclude-setup gui-smoke-exclude
 
 SERVE_WORKSPACE ?= $(HOME)/Documents/Autoclean-EEG
 SERVE_MODE ?= live
 AUTOCLEAN_CLI ?= autocleaneeg-pipeline
 PYTEST ?= python scripts/run_pytest.py
+PYTHON ?= .venv/bin/python
+EXCLUDE_SMOKE_ROOT ?= /private/tmp/autoclean-exclude-smoke
+EXCLUDE_SMOKE_EXPORTS ?= $(EXCLUDE_SMOKE_ROOT)/exports
 
 ifneq ("$(wildcard .venv/bin/autocleaneeg-pipeline)","")
 AUTOCLEAN_CLI := .venv/bin/autocleaneeg-pipeline
@@ -43,6 +46,7 @@ help: ## Show this help message
 	@echo "  test-ingestion Run ingestion unit tests"
 	@echo "  test-cov       Run tests with coverage"
 	@echo "  test-integration-short Run integration tests (fail fast)"
+	@echo "  gui-smoke-exclude Launch the desktop Exclude GUI against a repeatable smoke fixture"
 	@echo ""
 	@echo "CI Simulation:"
 	@echo "  ci-check       Run the same checks as CI (format + lint + tests)"
@@ -181,6 +185,23 @@ test-integration-short: ## Run integration tests (fail fast)
 test-all: ## Run all tests (unit + integration)
 	@echo "🧪 Running all tests..."
 	@$(PYTEST) tests/ -v --tb=short --maxfail=10
+
+gui-smoke-exclude-setup: ## Prepare a repeatable Exclude GUI smoke exports folder
+	@echo "🧪 Preparing Exclude GUI smoke fixture at $(EXCLUDE_SMOKE_EXPORTS)"
+	@mkdir -p "$(EXCLUDE_SMOKE_EXPORTS)"
+	@find "$(EXCLUDE_SMOKE_EXPORTS)" -mindepth 1 -maxdepth 1 -delete
+	@MNE_DONTWRITE_HOME=true \
+		MPLCONFIGDIR=/private/tmp/mplconfig-autoclean \
+		$(PYTHON) scripts/create_exclude_gui_smoke_fixture.py "$(EXCLUDE_SMOKE_EXPORTS)" >/dev/null
+	@echo "✅ Exclude GUI smoke exports ready: $(EXCLUDE_SMOKE_EXPORTS)"
+
+gui-smoke-exclude: gui-smoke-exclude-setup ## Launch Exclude GUI from the current working tree
+	@echo "🧪 Launching Exclude GUI smoke from current source tree"
+	@QT_API=pyqt6 \
+		MPLCONFIGDIR=/private/tmp/mplconfig-autoclean \
+		MNE_DONTWRITE_HOME=true \
+		PYTHONPATH=src \
+		$(PYTHON) -m autoclean.tools.autoclean_exclude "$(EXCLUDE_SMOKE_EXPORTS)"
 
 # CI Simulation
 ci-check: ## Run the same checks as CI pipeline

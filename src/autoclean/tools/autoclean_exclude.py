@@ -114,6 +114,9 @@ from autoclean.utils.database import (  # noqa: E402
 from autoclean.utils.logging import message  # noqa: E402
 from autoclean.utils.path_resolution import resolve_moved_path  # noqa: E402
 from autoclean.utils.reprocess_overrides import (  # noqa: E402
+    MANUAL_EPOCHS_BEFORE_ICA_STRATEGY,
+)
+from autoclean.utils.reprocess_overrides import (  # noqa: E402
     epoch_review_override_from_record as _epoch_review_override_from_record,
 )
 from autoclean.utils.reprocess_overrides import (  # noqa: E402
@@ -1499,6 +1502,7 @@ class ReprocessWidget(QWidget):
         self.original_bad_channels: list[str] = []
         self.original_rejected_ica: list[int] = []
         self.manual_bad_epoch_indices: list[int] = []
+        self.manual_bad_epoch_pre_ica_indices: list[int] = []
         self.manual_bad_epoch_times: list[str] = []
         self.manual_bad_epoch_events: list[str] = []
         self._suppress_change_signal: bool = False
@@ -1678,6 +1682,14 @@ class ReprocessWidget(QWidget):
         self.reprocess_btn.setEnabled(False)  # Disabled until changes are made
         button_bar.addWidget(self.reprocess_btn)
 
+        self.epoch_ica_reprocess_btn = QPushButton("Rerun ICA After Epochs")
+        self.epoch_ica_reprocess_btn.clicked.connect(
+            self._handle_epoch_ica_reprocess_clicked
+        )
+        self.epoch_ica_reprocess_btn.setEnabled(False)
+        self.epoch_ica_reprocess_btn.setStyleSheet(self.reprocess_btn.styleSheet())
+        button_bar.addWidget(self.epoch_ica_reprocess_btn)
+
         layout.addLayout(button_bar)
 
         # Changes summary widget
@@ -1843,6 +1855,9 @@ class ReprocessWidget(QWidget):
         valid_channels = metadata.get("valid_channels", [])
         max_components = metadata.get("max_components", 0)
         manual_bad_epoch_indices = metadata.get("manual_bad_epoch_indices", [])
+        manual_bad_epoch_pre_ica_indices = metadata.get(
+            "manual_bad_epoch_pre_ica_indices", []
+        )
         manual_bad_epoch_times = metadata.get("manual_bad_epoch_times", [])
         manual_bad_epoch_events = metadata.get("manual_bad_epoch_events", [])
 
@@ -1850,6 +1865,7 @@ class ReprocessWidget(QWidget):
         self.original_bad_channels = bad_channels.copy()
         self.original_rejected_ica = rejected_ica.copy()
         self.manual_bad_epoch_indices = list(manual_bad_epoch_indices)
+        self.manual_bad_epoch_pre_ica_indices = list(manual_bad_epoch_pre_ica_indices)
         self.manual_bad_epoch_times = [str(v) for v in manual_bad_epoch_times]
         self.manual_bad_epoch_events = [str(v) for v in manual_bad_epoch_events]
         self.valid_channels = valid_channels
@@ -2109,6 +2125,7 @@ class ReprocessWidget(QWidget):
             # No file loaded - show message
             self.bottom_stack.setCurrentWidget(self.message_label)
             self.reprocess_btn.setEnabled(False)
+            self.epoch_ica_reprocess_btn.setEnabled(False)
             return
 
         diff = self.get_changes_diff()
@@ -2127,11 +2144,13 @@ class ReprocessWidget(QWidget):
                 "color: #95a5a6; font-size: 13px; padding: 20px;"
             )
             self.reprocess_btn.setEnabled(False)
+            self.epoch_ica_reprocess_btn.setEnabled(False)
             return
 
         # Show changes summary and enable reprocess button
         self.bottom_stack.setCurrentWidget(self.changes_summary_widget)
         self.reprocess_btn.setEnabled(True)
+        self.epoch_ica_reprocess_btn.setEnabled(has_manual_epoch_changes)
 
         # Update channels section
         ch_added = diff["bad_channels"]["added"]
@@ -2313,6 +2332,33 @@ class ReprocessWidget(QWidget):
 
         # Trigger reprocessing through parent
         parent._trigger_reprocess_with_overrides()
+
+    def _handle_epoch_ica_reprocess_clicked(self) -> None:
+        """Trigger reprocessing that drops manual epochs before refitting ICA."""
+        if (
+            not self.manual_bad_epoch_indices
+            and not self.manual_bad_epoch_pre_ica_indices
+        ):
+            QMessageBox.warning(
+                self,
+                "No Manual Epochs Selected",
+                "Select one or more bad epochs before rerunning ICA after epochs.",
+            )
+            return
+
+        parent = self.parent()
+        while parent and not isinstance(parent, ExclusionFileSelector):
+            parent = parent.parent()
+
+        if not parent:
+            QMessageBox.warning(
+                self, "Error", "Could not access parent window for reprocessing."
+            )
+            return
+
+        parent._trigger_reprocess_with_overrides(
+            reprocess_strategy=MANUAL_EPOCHS_BEFORE_ICA_STRATEGY
+        )
 
 
 def _open_path(path: Path) -> None:
@@ -3748,9 +3794,34 @@ class ExclusionFileSelector(ReviewBase):
         if file_path is None:
             return
 
+        epoch_review = _epoch_review_override_from_record(
+            self.decisions.get(self.current_key) if self.current_key else None
+        )
+
+        def load_fallback_metadata() -> None:
+            valid_channels = []
+            if self.current_epochs is not None:
+                valid_channels = list(self.current_epochs.ch_names)
+            elif self.current_raw is not None:
+                valid_channels = list(self.current_raw.ch_names)
+            self.reprocess_widget.load_from_metadata(
+                {
+                    "bad_channels": [],
+                    "rejected_ica": [],
+                    "valid_channels": valid_channels,
+                    "max_components": 0,
+                    "channel_removals": [],
+                    "manual_bad_epoch_indices": epoch_review["indices"],
+                    "manual_bad_epoch_pre_ica_indices": epoch_review["pre_ica_indices"],
+                    "manual_bad_epoch_times": epoch_review["times"],
+                    "manual_bad_epoch_events": epoch_review["events"],
+                }
+            )
+
         # Get the normalized stem and construct JSON path
         stem = strip_suffixes(file_path.stem, config=self.config)
         if not self.task_root:
+            load_fallback_metadata()
             return
 
         json_path = (
@@ -3760,6 +3831,7 @@ class ExclusionFileSelector(ReviewBase):
             / f"{stem}_autoclean_metadata.json"
         )
         if not json_path.exists():
+            load_fallback_metadata()
             return
 
         try:
@@ -3802,9 +3874,6 @@ class ExclusionFileSelector(ReviewBase):
             max_components = int(ica_components_str) if ica_components_str else 0
 
             # Load data into widget
-            epoch_review = _epoch_review_override_from_record(
-                self.decisions.get(self.current_key) if self.current_key else None
-            )
             self.reprocess_widget.load_from_metadata(
                 {
                     "bad_channels": bad_channels,
@@ -3813,6 +3882,7 @@ class ExclusionFileSelector(ReviewBase):
                     "max_components": max_components,
                     "channel_removals": channel_removals,  # Pass unified metadata
                     "manual_bad_epoch_indices": epoch_review["indices"],
+                    "manual_bad_epoch_pre_ica_indices": epoch_review["pre_ica_indices"],
                     "manual_bad_epoch_times": epoch_review["times"],
                     "manual_bad_epoch_events": epoch_review["events"],
                 }
@@ -4728,6 +4798,7 @@ class ExclusionFileSelector(ReviewBase):
 
         # Check if we have epochs available
         bad_epochs = []
+        pre_ica_indices = []
         total_epochs = 0
         epoch_times = []
         epoch_events = []
@@ -4762,6 +4833,7 @@ class ExclusionFileSelector(ReviewBase):
                     )
 
                 total_epochs = len(self.current_epochs)
+                pre_ica_indices = self._epoch_positions_for_indices(bad_epochs)
                 print(f"[EPOCH DEBUG] Total epochs: {total_epochs}")
 
                 # Extract timing and event information for bad epochs
@@ -4772,14 +4844,17 @@ class ExclusionFileSelector(ReviewBase):
                     for idx in bad_epochs:
                         if idx < len(self.current_epochs.events):
                             # Convert sample to time
-                            time_sec = (
-                                self.current_epochs.events[idx, 0]
-                                / self.current_epochs.info["sfreq"]
+                            event_sample = self._epoch_event_value(
+                                self.current_epochs.events, idx, 0
                             )
+                            event_code = self._epoch_event_value(
+                                self.current_epochs.events, idx, 2
+                            )
+                            time_sec = event_sample / self.current_epochs.info["sfreq"]
                             epoch_times.append(f"{time_sec:.3f}")
-                            epoch_events.append(str(self.current_epochs.events[idx, 2]))
+                            epoch_events.append(str(event_code))
                             print(
-                                f"[EPOCH DEBUG] Bad epoch {idx}: time={time_sec:.3f}s, event={self.current_epochs.events[idx, 2]}"
+                                f"[EPOCH DEBUG] Bad epoch {idx}: time={time_sec:.3f}s, event={event_code}"
                             )
 
                 record["epochs_reviewed"] = True
@@ -4798,6 +4873,9 @@ class ExclusionFileSelector(ReviewBase):
         record["bad_epochs_count"] = len(bad_epochs)
         record["bad_epoch_indices"] = (
             ",".join(map(str, bad_epochs)) if bad_epochs else ""
+        )
+        record["bad_epoch_pre_ica_indices"] = (
+            ",".join(map(str, pre_ica_indices)) if pre_ica_indices else ""
         )
         record["bad_epoch_times"] = ",".join(epoch_times) if epoch_times else ""
         record["bad_epoch_events"] = ",".join(epoch_events) if epoch_events else ""
@@ -4829,8 +4907,7 @@ class ExclusionFileSelector(ReviewBase):
         # Schedule save to persist the epoch information
         print("[EPOCH DEBUG] Scheduling save for epoch data")
         self._schedule_save()
-        if hasattr(self, "selected_file_path") and self.selected_file_path:
-            self._update_reprocess_for_file(Path(self.selected_file_path))
+        self._refresh_reprocess_epoch_summary()
 
     def _capture_bad_epochs_for_key(self, key: str) -> None:
         """Capture bad epoch information for a specific file key."""
@@ -4863,6 +4940,7 @@ class ExclusionFileSelector(ReviewBase):
 
         # Check if we have epochs available
         bad_epochs = []
+        pre_ica_indices = []
         total_epochs = 0
         epoch_times = []
         epoch_events = []
@@ -4873,6 +4951,7 @@ class ExclusionFileSelector(ReviewBase):
             try:
                 bad_epochs = self._extract_user_bad_epoch_indices(self.current_epochs)
                 total_epochs = len(self.current_epochs)
+                pre_ica_indices = self._epoch_positions_for_indices(bad_epochs)
 
                 print(
                     f"[EPOCH DEBUG] Found {len(bad_epochs)} bad epochs for key {key} from drop_log: {bad_epochs}"
@@ -4887,14 +4966,17 @@ class ExclusionFileSelector(ReviewBase):
                     for idx in bad_epochs:
                         if idx < len(self.current_epochs.events):
                             # Convert sample to time
-                            time_sec = (
-                                self.current_epochs.events[idx, 0]
-                                / self.current_epochs.info["sfreq"]
+                            event_sample = self._epoch_event_value(
+                                self.current_epochs.events, idx, 0
                             )
+                            event_code = self._epoch_event_value(
+                                self.current_epochs.events, idx, 2
+                            )
+                            time_sec = event_sample / self.current_epochs.info["sfreq"]
                             epoch_times.append(f"{time_sec:.3f}")
-                            epoch_events.append(str(self.current_epochs.events[idx, 2]))
+                            epoch_events.append(str(event_code))
                             print(
-                                f"[EPOCH DEBUG] Bad epoch {idx}: time={time_sec:.3f}s, event={self.current_epochs.events[idx, 2]}"
+                                f"[EPOCH DEBUG] Bad epoch {idx}: time={time_sec:.3f}s, event={event_code}"
                             )
 
                 record["epochs_reviewed"] = True
@@ -4913,6 +4995,9 @@ class ExclusionFileSelector(ReviewBase):
         record["bad_epochs_count"] = len(bad_epochs)
         record["bad_epoch_indices"] = (
             ",".join(map(str, bad_epochs)) if bad_epochs else ""
+        )
+        record["bad_epoch_pre_ica_indices"] = (
+            ",".join(map(str, pre_ica_indices)) if pre_ica_indices else ""
         )
         record["bad_epoch_times"] = ",".join(epoch_times) if epoch_times else ""
         record["bad_epoch_events"] = ",".join(epoch_events) if epoch_events else ""
@@ -4947,7 +5032,7 @@ class ExclusionFileSelector(ReviewBase):
             and self.selected_file_path
             and key == self.current_key
         ):
-            self._update_reprocess_for_file(Path(self.selected_file_path))
+            self._refresh_reprocess_epoch_summary()
 
     def _call_base_plotFile_with_restoration(self) -> None:
         """Call the base class plotFile method but ensure our restoration is used."""
@@ -5010,7 +5095,7 @@ class ExclusionFileSelector(ReviewBase):
 
         print("[EPOCH DEBUG] Setting up epoch event handlers")
 
-        # Set up a timer to check for epoch changes (polling drop_log)
+        # Set up a timer to check for epoch changes in the live MNE browser.
         self._epoch_check_timer = QTimer(self)
         self._epoch_check_timer.setInterval(800)  # Check roughly once per second
         self._epoch_check_timer.timeout.connect(self._check_epoch_changes)
@@ -5018,8 +5103,7 @@ class ExclusionFileSelector(ReviewBase):
 
         self._setup_topography_click_handler()
 
-        # Store the last known drop_log snapshot for this snapshot
-        self._last_drop_log_snapshot = self._snapshot_drop_log()
+        self._last_epoch_mark_snapshot = self._snapshot_epoch_marks()
 
     def _cleanup_epoch_event_handlers(self) -> None:
         """Clean up event handlers."""
@@ -5029,8 +5113,8 @@ class ExclusionFileSelector(ReviewBase):
             self._epoch_check_timer.deleteLater()
             delattr(self, "_epoch_check_timer")
 
-        if hasattr(self, "_last_drop_log_snapshot"):
-            delattr(self, "_last_drop_log_snapshot")
+        if hasattr(self, "_last_epoch_mark_snapshot"):
+            delattr(self, "_last_epoch_mark_snapshot")
 
     def _setup_topography_click_handler(self) -> None:
         """Watch the MNE waveform viewport for secondary clicks."""
@@ -5068,11 +5152,11 @@ class ExclusionFileSelector(ReviewBase):
 
     def _check_epoch_changes(self) -> None:
         """Check if epochs have been marked/unmarked and save immediately."""
-        current_snapshot = self._snapshot_drop_log()
+        current_snapshot = self._snapshot_epoch_marks()
 
-        if current_snapshot != getattr(self, "_last_drop_log_snapshot", None):
-            print("[EPOCH DEBUG] Drop log changed; saving epoch updates")
-            self._last_drop_log_snapshot = current_snapshot
+        if current_snapshot != getattr(self, "_last_epoch_mark_snapshot", None):
+            print("[EPOCH DEBUG] Epoch marks changed; saving epoch updates")
+            self._last_epoch_mark_snapshot = current_snapshot
 
             current_bad_epochs = self._get_user_marked_bad_epochs()
 
@@ -5102,26 +5186,69 @@ class ExclusionFileSelector(ReviewBase):
 
         return marked_indices
 
-    def _snapshot_drop_log(self) -> tuple:
-        """Return a hashable snapshot of the current drop_log state."""
-        epochs = getattr(self, "current_epochs", None)
-        if epochs is None or not hasattr(epochs, "drop_log"):
-            return tuple()
+    @staticmethod
+    def _epoch_event_value(events, epoch_index: int, column: int):
+        """Read event values from NumPy arrays or list-backed test doubles."""
+        try:
+            return events[epoch_index, column]
+        except TypeError:
+            return events[epoch_index][column]
 
-        snapshot = []
-        for log in epochs.drop_log:
-            if isinstance(log, (tuple, list)):
-                snapshot.append(tuple(log))
-            elif log is None:
-                snapshot.append(tuple())
-            else:
-                snapshot.append((log,))
-        return tuple(snapshot)
+    def _snapshot_epoch_marks(self) -> tuple:
+        """Return a hashable snapshot of persisted and live bad-epoch state."""
+        epochs = getattr(self, "current_epochs", None)
+        drop_log_snapshot = []
+        if epochs is not None and hasattr(epochs, "drop_log"):
+            for log in epochs.drop_log:
+                if isinstance(log, (tuple, list)):
+                    drop_log_snapshot.append(tuple(log))
+                elif log is None:
+                    drop_log_snapshot.append(tuple())
+                else:
+                    drop_log_snapshot.append((log,))
+
+        browser = getattr(self.plot_widget, "mne", None) if self.plot_widget else None
+        browser_bad_epochs = tuple(sorted(getattr(browser, "bad_epochs", []) or []))
+        return (tuple(drop_log_snapshot), browser_bad_epochs)
 
     def _get_user_marked_bad_epochs(self) -> set[int]:
         """Return a set of epoch indices currently marked as bad by the user."""
+        browser = getattr(self.plot_widget, "mne", None) if self.plot_widget else None
+        browser_bad_epochs = getattr(browser, "bad_epochs", None)
+        if browser_bad_epochs is not None:
+            return {int(idx) for idx in browser_bad_epochs}
+
         epochs = getattr(self, "current_epochs", None)
         return set(self._extract_user_bad_epoch_indices(epochs))
+
+    def _epoch_positions_for_indices(self, indices: list[int]) -> list[int]:
+        """Map visible epoch indices back to their pre-drop epoch positions."""
+        epochs = getattr(self, "current_epochs", None)
+        selection = getattr(epochs, "selection", None)
+        if selection is None:
+            return []
+
+        positions = []
+        for idx in indices:
+            if idx < len(selection):
+                positions.append(int(selection[idx]))
+        return positions
+
+    def _refresh_reprocess_epoch_summary(self) -> None:
+        """Refresh epoch chips/buttons without reloading channel or ICA edits."""
+        if self.reprocess_widget is None or not self.current_key:
+            return
+
+        epoch_review = _epoch_review_override_from_record(
+            self.decisions.get(self.current_key)
+        )
+        self.reprocess_widget.manual_bad_epoch_indices = epoch_review["indices"]
+        self.reprocess_widget.manual_bad_epoch_pre_ica_indices = epoch_review[
+            "pre_ica_indices"
+        ]
+        self.reprocess_widget.manual_bad_epoch_times = epoch_review["times"]
+        self.reprocess_widget.manual_bad_epoch_events = epoch_review["events"]
+        self.reprocess_widget._update_changes_summary()
 
     def _save_epoch_changes_immediately(self, bad_epochs: set) -> None:
         """Save epoch changes immediately when they occur."""
@@ -5160,6 +5287,7 @@ class ExclusionFileSelector(ReviewBase):
 
         # Update record with current epoch information
         bad_epochs_list = sorted(list(bad_epochs))
+        pre_ica_indices = self._epoch_positions_for_indices(bad_epochs_list)
         total_epochs = len(self.current_epochs) if self.current_epochs else 0
 
         # Extract timing and event information for bad epochs
@@ -5173,17 +5301,21 @@ class ExclusionFileSelector(ReviewBase):
             for idx in bad_epochs_list:
                 if idx < len(self.current_epochs.events):
                     # Convert sample to time
-                    time_sec = (
-                        self.current_epochs.events[idx, 0]
-                        / self.current_epochs.info["sfreq"]
+                    event_sample = self._epoch_event_value(
+                        self.current_epochs.events, idx, 0
                     )
+                    event_code = self._epoch_event_value(
+                        self.current_epochs.events, idx, 2
+                    )
+                    time_sec = event_sample / self.current_epochs.info["sfreq"]
                     epoch_times.append(f"{time_sec:.3f}")
-                    epoch_events.append(str(self.current_epochs.events[idx, 2]))
+                    epoch_events.append(str(event_code))
 
         # Update record
         record["epochs_reviewed"] = True
         record["bad_epochs_count"] = len(bad_epochs_list)
         record["bad_epoch_indices"] = ",".join(map(str, bad_epochs_list))
+        record["bad_epoch_pre_ica_indices"] = ",".join(map(str, pre_ica_indices))
         record["bad_epoch_times"] = ",".join(epoch_times)
         record["bad_epoch_events"] = ",".join(epoch_events)
         record["total_epochs"] = total_epochs
@@ -5202,6 +5334,7 @@ class ExclusionFileSelector(ReviewBase):
 
         # Save immediately
         self._schedule_save()
+        self._refresh_reprocess_epoch_summary()
 
     def _handle_notes_changed(self) -> None:
         if self._updating_notes or not self.current_key or self.notes_edit is None:
@@ -5280,7 +5413,9 @@ class ExclusionFileSelector(ReviewBase):
         # Schedule save of decisions JSON
         self._schedule_save()
 
-    def _save_reprocess_payload(self, diff: dict) -> None:
+    def _save_reprocess_payload(
+        self, diff: dict, reprocess_strategy: Optional[str] = None
+    ) -> None:
         """Save reprocess payload JSON to QA directory.
 
         Parameters
@@ -5362,6 +5497,7 @@ class ExclusionFileSelector(ReviewBase):
             "file_key": self.current_key,
             "file_stem": stem,
             "fix_type": fix_type,
+            "reprocess_strategy": reprocess_strategy,
             "timestamp": datetime.now().isoformat(),
             "modifications": {
                 "epoch_review": epoch_review,
@@ -5378,6 +5514,9 @@ class ExclusionFileSelector(ReviewBase):
                 "ica_file_exists": ica_file_exists,
                 "task_file_exists": (
                     task_file_path.exists() if task_file_path else False
+                ),
+                "drop_manual_epochs_before_ica": (
+                    reprocess_strategy == MANUAL_EPOCHS_BEFORE_ICA_STRATEGY
                 ),
             },
         }
@@ -5396,7 +5535,9 @@ class ExclusionFileSelector(ReviewBase):
         else:
             print("[REPROCESS]   WARNING: Task file not found in status/ directory")
 
-    def _trigger_reprocess_with_overrides(self) -> None:
+    def _trigger_reprocess_with_overrides(
+        self, reprocess_strategy: Optional[str] = None
+    ) -> None:
         """Trigger reprocessing with manual overrides from the current file's payload."""
         if not self.task_root or not hasattr(self, "selected_file_path"):
             QMessageBox.warning(
@@ -5423,7 +5564,10 @@ class ExclusionFileSelector(ReviewBase):
         stem = strip_suffixes(file_path.stem, config=self.config)
 
         if self.reprocess_widget is not None:
-            self._save_reprocess_payload(self.reprocess_widget.get_changes_diff())
+            self._save_reprocess_payload(
+                self.reprocess_widget.get_changes_diff(),
+                reprocess_strategy=reprocess_strategy,
+            )
 
         # Check if manual fix payload exists
         payload_path = (
@@ -5479,22 +5623,36 @@ class ExclusionFileSelector(ReviewBase):
 
             # Show confirmation dialog
             fix_type = payload.get("fix_type", "unknown")
+            strategy = payload.get("reprocess_strategy")
             bad_ch_count = len(payload["modifications"]["bad_channels"]["modified"])
             ica_count = len(payload["modifications"]["rejected_ica"]["modified"])
             epoch_count = int(
                 payload.get("modifications", {}).get("epoch_review", {}).get("count", 0)
             )
 
-            confirm_msg = (
-                f"<b>Reprocess: {stem}</b><br><br>"
-                f"<b>Fix Type:</b> {fix_type}<br>"
-                f"<b>Bad Channels:</b> {bad_ch_count}<br>"
-                f"<b>ICA Components:</b> {ica_count}<br><br>"
-                f"<b>Manual Bad Epochs:</b> {epoch_count}<br><br>"
-                f"<b>Raw File:</b><br>{raw_file_path}<br><br>"
-                "This will generate a new reprocessing task and run the pipeline.<br>"
-                "Do you want to continue?"
-            )
+            if strategy == MANUAL_EPOCHS_BEFORE_ICA_STRATEGY:
+                confirm_msg = (
+                    f"<b>Rerun ICA After Epochs: {stem}</b><br><br>"
+                    f"<b>Bad Channels:</b> {bad_ch_count}<br>"
+                    f"<b>Manual Bad Epochs:</b> {epoch_count}<br><br>"
+                    "Selected manual epochs will be removed before ICA fitting. "
+                    "ICA and later processing steps will be rerun from the original "
+                    "raw file. Existing manual ICA component selections will not be "
+                    "silently applied to the new ICA decomposition.<br><br>"
+                    f"<b>Raw File:</b><br>{raw_file_path}<br><br>"
+                    "Do you want to continue?"
+                )
+            else:
+                confirm_msg = (
+                    f"<b>Reprocess: {stem}</b><br><br>"
+                    f"<b>Fix Type:</b> {fix_type}<br>"
+                    f"<b>Bad Channels:</b> {bad_ch_count}<br>"
+                    f"<b>ICA Components:</b> {ica_count}<br><br>"
+                    f"<b>Manual Bad Epochs:</b> {epoch_count}<br><br>"
+                    f"<b>Raw File:</b><br>{raw_file_path}<br><br>"
+                    "This will generate a new reprocessing task and run the pipeline.<br>"
+                    "Do you want to continue?"
+                )
 
             reply = QMessageBox.question(
                 self,
@@ -5705,6 +5863,7 @@ class ExclusionFileSelector(ReviewBase):
                 "reprocess_task_file": str(task_path.relative_to(original_task_root)),
                 "reprocess_task_hash": payload.get("task_file_hash", ""),
                 "fix_type": payload.get("fix_type", "unknown"),
+                "reprocess_strategy": payload.get("reprocess_strategy"),
             }
 
             with open(manifest_path, "w", encoding="utf-8") as f:
@@ -5764,14 +5923,22 @@ class ExclusionFileSelector(ReviewBase):
 
         cancel_btn.clicked.connect(lambda: (process.kill(), dialog.close()))
 
-        cmd_args = ["process", "--task-file", str(task_path), "--file", str(raw_path)]
+        cmd_args = [
+            "-m",
+            "autoclean",
+            "process",
+            "--task-file",
+            str(task_path),
+            "--file",
+            str(raw_path),
+        ]
 
         if output_dir:
             cmd_args.extend(["--output", str(output_dir)])
 
-        print(f"[REPROCESS] Starting: autocleaneeg-pipeline {' '.join(cmd_args)}")
+        print(f"[REPROCESS] Starting: {sys.executable} {' '.join(cmd_args)}")
         print(f"[REPROCESS] Reprocess folder: reprocess/{reprocess_folder_name}")
-        process.start("autocleaneeg-pipeline", cmd_args)
+        process.start(sys.executable, cmd_args)
 
         dialog.show()
 
@@ -5910,6 +6077,7 @@ class ExclusionFileSelector(ReviewBase):
                     for file_path in reprocess_ica.glob("*"):
                         if file_path.is_file():
                             dest_path = original_ica / file_path.name
+                            dest_path.parent.mkdir(parents=True, exist_ok=True)
                             shutil.copy2(file_path, dest_path)
                             print(
                                 f"[REPROCESS] Copied {file_path.name} to original ica"
@@ -5958,7 +6126,12 @@ class ExclusionFileSelector(ReviewBase):
                                     manual_overrides = fix_payload.get(
                                         "modifications", {}
                                     )
+                                    reprocess_strategy = fix_payload.get(
+                                        "reprocess_strategy"
+                                    )
                                     reprocess_reason = f"manual_override_{fix_payload.get('fix_type', 'unknown')}"
+                            else:
+                                reprocess_strategy = None
 
                             # Inject reprocess metadata
                             metadata["reprocessed"] = True
@@ -5968,6 +6141,7 @@ class ExclusionFileSelector(ReviewBase):
                             metadata["reprocessed_from_run_id"] = original_run_id
                             metadata["reprocess_run_id"] = reprocess_run_id
                             metadata["reprocess_reason"] = reprocess_reason
+                            metadata["reprocess_strategy"] = reprocess_strategy
                             metadata["manual_overrides"] = manual_overrides
                             metadata["original_backup"] = (
                                 f"exports/backups/{stem}_{backup_timestamp}/"

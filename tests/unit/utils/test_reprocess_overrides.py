@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from autoclean.utils.reprocess_overrides import (
+    MANUAL_EPOCHS_BEFORE_ICA_STRATEGY,
     POST_EPOCH_ICA_FIX_TYPE,
     epoch_review_override_from_record,
     generate_reprocess_task_from_original,
@@ -27,9 +28,23 @@ def test_epoch_review_override_from_record_normalizes_values():
     assert result == {
         "count": 2,
         "indices": [1, 3],
+        "pre_ica_indices": [],
         "times": ["0.500", "1.500"],
         "events": ["102", "104"],
     }
+
+
+def test_epoch_review_override_from_record_includes_pre_ica_indices():
+    result = epoch_review_override_from_record(
+        {
+            "bad_epochs_count": "2",
+            "bad_epoch_indices": "5, 6",
+            "bad_epoch_pre_ica_indices": "12,13",
+        }
+    )
+
+    assert result["indices"] == [5, 6]
+    assert result["pre_ica_indices"] == [12, 13]
 
 
 @pytest.mark.parametrize(
@@ -330,6 +345,155 @@ def test_generate_post_epoch_ica_task_fits_ica_after_manual_epoch_drop(
         "stage_name='post_epoch_rejection_ica_labeling')" in generated
     )
     assert "Post-epoch-rejection ICA: True" in generated
+
+
+def test_generate_manual_epochs_before_ica_task_preserves_channels_and_refits_ica(
+    tmp_path: Path,
+):
+    task_path = tmp_path / "ExampleTask.py"
+    task_path.write_text(
+        (
+            "from autoclean.core.task import Task\n\n"
+            "config = {}\n\n"
+            "class ExampleTask(Task):\n"
+            "    def run(self):\n"
+            "        self.import_raw()\n"
+            "        self.clean_bad_channels()\n"
+            "        self.create_regular_epochs(export=True)\n"
+            "        self.run_ica()\n"
+            "        self.classify_ica_components(method='icvision')\n"
+            "        self.apply_ica_component_rejection(manual_rejected_components=[4])\n"
+            "        self.generate_reports()\n"
+        ),
+        encoding="utf-8",
+    )
+
+    payload = {
+        "file_stem": "subject01",
+        "fix_type": "epoch",
+        "reprocess_strategy": MANUAL_EPOCHS_BEFORE_ICA_STRATEGY,
+        "timestamp": "2026-03-26T12:00:00",
+        "modifications": {
+            "epoch_review": {
+                "count": 2,
+                "indices": [5, 6],
+                "pre_ica_indices": [12, 13],
+                "times": ["24.000", "26.000"],
+                "events": ["1", "1"],
+            },
+            "bad_channels": {
+                "modified": ["Fz", "Cz"],
+                "original": [],
+                "added": ["Fz", "Cz"],
+                "removed": [],
+            },
+            "rejected_ica": {
+                "modified": [2, 3],
+                "original": [],
+                "added": [2, 3],
+                "removed": [],
+            },
+        },
+    }
+
+    generated = generate_reprocess_task_from_original(
+        task_path, payload, "ExampleTaskReprocess", "20260326_120000"
+    )
+    tree = ast.parse(generated)
+    class_node = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "ExampleTaskReprocess"
+    )
+    run_method = next(
+        node
+        for node in class_node.body
+        if isinstance(node, ast.FunctionDef) and node.name == "run"
+    )
+    run_calls = [
+        stmt.value.func.attr
+        for stmt in run_method.body
+        if isinstance(stmt, ast.Expr)
+        and isinstance(stmt.value, ast.Call)
+        and isinstance(stmt.value.func, ast.Attribute)
+    ]
+
+    assert run_calls.index("clean_bad_channels") < run_calls.index(
+        "create_regular_epochs"
+    )
+    assert run_calls.index("create_regular_epochs") < run_calls.index(
+        "drop_manual_bad_epochs"
+    )
+    assert run_calls.index("drop_manual_bad_epochs") < run_calls.index("run_ica")
+    assert run_calls.index("run_ica") < run_calls.index("classify_ica_components")
+    assert run_calls.index("classify_ica_components") < run_calls.index(
+        "apply_ica_component_rejection"
+    )
+    assert run_calls.index("apply_ica_component_rejection") < run_calls.index(
+        "generate_ica_reports"
+    )
+    assert "manual_bad_channels=['Fz', 'Cz']" in generated
+    assert "manual_bad_epoch_indices=[5, 6]" in generated
+    assert "manual_bad_epoch_positions=[12, 13]" in generated
+    assert (
+        "run_ica(use_epochs=True, stage_name='post_epoch_rejection_ica_fit')"
+        in generated
+    )
+    assert f"Reprocess strategy: {MANUAL_EPOCHS_BEFORE_ICA_STRATEGY}" in generated
+    assert "self.apply_ica_component_rejection()" in generated
+    assert "self.generate_ica_reports()" in generated
+    assert run_calls.count("apply_ica_component_rejection") == 1
+    assert "manual_rejected_components=[2, 3]" not in generated
+    assert "manual_rejected_components=[4]" not in generated
+
+
+def test_generate_manual_epochs_before_ica_task_requires_epochs_before_ica(
+    tmp_path: Path,
+):
+    task_path = tmp_path / "ExampleTask.py"
+    task_path.write_text(
+        (
+            "from autoclean.core.task import Task\n\n"
+            "config = {}\n\n"
+            "class ExampleTask(Task):\n"
+            "    def run(self):\n"
+            "        self.import_raw()\n"
+            "        self.run_ica()\n"
+            "        self.create_regular_epochs(export=True)\n"
+            "        self.generate_reports()\n"
+        ),
+        encoding="utf-8",
+    )
+
+    payload = {
+        "file_stem": "subject01",
+        "fix_type": "epoch",
+        "reprocess_strategy": MANUAL_EPOCHS_BEFORE_ICA_STRATEGY,
+        "timestamp": "2026-03-26T12:00:00",
+        "modifications": {
+            "epoch_review": {"count": 1, "indices": [5], "pre_ica_indices": [12]},
+            "bad_channels": {
+                "modified": [],
+                "original": [],
+                "added": [],
+                "removed": [],
+            },
+            "rejected_ica": {
+                "modified": [],
+                "original": [],
+                "added": [],
+                "removed": [],
+            },
+        },
+    }
+
+    with pytest.raises(
+        ValueError,
+        match="manual_epochs_before_ica reprocess requires an epoch creation step",
+    ):
+        generate_reprocess_task_from_original(
+            task_path, payload, "ExampleTaskReprocess", "20260326_120000"
+        )
 
 
 def test_generate_post_epoch_ica_task_fails_for_custom_epoch_helper(
