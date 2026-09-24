@@ -55,6 +55,49 @@ def test_pymupdf_import_is_available_for_pdf_previews():
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+def test_channel_retention_counts_only_dropped_bad_channels():
+    from autoclean.tools.autoclean_exclude import ExclusionFileSelector
+
+    widget = ExclusionFileSelector.__new__(ExclusionFileSelector)
+
+    interpolated = widget._channel_retention_metrics(
+        {
+            "net_nbchan_orig": "124",
+            "net_nbchan_post": "124",
+            "proc_badchans": "['E31', 'E55']",
+            "proc_badchans_action": "interpolated",
+        }
+    )
+    dropped = widget._channel_retention_metrics(
+        {
+            "net_nbchan_orig": "124",
+            "net_nbchan_post": "122",
+            "proc_badchans": "['E31', 'E55']",
+            "proc_badchans_action": "dropped",
+        }
+    )
+    legacy_missing_action = widget._channel_retention_metrics(
+        {
+            "net_nbchan_orig": "",
+            "net_nbchan_post": "122",
+            "proc_badchans": "['E31', 'E55']",
+        }
+    )
+    not_run = widget._channel_retention_metrics(
+        {
+            "net_nbchan_orig": "124",
+            "net_nbchan_post": "124",
+            "proc_badchans": "NA",
+            "proc_badchans_action": "NA",
+        }
+    )
+
+    assert interpolated == {"Retained": 124, "Removed": 0}
+    assert dropped == {"Retained": 122, "Removed": 2}
+    assert legacy_missing_action == {"Retained": 122, "Removed": 2}
+    assert not_run == {"Retained": 124, "Removed": 0}
+
+
 def test_reprocess_selected_ica_remove_does_not_abort_python(tmp_path):
     """Removing a selected component must survive Qt signal callbacks."""
 

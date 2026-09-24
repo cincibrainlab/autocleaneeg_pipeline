@@ -3390,12 +3390,19 @@ class ExclusionFileSelector(ReviewBase):
     def _channel_retention_metrics(self, row: Dict[str, str]) -> OrderedDict[str, int]:
         orig = _safe_int(row.get("net_nbchan_orig"))
         post = _safe_int(row.get("net_nbchan_post"))
-        bad_list = len(_coerce_list(row.get("proc_badchans")))
-        if orig <= 0 and post <= 0 and bad_list == 0:
+        action = str(row.get("proc_badchans_action", "")).strip()
+        proc_badchans_text = str(row.get("proc_badchans", "")).strip()
+        counts_proc_badchans = action == "dropped" or (
+            not action and proc_badchans_text.upper() != "NA"
+        )
+        proc_badchans_removed = (
+            len(_coerce_list(proc_badchans_text)) if counts_proc_badchans else 0
+        )
+        if orig <= 0 and post <= 0 and proc_badchans_removed == 0:
             return OrderedDict()
         if orig <= 0:
-            orig = post + bad_list
-        removed = max(orig - post, bad_list, 0)
+            orig = post + proc_badchans_removed
+        removed = max(orig - post, proc_badchans_removed, 0)
         retained = max(orig - removed, 0)
         counter = OrderedDict()
         counter["Retained"] = max(retained, 0)

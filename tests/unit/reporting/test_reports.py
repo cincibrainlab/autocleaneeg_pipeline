@@ -92,6 +92,152 @@ class TestUpdateTaskProcessingLog:
         # Should not raise — function handles the error internally
         update_task_processing_log(bad_summary)
 
+    @pytest.mark.parametrize(
+        ("metadata", "expected"),
+        [
+            (
+                {},
+                {
+                    "outerlayer_chans_dropped_n": "NA",
+                    "outerlayer_chans_dropped": "NA",
+                    "proc_badchans_n": "NA",
+                    "proc_badchans": "NA",
+                    "proc_badchans_action": "NA",
+                },
+            ),
+            (
+                {"step_drop_outerlayer": {"dropped_outer_layer_channels": ["E1"]}},
+                {
+                    "outerlayer_chans_dropped_n": "1",
+                    "outerlayer_chans_dropped": "['E1']",
+                    "proc_badchans_n": "NA",
+                    "proc_badchans": "NA",
+                    "proc_badchans_action": "NA",
+                },
+            ),
+            (
+                {
+                    "step_drop_outerlayer": {
+                        "enabled": False,
+                        "dropped_outer_layer_channels": ["E1"],
+                    }
+                },
+                {
+                    "outerlayer_chans_dropped_n": "NA",
+                    "outerlayer_chans_dropped": "NA",
+                    "proc_badchans_n": "NA",
+                    "proc_badchans": "NA",
+                    "proc_badchans_action": "NA",
+                },
+            ),
+            (
+                {
+                    "step_clean_bad_channels": {
+                        "bads": [],
+                        "cleaning_method": "interpolate",
+                    }
+                },
+                {
+                    "outerlayer_chans_dropped_n": "NA",
+                    "outerlayer_chans_dropped": "NA",
+                    "proc_badchans_n": "0",
+                    "proc_badchans": "[]",
+                    "proc_badchans_action": "interpolated",
+                },
+            ),
+            (
+                {
+                    "step_clean_bad_channels": {
+                        "bads": ["E2", "E3"],
+                        "cleaning_method": "interpolate",
+                    }
+                },
+                {
+                    "outerlayer_chans_dropped_n": "NA",
+                    "outerlayer_chans_dropped": "NA",
+                    "proc_badchans_n": "2",
+                    "proc_badchans": "['E2', 'E3']",
+                    "proc_badchans_action": "interpolated",
+                },
+            ),
+            (
+                {
+                    "step_clean_bad_channels": {
+                        "bads": ["E2"],
+                        "cleaning_method": "drop",
+                    }
+                },
+                {
+                    "outerlayer_chans_dropped_n": "NA",
+                    "outerlayer_chans_dropped": "NA",
+                    "proc_badchans_n": "1",
+                    "proc_badchans": "['E2']",
+                    "proc_badchans_action": "dropped",
+                },
+            ),
+            (
+                {
+                    "step_clean_bad_channels": {
+                        "bads": ["E2"],
+                        "cleaning_method": None,
+                    }
+                },
+                {
+                    "outerlayer_chans_dropped_n": "NA",
+                    "outerlayer_chans_dropped": "NA",
+                    "proc_badchans_n": "1",
+                    "proc_badchans": "['E2']",
+                    "proc_badchans_action": "marked_only",
+                },
+            ),
+        ],
+        ids=[
+            "not-run",
+            "outer-layer-dropped",
+            "outer-layer-disabled",
+            "empty",
+            "interpolated",
+            "dropped",
+            "marked-only",
+        ],
+    )
+    def test_reports_distinct_channel_cleaning_metadata(
+        self, tmp_path, metadata, expected
+    ):
+        summary = _minimal_summary(tmp_path)
+        summary["metadata"] = metadata
+
+        update_task_processing_log(summary)
+
+        with (tmp_path / "preprocessing_log.csv").open(newline="") as handle:
+            row = next(csv.DictReader(handle))
+        for field, value in expected.items():
+            assert row[field] == value
+
+    def test_appending_row_preserves_literal_na_values(self, tmp_path):
+        summary1 = _minimal_summary(tmp_path, run_id="run_001")
+        summary1["metadata"] = {}
+
+        summary2 = _minimal_summary(tmp_path, run_id="run_002")
+        summary2["basename"] = "sub02_test"
+        summary2["bids_subject"] = "sub-02"
+        summary2["metadata"] = {
+            "step_clean_bad_channels": {
+                "bads": ["E2"],
+                "cleaning_method": "interpolate",
+            }
+        }
+
+        update_task_processing_log(summary1)
+        update_task_processing_log(summary2)
+
+        with (tmp_path / "preprocessing_log.csv").open(newline="") as handle:
+            rows = list(csv.DictReader(handle))
+
+        assert rows[0]["proc_badchans"] == "NA"
+        assert rows[0]["proc_badchans_action"] == "NA"
+        assert rows[1]["proc_badchans"] == "['E2']"
+
 
 # ---------------------------------------------------------------------------
 # generate_bad_channels_tsv
