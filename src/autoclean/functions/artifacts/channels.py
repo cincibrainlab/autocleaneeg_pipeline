@@ -4,10 +4,72 @@ This module provides standalone functions for detecting and handling bad channel
 in EEG data using various statistical and correlation-based methods.
 """
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import mne
 from pyprep.find_noisy_channels import NoisyChannels
+
+from autoclean.utils.logging import message
+
+# Channels adjacent to the reference location on supported GSN HydroCel layouts.
+# RANSAC bad-channel detection runs before average rereferencing, so these
+# channels can appear falsely bad due to reference geometry.
+GSN_CZ_NEIGHBORS_BY_SYSTEM = {
+    "GSN-HydroCel-128": {"E7", "E31", "E55", "E80", "E106"},
+    "GSN-HydroCel-129": {"E7", "E31", "E55", "E80", "E106"},
+}
+
+
+def gsn_cz_neighbor_channels(config: Optional[dict], raw: mne.io.BaseRaw) -> Set[str]:
+    """Return supported GSN reference-neighbor channels present in ``raw``."""
+    eeg_system = config.get("eeg_system") if config else None
+    neighbors = GSN_CZ_NEIGHBORS_BY_SYSTEM.get(eeg_system)
+    if not neighbors:
+        return set()
+
+    ch_names = set(raw.ch_names)
+    return neighbors & ch_names
+
+
+def confirm_candidates_after_avg_ref(
+    raw: mne.io.BaseRaw,
+    candidates: Iterable[str],
+    corr_thresh: float = 0.65,
+    correlation_secs: float = 5.0,
+    frac_bad: float = 0.01,
+    random_state: int = 1337,
+) -> Set[str]:
+    """Confirm RANSAC-only bad channel flags against an average-referenced copy.
+
+    RANSAC bad-channel detection runs before average rereferencing, so
+    channels physically near the (renamed) reference can be falsely flagged
+    due to reference geometry. This function re-runs correlation-based
+    detection on a temporary average-referenced copy and returns only the
+    candidates that remain poorly correlated (i.e. genuinely bad channels).
+    The input ``raw`` is never modified.
+    """
+    candidates = list(candidates)
+    if not candidates:
+        return set()
+
+    try:
+        avg_ref_copy = raw.copy()
+        avg_ref_copy.set_eeg_reference("average", projection=False)
+        noisy = NoisyChannels(avg_ref_copy, random_state=random_state)
+        noisy.find_bad_by_correlation(
+            correlation_secs=correlation_secs,
+            correlation_threshold=corr_thresh,
+            frac_bad=frac_bad,
+        )
+        bad_by_correlation = noisy.get_bads(as_dict=True).get("bad_by_correlation", [])
+        return {ch for ch in candidates if ch in bad_by_correlation}
+    except Exception as e:
+        message(
+            "warning",
+            "Reference-aware check failed; keeping RANSAC flag(s) for "
+            f"{sorted(candidates)}: {e}",
+        )
+        return set(candidates)
 
 
 def detect_bad_channels(

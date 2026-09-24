@@ -478,6 +478,216 @@ class TestCleanBadChannelsPresets:
 
 
 # ---------------------------------------------------------------------------
+# clean_bad_channels (GSN Cz-neighbor RANSAC guardrail)
+# ---------------------------------------------------------------------------
+
+
+class TestCleanBadChannelsGsnGuardrail:
+    """RANSAC-only flags on supported GSN Cz-neighbor channels are confirmed against
+    an average-referenced copy before being treated as bad."""
+
+    def _make_gsn_task(self, tmp_path, eeg_system, n_channels):
+        config = {
+            "run_id": "test",
+            "unprocessed_file": tmp_path / "test.fif",
+            "task": "test",
+        }
+        t = _ChannelTask(config)
+        t.config["eeg_system"] = eeg_system
+        t.raw = create_synthetic_raw(
+            montage=eeg_system, n_channels=n_channels, duration=5.0, sfreq=250.0
+        )
+        return t
+
+    @pytest.fixture
+    def gsn129_task(self, tmp_path):
+        return self._make_gsn_task(tmp_path, "GSN-HydroCel-129", 129)
+
+    @pytest.fixture
+    def gsn128_task(self, tmp_path):
+        return self._make_gsn_task(tmp_path, "GSN-HydroCel-128", 128)
+
+    def _run_clean(self, task, detect_result, confirm_result):
+        with (
+            patch.object(task, "_update_metadata") as mock_meta,
+            patch.object(task, "_save_raw_result"),
+            patch.object(task, "_update_instance_data"),
+            patch.object(task, "_track_channel_removal") as mock_track,
+            patch(
+                "autoclean.mixins.signal_processing.channels.detect_bad_channels",
+                return_value=detect_result,
+            ),
+            patch(
+                "autoclean.mixins.signal_processing.channels.confirm_candidates_after_avg_ref",
+                return_value=confirm_result,
+            ),
+        ):
+            result = task.clean_bad_channels(data=task.raw, cleaning_method=None)
+        metadata = mock_meta.call_args.args[1]
+        return result, metadata, mock_track
+
+    def test_gsn129_unsupported_ransac_candidate_is_kept(self, gsn129_task):
+        """RANSAC-only Cz-neighbor flag not confirmed by avg-ref is removed from
+        the bad lists, never interpolated/dropped, and never logged."""
+        detect_result = {
+            "correlation": [],
+            "deviation": [],
+            "ransac": ["E55"],
+            "combined": ["E55"],
+        }
+        result, metadata, mock_track = self._run_clean(
+            gsn129_task, detect_result, confirm_result=set()
+        )
+
+        assert "E55" not in result.info["bads"]
+        assert "E55" not in metadata["bads"]
+        assert "E55" not in metadata["ransac_channels"]
+        assert not any(
+            "E55" in (call.kwargs.get("channels") or [])
+            or call.kwargs.get("channels") == "E55"
+            for call in mock_track.call_args_list
+        )
+
+    def test_gsn129_supported_ransac_candidate_is_interpolated(self, gsn129_task):
+        """RANSAC-only Cz-neighbor flag confirmed by avg-ref is kept bad and
+        tracked as a RANSAC removal."""
+        detect_result = {
+            "correlation": [],
+            "deviation": [],
+            "ransac": ["E55"],
+            "combined": ["E55"],
+        }
+        result, metadata, mock_track = self._run_clean(
+            gsn129_task, detect_result, confirm_result={"E55"}
+        )
+
+        assert "E55" in result.info["bads"]
+        assert "E55" in metadata["bads"]
+        assert "E55" in metadata["ransac_channels"]
+        assert any(
+            call.kwargs.get("channels") == "E55"
+            and call.kwargs.get("reason") == "RANSAC"
+            for call in mock_track.call_args_list
+        )
+
+    def test_gsn128_unsupported_ransac_candidate_is_kept(self, gsn128_task):
+        """GSN128 gets the same avg-ref guardrail as GSN129."""
+        detect_result = {
+            "correlation": [],
+            "deviation": [],
+            "ransac": ["E55"],
+            "combined": ["E55"],
+        }
+        result, metadata, mock_track = self._run_clean(
+            gsn128_task, detect_result, confirm_result=set()
+        )
+
+        assert "E55" not in result.info["bads"]
+        assert "E55" not in metadata["bads"]
+        assert "E55" not in metadata["ransac_channels"]
+        assert not any(
+            "E55" in (call.kwargs.get("channels") or [])
+            or call.kwargs.get("channels") == "E55"
+            for call in mock_track.call_args_list
+        )
+
+    def test_gsn128_mixed_false_positive_and_noisy_candidate(self, gsn128_task):
+        """False-positive GSN128 candidate is kept while noisy candidate remains bad."""
+        detect_result = {
+            "correlation": [],
+            "deviation": [],
+            "ransac": ["E31", "E55"],
+            "combined": ["E31", "E55"],
+        }
+        result, metadata, mock_track = self._run_clean(
+            gsn128_task, detect_result, confirm_result={"E55"}
+        )
+
+        assert "E31" not in result.info["bads"]
+        assert "E31" not in metadata["bads"]
+        assert "E31" not in metadata["ransac_channels"]
+        assert "E55" in result.info["bads"]
+        assert "E55" in metadata["bads"]
+        assert "E55" in metadata["ransac_channels"]
+        assert any(
+            call.kwargs.get("channels") == "E55"
+            and call.kwargs.get("reason") == "RANSAC"
+            for call in mock_track.call_args_list
+        )
+        assert not any(
+            call.kwargs.get("channels") == "E31" for call in mock_track.call_args_list
+        )
+
+    def test_gsn129_ransac_candidate_flagged_by_another_detector_skips_guardrail(
+        self, gsn129_task
+    ):
+        """A Cz-neighbor already corroborated by another detector is kept bad
+        without running the avg-ref confirmation."""
+        detect_result = {
+            "correlation": [],
+            "deviation": ["E55"],
+            "ransac": ["E55"],
+            "combined": ["E55"],
+        }
+        with (
+            patch.object(gsn129_task, "_update_metadata"),
+            patch.object(gsn129_task, "_save_raw_result"),
+            patch.object(gsn129_task, "_update_instance_data"),
+            patch.object(gsn129_task, "_track_channel_removal") as mock_track,
+            patch(
+                "autoclean.mixins.signal_processing.channels.detect_bad_channels",
+                return_value=detect_result,
+            ),
+            patch(
+                "autoclean.mixins.signal_processing.channels.confirm_candidates_after_avg_ref",
+                side_effect=AssertionError(
+                    "guardrail must not run for deviation-corroborated channels"
+                ),
+            ),
+        ):
+            result = gsn129_task.clean_bad_channels(
+                data=gsn129_task.raw, cleaning_method=None
+            )
+
+        assert "E55" in result.info["bads"]
+        assert any(
+            call.kwargs.get("channels") == "E55"
+            and call.kwargs.get("reason") == "DEVIATION"
+            for call in mock_track.call_args_list
+        )
+
+    def test_non_gsn_montage_skips_guardrail(self, task):
+        """The avg-ref guardrail only runs for supported GSN recordings."""
+        ch = "Fz"
+        detect_result = {
+            "correlation": [],
+            "deviation": [],
+            "ransac": [ch],
+            "combined": [ch],
+        }
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_raw_result"),
+            patch.object(task, "_update_instance_data"),
+            patch.object(task, "_track_channel_removal"),
+            patch(
+                "autoclean.mixins.signal_processing.channels.detect_bad_channels",
+                return_value=detect_result,
+            ),
+            patch(
+                "autoclean.mixins.signal_processing.channels.confirm_candidates_after_avg_ref",
+                side_effect=AssertionError(
+                    "guardrail must not run for non-GSN recordings"
+                ),
+            ),
+        ):
+            result = task.clean_bad_channels(data=task.raw, cleaning_method=None)
+
+        assert ch in result.info["bads"]
+        assert ch in task.raw.ch_names
+
+
+# ---------------------------------------------------------------------------
 # set_channel_types (additional)
 # ---------------------------------------------------------------------------
 
