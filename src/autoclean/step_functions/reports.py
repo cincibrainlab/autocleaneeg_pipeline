@@ -1355,8 +1355,8 @@ def update_task_processing_log(
             try:
                 # Read existing CSV
                 df = pd.read_csv(
-                    csv_path, dtype=str, encoding="utf-8"
-                )  # Force all columns to be string type
+                    csv_path, dtype=str, encoding="utf-8", keep_default_na=False
+                )  # Force all columns to be string type and preserve literal NA
 
                 # Ensure all columns exist in DataFrame
                 for col in details.keys():

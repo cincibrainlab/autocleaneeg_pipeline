@@ -214,6 +214,30 @@ class TestUpdateTaskProcessingLog:
         for field, value in expected.items():
             assert row[field] == value
 
+    def test_appending_row_preserves_literal_na_values(self, tmp_path):
+        summary1 = _minimal_summary(tmp_path, run_id="run_001")
+        summary1["metadata"] = {}
+
+        summary2 = _minimal_summary(tmp_path, run_id="run_002")
+        summary2["basename"] = "sub02_test"
+        summary2["bids_subject"] = "sub-02"
+        summary2["metadata"] = {
+            "step_clean_bad_channels": {
+                "bads": ["E2"],
+                "cleaning_method": "interpolate",
+            }
+        }
+
+        update_task_processing_log(summary1)
+        update_task_processing_log(summary2)
+
+        with (tmp_path / "preprocessing_log.csv").open(newline="") as handle:
+            rows = list(csv.DictReader(handle))
+
+        assert rows[0]["proc_badchans"] == "NA"
+        assert rows[0]["proc_badchans_action"] == "NA"
+        assert rows[1]["proc_badchans"] == "['E2']"
+
 
 # ---------------------------------------------------------------------------
 # generate_bad_channels_tsv
