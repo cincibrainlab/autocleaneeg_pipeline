@@ -113,11 +113,13 @@ from autoclean.utils.database import (  # noqa: E402
 )
 from autoclean.utils.logging import message  # noqa: E402
 from autoclean.utils.path_resolution import resolve_moved_path  # noqa: E402
-from autoclean.utils.reprocess_overrides import (  # noqa: E402
+from autoclean.utils.reprocess_overrides import (
     MANUAL_EPOCHS_BEFORE_ICA_STRATEGY,
-    epoch_review_override_from_record as _epoch_review_override_from_record,
 )
 from autoclean.utils.reprocess_overrides import (  # noqa: E402
+    epoch_review_override_from_record as _epoch_review_override_from_record,
+)
+from autoclean.utils.reprocess_overrides import (
     generate_reprocess_task_from_original as _generate_reprocess_task_from_original,
 )
 from autoclean.utils.user_config import user_config  # noqa: E402
@@ -4789,6 +4791,7 @@ class ExclusionFileSelector(ReviewBase):
 
         # Check if we have epochs available
         bad_epochs = []
+        pre_ica_indices = []
         total_epochs = 0
         epoch_times = []
         epoch_events = []
@@ -4823,6 +4826,7 @@ class ExclusionFileSelector(ReviewBase):
                     )
 
                 total_epochs = len(self.current_epochs)
+                pre_ica_indices = self._epoch_positions_for_indices(bad_epochs)
                 print(f"[EPOCH DEBUG] Total epochs: {total_epochs}")
 
                 # Extract timing and event information for bad epochs
@@ -4860,6 +4864,9 @@ class ExclusionFileSelector(ReviewBase):
         record["bad_epoch_indices"] = (
             ",".join(map(str, bad_epochs)) if bad_epochs else ""
         )
+        record["bad_epoch_pre_ica_indices"] = (
+            ",".join(map(str, pre_ica_indices)) if pre_ica_indices else ""
+        )
         record["bad_epoch_times"] = ",".join(epoch_times) if epoch_times else ""
         record["bad_epoch_events"] = ",".join(epoch_events) if epoch_events else ""
         record["total_epochs"] = total_epochs
@@ -4890,8 +4897,7 @@ class ExclusionFileSelector(ReviewBase):
         # Schedule save to persist the epoch information
         print("[EPOCH DEBUG] Scheduling save for epoch data")
         self._schedule_save()
-        if hasattr(self, "selected_file_path") and self.selected_file_path:
-            self._update_reprocess_for_file(Path(self.selected_file_path))
+        self._refresh_reprocess_epoch_summary()
 
     def _capture_bad_epochs_for_key(self, key: str) -> None:
         """Capture bad epoch information for a specific file key."""
@@ -4924,6 +4930,7 @@ class ExclusionFileSelector(ReviewBase):
 
         # Check if we have epochs available
         bad_epochs = []
+        pre_ica_indices = []
         total_epochs = 0
         epoch_times = []
         epoch_events = []
@@ -4934,6 +4941,7 @@ class ExclusionFileSelector(ReviewBase):
             try:
                 bad_epochs = self._extract_user_bad_epoch_indices(self.current_epochs)
                 total_epochs = len(self.current_epochs)
+                pre_ica_indices = self._epoch_positions_for_indices(bad_epochs)
 
                 print(
                     f"[EPOCH DEBUG] Found {len(bad_epochs)} bad epochs for key {key} from drop_log: {bad_epochs}"
@@ -4975,6 +4983,9 @@ class ExclusionFileSelector(ReviewBase):
         record["bad_epoch_indices"] = (
             ",".join(map(str, bad_epochs)) if bad_epochs else ""
         )
+        record["bad_epoch_pre_ica_indices"] = (
+            ",".join(map(str, pre_ica_indices)) if pre_ica_indices else ""
+        )
         record["bad_epoch_times"] = ",".join(epoch_times) if epoch_times else ""
         record["bad_epoch_events"] = ",".join(epoch_events) if epoch_events else ""
         record["total_epochs"] = total_epochs
@@ -5008,7 +5019,7 @@ class ExclusionFileSelector(ReviewBase):
             and self.selected_file_path
             and key == self.current_key
         ):
-            self._update_reprocess_for_file(Path(self.selected_file_path))
+            self._refresh_reprocess_epoch_summary()
 
     def _call_base_plotFile_with_restoration(self) -> None:
         """Call the base class plotFile method but ensure our restoration is used."""
@@ -5189,6 +5200,35 @@ class ExclusionFileSelector(ReviewBase):
         epochs = getattr(self, "current_epochs", None)
         return set(self._extract_user_bad_epoch_indices(epochs))
 
+    def _epoch_positions_for_indices(self, indices: list[int]) -> list[int]:
+        """Map visible epoch indices back to their pre-drop epoch positions."""
+        epochs = getattr(self, "current_epochs", None)
+        selection = getattr(epochs, "selection", None)
+        if selection is None:
+            return []
+
+        positions = []
+        for idx in indices:
+            if idx < len(selection):
+                positions.append(int(selection[idx]))
+        return positions
+
+    def _refresh_reprocess_epoch_summary(self) -> None:
+        """Refresh epoch chips/buttons without reloading channel or ICA edits."""
+        if self.reprocess_widget is None or not self.current_key:
+            return
+
+        epoch_review = _epoch_review_override_from_record(
+            self.decisions.get(self.current_key)
+        )
+        self.reprocess_widget.manual_bad_epoch_indices = epoch_review["indices"]
+        self.reprocess_widget.manual_bad_epoch_pre_ica_indices = epoch_review[
+            "pre_ica_indices"
+        ]
+        self.reprocess_widget.manual_bad_epoch_times = epoch_review["times"]
+        self.reprocess_widget.manual_bad_epoch_events = epoch_review["events"]
+        self.reprocess_widget._update_changes_summary()
+
     def _save_epoch_changes_immediately(self, bad_epochs: set) -> None:
         """Save epoch changes immediately when they occur."""
         if not self.current_key:
@@ -5226,6 +5266,7 @@ class ExclusionFileSelector(ReviewBase):
 
         # Update record with current epoch information
         bad_epochs_list = sorted(list(bad_epochs))
+        pre_ica_indices = self._epoch_positions_for_indices(bad_epochs_list)
         total_epochs = len(self.current_epochs) if self.current_epochs else 0
 
         # Extract timing and event information for bad epochs
@@ -5250,6 +5291,7 @@ class ExclusionFileSelector(ReviewBase):
         record["epochs_reviewed"] = True
         record["bad_epochs_count"] = len(bad_epochs_list)
         record["bad_epoch_indices"] = ",".join(map(str, bad_epochs_list))
+        record["bad_epoch_pre_ica_indices"] = ",".join(map(str, pre_ica_indices))
         record["bad_epoch_times"] = ",".join(epoch_times)
         record["bad_epoch_events"] = ",".join(epoch_events)
         record["total_epochs"] = total_epochs
@@ -5268,8 +5310,7 @@ class ExclusionFileSelector(ReviewBase):
 
         # Save immediately
         self._schedule_save()
-        if hasattr(self, "selected_file_path") and self.selected_file_path:
-            self._update_reprocess_for_file(Path(self.selected_file_path))
+        self._refresh_reprocess_epoch_summary()
 
     def _handle_notes_changed(self) -> None:
         if self._updating_notes or not self.current_key or self.notes_edit is None:
@@ -5798,6 +5839,7 @@ class ExclusionFileSelector(ReviewBase):
                 "reprocess_task_file": str(task_path.relative_to(original_task_root)),
                 "reprocess_task_hash": payload.get("task_file_hash", ""),
                 "fix_type": payload.get("fix_type", "unknown"),
+                "reprocess_strategy": payload.get("reprocess_strategy"),
             }
 
             with open(manifest_path, "w", encoding="utf-8") as f:
@@ -5857,14 +5899,22 @@ class ExclusionFileSelector(ReviewBase):
 
         cancel_btn.clicked.connect(lambda: (process.kill(), dialog.close()))
 
-        cmd_args = ["process", "--task-file", str(task_path), "--file", str(raw_path)]
+        cmd_args = [
+            "-m",
+            "autoclean",
+            "process",
+            "--task-file",
+            str(task_path),
+            "--file",
+            str(raw_path),
+        ]
 
         if output_dir:
             cmd_args.extend(["--output", str(output_dir)])
 
-        print(f"[REPROCESS] Starting: autocleaneeg-pipeline {' '.join(cmd_args)}")
+        print(f"[REPROCESS] Starting: {sys.executable} {' '.join(cmd_args)}")
         print(f"[REPROCESS] Reprocess folder: reprocess/{reprocess_folder_name}")
-        process.start("autocleaneeg-pipeline", cmd_args)
+        process.start(sys.executable, cmd_args)
 
         dialog.show()
 
@@ -6003,6 +6053,7 @@ class ExclusionFileSelector(ReviewBase):
                     for file_path in reprocess_ica.glob("*"):
                         if file_path.is_file():
                             dest_path = original_ica / file_path.name
+                            dest_path.parent.mkdir(parents=True, exist_ok=True)
                             shutil.copy2(file_path, dest_path)
                             print(
                                 f"[REPROCESS] Copied {file_path.name} to original ica"
@@ -6051,7 +6102,12 @@ class ExclusionFileSelector(ReviewBase):
                                     manual_overrides = fix_payload.get(
                                         "modifications", {}
                                     )
+                                    reprocess_strategy = fix_payload.get(
+                                        "reprocess_strategy"
+                                    )
                                     reprocess_reason = f"manual_override_{fix_payload.get('fix_type', 'unknown')}"
+                            else:
+                                reprocess_strategy = None
 
                             # Inject reprocess metadata
                             metadata["reprocessed"] = True
@@ -6061,6 +6117,7 @@ class ExclusionFileSelector(ReviewBase):
                             metadata["reprocessed_from_run_id"] = original_run_id
                             metadata["reprocess_run_id"] = reprocess_run_id
                             metadata["reprocess_reason"] = reprocess_reason
+                            metadata["reprocess_strategy"] = reprocess_strategy
                             metadata["manual_overrides"] = manual_overrides
                             metadata["original_backup"] = (
                                 f"exports/backups/{stem}_{backup_timestamp}/"

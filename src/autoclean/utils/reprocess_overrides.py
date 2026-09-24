@@ -149,6 +149,10 @@ def generate_reprocess_task_from_original(
             new_body: list[ast.stmt] = []
             for stmt in node.body:
                 modified_stmt = self.visit(stmt)
+                if manual_epochs_before_ica and self._is_ica_rejection_call(
+                    modified_stmt
+                ):
+                    continue
                 if self._is_manual_ica_rejection_call(modified_stmt):
                     continue
                 if self._is_post_epoch_ica_call(modified_stmt):
@@ -318,6 +322,18 @@ def generate_reprocess_task_from_original(
             return found
 
         def _is_manual_ica_rejection_call(self, node: ast.AST) -> bool:
+            if not self._is_ica_rejection_call(node):
+                return False
+
+            assert isinstance(node, ast.Expr)
+            assert isinstance(node.value, ast.Call)
+            for keyword in node.value.keywords:
+                if keyword.arg == "manual_rejected_components":
+                    return True
+
+            return False
+
+        def _is_ica_rejection_call(self, node: ast.AST) -> bool:
             if not (
                 isinstance(node, ast.Expr)
                 and isinstance(node.value, ast.Call)
@@ -326,11 +342,7 @@ def generate_reprocess_task_from_original(
             ):
                 return False
 
-            for keyword in node.value.keywords:
-                if keyword.arg == "manual_rejected_components":
-                    return True
-
-            return False
+            return True
 
         def _is_post_epoch_ica_call(self, node: ast.AST) -> bool:
             if fix_type != POST_EPOCH_ICA_FIX_TYPE and not manual_epochs_before_ica:
@@ -407,6 +419,19 @@ def generate_reprocess_task_from_original(
                 )
             )
 
+        def _post_epoch_apply_ica_rejection_call(self) -> ast.stmt:
+            return ast.Expr(
+                value=ast.Call(
+                    func=ast.Attribute(
+                        value=ast.Name(id="self", ctx=ast.Load()),
+                        attr="apply_ica_component_rejection",
+                        ctx=ast.Load(),
+                    ),
+                    args=[],
+                    keywords=[],
+                )
+            )
+
         def _append_post_epoch_ica_call(
             self, body: list[ast.stmt], call_stmt: ast.stmt
         ) -> None:
@@ -419,6 +444,16 @@ def generate_reprocess_task_from_original(
                 and call_stmt.value.func.attr == "run_ica"
             ):
                 body.append(self._synthetic_post_epoch_classification_call())
+                if manual_epochs_before_ica:
+                    body.append(self._post_epoch_apply_ica_rejection_call())
+            elif (
+                manual_epochs_before_ica
+                and isinstance(call_stmt, ast.Expr)
+                and isinstance(call_stmt.value, ast.Call)
+                and isinstance(call_stmt.value.func, ast.Attribute)
+                and call_stmt.value.func.attr == "classify_ica_components"
+            ):
+                body.append(self._post_epoch_apply_ica_rejection_call())
 
         def _append_pending_post_epoch_ica_calls(self, body: list[ast.stmt]) -> None:
             for call_stmt in self.pending_post_epoch_ica_calls:
