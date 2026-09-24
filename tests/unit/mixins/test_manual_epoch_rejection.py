@@ -95,6 +95,25 @@ class TestManualEpochRejection:
         assert metadata["skipped_bad_epoch_positions"] == [99]
         assert metadata["applied_bad_epoch_indices"] == [2, 3]
 
+    def test_prefers_manual_epoch_positions_over_epoch_numbers(self, task):
+        with (
+            patch.object(task, "_update_metadata") as mock_update,
+            patch.object(task, "_auto_export_if_enabled"),
+        ):
+            result = task.drop_manual_bad_epochs(
+                manual_bad_epoch_indices=[3],
+                manual_bad_epoch_positions=[1],
+            )
+
+        assert result.selection.tolist() == [0, 3]
+        assert task.epochs.selection.tolist() == [0, 3]
+
+        metadata = mock_update.call_args.args[1]
+        assert metadata["requested_bad_epoch_indices"] == [3]
+        assert metadata["requested_bad_epoch_positions"] == [1]
+        assert metadata["applied_bad_epoch_indices"] == [2]
+        assert metadata["applied_bad_epoch_positions"] == [1]
+
     def test_noop_when_no_manual_indices_provided(self, task):
         original = task.epochs
         with (

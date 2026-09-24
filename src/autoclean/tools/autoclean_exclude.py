@@ -4843,9 +4843,7 @@ class ExclusionFileSelector(ReviewBase):
                             event_code = self._epoch_event_value(
                                 self.current_epochs.events, idx, 2
                             )
-                            time_sec = (
-                                event_sample / self.current_epochs.info["sfreq"]
-                            )
+                            time_sec = event_sample / self.current_epochs.info["sfreq"]
                             epoch_times.append(f"{time_sec:.3f}")
                             epoch_events.append(str(event_code))
                             print(
@@ -4967,9 +4965,7 @@ class ExclusionFileSelector(ReviewBase):
                             event_code = self._epoch_event_value(
                                 self.current_epochs.events, idx, 2
                             )
-                            time_sec = (
-                                event_sample / self.current_epochs.info["sfreq"]
-                            )
+                            time_sec = event_sample / self.current_epochs.info["sfreq"]
                             epoch_times.append(f"{time_sec:.3f}")
                             epoch_events.append(str(event_code))
                             print(
@@ -5304,9 +5300,7 @@ class ExclusionFileSelector(ReviewBase):
                     event_code = self._epoch_event_value(
                         self.current_epochs.events, idx, 2
                     )
-                    time_sec = (
-                        event_sample / self.current_epochs.info["sfreq"]
-                    )
+                    time_sec = event_sample / self.current_epochs.info["sfreq"]
                     epoch_times.append(f"{time_sec:.3f}")
                     epoch_events.append(str(event_code))
 

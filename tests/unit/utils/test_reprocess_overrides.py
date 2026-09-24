@@ -429,6 +429,9 @@ def test_generate_manual_epochs_before_ica_task_preserves_channels_and_refits_ic
     assert run_calls.index("classify_ica_components") < run_calls.index(
         "apply_ica_component_rejection"
     )
+    assert run_calls.index("apply_ica_component_rejection") < run_calls.index(
+        "generate_ica_reports"
+    )
     assert "manual_bad_channels=['Fz', 'Cz']" in generated
     assert "manual_bad_epoch_indices=[5, 6]" in generated
     assert "manual_bad_epoch_positions=[12, 13]" in generated
@@ -438,6 +441,7 @@ def test_generate_manual_epochs_before_ica_task_preserves_channels_and_refits_ic
     )
     assert f"Reprocess strategy: {MANUAL_EPOCHS_BEFORE_ICA_STRATEGY}" in generated
     assert "self.apply_ica_component_rejection()" in generated
+    assert "self.generate_ica_reports()" in generated
     assert run_calls.count("apply_ica_component_rejection") == 1
     assert "manual_rejected_components=[2, 3]" not in generated
     assert "manual_rejected_components=[4]" not in generated

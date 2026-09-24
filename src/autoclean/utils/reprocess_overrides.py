@@ -432,6 +432,19 @@ def generate_reprocess_task_from_original(
                 )
             )
 
+        def _post_epoch_ica_report_call(self) -> ast.stmt:
+            return ast.Expr(
+                value=ast.Call(
+                    func=ast.Attribute(
+                        value=ast.Name(id="self", ctx=ast.Load()),
+                        attr="generate_ica_reports",
+                        ctx=ast.Load(),
+                    ),
+                    args=[],
+                    keywords=[],
+                )
+            )
+
         def _append_post_epoch_ica_call(
             self, body: list[ast.stmt], call_stmt: ast.stmt
         ) -> None:
@@ -446,6 +459,7 @@ def generate_reprocess_task_from_original(
                 body.append(self._synthetic_post_epoch_classification_call())
                 if manual_epochs_before_ica:
                     body.append(self._post_epoch_apply_ica_rejection_call())
+                    body.append(self._post_epoch_ica_report_call())
             elif (
                 manual_epochs_before_ica
                 and isinstance(call_stmt, ast.Expr)
@@ -454,6 +468,7 @@ def generate_reprocess_task_from_original(
                 and call_stmt.value.func.attr == "classify_ica_components"
             ):
                 body.append(self._post_epoch_apply_ica_rejection_call())
+                body.append(self._post_epoch_ica_report_call())
 
         def _append_pending_post_epoch_ica_calls(self, body: list[ast.stmt]) -> None:
             for call_stmt in self.pending_post_epoch_ica_calls:

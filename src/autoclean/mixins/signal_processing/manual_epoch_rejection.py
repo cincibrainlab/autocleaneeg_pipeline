@@ -46,19 +46,22 @@ class ManualEpochRejectionMixin:
             if hasattr(epochs.selection, "tolist")
             else list(epochs.selection)
         )
-        bad_selection_indices = [
-            selection.index(bad_num)
-            for bad_num in requested_indices
-            if bad_num in selection
-        ]
-        bad_selection_indices.extend(
-            idx for idx in requested_positions if idx < len(selection)
-        )
+        if requested_positions:
+            bad_selection_indices = [
+                idx for idx in requested_positions if idx < len(selection)
+            ]
+            skipped_bad_epoch_indices = []
+        else:
+            bad_selection_indices = [
+                selection.index(bad_num)
+                for bad_num in requested_indices
+                if bad_num in selection
+            ]
+            skipped_bad_epoch_indices = [
+                bad_num for bad_num in requested_indices if bad_num not in selection
+            ]
         bad_selection_indices = sorted(set(bad_selection_indices))
         applied_bad_epoch_indices = [selection[idx] for idx in bad_selection_indices]
-        skipped_bad_epoch_indices = [
-            bad_num for bad_num in requested_indices if bad_num not in selection
-        ]
         applied_bad_epoch_positions = bad_selection_indices
         skipped_bad_epoch_positions = [
             idx for idx in requested_positions if idx >= len(selection)
