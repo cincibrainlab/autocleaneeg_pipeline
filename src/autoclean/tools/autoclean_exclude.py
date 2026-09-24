@@ -113,13 +113,13 @@ from autoclean.utils.database import (  # noqa: E402
 )
 from autoclean.utils.logging import message  # noqa: E402
 from autoclean.utils.path_resolution import resolve_moved_path  # noqa: E402
-from autoclean.utils.reprocess_overrides import (
+from autoclean.utils.reprocess_overrides import (  # noqa: E402
     MANUAL_EPOCHS_BEFORE_ICA_STRATEGY,
 )
 from autoclean.utils.reprocess_overrides import (  # noqa: E402
     epoch_review_override_from_record as _epoch_review_override_from_record,
 )
-from autoclean.utils.reprocess_overrides import (
+from autoclean.utils.reprocess_overrides import (  # noqa: E402
     generate_reprocess_task_from_original as _generate_reprocess_task_from_original,
 )
 from autoclean.utils.user_config import user_config  # noqa: E402
@@ -4837,14 +4837,19 @@ class ExclusionFileSelector(ReviewBase):
                     for idx in bad_epochs:
                         if idx < len(self.current_epochs.events):
                             # Convert sample to time
+                            event_sample = self._epoch_event_value(
+                                self.current_epochs.events, idx, 0
+                            )
+                            event_code = self._epoch_event_value(
+                                self.current_epochs.events, idx, 2
+                            )
                             time_sec = (
-                                self.current_epochs.events[idx, 0]
-                                / self.current_epochs.info["sfreq"]
+                                event_sample / self.current_epochs.info["sfreq"]
                             )
                             epoch_times.append(f"{time_sec:.3f}")
-                            epoch_events.append(str(self.current_epochs.events[idx, 2]))
+                            epoch_events.append(str(event_code))
                             print(
-                                f"[EPOCH DEBUG] Bad epoch {idx}: time={time_sec:.3f}s, event={self.current_epochs.events[idx, 2]}"
+                                f"[EPOCH DEBUG] Bad epoch {idx}: time={time_sec:.3f}s, event={event_code}"
                             )
 
                 record["epochs_reviewed"] = True
@@ -4956,14 +4961,19 @@ class ExclusionFileSelector(ReviewBase):
                     for idx in bad_epochs:
                         if idx < len(self.current_epochs.events):
                             # Convert sample to time
+                            event_sample = self._epoch_event_value(
+                                self.current_epochs.events, idx, 0
+                            )
+                            event_code = self._epoch_event_value(
+                                self.current_epochs.events, idx, 2
+                            )
                             time_sec = (
-                                self.current_epochs.events[idx, 0]
-                                / self.current_epochs.info["sfreq"]
+                                event_sample / self.current_epochs.info["sfreq"]
                             )
                             epoch_times.append(f"{time_sec:.3f}")
-                            epoch_events.append(str(self.current_epochs.events[idx, 2]))
+                            epoch_events.append(str(event_code))
                             print(
-                                f"[EPOCH DEBUG] Bad epoch {idx}: time={time_sec:.3f}s, event={self.current_epochs.events[idx, 2]}"
+                                f"[EPOCH DEBUG] Bad epoch {idx}: time={time_sec:.3f}s, event={event_code}"
                             )
 
                 record["epochs_reviewed"] = True
@@ -5173,6 +5183,14 @@ class ExclusionFileSelector(ReviewBase):
 
         return marked_indices
 
+    @staticmethod
+    def _epoch_event_value(events, epoch_index: int, column: int):
+        """Read event values from NumPy arrays or list-backed test doubles."""
+        try:
+            return events[epoch_index, column]
+        except TypeError:
+            return events[epoch_index][column]
+
     def _snapshot_epoch_marks(self) -> tuple:
         """Return a hashable snapshot of persisted and live bad-epoch state."""
         epochs = getattr(self, "current_epochs", None)
@@ -5280,12 +5298,17 @@ class ExclusionFileSelector(ReviewBase):
             for idx in bad_epochs_list:
                 if idx < len(self.current_epochs.events):
                     # Convert sample to time
+                    event_sample = self._epoch_event_value(
+                        self.current_epochs.events, idx, 0
+                    )
+                    event_code = self._epoch_event_value(
+                        self.current_epochs.events, idx, 2
+                    )
                     time_sec = (
-                        self.current_epochs.events[idx, 0]
-                        / self.current_epochs.info["sfreq"]
+                        event_sample / self.current_epochs.info["sfreq"]
                     )
                     epoch_times.append(f"{time_sec:.3f}")
-                    epoch_events.append(str(self.current_epochs.events[idx, 2]))
+                    epoch_events.append(str(event_code))
 
         # Update record
         record["epochs_reviewed"] = True
