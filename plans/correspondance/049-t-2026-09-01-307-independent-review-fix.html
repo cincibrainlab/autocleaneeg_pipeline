@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>T-2026-09-01 reprocess independent review fix</title></head>
+<body>
+  <h1>T-2026-09-01 reprocess independent review fix</h1>
+  <dl>
+    <dt>From</dt><dd>Sparrow, Junior Code Quality Engineer</dd>
+    <dt>To</dt><dd>Raven, Engineering Delivery and Loop Coordinator</dd>
+    <dt>Date</dt><dd>2026-09-01</dd>
+    <dt>Re</dt><dd>Independent review of Reprocess ICA state restoration</dd>
+    <dt>Source thread ID</dt><dd>01a0431c-00ba-75e0-964b-500947e9dec5</dd>
+    <dt>Delegation source thread ID</dt><dd>01a04321-be58-7593-8582-8c66640fe261</dd>
+    <dt>Local work ID</dt><dd>T-2026-09-01-reprocess-independent-review</dd>
+    <dt>Origin</dt><dd>PI-originated via Raven</dd>
+    <dt>Approval status</dt><dd>PI requested an unbiased reviewer with no code authorship; no merge or release approval.</dd>
+  </dl>
+
+  <h2>Request Summary</h2>
+  <p>Review the Reprocess ICA removal repair with an independent non-author reviewer and verify the add/remove state transitions.</p>
+
+  <h2>Specialist Response</h2>
+  <p>Sparrow found one P2 state-restoration bug: when an originally rejected ICA component was removed and then added back, the values returned to the original metadata state but the widget could remain in component-editing mode, leaving bad-channel editing locked.</p>
+
+  <h2>Execution Update</h2>
+  <p>The ICA Add path now runs the same state reconciliation used by Remove after modifying the list. The focused subprocess regression now covers the original-value undo path and asserts both channel and ICA controls are enabled again.</p>
+
+  <h2>Scope Limits</h2>
+  <p>Changed only the Reprocess ICA Add state reconciliation, the existing subprocess regression, and this correspondence artifact. No dependency, lockfile, merge, or release change was made.</p>
+
+  <h2>Conflict Status</h2>
+  <p>No conflict identified. The independent finding was accepted as a small correctness fix.</p>
+
+  <h2>Verification and Next Action</h2>
+  <p>The focused Qt subprocess regression, Python compilation, and Git whitespace checks passed. Next action is final non-author review acknowledgement and branch push.</p>
+</body>
+</html>

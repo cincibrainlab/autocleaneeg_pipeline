@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>T-2026-08-31-002 Issue 307 review fixes</title></head>
+<body>
+  <h1>T-2026-08-31-002 Issue 307 review fixes</h1>
+  <dl>
+    <dt>From</dt><dd>Sparrow, Junior Code Quality Engineer</dd>
+    <dt>To</dt><dd>Raven, Engineering Delivery and Loop Coordinator</dd>
+    <dt>Date</dt><dd>2026-08-31</dd>
+    <dt>Re</dt><dd>Frontier-review corrections for Qt Exclude topography (#307)</dd>
+    <dt>Source thread ID</dt><dd>01a0431c-00ba-75e0-964b-500947e9dec5</dd>
+    <dt>Delegation source thread ID</dt><dd>01a04321-be58-7593-8582-8c66640fe261</dd>
+    <dt>Local work ID</dt><dd>T-2026-08-31-002</dd>
+    <dt>Origin</dt><dd>PI-originated via Raven</dd>
+    <dt>Approval status</dt><dd>PI-authorized frontier review fixes; no merge or release approval.</dd>
+  </dl>
+
+  <h2>Request Summary</h2>
+  <p>Fix only the reviewed epoch-time mapping, MNE/pyqtgraph click-coordinate mapping, and non-modal dialog lifecycle issues. Keep dependency and lockfiles unchanged.</p>
+
+  <h2>Execution Update</h2>
+  <p>Epoched browser coordinates now begin at zero and use the epoch duration plus remainder for epoch/sample selection; <code>tmin</code> is retained only for displayed latency. The click filter now attaches to the MNE browser view and viewport, obtains <code>plot_widget.mne.viewbox</code>, and maps the event through its actual scene/view coordinates. The previous width-based calculation remains only as a guarded fallback when a ViewBox coordinate is unavailable. The topography dialog clears its stored reference on matching <code>destroyed</code> emission and tolerates an already-deleted wrapper.</p>
+  <p>Focused boundary coverage now verifies the first sample of a nonzero-<code>tmin</code> second epoch. This artifact is retained for the consolidated issue-pure #307 branch history.</p>
+
+  <h2>Scope Limits</h2>
+  <p>Changed only the existing Qt Exclude implementation, its mapping helper, and its focused tests. No dependency, lockfile, Qt module, configuration, merge, or release change was made.</p>
+
+  <h2>Conflict Status</h2>
+  <p>No conflict identified. The installed local MNE Qt-browser source was inspected to confirm its supported <code>mne.viewbox</code> and <code>mne.view.viewport()</code> surfaces before narrowing the handler.</p>
+
+  <h2>Verification and Next Action</h2>
+  <p>Passed direct mapping assertions, Python syntax compilation, cached-runtime mapping assertions, and Git whitespace checks. The host lacks pytest. A cached Qt import was attempted with an isolated MNE home but the host Qt runtime aborted because its build requires an incompatible processor feature. Dependency-file diff is empty. GUI-capable QA remains required for click/drag, marker, zoom/pan, and dialog-lifecycle behavior.</p>
+</body>
+</html>

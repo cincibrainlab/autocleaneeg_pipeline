@@ -19,9 +19,11 @@ import sys
 from collections import Counter, OrderedDict
 from datetime import datetime
 from functools import partial
+from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import numpy as np
 import pandas as pd
 import yaml
 
@@ -61,6 +63,7 @@ from qtpy.QtWidgets import (  # noqa: E402
     QApplication,
     QCheckBox,
     QComboBox,
+    QDialog,
     QFileDialog,
     QFrame,
     QGroupBox,
@@ -97,6 +100,12 @@ from autoclean.tools.exclude_metadata import (  # noqa: E402
 )
 from autoclean.tools.exclude_metadata import (  # noqa: E402
     unique_channels as _unique_channels,
+)
+from autoclean.tools.exclude_topography import (  # noqa: E402
+    epoch_sample_from_time,
+    raw_sample_from_time,
+    review_shortcut_action,
+    should_open_topography_from_click,
 )
 from autoclean.utils.database import (  # noqa: E402
     get_run_record,
@@ -451,12 +460,29 @@ class PdfPreviewWidget(QWidget):
         self._status_label.setObjectName("pdfStatusLabel")
         self._status_label.hide()
 
+        self._prev_page_btn = QPushButton("Previous Page")
+        self._prev_page_btn.clicked.connect(lambda: self._step_page(-1))
+        self._prev_page_btn.hide()
+
+        self._next_page_btn = QPushButton("Next Page")
+        self._next_page_btn.clicked.connect(lambda: self._step_page(+1))
+        self._next_page_btn.hide()
+
+        nav_layout = QHBoxLayout()
+        nav_layout.setContentsMargins(0, 0, 0, 0)
+        nav_layout.setSpacing(8)
+        nav_layout.addStretch(1)
+        nav_layout.addWidget(self._prev_page_btn)
+        nav_layout.addWidget(self._status_label)
+        nav_layout.addWidget(self._next_page_btn)
+        nav_layout.addStretch(1)
+
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
         layout.addWidget(self._message)
         layout.addWidget(self._view, 1)
-        layout.addWidget(self._status_label)
+        layout.addLayout(nav_layout)
         self.setLayout(layout)
 
         self._current_path: Optional[Path] = None
@@ -485,6 +511,8 @@ class PdfPreviewWidget(QWidget):
         self._total_pages = 0
         self._current_page = 0
         self._status_label.hide()
+        self._prev_page_btn.hide()
+        self._next_page_btn.hide()
         if not suppress_log:
             log_debug(
                 f"[{_human_timestamp()}] PDF preview cleared; placeholder restored."
@@ -496,6 +524,8 @@ class PdfPreviewWidget(QWidget):
         self._message.show()
         self._view.hide()
         self._status_label.hide()
+        self._prev_page_btn.hide()
+        self._next_page_btn.hide()
 
     def load(self, path: Path) -> None:
         log_debug(f"[{_human_timestamp()}] Attempting to load PDF preview: {path}")
@@ -524,14 +554,20 @@ class PdfPreviewWidget(QWidget):
         self._message.hide()
         self._view.show()
         self._status_label.show()
+        self._prev_page_btn.show()
+        self._next_page_btn.show()
         self._update_status_label()
 
     def _update_status_label(self) -> None:
         if self._total_pages <= 0:
             self._status_label.setText("No document loaded")
+            self._prev_page_btn.setEnabled(False)
+            self._next_page_btn.setEnabled(False)
             return
         page_text = f"Page {self._current_page + 1} / {self._total_pages}"
-        self._status_label.setText(f"{page_text} · Rendered with PyMuPDF")
+        self._status_label.setText(f"{page_text} · Rendered with PyMuPDF · PgUp/PgDn")
+        self._prev_page_btn.setEnabled(self._current_page > 0)
+        self._next_page_btn.setEnabled(self._current_page < self._total_pages - 1)
 
     def _step_page(self, delta: int) -> None:
         if self._document is None or self._total_pages <= 0:
@@ -926,7 +962,7 @@ class ReviewBase(QWidget):
         elif self.current_raw is not None:
             self.plot_widget = self.current_raw.plot(
                 show=False,
-                block=True,
+                block=False,
                 show_scalebars=True,
                 scalings={"eeg": 25e-6},
                 n_channels=self.current_raw.info["nchan"],
@@ -1476,6 +1512,7 @@ class ReprocessWidget(QWidget):
 
         # Bad Channels Section
         self.channels_group = QGroupBox("Bad Channels")
+        self.channels_group.setMinimumWidth(260)
         channels_layout = QVBoxLayout()
         channels_layout.setSpacing(6)
 
@@ -1487,6 +1524,7 @@ class ReprocessWidget(QWidget):
         self.channel_combo = QComboBox()
         self.channel_combo.setEditable(True)
         self.channel_combo.setPlaceholderText("Select channel...")
+        self.channel_combo.setMinimumWidth(120)
         channels_controls.addWidget(self.channel_combo, 1)
 
         self.add_channel_btn = QPushButton("Add")
@@ -1505,6 +1543,7 @@ class ReprocessWidget(QWidget):
 
         # Rejected ICA Components Section
         self.ica_group = QGroupBox("Rejected ICA Components")
+        self.ica_group.setMinimumWidth(260)
         ica_layout = QVBoxLayout()
         ica_layout.setSpacing(6)
 
@@ -1517,6 +1556,7 @@ class ReprocessWidget(QWidget):
         self.ica_spinbox.setMinimum(0)
         self.ica_spinbox.setMaximum(0)
         self.ica_spinbox.setPrefix("Component ")
+        self.ica_spinbox.setMinimumWidth(130)
         ica_controls.addWidget(self.ica_spinbox, 1)
 
         self.add_ica_btn = QPushButton("Add")
@@ -1851,6 +1891,7 @@ class ReprocessWidget(QWidget):
         self._suppress_change_signal = False
 
         # Update changes summary display
+        self._select_next_available_ica_component()
         self._update_changes_summary()
 
     def _add_channel(self) -> None:
@@ -1894,7 +1935,7 @@ class ReprocessWidget(QWidget):
             # Set modification mode to channels and update UI states
             if self._modification_mode is None:
                 self._modification_mode = "channels"
-                self._update_section_states()
+            self._reconcile_modification_mode()
 
             self._emit_change_signal()
 
@@ -1906,6 +1947,7 @@ class ReprocessWidget(QWidget):
         # Check if already in list
         items = [self.ica_list.item(i).text() for i in range(self.ica_list.count())]
         if component_text in items:
+            self._select_next_available_ica_component()
             return
 
         self.ica_list.addItem(component_text)
@@ -1913,22 +1955,28 @@ class ReprocessWidget(QWidget):
         # Set modification mode to components and update UI states
         if self._modification_mode is None:
             self._modification_mode = "components"
-            self._update_section_states()
+        self._reconcile_modification_mode()
 
+        self._select_next_available_ica_component()
         self._emit_change_signal()
 
     def _remove_ica_component(self) -> None:
         """Remove selected ICA component from list."""
-        current_item = self.ica_list.currentItem()
-        if current_item:
-            self.ica_list.takeItem(self.ica_list.row(current_item))
+        row = self.ica_list.currentRow()
+        if row < 0:
+            return
 
-            # Set modification mode to components and update UI states
-            if self._modification_mode is None:
-                self._modification_mode = "components"
-                self._update_section_states()
+        # Release ownership before callbacks can process the updated Qt model.
+        removed_item = self.ica_list.takeItem(row)
+        del removed_item
 
-            self._emit_change_signal()
+        # Set modification mode to components and update UI states
+        if self._modification_mode is None:
+            self._modification_mode = "components"
+        self._reconcile_modification_mode()
+
+        self._select_next_available_ica_component()
+        self._emit_change_signal()
 
     def _reset_to_original(self) -> None:
         """Reset to original values from metadata."""
@@ -1944,8 +1992,56 @@ class ReprocessWidget(QWidget):
         # Clear modification mode and re-enable both sections
         self._modification_mode = None
         self._update_section_states()
+        self._select_next_available_ica_component()
 
         self._emit_change_signal()
+
+    @staticmethod
+    def _component_number_from_item_text(text: str) -> int | None:
+        """Parse the component number from the visible list label."""
+        try:
+            return int(text.replace("Component", "").strip())
+        except (TypeError, ValueError):
+            return None
+
+    def _reconcile_modification_mode(self) -> None:
+        """Unlock sections again when edits return to original values."""
+        current = self.get_current_values()
+        channel_changed = set(current["bad_channels"]) != set(
+            self.original_bad_channels
+        )
+        ica_changed = set(current["rejected_ica"]) != set(self.original_rejected_ica)
+
+        if channel_changed and not ica_changed:
+            self._modification_mode = "channels"
+        elif ica_changed and not channel_changed:
+            self._modification_mode = "components"
+        elif channel_changed and ica_changed:
+            # This should not happen through the locked UI, but preserve the
+            # current mode rather than surprising the user if legacy state exists.
+            self._modification_mode = self._modification_mode or "channels"
+        else:
+            self._modification_mode = None
+
+        self._update_section_states()
+        self._select_next_available_ica_component()
+
+    def _select_next_available_ica_component(self) -> None:
+        """Point the spinbox at the next component not already rejected."""
+        selected = set()
+        for i in range(self.ica_list.count()):
+            component = self._component_number_from_item_text(
+                self.ica_list.item(i).text()
+            )
+            if component is not None:
+                selected.add(component)
+
+        for component in range(self.max_components):
+            if component not in selected:
+                self.ica_spinbox.setValue(component)
+                self.add_ica_btn.setEnabled(self._modification_mode != "channels")
+                return
+        self.add_ica_btn.setEnabled(False)
 
     def get_current_values(self) -> dict:
         """Get current bad channels and rejected ICA components."""
@@ -1953,10 +2049,13 @@ class ReprocessWidget(QWidget):
             self.channels_list.item(i).text() for i in range(self.channels_list.count())
         ]
 
-        rejected_ica = [
-            int(self.ica_list.item(i).text().replace("Component ", ""))
-            for i in range(self.ica_list.count())
-        ]
+        rejected_ica = []
+        for i in range(self.ica_list.count()):
+            component = self._component_number_from_item_text(
+                self.ica_list.item(i).text()
+            )
+            if component is not None:
+                rejected_ica.append(component)
 
         return {"bad_channels": bad_channels, "rejected_ica": rejected_ica}
 
@@ -2282,6 +2381,9 @@ class ExclusionFileSelector(ReviewBase):
         self._pending_plot_refresh = False
         self._pending_selection_item: Optional[QTreeWidgetItem] = None
         self._selection_timer: Optional[QTimer] = None
+        self._topography_click_targets: list[QWidget] = []
+        self._topography_viewbox = None
+        self._topography_dialog: Optional[QDialog] = None
         self.show_backup_folders = False  # Toggle for showing backup/reprocess folders
         self._filename_filter = ""  # Filter text for file list
 
@@ -3725,12 +3827,6 @@ class ExclusionFileSelector(ReviewBase):
         if index == self.psd_tab_index:
             self._set_psd_pixmap()
 
-    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
-        if event.type() == QEvent.Resize:
-            if self.psd_scroll is not None and obj is self.psd_scroll.viewport():
-                self._set_psd_pixmap()
-        return super().eventFilter(obj, event)
-
     def _update_processing_metrics_for_file(self, file_path: Path) -> None:
         if self.metrics_widget is None:
             return
@@ -4298,6 +4394,262 @@ class ExclusionFileSelector(ReviewBase):
 
         QApplication.processEvents()
 
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        """Open a scalp map on a secondary click without consuming MNE events."""
+        if event.type() == QEvent.Type.Resize:
+            if self.psd_scroll is not None and watched is self.psd_scroll.viewport():
+                self._set_psd_pixmap()
+        if event.type() == QEvent.Type.KeyPress and self._handle_shortcut_key(event):
+            return True
+        mouse_button = getattr(event, "button", lambda: None)()
+        modifiers = getattr(
+            event, "modifiers", lambda: Qt.KeyboardModifier.NoModifier
+        )()
+        is_control_click = mouse_button == Qt.MouseButton.LeftButton and bool(
+            modifiers & Qt.KeyboardModifier.ControlModifier
+        )
+        if should_open_topography_from_click(
+            is_target=watched in self._topography_click_targets,
+            is_mouse_release=event.type() == QEvent.Type.MouseButtonRelease,
+            is_secondary_button=mouse_button == Qt.MouseButton.RightButton,
+            is_control_click=is_control_click,
+            widget_width=watched.width() if isinstance(watched, QWidget) else 0,
+            widget_height=watched.height() if isinstance(watched, QWidget) else 0,
+        ) and isinstance(watched, QWidget):
+            position = getattr(event, "position", lambda: None)()
+            if position is not None:
+                time_seconds = self._time_from_viewbox_click(watched, position)
+                if time_seconds is not None:
+                    self._show_topography_at_time(time_seconds)
+        return super().eventFilter(watched, event)
+
+    def closeEvent(self, event) -> None:  # noqa: N802
+        self._cleanup_topography_click_handler()
+        super().closeEvent(event)
+
+    def _handle_shortcut_key(self, event: QEvent) -> bool:
+        focus = QApplication.focusWidget()
+        key = getattr(event, "key", lambda: 0)()
+        action = review_shortcut_action(
+            text=getattr(event, "text", lambda: "")(),
+            key=key,
+            up_key=Qt.Key.Key_Up,
+            down_key=Qt.Key.Key_Down,
+            text_input_has_focus=isinstance(focus, (QLineEdit, QTextEdit)),
+        )
+        if action is None:
+            return False
+        if action == "UP":
+            self._navigate_up()
+        elif action == "DOWN":
+            self._navigate_down()
+        else:
+            self._set_status(action)
+        return True
+
+    def _show_clicked_topography(self, x_fraction: float) -> None:
+        """Use a guarded width fallback when a ViewBox is unavailable."""
+        if self.plot_widget is None:
+            return
+
+        browser = getattr(self.plot_widget, "mne", None)
+        t_start = float(getattr(browser, "t_start", 0.0))
+        duration = float(getattr(browser, "duration", 0.0))
+        if duration <= 0:
+            QMessageBox.warning(
+                self, "Topography", "The browser has no visible time range."
+            )
+            return
+        time_seconds = t_start + max(0.0, min(1.0, x_fraction)) * duration
+        self._show_topography_at_time(time_seconds)
+
+    def _show_topography_at_time(self, time_seconds: float) -> None:
+        """Render the selected browser instant in a non-modal Qt dialog."""
+        if self.plot_widget is None:
+            return
+
+        try:
+            if self.current_epochs is not None:
+                epoch_times = self.current_epochs.times
+                if len(epoch_times):
+                    time_seconds += float(epoch_times[0])
+                location = epoch_sample_from_time(
+                    time_seconds,
+                    epoch_times=epoch_times,
+                    n_epochs=len(self.current_epochs),
+                )
+                data = self.current_epochs[location.epoch_index].get_data()[0]
+                values, info, channels = self._topography_values(
+                    self.current_epochs, data, location.sample_index
+                )
+                latency_ms = self.current_epochs.times[location.sample_index] * 1000.0
+                title = (
+                    f"Epoch {location.epoch_index + 1} · {latency_ms:.1f} ms · "
+                    f"sample {location.sample_index} · {len(channels)} EEG channels"
+                )
+            elif self.current_raw is not None:
+                sample_index = raw_sample_from_time(
+                    time_seconds,
+                    sfreq=float(self.current_raw.info["sfreq"]),
+                    n_samples=self.current_raw.n_times,
+                )
+                data = self.current_raw.get_data(
+                    start=sample_index, stop=sample_index + 1
+                )
+                values, info, channels = self._topography_values(
+                    self.current_raw, data, 0
+                )
+                title = (
+                    f"{sample_index / self.current_raw.info['sfreq']:.3f} s · "
+                    f"sample {sample_index} · {len(channels)} EEG channels"
+                )
+            else:
+                return
+            pixmap = self._render_topography_pixmap(values, info, title)
+        except (RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, "Topography unavailable", str(exc))
+            return
+
+        if self._topography_dialog is not None:
+            try:
+                self._topography_dialog.close()
+            except RuntimeError:
+                self._topography_dialog = None
+        dialog = QDialog(self)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.setWindowModality(Qt.WindowModality.NonModal)
+        dialog.setWindowTitle("Scalp Topography")
+        layout = QVBoxLayout(dialog)
+        image = QLabel(dialog)
+        image.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        image.setPixmap(pixmap)
+        layout.addWidget(image)
+        dialog.resize(pixmap.size())
+        self._topography_dialog = dialog
+        dialog.destroyed.connect(
+            lambda _object=None, closing_dialog=dialog: self._clear_topography_dialog(
+                closing_dialog
+            )
+        )
+        dialog.show()
+
+    def _clear_topography_dialog(self, closing_dialog: QDialog) -> None:
+        """Clear only the dialog reference associated with a destroyed dialog."""
+        if self._topography_dialog is closing_dialog:
+            self._topography_dialog = None
+
+    def _time_from_viewbox_click(self, watched: QWidget, position) -> Optional[float]:
+        """Map a Qt mouse position to the MNE/pyqtgraph time coordinate."""
+        viewbox = self._topography_viewbox
+        graphics_view = self._graphics_view_for_widget(watched)
+        if viewbox is None or graphics_view is None:
+            return None
+        try:
+            global_position = watched.mapToGlobal(position.toPoint())
+            scene_position = graphics_view.mapToScene(
+                graphics_view.mapFromGlobal(global_position)
+            )
+            view_position = viewbox.mapSceneToView(scene_position)
+            click_time = float(view_position.x())
+            browser = getattr(self.plot_widget, "mne", None)
+            t_start = float(getattr(browser, "t_start", 0.0))
+            duration = float(getattr(browser, "duration", 0.0))
+            if duration <= 0:
+                return None
+            if t_start <= click_time <= t_start + duration:
+                return click_time
+            if 0.0 <= click_time <= duration:
+                return t_start + click_time
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            return None
+        return None
+
+    @staticmethod
+    def _graphics_view_for_widget(widget: QWidget):
+        """Return the nearest QGraphicsView-like parent for a browser child."""
+        current: Optional[QWidget] = widget
+        while current is not None:
+            if callable(getattr(current, "mapToScene", None)):
+                return current
+            current = current.parentWidget()
+        return None
+
+    def _browser_viewbox(self):
+        """Find the pyqtgraph ViewBox exposed by the installed MNE browser."""
+        browser = getattr(self.plot_widget, "mne", None)
+        for owner in (browser, self.plot_widget):
+            if owner is None:
+                continue
+            for attribute in ("viewbox", "view_box", "vb", "view"):
+                candidate = getattr(owner, attribute, None)
+                if callable(getattr(candidate, "mapSceneToView", None)):
+                    return candidate
+                get_viewbox = getattr(candidate, "getViewBox", None)
+                if callable(get_viewbox):
+                    candidate = get_viewbox()
+                    if callable(getattr(candidate, "mapSceneToView", None)):
+                        return candidate
+        return None
+
+    @staticmethod
+    def _topography_values(
+        instance: mne.io.BaseRaw | mne.BaseEpochs,
+        data,
+        sample_index: int,
+    ) -> tuple[object, object, list[str]]:
+        """Return EEG-only values in µV and their original montage information."""
+        eeg_picks = mne.pick_types(instance.info, eeg=True, exclude=[])
+        if len(eeg_picks) == 0:
+            raise ValueError("No EEG channels are available for topography")
+        values_uv = data[eeg_picks, sample_index] * 1e6
+        if not np.all(np.isfinite(values_uv)):
+            raise ValueError("Topography values include non-finite EEG samples")
+        info = mne.pick_info(instance.info, eeg_picks, copy=True)
+        channels = [instance.ch_names[pick] for pick in eeg_picks]
+        return values_uv, info, channels
+
+    @staticmethod
+    def _render_topography_pixmap(values, info, title: str) -> QPixmap:
+        """Render a montage-backed MNE topomap without a new Qt dependency."""
+        import numpy as np
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        from matplotlib.figure import Figure
+
+        vmax = float(np.max(np.abs(values))) if len(values) else 1.0
+        vmax = max(vmax, 1.0)
+        figure = Figure(figsize=(4.8, 4.6), dpi=140)
+        FigureCanvasAgg(figure)
+        axis = figure.add_subplot(111)
+        try:
+            image, _ = mne.viz.plot_topomap(
+                values,
+                info,
+                axes=axis,
+                show=False,
+                contours=6,
+                cmap="RdBu_r",
+                vlim=(-vmax, vmax),
+                outlines="head",
+                sensors=True,
+                sphere=None,
+            )
+            colorbar = figure.colorbar(image, ax=axis, shrink=0.8)
+            colorbar.set_label("µV")
+            axis.set_title(title, fontsize=9, pad=10)
+            buffer = BytesIO()
+            figure.savefig(buffer, format="png", bbox_inches="tight", pad_inches=0.1)
+            image_data = QImage.fromData(buffer.getvalue(), "PNG")
+            if image_data.isNull():
+                raise RuntimeError("Could not create the topography image")
+            return QPixmap.fromImage(image_data)
+        except Exception as exc:
+            raise ValueError(
+                "Cannot render a topography because this file has missing or invalid "
+                f"EEG channel locations: {exc}"
+            ) from exc
+        finally:
+            figure.clear()
+
     # ------------------------------------------------------------------
     # Decision management
     # ------------------------------------------------------------------
@@ -4664,11 +5016,14 @@ class ExclusionFileSelector(ReviewBase):
         self._epoch_check_timer.timeout.connect(self._check_epoch_changes)
         self._epoch_check_timer.start()
 
+        self._setup_topography_click_handler()
+
         # Store the last known drop_log snapshot for this snapshot
         self._last_drop_log_snapshot = self._snapshot_drop_log()
 
     def _cleanup_epoch_event_handlers(self) -> None:
         """Clean up event handlers."""
+        self._cleanup_topography_click_handler()
         if hasattr(self, "_epoch_check_timer"):
             self._epoch_check_timer.stop()
             self._epoch_check_timer.deleteLater()
@@ -4676,6 +5031,40 @@ class ExclusionFileSelector(ReviewBase):
 
         if hasattr(self, "_last_drop_log_snapshot"):
             delattr(self, "_last_drop_log_snapshot")
+
+    def _setup_topography_click_handler(self) -> None:
+        """Watch the MNE waveform viewport for secondary clicks."""
+        self._cleanup_topography_click_handler()
+        if self.plot_widget is None:
+            return
+
+        self._topography_viewbox = self._browser_viewbox()
+        browser = getattr(self.plot_widget, "mne", None)
+        browser_view = getattr(browser, "view", None)
+        if self._topography_viewbox is not None:
+            candidates = [browser_view] if browser_view is not None else []
+            viewport = getattr(browser_view, "viewport", lambda: None)()
+            if viewport is not None:
+                candidates.append(viewport)
+            if not candidates:
+                candidates = [self.plot_widget]
+        else:
+            candidates = [self.plot_widget]
+        for widget in candidates:
+            widget.installEventFilter(self)
+            self._topography_click_targets.append(widget)
+
+    def _cleanup_topography_click_handler(self) -> None:
+        """Detach click filters before an MNE browser is closed or replaced."""
+        for widget in self._topography_click_targets:
+            widget.removeEventFilter(self)
+        self._topography_click_targets.clear()
+        self._topography_viewbox = None
+        if self._topography_dialog is not None:
+            try:
+                self._topography_dialog.close()
+            except RuntimeError:
+                self._topography_dialog = None
 
     def _check_epoch_changes(self) -> None:
         """Check if epochs have been marked/unmarked and save immediately."""
