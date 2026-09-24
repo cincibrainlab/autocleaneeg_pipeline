@@ -5,10 +5,9 @@ from typing import Any, Dict, List, Optional, Union
 import mne
 
 from autoclean.functions.artifacts.channels import (
-    GSN129_CZ_NEIGHBORS,
     confirm_candidates_after_avg_ref,
     detect_bad_channels,
-    is_gsn129_configured,
+    gsn_cz_neighbor_channels,
 )
 from autoclean.utils.bad_channel_presets import (
     merge_channel_count_bins,
@@ -262,18 +261,18 @@ class ChannelsMixin:
                 # Get the overall bad channels list for backward compatibility
                 all_bad_channels = bad_channels.get("combined", [])
 
-                # Reference-aware guardrail for GSN129 Cz-neighbor channels.
+                # Reference-aware guardrail for supported GSN Cz-neighbor channels.
                 # RANSAC runs before average rereferencing, so channels near
-                # the renamed reference (Cz) can be falsely flagged due to
-                # reference geometry (low amplitude near the reference). If
-                # RANSAC is the only detector flagging one of these channels,
-                # confirm it on a temporary average-referenced copy before
-                # treating it as bad.
-                if ransac_channels and is_gsn129_configured(self.config, result_raw):
+                # the reference can be falsely flagged due to reference
+                # geometry. If RANSAC is the only detector flagging one of
+                # these channels, confirm it on a temporary average-referenced
+                # copy before treating it as bad.
+                gsn_neighbors = gsn_cz_neighbor_channels(self.config, result_raw)
+                if ransac_channels and gsn_neighbors:
                     ransac_only_candidates = [
                         ch
                         for ch in ransac_channels
-                        if ch in GSN129_CZ_NEIGHBORS
+                        if ch in gsn_neighbors
                         and ch not in set(uncorrelated_channels)
                         and ch not in set(deviation_channels)
                         and ch not in set(all_bad_channels) - set(ransac_channels)
@@ -294,7 +293,7 @@ class ChannelsMixin:
                             message(
                                 "info",
                                 "Reference-aware check did not support RANSAC "
-                                "flag for GSN129 Cz-neighbor channel(s): "
+                                "flag for GSN Cz-neighbor channel(s): "
                                 f"{sorted(unsupported)}; keeping channel(s)",
                             )
                         # Remove unsupported candidates so they are neither

@@ -11,18 +11,24 @@ from pyprep.find_noisy_channels import NoisyChannels
 
 from autoclean.utils.logging import message
 
-# Channels adjacent to the (renamed) reference channel (Cz) on
-# GSN-HydroCel-129 recordings. RANSAC bad-channel detection runs before
-# average rereferencing, so these channels can appear falsely bad.
-GSN129_CZ_NEIGHBORS = {"E7", "E31", "E55", "E80", "E106"}
+# Channels adjacent to the reference location on supported GSN HydroCel layouts.
+# RANSAC bad-channel detection runs before average rereferencing, so these
+# channels can appear falsely bad due to reference geometry.
+GSN_CZ_NEIGHBORS_BY_SYSTEM = {
+    "GSN-HydroCel-128": {"E7", "E31", "E55", "E80", "E106"},
+    "GSN-HydroCel-129": {"E7", "E31", "E55", "E80", "E106"},
+}
 
 
-def is_gsn129_configured(config: Optional[dict], raw: mne.io.BaseRaw) -> bool:
-    """Return True when a GSN-HydroCel-129 recording retains its renamed Cz reference."""
+def gsn_cz_neighbor_channels(config: Optional[dict], raw: mne.io.BaseRaw) -> Set[str]:
+    """Return supported GSN reference-neighbor channels present in ``raw``."""
+    eeg_system = config.get("eeg_system") if config else None
+    neighbors = GSN_CZ_NEIGHBORS_BY_SYSTEM.get(eeg_system)
+    if not neighbors:
+        return set()
+
     ch_names = set(raw.ch_names)
-    if not config or config.get("eeg_system") != "GSN-HydroCel-129":
-        return False
-    return "Cz" in ch_names and bool(GSN129_CZ_NEIGHBORS & ch_names)
+    return neighbors & ch_names
 
 
 def confirm_candidates_after_avg_ref(

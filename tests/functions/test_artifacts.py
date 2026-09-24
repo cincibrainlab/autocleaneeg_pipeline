@@ -12,9 +12,9 @@ from mne.channels import make_standard_montage
 # Import the functions to test
 from autoclean.functions.artifacts import detect_bad_channels, interpolate_bad_channels
 from autoclean.functions.artifacts.channels import (
-    GSN129_CZ_NEIGHBORS,
+    GSN_CZ_NEIGHBORS_BY_SYSTEM,
     confirm_candidates_after_avg_ref,
-    is_gsn129_configured,
+    gsn_cz_neighbor_channels,
 )
 
 # Import test utilities
@@ -132,8 +132,8 @@ class TestBadChannelDetection:
             detect_bad_channels("not_raw_data")
 
 
-class TestGsn129CzGuardrailHelpers:
-    """Tests for the GSN129 Cz-neighbor reference guardrail helpers."""
+class TestGsnCzGuardrailHelpers:
+    """Tests for supported GSN Cz-neighbor reference guardrail helpers."""
 
     @pytest.fixture
     def gsn129_raw(self):
@@ -141,21 +141,37 @@ class TestGsn129CzGuardrailHelpers:
             montage="GSN-HydroCel-129", n_channels=129, duration=5.0, sfreq=250.0
         )
 
-    def test_is_gsn129_configured_true(self, gsn129_raw):
-        assert is_gsn129_configured({"eeg_system": "GSN-HydroCel-129"}, gsn129_raw)
-
-    def test_is_gsn129_configured_false_without_config(self, gsn129_raw):
-        assert is_gsn129_configured(None, gsn129_raw) is False
-        assert is_gsn129_configured({}, gsn129_raw) is False
-
-    def test_is_gsn129_configured_false_for_other_montage(self, gsn129_raw):
-        assert (
-            is_gsn129_configured({"eeg_system": "standard_1020"}, gsn129_raw) is False
+    @pytest.fixture
+    def gsn128_raw(self):
+        return create_synthetic_raw(
+            montage="GSN-HydroCel-128", n_channels=128, duration=5.0, sfreq=250.0
         )
 
-    def test_is_gsn129_configured_false_without_cz(self, gsn129_raw):
-        raw = gsn129_raw.drop_channels(["Cz"])
-        assert is_gsn129_configured({"eeg_system": "GSN-HydroCel-129"}, raw) is False
+    def test_gsn_cz_neighbor_channels_supports_gsn129(self, gsn129_raw):
+        assert gsn_cz_neighbor_channels(
+            {"eeg_system": "GSN-HydroCel-129"}, gsn129_raw
+        ) == GSN_CZ_NEIGHBORS_BY_SYSTEM["GSN-HydroCel-129"]
+
+    def test_gsn_cz_neighbor_channels_supports_gsn128_without_cz(self, gsn128_raw):
+        assert "Cz" not in gsn128_raw.ch_names
+        assert gsn_cz_neighbor_channels(
+            {"eeg_system": "GSN-HydroCel-128"}, gsn128_raw
+        ) == GSN_CZ_NEIGHBORS_BY_SYSTEM["GSN-HydroCel-128"]
+
+    def test_gsn_cz_neighbor_channels_empty_without_config(self, gsn129_raw):
+        assert gsn_cz_neighbor_channels(None, gsn129_raw) == set()
+        assert gsn_cz_neighbor_channels({}, gsn129_raw) == set()
+
+    def test_gsn_cz_neighbor_channels_empty_for_other_montage(self, gsn129_raw):
+        assert gsn_cz_neighbor_channels(
+            {"eeg_system": "standard_1020"}, gsn129_raw
+        ) == set()
+
+    def test_gsn_cz_neighbor_channels_empty_without_neighbors(self, gsn129_raw):
+        raw = gsn129_raw.drop_channels(
+            list(GSN_CZ_NEIGHBORS_BY_SYSTEM["GSN-HydroCel-129"])
+        )
+        assert gsn_cz_neighbor_channels({"eeg_system": "GSN-HydroCel-129"}, raw) == set()
 
     def test_confirm_candidates_after_avg_ref_no_candidates_returns_empty(
         self, gsn129_raw
@@ -172,7 +188,7 @@ class TestGsn129CzGuardrailHelpers:
         assert list(gsn129_raw.ch_names) == before_names
 
     def test_confirm_candidates_after_avg_ref_returns_only_still_bad(self, gsn129_raw):
-        candidates = list(GSN129_CZ_NEIGHBORS)
+        candidates = list(GSN_CZ_NEIGHBORS_BY_SYSTEM["GSN-HydroCel-129"])
         result = confirm_candidates_after_avg_ref(gsn129_raw, candidates)
 
         assert isinstance(result, set)

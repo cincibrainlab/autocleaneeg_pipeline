@@ -478,27 +478,34 @@ class TestCleanBadChannelsPresets:
 
 
 # ---------------------------------------------------------------------------
-# clean_bad_channels (GSN129 Cz-neighbor RANSAC guardrail)
+# clean_bad_channels (GSN Cz-neighbor RANSAC guardrail)
 # ---------------------------------------------------------------------------
 
 
-class TestCleanBadChannelsGsn129Guardrail:
-    """RANSAC-only flags on GSN129 Cz-neighbor channels are confirmed against
+class TestCleanBadChannelsGsnGuardrail:
+    """RANSAC-only flags on supported GSN Cz-neighbor channels are confirmed against
     an average-referenced copy before being treated as bad."""
 
-    @pytest.fixture
-    def gsn129_task(self, tmp_path):
+    def _make_gsn_task(self, tmp_path, eeg_system, n_channels):
         config = {
             "run_id": "test",
             "unprocessed_file": tmp_path / "test.fif",
             "task": "test",
         }
         t = _ChannelTask(config)
-        t.config["eeg_system"] = "GSN-HydroCel-129"
+        t.config["eeg_system"] = eeg_system
         t.raw = create_synthetic_raw(
-            montage="GSN-HydroCel-129", n_channels=129, duration=5.0, sfreq=250.0
+            montage=eeg_system, n_channels=n_channels, duration=5.0, sfreq=250.0
         )
         return t
+
+    @pytest.fixture
+    def gsn129_task(self, tmp_path):
+        return self._make_gsn_task(tmp_path, "GSN-HydroCel-129", 129)
+
+    @pytest.fixture
+    def gsn128_task(self, tmp_path):
+        return self._make_gsn_task(tmp_path, "GSN-HydroCel-128", 128)
 
     def _run_clean(self, task, detect_result, confirm_result):
         with (
@@ -563,6 +570,55 @@ class TestCleanBadChannelsGsn129Guardrail:
             for call in mock_track.call_args_list
         )
 
+    def test_gsn128_unsupported_ransac_candidate_is_kept(self, gsn128_task):
+        """GSN128 gets the same avg-ref guardrail as GSN129."""
+        detect_result = {
+            "correlation": [],
+            "deviation": [],
+            "ransac": ["E55"],
+            "combined": ["E55"],
+        }
+        result, metadata, mock_track = self._run_clean(
+            gsn128_task, detect_result, confirm_result=set()
+        )
+
+        assert "E55" not in result.info["bads"]
+        assert "E55" not in metadata["bads"]
+        assert "E55" not in metadata["ransac_channels"]
+        assert not any(
+            "E55" in (call.kwargs.get("channels") or [])
+            or call.kwargs.get("channels") == "E55"
+            for call in mock_track.call_args_list
+        )
+
+    def test_gsn128_mixed_false_positive_and_noisy_candidate(self, gsn128_task):
+        """False-positive GSN128 candidate is kept while noisy candidate remains bad."""
+        detect_result = {
+            "correlation": [],
+            "deviation": [],
+            "ransac": ["E31", "E55"],
+            "combined": ["E31", "E55"],
+        }
+        result, metadata, mock_track = self._run_clean(
+            gsn128_task, detect_result, confirm_result={"E55"}
+        )
+
+        assert "E31" not in result.info["bads"]
+        assert "E31" not in metadata["bads"]
+        assert "E31" not in metadata["ransac_channels"]
+        assert "E55" in result.info["bads"]
+        assert "E55" in metadata["bads"]
+        assert "E55" in metadata["ransac_channels"]
+        assert any(
+            call.kwargs.get("channels") == "E55"
+            and call.kwargs.get("reason") == "RANSAC"
+            for call in mock_track.call_args_list
+        )
+        assert not any(
+            call.kwargs.get("channels") == "E31"
+            for call in mock_track.call_args_list
+        )
+
     def test_gsn129_ransac_candidate_flagged_by_another_detector_skips_guardrail(
         self, gsn129_task
     ):
@@ -601,8 +657,8 @@ class TestCleanBadChannelsGsn129Guardrail:
             for call in mock_track.call_args_list
         )
 
-    def test_non_gsn129_montage_skips_guardrail(self, task):
-        """The avg-ref guardrail only runs for GSN-HydroCel-129 recordings."""
+    def test_non_gsn_montage_skips_guardrail(self, task):
+        """The avg-ref guardrail only runs for supported GSN recordings."""
         ch = "Fz"
         detect_result = {
             "correlation": [],
@@ -622,7 +678,7 @@ class TestCleanBadChannelsGsn129Guardrail:
             patch(
                 "autoclean.mixins.signal_processing.channels.confirm_candidates_after_avg_ref",
                 side_effect=AssertionError(
-                    "guardrail must not run for non-GSN129 recordings"
+                    "guardrail must not run for non-GSN recordings"
                 ),
             ),
         ):
