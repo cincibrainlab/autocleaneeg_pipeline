@@ -615,8 +615,7 @@ class TestCleanBadChannelsGsnGuardrail:
             for call in mock_track.call_args_list
         )
         assert not any(
-            call.kwargs.get("channels") == "E31"
-            for call in mock_track.call_args_list
+            call.kwargs.get("channels") == "E31" for call in mock_track.call_args_list
         )
 
     def test_gsn129_ransac_candidate_flagged_by_another_detector_skips_guardrail(
