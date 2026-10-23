@@ -51,7 +51,8 @@ dependencies = [
     "specparam==2.0.0rc6",
     "bycycle==1.2.0",
     # Machine learning
-    "torch==2.14.1",
+    # Intel macOS uses the already-required ONNX Runtime ICLabel backend.
+    "torch==2.14.1; sys_platform != 'darwin' or platform_machine != 'x86_64'",
     # Utilities and data handling
     "rich==14.2.0",
     "python-dotenv==1.2.4",
