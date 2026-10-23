@@ -209,3 +209,11 @@ If you previously ran ad hoc MATLAB scripts from ``temp/``:
 - prefer function entrypoints for bundled blocks
 - keep task wrappers thin and route-safe
 - use ``apply_matlab`` / ``run_matlab`` config blocks or the bundled MATLAB FOOOF block instead of hard-coded one-off paths
+
+ICLabel inference on Intel macOS
+--------------------------------
+
+Intel macOS (including x86_64 Python under Rosetta) uses the required
+ONNX Runtime backend for ICLabel. Recent patched PyTorch releases do not
+provide Intel macOS wheels, so the pipeline omits PyTorch on that platform.
+Linux and Apple Silicon installations continue to use PyTorch.
