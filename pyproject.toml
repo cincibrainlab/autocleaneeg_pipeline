@@ -51,10 +51,10 @@ dependencies = [
     "specparam==2.0.0rc6",
     "bycycle==1.2.0",
     # Machine learning
-    "torch==2.2.2",
+    "torch==2.14.1",
     # Utilities and data handling
     "rich==14.2.0",
-    "python-dotenv==1.1.1",
+    "python-dotenv==1.2.4",
     "defusedxml==0.7.1",
     "pyyaml==6.0.2",
     "schema==0.7.8",
@@ -70,8 +70,8 @@ dependencies = [
     "platformdirs==4.4.0",
     # Authentication and compliance
     "auth0-python==4.13.0",
-    "requests==2.32.5",
-    "cryptography==46.0.1",
+    "requests==2.34.2",
+    "cryptography==50.0.2",
     "inquirer==3.4.1",
     "autocleaneeg-icvision==0.2.1",
     "autoclean-eeg2source==0.3.7",
