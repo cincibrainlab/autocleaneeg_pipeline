@@ -275,8 +275,6 @@ def create_synthetic_events(
     if seed is not None:
         np.random.seed(seed)
 
-    n_samples = int(duration * sfreq)
-
     if paradigm == "resting":
         # No events for resting state
         return np.array([]).reshape(0, 3).astype(int)

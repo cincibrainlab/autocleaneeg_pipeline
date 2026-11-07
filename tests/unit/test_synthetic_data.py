@@ -132,7 +132,6 @@ class TestSyntheticDataGeneration:
 
         # Approximately 80% standard, 20% deviant
         n_standard = np.sum(event_ids == 1)
-        n_deviant = np.sum(event_ids == 2)
         standard_ratio = n_standard / len(events)
         assert (
             0.6 < standard_ratio < 0.9
