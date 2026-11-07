@@ -4,6 +4,7 @@ import inspect
 from unittest.mock import patch
 
 import mne
+import numpy as np
 import pytest
 
 from tests.fixtures.synthetic_data import create_synthetic_raw
@@ -240,3 +241,48 @@ class TestApplySensorPsd:
         """apply_sensor_psd raises TypeError when passed a non-Epochs object."""
         with pytest.raises(TypeError):
             task.apply_sensor_psd(epochs="not_epochs")
+
+    def test_band_without_frequency_bins_raises(self, task):
+        """A band narrower than the PSD resolution must not report 0.0 power."""
+        with pytest.raises(
+            ValueError,
+            match=r"'sliver'.*resolution.*longer epochs.*narrow or remove freq_bands",
+        ):
+            task.apply_sensor_psd(
+                data=task.epochs,
+                fmin=1,
+                fmax=20,
+                freq_bands={"sliver": [10.1, 10.2]},
+            )
+
+    def test_fmax_above_nyquist_raises(self, task):
+        """fmax above Nyquist fails before compute_psd with an actionable error."""
+        raw = create_synthetic_raw(
+            montage="standard_1020", n_channels=4, duration=3.0, sfreq=100.0
+        )
+        with patch.object(mne.io.RawArray, "compute_psd") as compute_psd:
+            with pytest.raises(
+                ValueError, match=r"sfreq=100.*Raise or disable resample_step"
+            ):
+                task.apply_sensor_psd(data=raw, fmin=1, fmax=80, freq_bands=None)
+        compute_psd.assert_not_called()
+
+    def test_wide_psd_with_custom_bands_on_2000hz_raw(self, task):
+        """A 1-200 Hz PSD with custom bands works on 2000 Hz data."""
+        rng = np.random.default_rng(0)
+        info = mne.create_info(["Fz", "Cz"], sfreq=2000.0, ch_types="eeg")
+        raw = mne.io.RawArray(
+            rng.standard_normal((2, 6000)) * 1e-6, info, verbose=False
+        )
+        bands = {"alpha": [8, 13], "high_gamma": [80, 200]}
+        with (
+            patch.object(task, "_update_metadata"),
+            patch.object(task, "_save_sensor_psd_tables", return_value={}),
+        ):
+            psd_df, band_df, _ = task.apply_sensor_psd(
+                data=raw, fmin=1, fmax=200, freq_bands=bands
+            )
+
+        assert set(band_df["band"]) == set(bands)
+        assert (band_df["power"] > 0).all()
+        assert psd_df["frequency"].max() <= 200

@@ -1,11 +1,15 @@
 """Test synthetic data generation utilities."""
 
+import json
+
 import mne
 import numpy as np
 import pytest
+from scipy import signal as sps
 
 from tests.fixtures.synthetic_data import (
     create_synthetic_events,
+    create_synthetic_mouse_depth_raw,
     create_synthetic_raw,
     create_test_montage_info,
 )
@@ -200,3 +204,78 @@ class TestSyntheticDataGeneration:
         assert alpha_power > 0, "Should have alpha band power"
         assert beta_power > 0, "Should have beta band power"
         assert theta_power > 0, "Should have theta band power"
+
+
+class TestSyntheticMouseDepth:
+    """Test the seeded synthetic mouse depth (LFP) generator."""
+
+    @pytest.fixture(scope="class")
+    def rec(self):
+        return create_synthetic_mouse_depth_raw(duration=60.0, seed=7)
+
+    def test_seed_reproducible(self, rec):
+        raw2, _ = create_synthetic_mouse_depth_raw(duration=60.0, seed=7)
+        raw3, _ = create_synthetic_mouse_depth_raw(duration=60.0, seed=8)
+        assert np.array_equal(rec[0].get_data(), raw2.get_data())
+        assert not np.array_equal(rec[0].get_data(), raw3.get_data())
+
+    def test_basic_properties(self, rec):
+        raw, _ = rec
+        assert raw.ch_names == [f"{r}_{k}" for r in ("CTX", "HPC") for k in range(1, 5)]
+        assert set(raw.get_channel_types()) == {"eeg"}
+        assert raw.info["sfreq"] == 2000.0
+        data = raw.get_data()
+        assert np.all(np.isfinite(data))
+        assert np.abs(data).max() < 5e-3
+        rms = data.std(axis=1)
+        assert np.all((rms > 40e-6) & (rms < 250e-6))
+        assert "mouse depth" in raw.info["description"].lower()
+        assert "7" in raw.info["description"]
+
+    def test_truth_json_and_hfo_events(self, rec):
+        raw, truth = rec
+        json.dumps(truth)
+        events = truth["hfo"]["events"]
+        assert 14 <= len(events) <= 26  # ~20/min for 60 s
+        onsets = [e[0] for e in events]
+        for on, off, freq in events:
+            assert 0.5 <= on < off <= 60.0 - 0.5
+            assert 130 <= freq <= 180
+        assert np.all(np.diff(onsets) >= 0.5)
+        n_annot = sum(d == "HFO_truth" for d in raw.annotations.description)
+        assert n_annot == len(events)
+
+    def test_unknown_effect_rejected(self):
+        with pytest.raises(ValueError):
+            create_synthetic_mouse_depth_raw(duration=5.0, effects={"nope": True})
+
+    @pytest.mark.parametrize("effect,changed", [("hfo", "HPC_2"), ("pac", "HPC_1")])
+    def test_effect_toggle_is_local(self, rec, effect, changed):
+        raw_on, _ = rec
+        raw_off, truth = create_synthetic_mouse_depth_raw(
+            duration=60.0, seed=7, effects={effect: False}
+        )
+        a, b = raw_on.get_data(), raw_off.get_data()
+        for i, ch in enumerate(raw_on.ch_names):
+            if ch == changed:
+                assert not np.array_equal(a[i], b[i])
+            else:
+                assert a[i].tobytes() == b[i].tobytes()
+        if effect == "hfo":
+            assert len(raw_off.annotations) == 0
+
+    def test_theta_peak_and_slope(self, rec):
+        raw, truth = rec
+        sf = raw.info["sfreq"]
+        data = raw.get_data()
+        f, p = sps.welch(data[raw.ch_names.index("HPC_1")], fs=sf, nperseg=4096)
+        band = (f >= 6.5) & (f <= 8.5)
+        assert 6.5 <= f[band][np.argmax(p[band])] <= 8.5
+        flank = (f >= 4) & (f <= 5.5)
+        assert p[band].max() > 3 * p[flank].mean()
+
+        f, p = sps.welch(data[raw.ch_names.index("CTX_4")], fs=sf, nperseg=4096)
+        sel = ((f >= 2) & (f <= 5)) | ((f >= 50) & (f <= 55))
+        slope = np.polyfit(np.log10(f[sel]), np.log10(p[sel]), 1)[0]
+        chi = truth["aperiodic"]["exponent"]["CTX_4"]
+        assert abs(-slope - chi) < 0.5
