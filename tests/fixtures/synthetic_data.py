@@ -1,13 +1,14 @@
 """Utilities for generating synthetic EEG data for testing."""
 
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import mne
 import numpy as np
 from mne import create_info
 from mne.channels import make_standard_montage
 from mne.io import RawArray
+from scipy import signal as sps
 
 
 def create_test_montage_info(montage: str, n_channels: int, sfreq: float) -> mne.Info:
@@ -274,8 +275,6 @@ def create_synthetic_events(
     if seed is not None:
         np.random.seed(seed)
 
-    n_samples = int(duration * sfreq)
-
     if paradigm == "resting":
         # No events for resting state
         return np.array([]).reshape(0, 3).astype(int)
@@ -502,3 +501,341 @@ def generate_all_test_data(
         print(f"  {name}: {path}")
 
     return file_paths
+
+
+# ---------------------------------------------------------------------------
+# Synthetic mouse depth (LFP) recording with ground truth
+# ---------------------------------------------------------------------------
+
+MOUSE_DEPTH_CHANNELS = [
+    "CTX_1",
+    "CTX_2",
+    "CTX_3",
+    "CTX_4",
+    "HPC_1",
+    "HPC_2",
+    "HPC_3",
+    "HPC_4",
+]
+MOUSE_DEPTH_EFFECTS = (
+    "aperiodic",
+    "peaks",
+    "power_coupling",
+    "pac",
+    "hfo",
+    "connectivity",
+    "common_reference",
+    "line_noise",
+)
+
+# Default amplitudes (volts RMS unless noted)
+_APERIODIC_RMS_V = {"CTX": 80e-6, "HPC": 100e-6}
+_APERIODIC_CHI = {"CTX": 1.8, "HPC": 2.2}
+_THETA_HZ = 7.5
+_BETA_HZ = 20.0
+# Peak band power as a multiple of the local 1/f density (x bandwidth)
+_THETA_RATIO = {"HPC_1": 12.0, "HPC_2": 6.0, "HPC_3": 6.0, "HPC_4": 6.0}
+_BETA_RATIO = 6.0
+_GAMMA_RATIO = 6.0  # 30-45 Hz burst power vs. local 1/f power
+_PAC_GAMMA_RATIO = 3.0  # 70-100 Hz power vs. local 1/f power
+_PAC_DEPTH = 0.8
+_CONNECTIVITY_RMS_V = 25e-6
+_CONNECTIVITY_LAG_S = 0.008
+_COMMON_FRACTION = 0.10
+_LINE_AMP_V = 2e-6
+_HFO_PER_MIN = 20.0
+_HFO_FACTOR = (5.0, 8.0)
+
+
+def _bandpass(x, lo, hi, sfreq, order=4):
+    sos = sps.butter(order, [lo, hi], btype="bandpass", fs=sfreq, output="sos")
+    return sps.sosfiltfilt(sos, x, axis=-1)
+
+
+def _fft_bandpass(x, lo, hi, sfreq):
+    """Zero-phase brick-wall band-pass in the frequency domain (circular, no edges).
+
+    Used for very slow envelopes, where an IIR filter's edge transient would
+    last seconds and show up as spurious power at the start and end.
+    """
+    n = x.shape[-1]
+    freqs = np.fft.rfftfreq(n, 1.0 / sfreq)
+    keep = (freqs >= lo) & (freqs <= hi)
+    return np.fft.irfft(np.fft.rfft(x, axis=-1) * keep, n=n, axis=-1)
+
+
+def _unit(x):
+    """Scale each row to zero mean and unit standard deviation."""
+    x = x - x.mean(axis=-1, keepdims=True)
+    return x / x.std(axis=-1, keepdims=True)
+
+
+def _shape_spectrum(white, sfreq, chi):
+    """Shape white noise to 1/f^chi. Returns (unit-std noise, one-sided |H|^2, freqs)."""
+    n = white.shape[-1]
+    freqs = np.fft.rfftfreq(n, 1.0 / sfreq)
+    h = np.maximum(freqs, 0.5) ** (-chi / 2.0)
+    h[0] = 0.0
+    out = np.fft.irfft(np.fft.rfft(white, axis=-1) * h, n=n, axis=-1)
+    return _unit(out), h**2, freqs
+
+
+def _band_density(h2, freqs, rms, f0):
+    """One-sided PSD (V^2/Hz) at f0 for a unit-shaped signal with given RMS."""
+    df = freqs[1] - freqs[0]
+    return rms**2 * h2[np.argmin(np.abs(freqs - f0))] / (h2.sum() * df)
+
+
+def _band_rms(h2, freqs, rms, lo, hi):
+    mask = (freqs >= lo) & (freqs <= hi)
+    return rms * np.sqrt(h2[mask].sum() / h2.sum())
+
+
+def create_synthetic_mouse_depth_raw(
+    duration: float = 120.0,
+    sfreq: float = 2000.0,
+    seed: int = 42,
+    effects: Optional[Dict[str, bool]] = None,
+) -> Tuple[mne.io.RawArray, Dict[str, Any]]:
+    """Create a seeded synthetic mouse depth (cortex + hippocampus) LFP recording.
+
+    Eight channels (CTX_1-4, HPC_1-4) are built from independent 1/f noise plus
+    optional injected structure: spectral peaks, gamma power-envelope coupling,
+    theta-gamma phase-amplitude coupling, sharp-wave ripples, a lagged shared
+    source, common reference noise and line noise. All random numbers are drawn
+    up front from one generator in a fixed order, so turning an effect off only
+    removes that component.
+
+    Parameters
+    ----------
+    duration : float
+        Recording length in seconds.
+    sfreq : float
+        Sampling frequency in Hz.
+    seed : int
+        Seed for ``np.random.default_rng``.
+    effects : dict of str to bool, optional
+        Switches for "aperiodic", "peaks", "power_coupling", "pac", "hfo",
+        "connectivity", "common_reference" and "line_noise" (all default True).
+
+    Returns
+    -------
+    raw : mne.io.RawArray
+        Data in volts, channel type "eeg".
+    truth : dict
+        JSON-serializable ground truth.
+    """
+    eff = {k: True for k in MOUSE_DEPTH_EFFECTS}
+    if effects:
+        unknown = set(effects) - set(MOUSE_DEPTH_EFFECTS)
+        if unknown:
+            raise ValueError(f"Unknown effects: {sorted(unknown)}")
+        eff.update({k: bool(v) for k, v in effects.items()})
+
+    ch_names = list(MOUSE_DEPTH_CHANNELS)
+    n_ch = len(ch_names)
+    n = int(round(duration * sfreq))
+    rng = np.random.default_rng(seed)
+
+    # ---- draw every random number up front, in a fixed order ----
+    white_ap = rng.standard_normal((n_ch, n))
+    white_theta = rng.standard_normal((4, n))
+    white_beta = rng.standard_normal((4, n))
+    white_env = rng.standard_normal((3, n))  # shared, CTX_3, HPC_4
+    white_gamma = rng.standard_normal((4, n))  # CTX_1, HPC_2, CTX_3, HPC_4
+    white_pac = rng.standard_normal((2, n))  # HPC_1, HPC_3
+    white_conn = rng.standard_normal(n)
+    white_common = rng.standard_normal(n)
+    line_phase = rng.uniform(0, 2 * np.pi, n_ch)
+    n_ev = max(int(round(_HFO_PER_MIN * duration / 60.0)), 0)
+    ev_u = rng.uniform(0.0, 1.0, n_ev)
+    ev_freq = rng.uniform(130.0, 180.0, n_ev)
+    ev_dur = rng.uniform(0.05, 0.10, n_ev)
+    ev_factor = rng.uniform(_HFO_FACTOR[0], _HFO_FACTOR[1], n_ev)
+    ev_phase = rng.uniform(0, 2 * np.pi, n_ev)
+
+    # ---- 1. aperiodic background (always computed; used as scale reference) ----
+    chis = [_APERIODIC_CHI[c[:3]] for c in ch_names]
+    rms_ap = [_APERIODIC_RMS_V[c[:3]] for c in ch_names]
+    ap = np.zeros((n_ch, n))
+    h2s = []
+    freqs = None
+    for i in range(n_ch):
+        ap[i], h2, freqs = _shape_spectrum(white_ap[i], sfreq, chis[i])
+        ap[i] *= rms_ap[i]
+        h2s.append(h2)
+
+    def density(i, f0):
+        return _band_density(h2s[i], freqs, rms_ap[i], f0)
+
+    data = np.zeros((n_ch, n))
+    if eff["aperiodic"]:
+        data += ap
+
+    idx = {c: i for i, c in enumerate(ch_names)}
+    peaks_truth = []
+
+    # ---- 2. spectral peaks ----
+    theta_src = _unit(_bandpass(white_theta, 6.5, 8.5, sfreq))
+    beta_src = _unit(_bandpass(white_beta, 18.5, 21.5, sfreq))
+    theta_amp = {}
+    for k in range(4):
+        ch = f"HPC_{k + 1}"
+        i = idx[ch]
+        amp = np.sqrt(_THETA_RATIO[ch] * density(i, _THETA_HZ) * 2.0)
+        theta_amp[ch] = amp
+        peaks_truth.append(
+            {
+                "channel": ch,
+                "freq_hz": _THETA_HZ,
+                "band": [6.5, 8.5],
+                "rms_v": float(amp),
+            }
+        )
+        if eff["peaks"]:
+            data[i] += amp * theta_src[k]
+    for k in range(4):
+        ch = f"CTX_{k + 1}"
+        i = idx[ch]
+        amp = np.sqrt(_BETA_RATIO * density(i, _BETA_HZ) * 3.0)
+        peaks_truth.append(
+            {
+                "channel": ch,
+                "freq_hz": _BETA_HZ,
+                "band": [18.5, 21.5],
+                "rms_v": float(amp),
+            }
+        )
+        if eff["peaks"]:
+            data[i] += amp * beta_src[k]
+
+    # ---- 3. gamma power-envelope coupling ----
+    slow = _unit(_fft_bandpass(white_env, 0.05, 0.5, sfreq))
+    env = np.exp(0.8 * slow)
+    env /= np.sqrt(np.mean(env**2, axis=-1, keepdims=True))
+    gamma = _unit(_bandpass(white_gamma, 30.0, 45.0, sfreq))
+    # (channel, envelope row, carrier row)
+    for ch, e_row, g_row in (
+        ("CTX_1", 0, 0),
+        ("HPC_2", 0, 1),
+        ("CTX_3", 1, 2),
+        ("HPC_4", 2, 3),
+    ):
+        i = idx[ch]
+        amp = np.sqrt(_GAMMA_RATIO * density(i, 37.5) * 15.0)
+        if eff["power_coupling"]:
+            data[i] += amp * env[e_row] * gamma[g_row]
+
+    # ---- 4. theta-gamma PAC ----
+    theta_phase = np.angle(sps.hilbert(theta_src[0]))
+    mod = 1.0 + _PAC_DEPTH * np.cos(theta_phase)
+    mod /= np.sqrt(np.mean(mod**2))
+    pac_carrier = _unit(_bandpass(white_pac, 70.0, 100.0, sfreq))
+    for ch, row in (("HPC_1", 0), ("HPC_3", 1)):
+        i = idx[ch]
+        amp = np.sqrt(_PAC_GAMMA_RATIO * density(i, 85.0) * 30.0)
+        if ch == "HPC_1" and eff["pac"]:
+            data[i] += amp * mod * pac_carrier[row]
+        else:
+            data[i] += amp * pac_carrier[row]
+
+    # ---- 5. sharp-wave ripples on HPC_2 ----
+    events = []
+    ripple = np.zeros(n)
+    if n_ev > 0:
+        i = idx["HPC_2"]
+        bg_rms = _band_rms(h2s[i], freqs, rms_ap[i], 120.0, 250.0)
+        slot = (duration - 1.0) / n_ev
+        t = np.arange(n) / sfreq
+        for e in range(n_ev):
+            centre = 0.5 + (e + 0.1 + 0.8 * ev_u[e]) * slot
+            sigma = ev_dur[e] / 4.0
+            lo, hi = int((centre - 4 * sigma) * sfreq), int(
+                (centre + 4 * sigma) * sfreq
+            )
+            seg = t[lo:hi] - centre
+            ripple[lo:hi] += (
+                ev_factor[e]
+                * bg_rms
+                * np.exp(-(seg**2) / (2 * sigma**2))
+                * np.cos(2 * np.pi * ev_freq[e] * seg + ev_phase[e])
+            )
+            events.append(
+                [
+                    float(centre - 2 * sigma),
+                    float(centre + 2 * sigma),
+                    float(ev_freq[e]),
+                ]
+            )
+        if eff["hfo"]:
+            data[i] += ripple
+
+    # ---- 6. lagged shared source CTX_2 -> HPC_1 ----
+    lag = int(round(_CONNECTIVITY_LAG_S * sfreq))
+    src = _CONNECTIVITY_RMS_V * _unit(_bandpass(white_conn, 15.0, 25.0, sfreq))
+    if eff["connectivity"]:
+        data[idx["CTX_2"]] += src
+        data[idx["HPC_1"], lag:] += src[: n - lag]
+
+    # ---- 7. common reference noise (1/f^1.5 shaped, ~10% of channel RMS) ----
+    if eff["common_reference"]:
+        common, _, _ = _shape_spectrum(white_common, sfreq, 1.5)
+        for i in range(n_ch):
+            data[i] += _COMMON_FRACTION * rms_ap[i] * common
+
+    # ---- 8. line noise ----
+    if eff["line_noise"]:
+        t = np.arange(n) / sfreq
+        for i in range(n_ch):
+            data[i] += _LINE_AMP_V * np.sin(2 * np.pi * 60.0 * t + line_phase[i])
+
+    # ---- build Raw ----
+    info = create_info(ch_names, sfreq, ch_types="eeg")
+    info["description"] = f"Synthetic mouse depth (LFP) recording, seed={seed}"
+    raw = RawArray(data, info, verbose=False)
+    if eff["hfo"] and events:
+        raw.set_annotations(
+            mne.Annotations(
+                onset=[e[0] for e in events],
+                duration=[e[1] - e[0] for e in events],
+                description=["HFO_truth"] * len(events),
+            )
+        )
+
+    truth: Dict[str, Any] = {
+        "seed": int(seed),
+        "sfreq": float(sfreq),
+        "duration": float(duration),
+        "effects": dict(eff),
+        "regions": {"cortex": "CTX_", "hippocampus": "HPC_"},
+        "aperiodic": {"exponent": {c: float(chis[i]) for i, c in enumerate(ch_names)}},
+        "peaks": peaks_truth,
+        "power_coupling": {
+            "coupled": {
+                "channel_a": "CTX_1",
+                "band_a": [30, 45],
+                "channel_b": "HPC_2",
+                "band_b": [30, 45],
+            },
+            "control": {
+                "channel_a": "CTX_3",
+                "band_a": [30, 45],
+                "channel_b": "HPC_4",
+                "band_b": [30, 45],
+            },
+        },
+        "pac": {
+            "channel": "HPC_1",
+            "phase_band": [6, 9],
+            "amp_band": [70, 100],
+            "control_channel": "HPC_3",
+        },
+        "hfo": {"channel": "HPC_2", "band": [120, 250], "events": events},
+        "connectivity": {
+            "connected": ["CTX_2", "HPC_1"],
+            "band": [15, 25],
+            "lag_s": _CONNECTIVITY_LAG_S,
+        },
+        "line_noise_hz": 60.0,
+    }
+    return raw, truth

@@ -145,6 +145,12 @@ class SensorPSDMixin:
                 metadata_windows[window_name] = None
 
             sfreq = float(data_to_use.info["sfreq"])
+            if float(fmax) > sfreq / 2.0:
+                raise ValueError(
+                    f"Sensor PSD fmax ({float(fmax):g} Hz) is above the Nyquist "
+                    f"frequency ({sfreq / 2.0:g} Hz) for sfreq={sfreq:g} Hz. "
+                    "Raise or disable resample_step, or lower fmax."
+                )
             sample_count = len(data_to_use.times)
             psd_kwargs = {
                 "method": method,
@@ -205,6 +211,18 @@ class SensorPSDMixin:
                 requested_bands, freqs, fmin=float(fmin), fmax=float(fmax)
             )
 
+            freq_resolution = (
+                float(np.median(np.diff(freqs))) if len(freqs) > 1 else 0.0
+            )
+            for band_name, (band_min, band_max) in valid_bands.items():
+                if not np.any((freqs >= band_min) & (freqs < band_max)):
+                    raise ValueError(
+                        f"frequency band '{band_name}' [{band_min}, {band_max}] "
+                        "contains no PSD frequency bins at a frequency "
+                        f"resolution of {freq_resolution:g} Hz; use longer "
+                        "epochs/time windows, or narrow or remove freq_bands"
+                    )
+
             window_detail = {
                 "frequency_range": (
                     [float(freqs[0]), float(freqs[-1])] if len(freqs) else []
@@ -244,11 +262,7 @@ class SensorPSDMixin:
 
                 for band_name, (band_min, band_max) in valid_bands.items():
                     band_mask = (freqs >= band_min) & (freqs < band_max)
-                    band_power = (
-                        float(np.mean(channel_psd[band_mask]))
-                        if np.any(band_mask)
-                        else 0.0
-                    )
+                    band_power = float(np.mean(channel_psd[band_mask]))
                     band_rows.append(
                         {
                             "subject": subject_id,

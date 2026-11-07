@@ -270,6 +270,17 @@ class Task(ABC, *DISCOVERED_MIXINS):
         but do not mark the run as failed.
         """
 
+    _POSTPROCESSING_BLOCK_ORDER = (
+        "sensor_psd",
+        "source_localization",
+        "source_psd",
+        "fooof",
+        "power_coupling",
+        "pac",
+        "hfo",
+        "connectivity",
+    )
+
     def run_postprocessing_analysis(self) -> list[dict[str, Any]]:
         """Run enabled post-processing analysis blocks from task configuration."""
 
@@ -283,37 +294,60 @@ class Task(ABC, *DISCOVERED_MIXINS):
 
         results: list[dict[str, Any]] = []
         self._postprocessing_outputs: dict[str, Any] = {}
-        for block_name in (
-            "sensor_psd",
-            "source_localization",
-            "source_psd",
-            "fooof",
-        ):
-            block_config = block_configs.get(block_name)
-            if not isinstance(block_config, dict) or not block_config.get("enabled"):
-                continue
+        try:
+            for block_name in self._POSTPROCESSING_BLOCK_ORDER:
+                block_config = block_configs.get(block_name)
+                if not isinstance(block_config, dict) or not block_config.get(
+                    "enabled"
+                ):
+                    continue
 
-            resolved = self._resolve_postprocessing_settings(block_name, block_config)
-            result = self._run_postprocessing_block(block_name, resolved)
-            results.append(result)
-            self._register_postprocessing_output(block_name, resolved)
+                resolved = self._resolve_postprocessing_settings(
+                    block_name, block_config
+                )
+                try:
+                    result = self._run_postprocessing_block(block_name, resolved)
+                except Exception as exc:
+                    results.append(
+                        {
+                            "block": block_name,
+                            "input": str(resolved.get("input")),
+                            "settings": resolved,
+                            "status": "failed",
+                            "error": f"{type(exc).__name__}: {exc}",
+                        }
+                    )
+                    raise
+                results.append(result)
+                self._register_postprocessing_output(block_name, resolved)
+        except Exception:
+            # Record completed and failed blocks, but never mask the block error.
+            try:
+                self._record_postprocessing_results(results)
+            except Exception as record_exc:  # pylint: disable=broad-exception-caught
+                message(
+                    "warning",
+                    f"Could not record postprocessing results after failure: {record_exc}",
+                )
+            raise
+        else:
+            self._record_postprocessing_results(results)
 
-        if results:
+        return results
+
+    def _record_postprocessing_results(self, results: list[dict[str, Any]]) -> None:
+        if not results:
+            return
+        try:
             self._update_metadata(
                 "step_postprocessing_analysis",
                 {
                     "blocks": results,
-                    "documented_order": [
-                        "sensor_psd",
-                        "source_localization",
-                        "source_psd",
-                        "fooof",
-                    ],
+                    "documented_order": list(self._POSTPROCESSING_BLOCK_ORDER),
                 },
             )
+        finally:
             self._write_postprocessing_metadata(results)
-
-        return results
 
     def _resolve_postprocessing_settings(
         self, block_name: str, block_config: dict[str, Any]
@@ -330,6 +364,10 @@ class Task(ABC, *DISCOVERED_MIXINS):
             "source_localization": "clean_epochs",
             "source_psd": "source_epochs",
             "fooof": "source_psd",
+            "power_coupling": "clean_raw",
+            "pac": "clean_raw",
+            "hfo": "clean_raw",
+            "connectivity": "clean_raw",
         }
         return defaults[block_name]
 
@@ -443,10 +481,131 @@ class Task(ABC, *DISCOVERED_MIXINS):
             if periodic_file is not None:
                 common["periodic_file"] = str(periodic_file)
                 common["periodic_rows"] = int(len(periodic_df))
-            common["method"] = "tabular_psd_parameterization"
+            common["method"] = "specparam_tabular"
+            return common
+
+        if block_name in {"power_coupling", "pac", "hfo", "connectivity"}:
+            self._run_oscillation_block(block_name, settings, data_object, common)
             return common
 
         raise ValueError(f"Unsupported postprocessing analysis block: {block_name}")
+
+    def _run_oscillation_block(
+        self,
+        block_name: str,
+        settings: dict[str, Any],
+        data_object: Any,
+        common: dict[str, Any],
+    ) -> None:
+        """Run power_coupling, pac, hfo or connectivity on Raw/Epochs data."""
+
+        import pandas as pd
+
+        from autoclean.calc.oscillation_analysis import (
+            annotate_regions,
+            compute_phase_amplitude_coupling,
+            compute_power_power_coupling,
+            detect_hfos,
+        )
+        from autoclean.calc.source_connectivity import compute_sensor_connectivity
+
+        if not isinstance(data_object, (mne.io.BaseRaw, mne.BaseEpochs)):
+            raise ValueError(
+                f"postprocessing {block_name} requires a Raw or Epochs input; "
+                f"configure {block_name}.input to clean_raw or clean_epochs"
+            )
+        regions = settings.get("regions")
+        if regions:
+            # Fail on a region prefix typo before running the analysis.
+            annotate_regions(pd.DataFrame(), regions, (), data_object.ch_names)
+
+        def _pick(keys: tuple[str, ...]) -> dict[str, Any]:
+            return {key: settings[key] for key in keys if key in settings}
+
+        if block_name == "power_coupling":
+            df = compute_power_power_coupling(
+                data_object,
+                **_pick(("pairs", "bands", "picks", "window_s")),
+            )
+            columns = ("channel_a", "channel_b")
+            method = "band_power_envelope_correlation"
+        elif block_name == "pac":
+            if "phase_bands" not in settings or "amp_bands" not in settings:
+                raise ValueError("pac requires phase_bands and amp_bands")
+            df = compute_phase_amplitude_coupling(
+                data_object,
+                **_pick(
+                    (
+                        "phase_bands",
+                        "amp_bands",
+                        "picks",
+                        "channel_pairs",
+                        "n_bins",
+                        "n_surrogates",
+                        "min_shift_s",
+                        "seed",
+                    )
+                ),
+            )
+            columns = ("phase_channel", "amp_channel")
+            method = "tort_modulation_index"
+        elif block_name == "hfo":
+            df, summary_df = detect_hfos(
+                data_object,
+                **_pick(
+                    (
+                        "band",
+                        "picks",
+                        "rms_window_s",
+                        "threshold_sd",
+                        "min_duration_s",
+                        "max_duration_s",
+                        "min_cycles",
+                        "merge_gap_s",
+                    )
+                ),
+            )
+            columns = ("channel",)
+            method = "rms_robust_threshold"
+        else:
+            if "bands" not in settings:
+                raise ValueError("connectivity requires bands")
+            df = compute_sensor_connectivity(
+                data_object,
+                **_pick(("bands", "methods", "picks", "epoch_length", "n_epochs")),
+            )
+            columns = ("channel_a", "channel_b")
+            method = "mne_connectivity_spectral_epochs_multitaper"
+
+        if regions:
+            df = annotate_regions(df, regions, columns, data_object.ch_names)
+            if block_name == "hfo":
+                summary_df = annotate_regions(
+                    summary_df, regions, columns, data_object.ch_names
+                )
+
+        subject_id = "unknown_subject"
+        if hasattr(self, "config") and self.config.get("unprocessed_file"):
+            subject_id = Path(self.config["unprocessed_file"]).stem
+        output_dir = self._resolve_report_path(block_name)
+        prefix = f"{subject_id}_postprocessing_{block_name}"
+        common["method"] = method
+        if block_name == "hfo":
+            events_file = output_dir / f"{prefix}_events.csv"
+            summary_file = output_dir / f"{prefix}_summary.csv"
+            df.to_csv(events_file, index=False)
+            summary_df.to_csv(summary_file, index=False)
+            self.hfo_events_df = df
+            self.hfo_summary_df = summary_df
+            common["events_file"] = str(events_file)
+            common["summary_file"] = str(summary_file)
+            common["n_events"] = int(len(df))
+        else:
+            output_file = output_dir / f"{prefix}.csv"
+            df.to_csv(output_file, index=False)
+            setattr(self, f"{block_name}_df", df)
+            common["output_file"] = str(output_file)
+            common["rows"] = int(len(df))
 
     def _call_postprocessing_method(
         self,
@@ -510,14 +669,21 @@ class Task(ABC, *DISCOVERED_MIXINS):
     ) -> tuple[Any, Path, Any, Optional[Path]]:
         """Parameterize spectra already represented as a PSD table.
 
-        This lightweight log-log parameterization estimates peak center
-        frequency and power but not bandwidth, so peak rows always report
-        ``bandwidth: None`` (unlike ``apply_fooof_periodic``, which fits full
-        Gaussian peaks and can estimate bandwidth directly).
+        Each spectrum group (subject/channel/roi/time_window) is fit with
+        ``specparam.SpectralModel``, which separates the aperiodic component
+        from Gaussian peaks so oscillations do not bias the exponent. Peak
+        rows report center frequency, power (log10 units above the aperiodic
+        fit) and bandwidth. ``error`` is specparam's mean absolute error and
+        ``r_squared`` its goodness of fit. Fit failures give ``FIT_FAILED`` and
+        spectra with non-positive or non-finite PSD values give ``INVALID_PSD``, both with
+        empty parameters and a ``fit_message`` instead of aborting the run.
+        Frequency bins at or below 0 Hz are dropped before fitting. Invalid
+        model settings raise ``ValueError``.
         """
 
         import numpy as np
         import pandas as pd
+        from specparam import SpectralModel
 
         required = {"frequency", "psd"}
         missing = required - set(psd_df.columns)
@@ -528,9 +694,9 @@ class Task(ABC, *DISCOVERED_MIXINS):
             )
 
         aperiodic_mode = str(settings.get("aperiodic_mode", "fixed")).lower()
-        if aperiodic_mode != "fixed":
+        if aperiodic_mode not in {"fixed", "knee"}:
             raise ValueError(
-                "tabular fooof supports only aperiodic_mode='fixed'; "
+                "tabular fooof aperiodic_mode must be 'fixed' or 'knee'; "
                 f"got {aperiodic_mode!r}"
             )
 
@@ -549,29 +715,98 @@ class Task(ABC, *DISCOVERED_MIXINS):
             psd_df = psd_df.copy()
             psd_df["_spectrum"] = "all"
 
+        peak_width_limits = [
+            float(value) for value in settings.get("peak_width_limits", [1.0, 12.0])
+        ]
+        max_n_peaks = int(settings.get("max_n_peaks", 6))
+        if "min_peak_height" in settings:
+            min_peak_height = float(settings["min_peak_height"])
+        else:
+            min_peak_height = float(settings.get("peak_residual_threshold", 0.1))
+        peak_threshold = float(settings.get("peak_threshold", 2.0))
+
+        def build_model() -> Any:
+            return SpectralModel(
+                aperiodic_mode=aperiodic_mode,
+                peak_width_limits=peak_width_limits,
+                max_n_peaks=max_n_peaks,
+                min_peak_height=min_peak_height,
+                peak_threshold=peak_threshold,
+                verbose=False,
+            )
+
+        # Validate settings once, outside the per-spectrum handler, so invalid
+        # settings raise instead of turning every spectrum into FIT_FAILED.
+        if (
+            len(peak_width_limits) != 2
+            or peak_width_limits[0] <= 0
+            or peak_width_limits[0] >= peak_width_limits[1]
+        ):
+            raise ValueError(
+                "invalid fooof settings: peak_width_limits must be [min, max] "
+                f"with 0 < min < max; got {peak_width_limits}"
+            )
+        if max_n_peaks < 0:
+            raise ValueError("invalid fooof settings: max_n_peaks must be >= 0")
+        if min_peak_height < 0 or peak_threshold < 0:
+            raise ValueError(
+                "invalid fooof settings: min_peak_height and peak_threshold "
+                "must be >= 0"
+            )
+        build_model()
+
         rows = []
         peak_rows = []
         grouped = psd_df.groupby(group_columns, dropna=False)
         for group_key, group in grouped:
-            spectrum = group[(group["frequency"] >= low) & (group["frequency"] <= high)]
+            spectrum = group[
+                (group["frequency"] >= max(low, 0.0))
+                & (group["frequency"] <= high)
+                & (group["frequency"] > 0)
+            ]
             spectrum = spectrum.sort_values("frequency")
-            spectrum = spectrum[(spectrum["frequency"] > 0) & (spectrum["psd"] > 0)]
+            peaks = np.empty((0, 3))
+            offset = knee = exponent = r_squared = error = None
+            fit_message = None
             if len(spectrum) < 2:
                 status = "INSUFFICIENT_DATA"
-                offset = exponent = r_squared = error = None
+                fit_message = "fewer than 2 PSD bins in freq_range"
+            elif not np.all(np.isfinite(spectrum["psd"].to_numpy(dtype=float))) or bool(
+                (spectrum["psd"] <= 0).any()
+            ):
+                status = "INVALID_PSD"
+                fit_message = (
+                    "PSD has non-positive or non-finite values in freq_range; "
+                    "bins are not dropped because specparam needs evenly "
+                    "spaced frequencies"
+                )
             else:
-                x = np.log10(spectrum["frequency"].to_numpy(dtype=float))
-                y = np.log10(spectrum["psd"].to_numpy(dtype=float))
-                slope, intercept = np.polyfit(x, y, deg=1)
-                predicted = slope * x + intercept
-                residual = y - predicted
-                ss_res = float(np.sum(residual**2))
-                ss_tot = float(np.sum((y - np.mean(y)) ** 2))
-                offset = float(intercept)
-                exponent = float(-slope)
-                r_squared = float(1 - ss_res / ss_tot) if ss_tot else 1.0
-                error = float(np.sqrt(np.mean(residual**2)))
-                status = "SUCCESS"
+                try:
+                    model = build_model()
+                    model.fit(
+                        spectrum["frequency"].to_numpy(dtype=float),
+                        spectrum["psd"].to_numpy(dtype=float),
+                        [low, high],
+                    )
+                    if not model.results.has_model:
+                        raise RuntimeError("specparam produced no model")
+                    ap_params = model.get_params("aperiodic")
+                    offset = float(model.get_params("aperiodic", "offset"))
+                    exponent = float(model.get_params("aperiodic", "exponent"))
+                    if aperiodic_mode == "knee":
+                        knee = float(model.get_params("aperiodic", "knee"))
+                    r_squared = float(model.get_metrics("gof", "rsquared"))
+                    error = float(model.get_metrics("error", "mae"))
+                    if not np.all(np.isfinite(ap_params)) or not np.isfinite(exponent):
+                        raise RuntimeError("specparam returned non-finite params")
+                    periodic = np.atleast_2d(model.get_params("periodic"))
+                    peaks = periodic[~np.isnan(periodic).any(axis=1)][:, :3]
+                    status = "SUCCESS"
+                except Exception as exc:  # pylint: disable=broad-exception-caught
+                    status = "FIT_FAILED"
+                    fit_message = f"{type(exc).__name__}: {exc}"
+                    offset = knee = exponent = r_squared = error = None
+                    peaks = np.empty((0, 3))
 
             if not isinstance(group_key, tuple):
                 group_key = (group_key,)
@@ -583,36 +818,50 @@ class Task(ABC, *DISCOVERED_MIXINS):
                     "freq_max": high,
                     "aperiodic_mode": aperiodic_mode,
                     "offset": offset,
+                    "knee": knee,
                     "exponent": exponent,
                     "r_squared": r_squared,
                     "error": error,
                     "status": status,
+                    "fit_message": fit_message,
                 }
             )
             rows.append(row)
 
             if settings.get("run_periodic", True) and status == "SUCCESS":
-                residual_df = spectrum.assign(_residual=residual)
-                threshold = float(settings.get("peak_residual_threshold", 0.0))
-                candidates = residual_df[residual_df["_residual"] > threshold]
-                if candidates.empty:
-                    candidates = residual_df.nlargest(1, "_residual")
-                max_peaks = int(settings.get("max_n_peaks", 6))
-                for _, peak in candidates.nlargest(max_peaks, "_residual").iterrows():
+                for center, power, bandwidth in peaks:
                     peak_row = dict(row)
                     peak_row.update(
                         {
                             "input": input_name,
-                            "center_frequency": float(peak["frequency"]),
-                            "power": float(peak["psd"]),
-                            "residual": float(peak["_residual"]),
-                            "bandwidth": None,
+                            "center_frequency": float(center),
+                            "power": float(power),
+                            "bandwidth": float(bandwidth),
                             "status": "SUCCESS",
                         }
                     )
                     peak_rows.append(peak_row)
 
-        result_df = pd.DataFrame(rows)
+        aperiodic_columns = group_columns + [
+            "input",
+            "freq_min",
+            "freq_max",
+            "aperiodic_mode",
+            "offset",
+            "knee",
+            "exponent",
+            "r_squared",
+            "error",
+            "status",
+            "fit_message",
+        ]
+        result_df = pd.DataFrame(rows, columns=aperiodic_columns)
+        if rows and all(row["status"] != "SUCCESS" for row in rows):
+            message(
+                "warning",
+                "fooof: no spectrum was fit successfully; first fit_message: "
+                f"{rows[0]['fit_message']}",
+            )
         output_dir = self._resolve_report_path("fooof")
         subject_id = "unknown_subject"
         if hasattr(self, "config") and self.config.get("unprocessed_file"):
@@ -621,7 +870,10 @@ class Task(ABC, *DISCOVERED_MIXINS):
         result_df.to_csv(output_file, index=False)
         self.fooof_aperiodic_df = result_df
         self.fooof_aperiodic_file = str(output_file)
-        periodic_df = pd.DataFrame(peak_rows)
+        periodic_df = pd.DataFrame(
+            peak_rows,
+            columns=aperiodic_columns + ["center_frequency", "power", "bandwidth"],
+        )
         periodic_file = None
         if settings.get("run_periodic", True):
             periodic_file = (
@@ -657,6 +909,10 @@ class Task(ABC, *DISCOVERED_MIXINS):
                 "aperiodic": getattr(self, "fooof_aperiodic_df", None),
                 "periodic": getattr(self, "fooof_periodic_df", None),
             },
+            "power_coupling": getattr(self, "power_coupling_df", None),
+            "pac": getattr(self, "pac_df", None),
+            "hfo": getattr(self, "hfo_events_df", None),
+            "connectivity": getattr(self, "connectivity_df", None),
         }
         return outputs.get(block_name)
 
